@@ -42,16 +42,16 @@ export class QuotationService {
             }
 
             // Generate quote number using NumberSeriesService
-            // let quoteNumber: string | null = null;
-            // if (MenuMasterSid) {
-            //     quoteNumber = await this.numberSeriesService.generateNextNumber(
-            //         CompanyMasterSid,
-            //         BranchMasterSid,
-            //         MenuMasterSid,
-            //         DepartmentMasterSid ?? undefined,
-            //         payload.quoteDate ? new Date(payload.quoteDate) : undefined,
-            //     );
-            // }
+            let quoteNumber: string | null = null;
+            if (MenuMasterSid) {
+                quoteNumber = await this.numberSeriesService.generateNextNumber(
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    MenuMasterSid,
+                    DepartmentMasterSid ?? undefined,
+                    payload.quoteDate ? new Date(payload.quoteDate) : undefined,
+                );
+            }
 
             return await this._db.$transaction(async (prisma) => {
                 // Step 1: Create Quote Header
@@ -68,7 +68,7 @@ export class QuotationService {
                     status: payload.status || "A",
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid,
-                    // QuoteNumber: quoteNumber,
+                    QuoteNumber: quoteNumber,
                     createdBy: user['userEmail'],
                 };
 
@@ -130,8 +130,8 @@ export class QuotationService {
                         CurrencyMasterSid: Number(cargo.currency),
                         UOMMasterSid: Number(cargo.unit),
                         perUnit: cargo.perUnit,
-                        costUnit: cargo.costUnit,
-                        costCurrency: cargo.costCurrency,
+                        costUnit: cargo.costUnit ? String(cargo.costUnit) : null,
+                        costCurrency: cargo.costCurrency ? String(cargo.costCurrency) : null,
                         costPerUnit: cargo.costPerUnit,
                         createdBy: user['userEmail']
                     }))
@@ -211,7 +211,7 @@ export class QuotationService {
     async updateQuote(QuoteHeaderSid: number, payload, user) {
         try {
             // Step 1: Update Enquiry Header
-            const statusUpdate = payload.status === "Active" ? "A" : "S";
+            const statusUpdate = payload.status === 'Active' ? 'A' : (payload.status === 'Suspend' ? 'S' : undefined);
             const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
             const SalesmanSid =
                 user?.['UserMasterSid']
@@ -223,12 +223,14 @@ export class QuotationService {
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
                     CustomerName: payload.CustomerName,
+                    CustomerMasterSid: payload.CustomerMasterSid ? Number(payload.CustomerMasterSid) : null,
+                    CustomerAddress: payload.CustomerAddress,
                     QuoteDate: quoteDate,
                     CustomerRef: payload.CustomerRef,
                     SalesmanSid: SalesmanSid,
                     AgreedRate: payload.AgreedRate || "N",
                     IsContract: payload.IsContract || "N",
-                    status: statusUpdate,
+                    ...(statusUpdate ? { status: statusUpdate } : {}),
                     updatedBy: user['userEmail'],
                     updatedOn: new Date()
                 }
@@ -304,8 +306,8 @@ export class QuotationService {
                                     CurrencyMasterSid: Number(cargoItem.currency),
                                     UOMMasterSid: Number(cargoItem.unit),
                                     perUnit: cargoItem.perUnit,
-                                    costUnit: cargoItem.costUnit,
-                                    costCurrency: cargoItem.costCurrency,
+                                    costUnit: cargoItem.costUnit ? String(cargoItem.costUnit) : null,
+                                    costCurrency: cargoItem.costCurrency ? String(cargoItem.costCurrency) : null,
                                     costPerUnit: cargoItem.costPerUnit,
                                     updatedBy: user['userEmail'],
                                     updatedOn: new Date(),
@@ -318,8 +320,8 @@ export class QuotationService {
                                     CurrencyMasterSid: Number(cargoItem.currency),
                                     UOMMasterSid: Number(cargoItem.unit),
                                     perUnit: cargoItem.perUnit,
-                                    costUnit: cargoItem.costUnit,
-                                    costCurrency: cargoItem.costCurrency,
+                                    costUnit: cargoItem.costUnit ? String(cargoItem.costUnit) : null,
+                                    costCurrency: cargoItem.costCurrency ? String(cargoItem.costCurrency) : null,
                                     costPerUnit: cargoItem.costPerUnit,
                                     QuoteHeaderSid: QuoteHeaderSid,
                                     QuoteRouteSid: routeData.QuoteRouteSid, // Link to the correct route
@@ -338,15 +340,15 @@ export class QuotationService {
 
             return {
                 status: true,
-                message: 'Enquiry updated successfully',
+                message: 'Quotation updated successfully',
                 data: {
-                    updatedEnquiryHeader: updatedQuoteHeader,
+                    updatedQuoteHeader: updatedQuoteHeader,
                     finalRouteData: finalRouteData, // Now an array
                     finalCargoData: finalCargoData  // Now an array
                 }
             };
         } catch (error) {
-            throw new Error(`Error updating enquiry: ${error.message}`);
+            throw new Error(`Error updating quotation: ${error.message}`);
         }
     }
 
@@ -453,3 +455,4 @@ export class QuotationService {
 
 
 }
+

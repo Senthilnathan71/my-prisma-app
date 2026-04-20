@@ -62,6 +62,10 @@ export class CreatePrecustomerDto {
 
     @IsString()
     @IsOptional()
+    updatedBy : string
+
+    @IsString()
+    @IsOptional()
     leadStatus:LeadStatus
 
     @IsString()

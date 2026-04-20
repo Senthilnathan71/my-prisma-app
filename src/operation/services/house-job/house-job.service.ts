@@ -639,6 +639,8 @@ export class HouseJobService {
                             ReleaseType: otherPayload.ReleaseType || '',
                             DeclaredValueOfCarriage: otherPayload.DeclaredValueOfCarriage || '',
                             DeclaredValueOfCustoms: otherPayload.DeclaredValueOfCustoms || '',
+                            IATARate: otherPayload.IATARate !== undefined && otherPayload.IATARate !== null && otherPayload.IATARate !== '' ? Number(otherPayload.IATARate) : null,
+                            PlaceOfSupply: otherPayload.PlaceOfSupply || otherPayload.PlaceofSupply || '',
                             SwitchBLAgent: otherPayload.SwitchBLAgent || '',
                             SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                             SwitchBLShipper: otherPayload.SwitchBLShipper || '',
@@ -1325,6 +1327,8 @@ export class HouseJobService {
                         ReleaseType: otherPayload.ReleaseType || '',
                         DeclaredValueOfCarriage: otherPayload.DeclaredValueOfCarriage || '',
                         DeclaredValueOfCustoms: otherPayload.DeclaredValueOfCustoms || '',
+                        IATARate: otherPayload.IATARate,
+                        PlaceOfSupply: otherPayload.PlaceOfSupply || otherPayload.PlaceofSupply || '',
                         SwitchBLAgent: otherPayload.SwitchBLAgent || '',
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
@@ -1385,6 +1389,8 @@ export class HouseJobService {
                         ReleaseType: otherPayload.ReleaseType || '',
                         DeclaredValueOfCarriage: otherPayload.DeclaredValueOfCarriage || '',
                         DeclaredValueOfCustoms: otherPayload.DeclaredValueOfCustoms || '',
+                        IATARate: otherPayload.IATARate !== undefined && otherPayload.IATARate !== null && otherPayload.IATARate !== '' ? Number(otherPayload.IATARate) : null,
+                        PlaceOfSupply: otherPayload.PlaceOfSupply || otherPayload.PlaceofSupply || '',
                         SwitchBLAgent: otherPayload.SwitchBLAgent || '',
                         SwitchBLConsignee: otherPayload.SwitchBLConsignee || '',
                         SwitchBLShipper: otherPayload.SwitchBLShipper || '',
@@ -2245,5 +2251,7 @@ private async recalculateMasterJobTotals(
 }
 
 }
+
+
 
 

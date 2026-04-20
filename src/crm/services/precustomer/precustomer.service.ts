@@ -81,7 +81,7 @@ export class PrecustomerService {
         }
     }
 
-    async createPrecustomer(params: CreatePrecustomerDto) {
+    async createPrecustomer(params: CreatePrecustomerDto, user?: any) {
         try {
             const payload: any = {
                 CompanyMasterSid: params.CompanyMasterSid,
@@ -114,7 +114,7 @@ export class PrecustomerService {
                     throw new Error('Lead not found');
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
-                payload.updatedBy = params['userEmail']
+                payload.updatedBy = params.updatedBy || user?.userEmail || params['userEmail'] ;
                 await this._db.preCustomerMaster.update({
                     where: {
                         PreCustomerMasterSid: params.PreCustomerMasterSid,
