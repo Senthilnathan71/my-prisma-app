@@ -2164,21 +2164,25 @@ model YearMaster {
 }
 
 model TandCTransaction {
-  TandCTransactionSid Int                      @id @default(autoincrement()) @map("TandCTransactionSid")
+  TandCTransactionSid Int                       @id @default(autoincrement()) @map("TandCTransactionSid")
   CompanyMasterSid    Int
-  TandCMasterSid      Int
-  TandCDetailSid      Int
-  Terms               String                   @db.VarChar(1000)
+  TandCMasterSid      Int?
+  TandCDetailSid      Int?
+  Terms               String                    @db.VarChar(1000)
   DocumentSid         Int?
-  createdOn           DateTime                 @default(now()) @db.Timestamptz(6)
-  updatedOn           DateTime?                @updatedAt @db.Timestamptz(6)
+  MenuMasterSid       Int?
+  createdOn           DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedOn           DateTime?                 @updatedAt @db.Timestamptz(6)
   deletedAt           DateTime?
-  createdBy           String                   @db.VarChar(100)
-  updatedBy           String?                  @db.VarChar(100)
-  status              String?                  @default("A") @db.Char(1)
-  companyMaster       CompanyMaster            @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  termDetails         TermsAndConditionsDetail @relation(fields: [TandCDetailSid], references: [TermsAndConditionsDetailSid])
-  terms               TermsAndConditionsMaster @relation(fields: [TandCMasterSid], references: [TermsAndConditionsMasterSid])
+  createdBy           String                    @db.VarChar(100)
+  updatedBy           String?                   @db.VarChar(100)
+  status              String?                   @default("A") @db.Char(1)
+  companyMaster       CompanyMaster             @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  menuMaster          MenuMaster?               @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  termDetails         TermsAndConditionsDetail? @relation(fields: [TandCDetailSid], references: [TermsAndConditionsDetailSid])
+  terms               TermsAndConditionsMaster? @relation(fields: [TandCMasterSid], references: [TermsAndConditionsMasterSid])
+
+  @@index([DocumentSid, MenuMasterSid], map: "idx_tandc_menu_doc")
 }
 
 model FavouriteScreen {
@@ -2921,6 +2925,7 @@ model HouseJob {
   VoucherHeader              VoucherHeader[]
   VoucherTransaction         VoucherTransaction[]
   ShippingInstruction        ShippingInstruction[]
+  HouseJobProxy              HouseJobProxy[]
 }
 
 model HouseJobCargo {
@@ -3099,6 +3104,31 @@ model HouseJobOthers {
   IATARate                Decimal?  @db.Decimal(13, 3)
   PlaceOfSupply           String?   @db.VarChar(100)
   HouseJob                HouseJob  @relation(fields: [HouseJobSid], references: [HouseJobSid])
+}
+
+model HouseJobProxy {
+  HouseJobProxySid Int       @id @default(autoincrement())
+  HouseJobSid      Int
+  CustomerName     String?   @db.VarChar(100)
+  CustomerAddress  String?   @db.VarChar(300)
+  AgentName        String?   @db.VarChar(100)
+  AgentAddress     String?   @db.VarChar(300)
+  ShipperName      String?   @db.VarChar(100)
+  ShipperAddress   String?   @db.VarChar(300)
+  ConsigneeName    String?   @db.VarChar(100)
+  ConsigneeAddress String?   @db.VarChar(300)
+  VesselName       String?   @db.VarChar(100)
+  VoyageNo         String?   @db.VarChar(10)
+  POO              String?   @db.VarChar(100)
+  FPD              String?   @db.VarChar(100)
+  CarrierName      String?   @db.VarChar(200)
+  CreatedBy        String    @db.VarChar(100)
+  CreatedOn        DateTime  @default(now()) @db.Timestamptz(6)
+  UpdatedBy        String?   @db.VarChar(100)
+  UpdatedOn        DateTime? @db.Timestamptz(6)
+  Status           String?   @default("A") @db.Char(1)
+
+  houseJob HouseJob @relation(fields: [HouseJobSid], references: [HouseJobSid])
 }
 
 model MasterJobConnection {

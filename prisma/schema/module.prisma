@@ -68,6 +68,7 @@ model MenuMaster {
   RoleMenuDetail          RoleMenuDetail[]
   roleMenuMaster          RoleMenuMaster[]
   terms                   TermsAndConditionsMaster[]
+  TandCTransaction        TandCTransaction[]
   userRoleMaster          UserRoleMaster[]
   voucherTypeMaster       VoucherTypeMaster[]
   numberSeriesConfig      NumberSeriesConfig[]
