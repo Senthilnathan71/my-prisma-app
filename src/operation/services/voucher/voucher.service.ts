@@ -3116,8 +3116,8 @@ export class VoucherService {
                         {
                             CostVoucherHeaderSid : null,
                             CostVoucherTypeMasterSid : null,
-                            updatedOn : new Date(),
-                            updatedBy : userEmail,
+                            UpdatedOn : new Date(),
+                            UpdatedBy : userEmail,
                         }
                     )
                 }

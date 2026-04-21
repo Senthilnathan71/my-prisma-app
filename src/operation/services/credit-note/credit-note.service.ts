@@ -432,11 +432,19 @@ export class CreditNoteService {
             taxDetails: payload?.PostingInfo?.TaxDetails,
           }, prisma);
 
-          if (postResult && payload.IsFullyReversed) {
+          if (postResult && payload.IsFullyReversed && voucherHeader.ReversalVoucher) {
             const isBookingScreen = !!voucherHeader.BookingHeaderSid && !voucherHeader.HouseJobSid;
+
+            const allDetails = await this._db.voucherDetail.findMany({
+              where: {
+                VoucherHeaderSid: voucherHeader.ReversalVoucher,
+                Status : 'A'
+              }
+            });
+
             await this.voucherService.handleFullVoucherReversal({
               VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-              VoucherDetails: finalDetails,
+              VoucherDetails: allDetails,
               userEmail: payload.CreatedBy,
               isBookingScreen
             }, 'revenue', prisma);

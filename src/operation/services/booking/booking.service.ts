@@ -2494,10 +2494,12 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
 
       // Build standard rate query (only mandatory fields)
         const whereStandardRate: any = {
+            status : 'A',
             CargoType : payload.CargoType,
             EffectiveDate: { lte: new Date(payload.EffectiveDate) },
             ExpiredOn: { gte: new Date(payload.ExpiredDate) },
             tariffHeader: {
+                status : 'A',
                 DepartmentMasterSid: payload.DepartmentMasterSid,
                 POLSid: payload.POLSid,
                 PODSid: payload.PODSid,
