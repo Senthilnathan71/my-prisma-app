@@ -917,7 +917,7 @@ export class EnquiryHeaderService {
     }
 
 
-    async softDeleteRoute(routeId: number) {
+async softDeleteRoute(routeId: number) {
   const existingRoute = await this._db.enquiryRoute.findUnique({
     where: { EnquiryRouteSid: routeId }
   });
@@ -941,6 +941,27 @@ export class EnquiryHeaderService {
   });
 
   return { deletedRoute, deletedCargos };
+}
+
+async softDeleteCargo(cargoId: number) {
+  const existingCargo = await this._db.enquiryCargo.findUnique({
+    where: { EnquiryCargoSid: cargoId }
+  });
+
+  if (!existingCargo) {
+    throw new NotFoundException(`Cargo with ID ${cargoId} not found`);
+  }
+
+  if (existingCargo.status === 'D') {
+    throw new BadRequestException(`Cargo with ID ${cargoId} is already deleted`);
+  }
+
+  const deletedCargo = await this._db.enquiryCargo.update({
+    where: { EnquiryCargoSid: cargoId },
+    data: { status: 'D' }
+  });
+
+  return { deletedCargo };
 }
 
 }

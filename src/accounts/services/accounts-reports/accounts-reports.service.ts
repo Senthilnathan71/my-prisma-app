@@ -156,6 +156,10 @@ export class AccountsReportsService {
           return await this.gernerateOustandingLocal(parameters);
         case 'GST-inward':
           return await this.generateGSTInward(parameters);
+        case 'GST-outward':
+          return await this.generateGSTOutward(parameters);
+        case 'GSTR':
+          return await this.generateGSTR(parameters);
         case 'cash-flow':
           return await this.gernerateCashFlow(parameters);
         default:
@@ -5397,6 +5401,10 @@ export class AccountsReportsService {
 
       const branchId = branchIdFromBranch ?? branchIdDirect;
       const voucherType = voucherTypeLower ?? voucherTypeUpper;
+      const inwardVoucherCodes = [
+        DOC_TYPE_CODE.VENDOR_INVOICE,
+        DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+      ];
 
       const branches =
         branchId && branchId.length > 0
@@ -5445,19 +5453,25 @@ export class AccountsReportsService {
         throw new BadRequestException('Invalid voucher type selected');
       }
 
+      if (
+        voucherTypeMaster?.DocumentTypeCode &&
+        !inwardVoucherCodes.includes(voucherTypeMaster.DocumentTypeCode as any)
+      ) {
+        throw new BadRequestException('Only inward vouchers are allowed');
+      }
+
       const whereClause: any = {
         CompanyMasterSid,
         BranchMasterSid: { in: resolvedBranchIds },
         VoucherDate: { gte: FromDate, lte: ToDate },
         Status: 'A',
         PostStatus: 'P',
+        voucherTypeMaster: {
+          DocumentTypeCode: voucherTypeMaster?.DocumentTypeCode
+            ? voucherTypeMaster.DocumentTypeCode
+            : { in: inwardVoucherCodes },
+        },
       };
-
-      if (voucherTypeMaster?.DocumentTypeCode) {
-        whereClause.voucherTypeMaster = {
-          DocumentTypeCode: voucherTypeMaster.DocumentTypeCode,
-        };
-      }
 
       const stateFilterValue = State ?? state ?? StateMasterSid ?? stateMasterSid;
       const stateFilter = String(stateFilterValue ?? '').trim();
@@ -5745,7 +5759,994 @@ export class AccountsReportsService {
       throw error;
     }
   }
+  
+  private async generateGSTOutward(params: any) {
+    try {
+      const {
+        companyId: CompanyMasterSid,
+        FromDate,
+        ToDate,
+        Branch: branchIdFromBranch,
+        branchId: branchIdDirect,
+        State,
+        state,
+        StateMasterSid,
+        stateMasterSid,
+        voucherType: voucherTypeLower,
+        VoucherType: voucherTypeUpper,
+      } = params;
 
+      const branchId = branchIdFromBranch ?? branchIdDirect;
+      const voucherType = voucherTypeLower ?? voucherTypeUpper;
+      const outwardVoucherCodes = [
+        DOC_TYPE_CODE.INVOICE,
+        DOC_TYPE_CODE.CREDIT_NOTE,
+      ];
+
+      const branches =
+        branchId && branchId.length > 0
+          ? await this._db.branchMaster.findMany({
+              where: {
+                CompanyMasterSid,
+                BranchMasterSid: { in: branchId },
+                status: 'A',
+              },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            })
+          : await this._db.branchMaster.findMany({
+              where: { CompanyMasterSid, status: 'A' },
+              select: {
+                BranchMasterSid: true,
+                branchName: true,
+              },
+            });
+
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const branchesInvolved =
+        branchId && branchId.length > 0
+          ? resolvedBranchNames.join(', ')
+          : 'All Branches';
+
+      const voucherTypeMaster =
+        voucherType !== null && voucherType !== undefined && voucherType !== ''
+          ? await this._db.voucherTypeMaster.findFirst({
+              where: {
+                VoucherTypeMasterSid: Number(voucherType),
+                CompanyMasterSid,
+                status: 'A',
+              },
+              select: {
+                VoucherTypeMasterSid: true,
+                DocumentTypeCode: true,
+              },
+            })
+          : null;
+
+      if (voucherType && !voucherTypeMaster) {
+        throw new BadRequestException('Invalid voucher type selected');
+      }
+
+      if (
+        voucherTypeMaster?.DocumentTypeCode &&
+        !outwardVoucherCodes.includes(voucherTypeMaster.DocumentTypeCode as any)
+      ) {
+        throw new BadRequestException('Only outward vouchers are allowed');
+      }
+
+      const whereClause: any = {
+        CompanyMasterSid,
+        BranchMasterSid: { in: resolvedBranchIds },
+        VoucherDate: { gte: FromDate, lte: ToDate },
+        Status: 'A',
+        PostStatus: 'P',
+        voucherTypeMaster: {
+          DocumentTypeCode: voucherTypeMaster?.DocumentTypeCode
+            ? voucherTypeMaster.DocumentTypeCode
+            : { in: outwardVoucherCodes },
+        },
+      };
+
+      const stateFilterValue = State ?? state ?? StateMasterSid ?? stateMasterSid;
+      const stateFilter = String(stateFilterValue ?? '').trim();
+      const stateFilterSid =
+        stateFilter && /^\d+$/.test(stateFilter) ? Number(stateFilter) : null;
+      let selectedStateName = stateFilter || 'All States';
+
+      if (stateFilterSid) {
+        const selectedState = await this._db.stateMaster.findUnique({
+          where: { StateMasterSid: stateFilterSid },
+          select: { stateName: true },
+        });
+        selectedStateName = selectedState?.stateName || stateFilter;
+      }
+
+      if (stateFilter) {
+        whereClause.customerBranch = stateFilterSid
+          ? {
+              StateMasterSid: stateFilterSid,
+            }
+          : {
+              stateMaster: {
+                stateName: { contains: stateFilter, mode: 'insensitive' },
+              },
+            };
+      }
+
+
+      const voucherHeaders = await this._db.voucherHeader.findMany({
+        where: whereClause,
+        include: {
+          voucherTypeMaster: {
+            select: {
+              DocumentTypeCode: true,
+              DocumentTypeName: true,
+            },
+          },
+          BranchMaster: {
+            select: {
+              BranchMasterSid: true,
+              branchName: true,
+              cityMaster: {
+                select: {
+                  cityName: true,
+                },
+              },
+              stateMaster: {
+                select: {
+                  stateName: true,
+                  stateGSTCode: true,
+                },
+              },
+            },
+          },
+          VoucherOthers: {
+            where: { Status: 'A' },
+            select: {
+              IRNNumber: true,
+            },
+          },
+          VoucherTransaction: {
+            where: { Status: 'A' },
+            select: {
+              VoucherTransactionSid: true,
+              TaxableAmount: true,
+              LocalAmount: true,
+              ChargeDescription: true,
+              DrCr: true,
+              coaMaster: {
+                select: {
+                  LedgerName: true,
+                  LedgerType: true,
+                },
+              },
+            },
+          },
+          subledgerMaster: {
+            select: {
+              SubledgerName: true,
+              SubledgerMappingSid: true,
+            },
+          },
+          customerBranch: {
+            select: {
+              CustomerBranchSid: true,
+              StateMasterSid: true,
+              GSTNo: true,
+              stateMaster: {
+                select: {
+                  stateName: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ VoucherDate: 'asc' }, { VoucherNumber: 'asc' }],
+      });
+
+      const customerIds = Array.from(
+        new Set(
+          voucherHeaders
+            .map((v) => v.subledgerMaster?.SubledgerMappingSid)
+            .filter((id): id is number => typeof id === 'number'),
+        ),
+      );
+
+      const customers =
+        customerIds.length > 0
+          ? await this._db.customerMaster.findMany({
+              where: { CustomerMasterSid: { in: customerIds } },
+              include: {
+                CustomerBranch: {
+                  where: {
+                    status: 'A',
+                    ...(stateFilter
+                      ? stateFilterSid
+                        ? { StateMasterSid: stateFilterSid }
+                        : {
+                            stateMaster: {
+                              stateName: {
+                                contains: stateFilter,
+                                mode: 'insensitive',
+                              },
+                            },
+                          }
+                      : {}),
+                  },
+                  select: {
+                    CustomerBranchSid: true,
+                    StateMasterSid: true,
+                    GSTNo: true,
+                    stateMaster: {
+                      select: {
+                        stateName: true,
+                      },
+                    },
+                  },
+                  orderBy: { CustomerBranchSid: 'asc' },
+                  take: 1,
+                },
+              },
+            })
+          : [];
+
+      const customerGstMap = new Map<number, string>(
+        customers.map((c) => [
+          c.CustomerMasterSid,
+          c.CustomerBranch?.[0]?.GSTNo || '',
+        ]),
+      );
+      const customerBranchMap = new Map<
+        number,
+        {
+          CustomerBranchSid?: number;
+          StateMasterSid?: number;
+          GSTNo?: string | null;
+          stateMaster?: { stateName?: string | null } | null;
+        }
+      >(
+        customers.map((c) => [
+          c.CustomerMasterSid,
+          c.CustomerBranch?.[0] || {},
+        ]),
+      );
+
+      const signedAmount = (amount: any, drCr?: string | null) => {
+        const value = toNumber(amount);
+        return (drCr || '').toUpperCase() === 'C' ? -value : value;
+      };
+
+      const detectTaxType = (line: any): 'IGST' | 'CGST' | 'SGST' | 'OTHER' => {
+        const text =
+          `${line?.ChargeDescription || ''} ${line?.coaMaster?.LedgerName || ''}`.toUpperCase();
+        if (text.includes('IGST')) return 'IGST';
+        if (text.includes('CGST')) return 'CGST';
+        if (text.includes('SGST')) return 'SGST';
+        return 'OTHER';
+      };
+
+      const isTaxLine = (line: any) => {
+        const taxType = detectTaxType(line);
+        if (taxType !== 'OTHER') return true;
+        const ledgerType = String(line?.coaMaster?.LedgerType || '').toUpperCase();
+        return ledgerType.includes('TAX');
+      };
+
+      const tableData = voucherHeaders.map((voucher) => {
+        const allLines = voucher.VoucherTransaction || [];
+        const taxLines = allLines.filter((line) => isTaxLine(line));
+        const nonTaxLines = allLines.filter((line) => !isTaxLine(line));
+
+        const igst = taxLines
+          .filter((line) => detectTaxType(line) === 'IGST')
+          .reduce((sum, line) => sum + signedAmount(line.LocalAmount, line.DrCr), 0);
+
+        const cgst = taxLines
+          .filter((line) => detectTaxType(line) === 'CGST')
+          .reduce((sum, line) => sum + signedAmount(line.LocalAmount, line.DrCr), 0);
+
+        const sgst = taxLines
+          .filter((line) => detectTaxType(line) === 'SGST')
+          .reduce((sum, line) => sum + signedAmount(line.LocalAmount, line.DrCr), 0);
+
+        const totalGST = igst + cgst + sgst;
+
+        const taxableValue = nonTaxLines.reduce(
+          (sum, line) => sum + signedAmount(line.TaxableAmount, line.DrCr),
+          0,
+        );
+
+        const transactionValue = allLines.reduce(
+          (sum, line) => sum + signedAmount(line.LocalAmount, line.DrCr),
+          0,
+        );
+
+        const gstin =
+          voucher.customerBranch?.GSTNo ||
+          (voucher.subledgerMaster?.SubledgerMappingSid
+            ? customerGstMap.get(voucher.subledgerMaster.SubledgerMappingSid)
+            : '') ||
+          '';
+
+        const fallbackCustomerBranch = voucher.subledgerMaster?.SubledgerMappingSid
+          ? customerBranchMap.get(voucher.subledgerMaster.SubledgerMappingSid)
+          : undefined;
+        const customerBranchSid =
+          voucher.customerBranch?.CustomerBranchSid ||
+          fallbackCustomerBranch?.CustomerBranchSid ||
+          null;
+        const stateMasterSid =
+          voucher.customerBranch?.StateMasterSid ||
+          fallbackCustomerBranch?.StateMasterSid ||
+          null;
+        const location =
+          voucher.customerBranch?.stateMaster?.stateName ||
+          fallbackCustomerBranch?.stateMaster?.stateName ||
+          '';
+
+        return {
+          TransactionDate: voucher.VoucherDate,
+          CustomerBranchSid: customerBranchSid,
+          StateMasterSid: stateMasterSid,
+          Location: location,
+          TransactionNo: voucher.VoucherNumber,
+          PartyRefNo: voucher.DocumentNumber || '',
+          PartyRefDate: voucher.DocumentDate || null,
+          TransactionType: voucher.voucherTypeMaster?.DocumentTypeName || '',
+          Organization:
+            voucher.PartyName ||
+            voucher.subledgerMaster?.SubledgerName ||
+            '',
+          GSTIN: gstin,
+          TxnValue: transactionValue,
+          TaxableValue: taxableValue,
+          TaxCalculatedOn: taxableValue,
+          IGST: igst,
+          CGST: cgst,
+          SGST: sgst,
+          IGSTAmountRCM: 0,
+          CGSTAmountRCM: 0,
+          SGSTAmountRCM: 0,
+          TotalGST: totalGST,
+          PlaceOfSupply: voucher.PlaceOfSupply,
+          IRNNo: voucher.VoucherOthers?.[0]?.IRNNumber || '',
+          VoucherHeaderSid: voucher.VoucherHeaderSid,
+          VoucherTypeCode: voucher.voucherTypeMaster?.DocumentTypeCode || '',
+        };
+      });
+
+      return {
+        CompanyMasterSid,
+        branchesInvolved,
+        branchNames: resolvedBranchNames.join(', '),
+        voucherTypeName: voucherTypeMaster?.DocumentTypeCode || 'All Vouchers',
+        state: selectedStateName,
+        fromDate: FromDate,
+        toDate: ToDate,
+        count: tableData.length,
+        tableData,
+        params,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  private async generateGSTR(params: any) {
+    try {
+      const {
+        companyId: companyIdLower,
+        CompanyMasterSid: companyIdUpper,
+        FromDate,
+        ToDate,
+        Branch: branchIdFromBranch,
+        branchId: branchIdDirect,
+        State,
+        state,
+        StateMasterSid,
+        stateMasterSid,
+      } = params;
+
+      const CompanyMasterSid = companyIdLower ?? companyIdUpper;
+      const branchId = branchIdFromBranch ?? branchIdDirect;
+      const stateFilterValue = State ?? state ?? StateMasterSid ?? stateMasterSid;
+      const stateFilter = String(stateFilterValue ?? '').trim();
+      const stateFilterSid =
+        stateFilter && /^\d+$/.test(stateFilter) ? Number(stateFilter) : null;
+
+      if (!CompanyMasterSid || !FromDate || !ToDate) {
+        throw new BadRequestException('Company, from date and to date are required');
+      }
+
+      const company = await this._db.companyMaster.findFirst({
+        where: {
+          CompanyMasterSid,
+          status: 'A',
+        },
+        select: {
+          CompanyMasterSid: true,
+          companyName: true,
+        },
+      });
+
+      if (!company) {
+        throw new BadRequestException('Invalid company selected');
+      }
+
+      const branchWhere: any = {
+        CompanyMasterSid,
+        status: 'A',
+      };
+
+      if (branchId && branchId.length > 0) {
+        branchWhere.BranchMasterSid = { in: branchId };
+      }
+
+      if (stateFilter) {
+        if (stateFilterSid) {
+          branchWhere.StateMasterSid = stateFilterSid;
+        } else {
+          branchWhere.stateMaster = {
+            stateName: { contains: stateFilter, mode: 'insensitive' },
+          };
+        }
+      }
+
+      const branches = await this._db.branchMaster.findMany({
+        where: branchWhere,
+        select: {
+          BranchMasterSid: true,
+          branchName: true,
+          taxRegistrationNo: true,
+          StateMasterSid: true,
+          stateMaster: {
+            select: {
+              stateName: true,
+              stateGSTCode: true,
+            },
+          },
+        },
+        orderBy: { branchName: 'asc' },
+      });
+
+      if (!branches.length) {
+        throw new BadRequestException('No branches found for the selected criteria');
+      }
+
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const resolvedBranchNames = branches.map((b) => b.branchName);
+      const selectedStateName =
+        branches.length > 0
+          ? Array.from(
+              new Set(
+                branches
+                  .map((b) => b.stateMaster?.stateName)
+                  .filter((name): name is string => !!name),
+              ),
+            ).join(', ') || stateFilter || 'All States'
+          : stateFilter || 'All States';
+
+      const baseHeaderWhere: any = {
+        CompanyMasterSid,
+        BranchMasterSid: { in: resolvedBranchIds },
+        VoucherDate: {
+          gte: FromDate,
+          lte: ToDate,
+        },
+        Status: 'A',
+        PostStatus: 'P',
+      };
+
+      const outputVoucherCodes = [
+        DOC_TYPE_CODE.INVOICE,
+        DOC_TYPE_CODE.CREDIT_NOTE,
+      ];
+      const inputVoucherCodes = [
+        DOC_TYPE_CODE.VENDOR_INVOICE,
+        DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+      ];
+      const gstVoucherCodes = [...outputVoucherCodes, ...inputVoucherCodes];
+
+      type GstrBucket = {
+        taxableValue: number;
+        igst: number;
+        cgst: number;
+        sgst: number;
+        cess: number;
+      };
+
+      const createBucket = (): GstrBucket => ({
+        taxableValue: 0,
+        igst: 0,
+        cgst: 0,
+        sgst: 0,
+        cess: 0,
+      });
+
+      const buckets = {
+        outwardTaxable: createBucket(),
+        outwardZeroRated: createBucket(),
+        outwardNilExempt: createBucket(),
+        inwardReverseCharge: createBucket(),
+        outwardNonGst: createBucket(),
+        interstateUnregistered: createBucket(),
+        interstateComposition: createBucket(),
+        interstateUin: createBucket(),
+        importGoods: createBucket(),
+        importServices: createBucket(),
+        inwardReverseChargeItc: createBucket(),
+        inwardIsd: createBucket(),
+        allOtherItc: createBucket(),
+        itcReversedRules: createBucket(),
+        itcReversedOthers: createBucket(),
+        ineligibleItcRules: createBucket(),
+        ineligibleItcOthers: createBucket(),
+        inwardExemptInterState: createBucket(),
+        inwardExemptIntraState: createBucket(),
+        inwardNonGstInterState: createBucket(),
+        inwardNonGstIntraState: createBucket(),
+      };
+
+      const signedBySide = (
+        amount: any,
+        drCr?: string | null,
+        side: 'Input' | 'Output' = 'Output',
+      ) => {
+        const value = toNumber(amount);
+        const normalizedDrCr = String(drCr || '').toUpperCase();
+        if (side === 'Input') {
+          return normalizedDrCr === 'C' ? -value : value;
+        }
+        return normalizedDrCr === 'D' ? -value : value;
+      };
+
+      const detectTaxComponent = (
+        detail: any,
+      ): 'igst' | 'cgst' | 'sgst' | 'cess' | null => {
+        const text =
+          `${detail?.subledgerMaster?.SubledgerName || ''} ${detail?.ChargeDescription || ''}`.toUpperCase();
+        if (text.includes('CESS')) return 'cess';
+        if (text.includes('IGST')) return 'igst';
+        if (text.includes('CGST')) return 'cgst';
+        if (text.includes('SGST')) return 'sgst';
+        return null;
+      };
+
+      const classifyText = (detail: any) =>
+        [
+          detail?.InvoiceType,
+          detail?.ChargeDescription,
+          detail?.VoucherHeader?.InvoiceType,
+          detail?.VoucherHeader?.GSTType,
+          detail?.VoucherHeader?.GST_VAT,
+          detail?.VoucherHeader?.PlaceOfSupply,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toUpperCase();
+
+      const isZeroRated = (detail: any) => {
+        const text = classifyText(detail);
+        return text.includes('ZERO') || text.includes('EXPORT') || text.includes('SEZ');
+      };
+
+      const isNilExempt = (detail: any) => {
+        const text = classifyText(detail);
+        return text.includes('NIL') || text.includes('EXEMPT');
+      };
+
+      const isNonGst = (detail: any) => {
+        const text = classifyText(detail).replace(/[-_\s]/g, '');
+        return text.includes('NONGST') || text.includes('NOGST');
+      };
+
+      const isReverseCharge = (detail: any) => {
+        const text = classifyText(detail).replace(/[-_\s]/g, '');
+        return text.includes('RCM') || text.includes('REVERSECHARGE');
+      };
+
+      const isImportService = (detail: any) => {
+        const text = classifyText(detail);
+        return text.includes('IMPORT') && text.includes('SERVICE');
+      };
+
+      const isImportGoods = (detail: any) => {
+        const text = classifyText(detail);
+        return text.includes('IMPORT') && text.includes('GOOD');
+      };
+
+      const isInterState = (detail: any) => {
+        const branchState = detail?.VoucherHeader?.BranchMaster?.StateMasterSid;
+        const partyState = detail?.VoucherHeader?.customerBranch?.StateMasterSid;
+        return !!branchState && !!partyState && branchState !== partyState;
+      };
+
+      const addTaxDetail = (
+        bucket: GstrBucket,
+        detail: any,
+        side: 'Input' | 'Output',
+      ) => {
+        const component = detectTaxComponent(detail);
+        const taxableValue = signedBySide(detail.TaxableAmount, detail.DrCr, side);
+        const taxAmount = signedBySide(detail.LocalAmount, detail.DrCr, side);
+
+        if (component) {
+          bucket[component] += taxAmount;
+        }
+
+        if (component !== 'sgst' && component !== 'cess') {
+          bucket.taxableValue += taxableValue;
+        }
+      };
+
+      const addTaxableDetail = (
+        bucket: GstrBucket,
+        detail: any,
+        side: 'Input' | 'Output',
+      ) => {
+        bucket.taxableValue += signedBySide(
+          detail.TaxableAmount || detail.LocalAmount,
+          detail.DrCr,
+          side,
+        );
+      };
+
+      const taxDetails = await this._db.voucherDetail.findMany({
+        where: {
+          Status: 'A',
+          subledgerMaster: {
+            SubledgerType: 'Tax',
+          },
+          VoucherHeader: {
+            ...baseHeaderWhere,
+            voucherTypeMaster: {
+              DocumentTypeCode: { in: gstVoucherCodes },
+            },
+          },
+        },
+        select: {
+          VoucherDetailSid: true,
+          VoucherHeaderSid: true,
+          ChargeDescription: true,
+          DrCr: true,
+          TaxableAmount: true,
+          LocalAmount: true,
+          InvoiceType: true,
+          subledgerMaster: {
+            select: {
+              SubledgerName: true,
+              SubledgerType: true,
+              TaxType: true,
+            },
+          },
+          VoucherHeader: {
+            select: {
+              GST_VAT: true,
+              GSTType: true,
+              InvoiceType: true,
+              PlaceOfSupply: true,
+              voucherTypeMaster: {
+                select: {
+                  DocumentTypeCode: true,
+                },
+              },
+              BranchMaster: {
+                select: {
+                  StateMasterSid: true,
+                },
+              },
+              customerBranch: {
+                select: {
+                  GSTNo: true,
+                  StateMasterSid: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      for (const detail of taxDetails) {
+        const voucherCode = detail.VoucherHeader?.voucherTypeMaster?.DocumentTypeCode;
+        const taxType = detail.subledgerMaster?.TaxType;
+
+        if (outputVoucherCodes.includes(voucherCode as any)) {
+          if (isReverseCharge(detail)) {
+            addTaxDetail(buckets.inwardReverseCharge, detail, 'Output');
+          } else if (isZeroRated(detail)) {
+            addTaxDetail(buckets.outwardZeroRated, detail, 'Output');
+          } else {
+            addTaxDetail(buckets.outwardTaxable, detail, 'Output');
+          }
+
+          if (isInterState(detail)) {
+            const gstNo = detail.VoucherHeader?.customerBranch?.GSTNo || '';
+            const text = classifyText(detail);
+            if (!gstNo) {
+              addTaxDetail(buckets.interstateUnregistered, detail, 'Output');
+            } else if (text.includes('COMPOSITION')) {
+              addTaxDetail(buckets.interstateComposition, detail, 'Output');
+            } else if (text.includes('UIN')) {
+              addTaxDetail(buckets.interstateUin, detail, 'Output');
+            }
+          }
+        }
+
+        if (inputVoucherCodes.includes(voucherCode as any) || taxType === 'Input') {
+          if (isImportGoods(detail)) {
+            addTaxDetail(buckets.importGoods, detail, 'Input');
+          } else if (isImportService(detail)) {
+            addTaxDetail(buckets.importServices, detail, 'Input');
+          } else if (isReverseCharge(detail)) {
+            addTaxDetail(buckets.inwardReverseChargeItc, detail, 'Input');
+          } else {
+            addTaxDetail(buckets.allOtherItc, detail, 'Input');
+          }
+        }
+      }
+
+      const classifiedChargeDetails = await this._db.voucherDetail.findMany({
+        where: {
+          Status: 'A',
+          OR: [{ ChargeMasterSid: { not: null } }, { HSSACMasterSid: { not: null } }],
+          NOT: {
+            subledgerMaster: {
+              SubledgerType: 'Tax',
+            },
+          },
+          VoucherHeader: {
+            ...baseHeaderWhere,
+            voucherTypeMaster: {
+              DocumentTypeCode: { in: gstVoucherCodes },
+            },
+          },
+        },
+        select: {
+          VoucherDetailSid: true,
+          ChargeDescription: true,
+          DrCr: true,
+          TaxableAmount: true,
+          LocalAmount: true,
+          InvoiceType: true,
+          VoucherHeader: {
+            select: {
+              GST_VAT: true,
+              GSTType: true,
+              InvoiceType: true,
+              PlaceOfSupply: true,
+              voucherTypeMaster: {
+                select: {
+                  DocumentTypeCode: true,
+                },
+              },
+              BranchMaster: {
+                select: {
+                  StateMasterSid: true,
+                },
+              },
+              customerBranch: {
+                select: {
+                  StateMasterSid: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      for (const detail of classifiedChargeDetails) {
+        const voucherCode = detail.VoucherHeader?.voucherTypeMaster?.DocumentTypeCode;
+
+        if (outputVoucherCodes.includes(voucherCode as any)) {
+          if (isNonGst(detail)) {
+            addTaxableDetail(buckets.outwardNonGst, detail, 'Output');
+          } else if (isNilExempt(detail)) {
+            addTaxableDetail(buckets.outwardNilExempt, detail, 'Output');
+          } else if (isZeroRated(detail)) {
+            addTaxableDetail(buckets.outwardZeroRated, detail, 'Output');
+          }
+        }
+
+        if (inputVoucherCodes.includes(voucherCode as any)) {
+          const interState = isInterState(detail);
+          if (isNonGst(detail)) {
+            addTaxableDetail(
+              interState
+                ? buckets.inwardNonGstInterState
+                : buckets.inwardNonGstIntraState,
+              detail,
+              'Input',
+            );
+          } else if (isNilExempt(detail)) {
+            addTaxableDetail(
+              interState
+                ? buckets.inwardExemptInterState
+                : buckets.inwardExemptIntraState,
+              detail,
+              'Input',
+            );
+          }
+        }
+      }
+
+      const normalizeBucket = (bucket: GstrBucket) => ({
+        taxableValue: roundAmount(bucket.taxableValue, 2),
+        igst: roundAmount(bucket.igst, 2),
+        cgst: roundAmount(bucket.cgst, 2),
+        sgst: roundAmount(bucket.sgst, 2),
+        cess: roundAmount(bucket.cess, 2),
+      });
+
+      const makeRow = (
+        itemType: string,
+        itemDetails: string,
+        bucket: GstrBucket,
+        source = '',
+        tableNo = '',
+        placeOfSupply = '',
+      ) => {
+        const normalized = normalizeBucket(bucket);
+        return {
+          ItemType: itemType,
+          ItemDetails: itemDetails,
+          PlaceOfSupply: placeOfSupply,
+          TotalTaxableValue: normalized.taxableValue,
+          IGST: normalized.igst,
+          CGST: normalized.cgst,
+          SGST: normalized.sgst,
+          CESS: normalized.cess,
+          Source: source,
+          TableNo: tableNo,
+        };
+      };
+
+      const tableData = [
+        makeRow(
+          '3.1a',
+          '(a) Outward taxable supplies (other than zero rated; nil rated and exempted)',
+          buckets.outwardTaxable,
+          'GSTR-1',
+          '4A + 5A + 7A + 7B - 9B(data relevant to 4A and 5A)',
+        ),
+        makeRow(
+          '3.1b',
+          '(b) Outward taxable supplies (zero rated )',
+          buckets.outwardZeroRated,
+          'GSTR-1',
+          '6A + 6B - 9B(data relevant to 6A and 6B)',
+        ),
+        makeRow(
+          '3.1c',
+          '(c) Other outward supplies (Nil rated; exempted)',
+          buckets.outwardNilExempt,
+          'GSTR-1',
+          '8A + 8B + 8C + 8D(excluding Non GST supplies)',
+        ),
+        makeRow(
+          '3.1d',
+          '(d) Inward supplies (liable to reverse charge)',
+          buckets.inwardReverseCharge,
+          'GSTR-2',
+          '4A + 4B + 4C - 6C(data relevant to 4A,4B,4C)',
+        ),
+        makeRow(
+          '3.1e',
+          '(e) Non-GST outward supplies',
+          buckets.outwardNonGst,
+          'GSTR-1',
+          '8A + 8B + 8C + 8D(only Non GST supplies)',
+        ),
+        makeRow(
+          '3.2a',
+          'Supplies made to Unregistered Persons (Inter-State)',
+          buckets.interstateUnregistered,
+          'GSTR-1',
+          '5A + 7B - 9B(data relevant to 5A)',
+        ),
+        makeRow(
+          '3.2b',
+          'Supplies made to Composition Taxable Persons (Inter-State)',
+          buckets.interstateComposition,
+          'GSTR-1',
+          '4A + 8A - 9B(data relevant to 4A(only Composition Supplier))',
+        ),
+        makeRow(
+          '3.2c',
+          'Supplies made to UIN holders (Inter-State)',
+          buckets.interstateUin,
+        ),
+        makeRow('4.1a', 'Import of goods', buckets.importGoods),
+        makeRow(
+          '4.2a',
+          'Import of services',
+          buckets.importServices,
+          'GSTR-2',
+          '4C - 6C(data relevant to 4C)',
+        ),
+        makeRow(
+          '4.3a',
+          'Inward supplies liable to reverse charge (other than 1 & 2 above)',
+          buckets.inwardReverseChargeItc,
+          'GSTR-2',
+          '4A + 4B - 6C(data relevant to 4A and 4B)',
+        ),
+        makeRow('4.4a', 'Inward supplies from ISD', buckets.inwardIsd),
+        makeRow(
+          '4.5a',
+          'All other ITC',
+          buckets.allOtherItc,
+          'GSTR-2',
+          '3 - 6C(data relevant to 3)',
+        ),
+        makeRow(
+          '4.1b',
+          '*ITC Reversed - As per rules 42 & 43 of CGST Rules',
+          buckets.itcReversedRules,
+        ),
+        makeRow('4.2b', '*ITC Reversed - Others', buckets.itcReversedOthers),
+        makeRow(
+          '4.1d',
+          '*Ineligible ITC - As per section 17(5)',
+          buckets.ineligibleItcRules,
+        ),
+        makeRow('4.2d', '*Ineligible ITC - Others', buckets.ineligibleItcOthers),
+        makeRow(
+          '5.1',
+          'Inward supplies from a supplier under composition scheme; Exempt and Nil rated supply - Inter-State',
+          buckets.inwardExemptInterState,
+          'GSTR-2',
+          '7A + 7B(Excluding Non GST supplies)',
+        ),
+        makeRow(
+          '5.2',
+          'Inward supplies from a supplier under composition scheme; Exempt and Nil rated supply - Intra-State',
+          buckets.inwardExemptIntraState,
+          'GSTR-2',
+          '7A + 7B(Excluding Non GST supplies)',
+        ),
+        makeRow(
+          '5.3',
+          'Non GST inward supply - Inter-State',
+          buckets.inwardNonGstInterState,
+          'GSTR-2',
+          '7A + 7B(Only Non GST supplies)',
+        ),
+        makeRow(
+          '5.4',
+          'Non GST inward supply - Intra-State',
+          buckets.inwardNonGstIntraState,
+          'GSTR-2',
+          '7A + 7B(Only Non GST supplies)',
+        ),
+      ];
+
+      return {
+        CompanyMasterSid,
+        companyName: company.companyName,
+        state: selectedStateName,
+        fromDate: FromDate,
+        toDate: ToDate,
+        branchesInvolved:
+          branchId && branchId.length > 0
+            ? resolvedBranchNames.join(', ')
+            : 'All Branches',
+        branchNames: resolvedBranchNames.join(', '),
+        gstins: branches
+          .map((b) => b.taxRegistrationNo)
+          .filter((gstin): gstin is string => !!gstin)
+          .join(', '),
+        count: tableData.length,
+        tableData,
+        params,
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+    
   async getBranchNames(
     companyMasterSid: number,
     branchIds?: number[],

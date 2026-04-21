@@ -348,5 +348,29 @@ async softDeleteRoute(@Param('id', ParseIntPipe) id: number) {
   return resp;
 }
 
+@ApiOperation({ summary: 'Delete Enquiry cargo' })
+@ApiCreatedResponse({
+  description: 'Enquiry cargo deleted successfully',
+  type: ResponseData
+})
+@HttpCode(HttpStatus.OK)
+@Delete('cargo/:id')
+async softDeleteCargo(@Param('id', ParseIntPipe) id: number) {
+  const resp = new ResponseData();
+  try {
+    const result = await this.enquiryHeaderService.softDeleteCargo(id);
+    resp.data = result;
+    resp.message = 'Enquiry cargo deleted successfully';
+  } catch (error) {
+    resp.status = false;
+    if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      resp.message = error.message;
+    } else {
+      resp.message = 'Internal Server Error';
+    }
+  }
+  return resp;
+}
+
 
 }
