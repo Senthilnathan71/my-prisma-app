@@ -208,6 +208,33 @@ export class TermsAndConditionsController {
     return resp;
   }
 
+  @ApiOperation({ summary: 'Get Terms and Conditions' })
+    @ApiCreatedResponse({
+        description: 'Get Terms and Conditions',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('TandC')
+    async getTandC(@Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Getting Terms and Conditions : ${JSON.stringify(payload)}`);
+            let res = await this.termsAndConditionsServ.getTandC(payload);
+            this.logger.debug(`Fetched Terms and Conditions : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `Terms and Conditions with conditions is successfully fetched`;
+        } catch (error) {
+            this.logger.warn(`Get Terms and Conditions by Condition Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get Terms and Conditions by Different Conditions' })
     @ApiCreatedResponse({
         description: 'Get Terms and Conditions by Different Conditions',

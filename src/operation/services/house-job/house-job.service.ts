@@ -1139,7 +1139,6 @@ export class HouseJobService {
                         MovementType: payload.MovementType || '',
                         DoValid: payload.DoValid || null,
                         IsServiceJob: payload.IsServiceJob || '',
-                        createdBy: payload.createdBy || '',
                         updatedBy: payload.updatedBy || '',
                         status: payload.status || '',
                         HouseStatus: payload.HouseStatus,

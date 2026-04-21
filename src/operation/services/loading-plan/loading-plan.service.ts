@@ -36,7 +36,9 @@ export class LoadingPlanService {
       POD: payload.POD,
       MasterNoSid: null,
       status: 'A',
-      BookingStatus: isLCLExport ? "Cargo Received" : "Booked"
+      BookingStatus: isLCLExport
+        ? "Cargo Received"
+        : { in: ["Booked", "Cargo Received"] }
     };
 
     /* -------------------------------------------------- */
