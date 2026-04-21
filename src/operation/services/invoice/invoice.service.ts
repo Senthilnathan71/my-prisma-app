@@ -448,100 +448,30 @@ export class InvoiceService {
             data: voucherDetailsPayload
           });
 
-          // Sync rates back to CostRevenueCharges (skip when posting)
+          // Link VoucherHeader to CostRevenueCharges (new detail created — skip when posting)
           if (payload.PostStatus !== 'P') {
-            const rateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
             for (const detail of payload.VoucherDetail) {
               if (detail.CostRevenueChargesSid) {
-                rateMap.set(Number(detail.CostRevenueChargesSid), {
-                  Rate: toNumber(detail.Rate),
-                  Amount: toNumber(detail.Amount),
-                  LocalAmount: toNumber(detail.LocalAmount),
+                await prisma.costRevenueCharges.update({
+                  where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                  data: {
+                    RevenueVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                    RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                    updatedOn: new Date(),
+                    updatedBy: payload.CreatedBy,
+                  },
                 });
               }
-            }
-
-            if (rateMap.size > 0) {
-              const existingCharges = await prisma.costRevenueCharges.findMany({
-                where: { CostRevenueChargesSid: { in: [...rateMap.keys()] } },
-                select: {
-                  CostRevenueChargesSid: true,
-                  RevenueRate: true,
-                  RevenueAmount: true,
-                  RevenueLocalAmount: true,
-                },
-              });
-
-              for (const cur of existingCharges) {
-                const inc = rateMap.get(cur.CostRevenueChargesSid)!;
-                const changed =
-                  toNumber(cur.RevenueRate) !== inc.Rate ||
-                  toNumber(cur.RevenueAmount) !== inc.Amount ||
-                  toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-
-                if (changed) {
-                  await prisma.costRevenueCharges.update({
-                    where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
-                    data: {
-                      RevenueVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-                      RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                      RevenueRate: inc.Rate,
-                      RevenueAmount: inc.Amount,
-                      RevenueLocalAmount: inc.LocalAmount,
-                      updatedOn: new Date(),
-                      updatedBy: payload.CreatedBy,
-                    },
-                  });
-                }
-              }
-            }
-          }
-
-          // Sync rates back to BookingRates (skip when posting)
-          if (payload.PostStatus !== 'P') {
-            const bookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
-            for (const detail of payload.VoucherDetail) {
               if (detail.BookingRateSid) {
-                bookingRateMap.set(Number(detail.BookingRateSid), {
-                  Rate: toNumber(detail.Rate),
-                  Amount: toNumber(detail.Amount),
-                  LocalAmount: toNumber(detail.LocalAmount),
+                await prisma.bookingRates.update({
+                  where: { BookingRatesSid: Number(detail.BookingRateSid) },
+                  data: {
+                    RevenueVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                    RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                    UpdatedOn: new Date(),
+                    UpdatedBy: payload.CreatedBy,
+                  },
                 });
-              }
-            }
-
-            if (bookingRateMap.size > 0) {
-              const existingRates = await prisma.bookingRates.findMany({
-                where: { BookingRatesSid: { in: [...bookingRateMap.keys()] } },
-                select: {
-                  BookingRatesSid: true,
-                  RevenueRate: true,
-                  RevenueAmount: true,
-                  RevenueLocalAmount: true,
-                },
-              });
-
-              for (const cur of existingRates) {
-                const inc = bookingRateMap.get(cur.BookingRatesSid)!;
-                const changed =
-                  toNumber(cur.RevenueRate) !== inc.Rate ||
-                  toNumber(cur.RevenueAmount) !== inc.Amount ||
-                  toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-
-                if (changed) {
-                  await prisma.bookingRates.update({
-                    where: { BookingRatesSid: cur.BookingRatesSid },
-                    data: {
-                      RevenueVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-                      RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                      RevenueRate: inc.Rate,
-                      RevenueAmount: inc.Amount,
-                      RevenueLocalAmount: inc.LocalAmount,
-                      UpdatedOn: new Date(),
-                      UpdatedBy: payload.CreatedBy,
-                    },
-                  });
-                }
               }
             }
           }
@@ -675,8 +605,11 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
     },
     data: { Status: 'D' }
   });
-  const costRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
-  const bookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+  // new details → link VoucherHeaderSid; updated details → check rate changes
+  const newCostRevenueSids = new Set<number>();
+  const newBookingRateSids = new Set<number>();
+  const updatedCostRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+  const updatedBookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
   // 3️⃣ Create / Update details
   let sno = 1;
 
@@ -686,20 +619,25 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
     const currencyMasterSid = detail.CurrencyMasterSid
       ? Number(detail.CurrencyMasterSid)
       : await this.getCurrencyMasterIdByCode(detail.CurrencyCode, prisma);
-if (detail.CostRevenueChargesSid) {
-            costRevenueRateMap.set(Number(detail.CostRevenueChargesSid), {
-              Rate: toNumber(detail.Rate),
-              Amount: toNumber(detail.Amount),
-              LocalAmount: toNumber(detail.LocalAmount),
-            });
-          }
-          if (detail.BookingRateSid) {
-            bookingRateMap.set(Number(detail.BookingRateSid), {
-              Rate: toNumber(detail.Rate),
-              Amount: toNumber(detail.Amount),
-              LocalAmount: toNumber(detail.LocalAmount),
-            });
-          }
+    if (detail.VoucherDetailSid) {
+      if (detail.CostRevenueChargesSid) {
+        updatedCostRevenueRateMap.set(Number(detail.CostRevenueChargesSid), {
+          Rate: toNumber(detail.Rate),
+          Amount: toNumber(detail.Amount),
+          LocalAmount: toNumber(detail.LocalAmount),
+        });
+      }
+      if (detail.BookingRateSid) {
+        updatedBookingRateMap.set(Number(detail.BookingRateSid), {
+          Rate: toNumber(detail.Rate),
+          Amount: toNumber(detail.Amount),
+          LocalAmount: toNumber(detail.LocalAmount),
+        });
+      }
+    } else {
+      if (detail.CostRevenueChargesSid) newCostRevenueSids.add(Number(detail.CostRevenueChargesSid));
+      if (detail.BookingRateSid) newBookingRateSids.add(Number(detail.BookingRateSid));
+    }
     if (detail.VoucherDetailSid) {
       // -------------------------------
       // UPDATE EXISTING RECORD
@@ -795,35 +733,48 @@ if (detail.CostRevenueChargesSid) {
     }
   }
 
-        // 5️⃣ Sync rates back to CostRevenueCharges (skip when posting)
-        if (payload.PostStatus !== 'P' && costRevenueRateMap.size > 0) {
-          const voucherTypeMaster = await prisma.voucherTypeMaster.findFirst({
-            where: { VoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid }
-          });
+        // 5️⃣ New details: link VoucherHeaderSid to CostRevenueCharges / BookingRates
+        if (payload.PostStatus !== 'P') {
+          for (const sid of newCostRevenueSids) {
+            await prisma.costRevenueCharges.update({
+              where: { CostRevenueChargesSid: sid },
+              data: {
+                RevenueVoucherHeaderSid: VoucherHeaderSid,
+                RevenueVoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid,
+                updatedOn: new Date(),
+                updatedBy: payload.UpdatedBy,
+              },
+            });
+          }
+          for (const sid of newBookingRateSids) {
+            await prisma.bookingRates.update({
+              where: { BookingRatesSid: sid },
+              data: {
+                RevenueVoucherHeaderSid: VoucherHeaderSid,
+                RevenueVoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid,
+                UpdatedOn: new Date(),
+                UpdatedBy: payload.UpdatedBy,
+              },
+            });
+          }
+        }
 
+        // 6️⃣ Updated details: sync Rate/Amount/LocalAmount only if changed
+        if (payload.PostStatus !== 'P' && updatedCostRevenueRateMap.size > 0) {
           const existingCharges = await prisma.costRevenueCharges.findMany({
-            where: { CostRevenueChargesSid: { in: [...costRevenueRateMap.keys()] } },
-            select: {
-              CostRevenueChargesSid: true,
-              RevenueRate: true,
-              RevenueAmount: true,
-              RevenueLocalAmount: true,
-            },
+            where: { CostRevenueChargesSid: { in: [...updatedCostRevenueRateMap.keys()] } },
+            select: { CostRevenueChargesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
           });
-
           for (const cur of existingCharges) {
-            const inc = costRevenueRateMap.get(cur.CostRevenueChargesSid)!;
+            const inc = updatedCostRevenueRateMap.get(cur.CostRevenueChargesSid)!;
             const changed =
               toNumber(cur.RevenueRate) !== inc.Rate ||
               toNumber(cur.RevenueAmount) !== inc.Amount ||
               toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-
             if (changed) {
               await prisma.costRevenueCharges.update({
                 where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
                 data: {
-                  RevenueVoucherHeaderSid: VoucherHeaderSid,
-                  RevenueVoucherTypeMasterSid: voucherTypeMaster?.VoucherTypeMasterSid,
                   RevenueRate: inc.Rate,
                   RevenueAmount: inc.Amount,
                   RevenueLocalAmount: inc.LocalAmount,
@@ -835,35 +786,21 @@ if (detail.CostRevenueChargesSid) {
           }
         }
 
-        // 6️⃣ Sync rates back to BookingRates (skip when posting)
-        if (payload.PostStatus !== 'P' && bookingRateMap.size > 0) {
-          const voucherTypeMasterForBooking = await prisma.voucherTypeMaster.findFirst({
-            where: { VoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid }
-          });
-
+        if (payload.PostStatus !== 'P' && updatedBookingRateMap.size > 0) {
           const existingRates = await prisma.bookingRates.findMany({
-            where: { BookingRatesSid: { in: [...bookingRateMap.keys()] } },
-            select: {
-              BookingRatesSid: true,
-              RevenueRate: true,
-              RevenueAmount: true,
-              RevenueLocalAmount: true,
-            },
+            where: { BookingRatesSid: { in: [...updatedBookingRateMap.keys()] } },
+            select: { BookingRatesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
           });
-
           for (const cur of existingRates) {
-            const inc = bookingRateMap.get(cur.BookingRatesSid)!;
+            const inc = updatedBookingRateMap.get(cur.BookingRatesSid)!;
             const changed =
               toNumber(cur.RevenueRate) !== inc.Rate ||
               toNumber(cur.RevenueAmount) !== inc.Amount ||
               toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-
             if (changed) {
               await prisma.bookingRates.update({
                 where: { BookingRatesSid: cur.BookingRatesSid },
                 data: {
-                  RevenueVoucherHeaderSid: VoucherHeaderSid,
-                  RevenueVoucherTypeMasterSid: voucherTypeMasterForBooking?.VoucherTypeMasterSid,
                   RevenueRate: inc.Rate,
                   RevenueAmount: inc.Amount,
                   RevenueLocalAmount: inc.LocalAmount,

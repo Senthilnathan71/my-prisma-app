@@ -118,8 +118,8 @@ export class VendorInvoiceService {
 
                 // Create VoucherDetails
                 let totalTaxableAmount = 0;
-                const costRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
-                const bookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+                const costRevenueRateMap = new Set<number>();
+                const bookingRateMap = new Set<number>();
                 if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
                     let sno = 1;
                     for (const detail of payload.VoucherDetail) {
@@ -163,92 +163,34 @@ export class VendorInvoiceService {
                         });
 
                         totalTaxableAmount += Number(detail.TaxableAmount || detail.Amount || 0);
-                        if (detail.CostRevenueChargesSid) {
-                            costRevenueRateMap.set(Number(detail.CostRevenueChargesSid), {
-                                Rate: toNumber(detail.Rate),
-                                Amount: toNumber(detail.Amount),
-                                LocalAmount: toNumber(detail.LocalAmount),
-                            });
-                        }
-                        if (bookingRatesSid) {
-                            bookingRateMap.set(bookingRatesSid, {
-                                Rate: toNumber(detail.Rate),
-                                Amount: toNumber(detail.Amount),
-                                LocalAmount: toNumber(detail.LocalAmount),
-                            });
-                        }
+                        if (detail.CostRevenueChargesSid) costRevenueRateMap.add(Number(detail.CostRevenueChargesSid));
+                        if (bookingRatesSid) bookingRateMap.add(bookingRatesSid);
                     }
                 }
 
-                // Sync rates back to CostRevenueCharges (skip when posting)
-                if (payload.PostStatus !== 'P' && costRevenueRateMap.size > 0) {
-                    const existingCharges = await tx.costRevenueCharges.findMany({
-                        where: { CostRevenueChargesSid: { in: [...costRevenueRateMap.keys()] } },
-                        select: {
-                            CostRevenueChargesSid: true,
-                            CostRate: true,
-                            CostAmount: true,
-                            CostLocalAmount: true,
-                        },
-                    });
-
-                    for (const cur of existingCharges) {
-                        const inc = costRevenueRateMap.get(cur.CostRevenueChargesSid)!;
-                        const changed =
-                            toNumber(cur.CostRate) !== inc.Rate ||
-                            toNumber(cur.CostAmount) !== inc.Amount ||
-                            toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
-
-                        if (changed) {
-                            await tx.costRevenueCharges.update({
-                                where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
-                                data: {
-                                    CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-                                    CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                                    CostRate: inc.Rate,
-                                    CostAmount: inc.Amount,
-                                    CostLocalAmount: inc.LocalAmount,
-                                    updatedOn: new Date(),
-                                    updatedBy: payload.CreatedBy || 'System',
-                                },
-                            });
-                        }
+                // Link VoucherHeader to CostRevenueCharges / BookingRates (new detail created — skip when posting)
+                if (payload.PostStatus !== 'P') {
+                    for (const sid of costRevenueRateMap.keys()) {
+                        await tx.costRevenueCharges.update({
+                            where: { CostRevenueChargesSid: sid },
+                            data: {
+                                CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                                CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                                updatedOn: new Date(),
+                                updatedBy: payload.CreatedBy || 'System',
+                            },
+                        });
                     }
-                }
-
-                // Sync rates back to BookingRates (skip when posting)
-                if (payload.PostStatus !== 'P' && bookingRateMap.size > 0) {
-                    const existingRates = await tx.bookingRates.findMany({
-                        where: { BookingRatesSid: { in: [...bookingRateMap.keys()] } },
-                        select: {
-                            BookingRatesSid: true,
-                            CostRate: true,
-                            CostAmount: true,
-                            CostLocalAmount: true,
-                        },
-                    });
-
-                    for (const cur of existingRates) {
-                        const inc = bookingRateMap.get(cur.BookingRatesSid)!;
-                        const changed =
-                            toNumber(cur.CostRate) !== inc.Rate ||
-                            toNumber(cur.CostAmount) !== inc.Amount ||
-                            toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
-
-                        if (changed) {
-                            await tx.bookingRates.update({
-                                where: { BookingRatesSid: cur.BookingRatesSid },
-                                data: {
-                                    CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
-                                    CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                                    CostRate: inc.Rate,
-                                    CostAmount: inc.Amount,
-                                    CostLocalAmount: inc.LocalAmount,
-                                    UpdatedOn: new Date(),
-                                    UpdatedBy: payload.CreatedBy || 'System',
-                                },
-                            });
-                        }
+                    for (const sid of bookingRateMap.keys()) {
+                        await tx.bookingRates.update({
+                            where: { BookingRatesSid: sid },
+                            data: {
+                                CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                                CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                                UpdatedOn: new Date(),
+                                UpdatedBy: payload.CreatedBy || 'System',
+                            },
+                        });
                     }
                 }
 
@@ -581,9 +523,11 @@ export class VendorInvoiceService {
                         data: { Status: 'D' }
                     });
 
-                    // Create new details
-                    const costRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
-                    const bookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+                    // new details → link VoucherHeaderSid; updated details → check rate changes
+                    const newCostRevenueSids = new Set<number>();
+                    const newBookingRateSids = new Set<number>();
+                    const updatedCostRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+                    const updatedBookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
                     let sno = 1;
                     for (const detail of payload.VoucherDetail) {
         if (detail.VoucherDetailSid) {
@@ -663,52 +607,70 @@ export class VendorInvoiceService {
                 }
             });
         }
-        if (detail.CostRevenueChargesSid) {
-            costRevenueRateMap.set(Number(detail.CostRevenueChargesSid), {
-                Rate: toNumber(detail.Rate),
-                Amount: toNumber(detail.Amount),
-                LocalAmount: toNumber(detail.LocalAmount),
-            });
-        }
         const bookingRatesSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : detail.BookingRateSid ? Number(detail.BookingRateSid) : null;
-        if (bookingRatesSid) {
-            bookingRateMap.set(bookingRatesSid, {
-                Rate: toNumber(detail.Rate),
-                Amount: toNumber(detail.Amount),
-                LocalAmount: toNumber(detail.LocalAmount),
-            });
+        if (detail.VoucherDetailSid) {
+            if (detail.CostRevenueChargesSid) {
+                updatedCostRevenueRateMap.set(Number(detail.CostRevenueChargesSid), {
+                    Rate: toNumber(detail.Rate),
+                    Amount: toNumber(detail.Amount),
+                    LocalAmount: toNumber(detail.LocalAmount),
+                });
+            }
+            if (bookingRatesSid) {
+                updatedBookingRateMap.set(bookingRatesSid, {
+                    Rate: toNumber(detail.Rate),
+                    Amount: toNumber(detail.Amount),
+                    LocalAmount: toNumber(detail.LocalAmount),
+                });
+            }
+        } else {
+            if (detail.CostRevenueChargesSid) newCostRevenueSids.add(Number(detail.CostRevenueChargesSid));
+            if (bookingRatesSid) newBookingRateSids.add(bookingRatesSid);
         }
     }
 
-                    // Sync rates back to CostRevenueCharges (skip when posting)
-                    if (payload.PostStatus !== 'P' && costRevenueRateMap.size > 0) {
-                        const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
-                            where: { VoucherTypeMasterSid: existing.VoucherTypeMasterSid }
-                        });
+                    // New details: link VoucherHeaderSid to CostRevenueCharges / BookingRates
+                    if (payload.PostStatus !== 'P') {
+                        for (const sid of newCostRevenueSids) {
+                            await tx.costRevenueCharges.update({
+                                where: { CostRevenueChargesSid: sid },
+                                data: {
+                                    CostVoucherHeaderSid: VoucherHeaderSid,
+                                    CostVoucherTypeMasterSid: existing.VoucherTypeMasterSid,
+                                    updatedOn: new Date(),
+                                    updatedBy: payload.UpdatedBy || 'System',
+                                },
+                            });
+                        }
+                        for (const sid of newBookingRateSids) {
+                            await tx.bookingRates.update({
+                                where: { BookingRatesSid: sid },
+                                data: {
+                                    CostVoucherHeaderSid: VoucherHeaderSid,
+                                    CostVoucherTypeMasterSid: existing.VoucherTypeMasterSid,
+                                    UpdatedOn: new Date(),
+                                    UpdatedBy: payload.UpdatedBy || 'System',
+                                },
+                            });
+                        }
+                    }
 
+                    // Updated details: sync Rate/Amount/LocalAmount only if changed
+                    if (payload.PostStatus !== 'P' && updatedCostRevenueRateMap.size > 0) {
                         const existingCharges = await tx.costRevenueCharges.findMany({
-                            where: { CostRevenueChargesSid: { in: [...costRevenueRateMap.keys()] } },
-                            select: {
-                                CostRevenueChargesSid: true,
-                                CostRate: true,
-                                CostAmount: true,
-                                CostLocalAmount: true,
-                            },
+                            where: { CostRevenueChargesSid: { in: [...updatedCostRevenueRateMap.keys()] } },
+                            select: { CostRevenueChargesSid: true, CostRate: true, CostAmount: true, CostLocalAmount: true },
                         });
-
                         for (const cur of existingCharges) {
-                            const inc = costRevenueRateMap.get(cur.CostRevenueChargesSid)!;
+                            const inc = updatedCostRevenueRateMap.get(cur.CostRevenueChargesSid)!;
                             const changed =
                                 toNumber(cur.CostRate) !== inc.Rate ||
                                 toNumber(cur.CostAmount) !== inc.Amount ||
                                 toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
-
                             if (changed) {
                                 await tx.costRevenueCharges.update({
                                     where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
                                     data: {
-                                        CostVoucherHeaderSid: VoucherHeaderSid,
-                                        CostVoucherTypeMasterSid: voucherTypeMaster?.VoucherTypeMasterSid,
                                         CostRate: inc.Rate,
                                         CostAmount: inc.Amount,
                                         CostLocalAmount: inc.LocalAmount,
@@ -720,35 +682,21 @@ export class VendorInvoiceService {
                         }
                     }
 
-                    // Sync rates back to BookingRates (skip when posting)
-                    if (payload.PostStatus !== 'P' && bookingRateMap.size > 0) {
-                        const voucherTypeMasterForBooking = await tx.voucherTypeMaster.findFirst({
-                            where: { VoucherTypeMasterSid: existing.VoucherTypeMasterSid }
-                        });
-
+                    if (payload.PostStatus !== 'P' && updatedBookingRateMap.size > 0) {
                         const existingRates = await tx.bookingRates.findMany({
-                            where: { BookingRatesSid: { in: [...bookingRateMap.keys()] } },
-                            select: {
-                                BookingRatesSid: true,
-                                CostRate: true,
-                                CostAmount: true,
-                                CostLocalAmount: true,
-                            },
+                            where: { BookingRatesSid: { in: [...updatedBookingRateMap.keys()] } },
+                            select: { BookingRatesSid: true, CostRate: true, CostAmount: true, CostLocalAmount: true },
                         });
-
                         for (const cur of existingRates) {
-                            const inc = bookingRateMap.get(cur.BookingRatesSid)!;
+                            const inc = updatedBookingRateMap.get(cur.BookingRatesSid)!;
                             const changed =
                                 toNumber(cur.CostRate) !== inc.Rate ||
                                 toNumber(cur.CostAmount) !== inc.Amount ||
                                 toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
-
                             if (changed) {
                                 await tx.bookingRates.update({
                                     where: { BookingRatesSid: cur.BookingRatesSid },
                                     data: {
-                                        CostVoucherHeaderSid: VoucherHeaderSid,
-                                        CostVoucherTypeMasterSid: voucherTypeMasterForBooking?.VoucherTypeMasterSid,
                                         CostRate: inc.Rate,
                                         CostAmount: inc.Amount,
                                         CostLocalAmount: inc.LocalAmount,

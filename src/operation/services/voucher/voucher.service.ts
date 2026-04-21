@@ -8,7 +8,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 'src/accounts/dto/voucher.dto';
-import { roundAmount, toNumber } from 'src/common/helper';
+import { roundAmount } from 'src/common/helper';
 
 interface InvoiceHeaderDTO {
     currencyMasterSid?: number;
@@ -1122,115 +1122,58 @@ export class VoucherService {
                     const isInvoice = payload.VoucherType === DOC_TYPE_CODE.INVOICE;
                     const updatedBy = createdVoucherHeader.CreatedBy || createdVoucherHeader.UpdatedBy;
                     if(payload.isBookingScreen){
-                        // Build rateMap: BookingRatesSid → { Rate, Amount, LocalAmount }
-                        const rateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+                        const rateMap = new Set<number>();
                         for (const detail of allDetails) {
-                            const sid = detail.BookingRatesSid ?? null;
-                            if (sid) {
-                                rateMap.set(Number(sid), {
-                                    Rate: toNumber(detail.Rate),
-                                    Amount: toNumber(detail.Amount),
-                                    LocalAmount: toNumber(detail.LocalAmount),
-                                });
-                            }
+                            if (detail.BookingRatesSid) rateMap.add(Number(detail.BookingRatesSid));
                         }
                         if (rateMap.size > 0) {
-                            const existing = await prisma.bookingRates.findMany({
-                                where: { BookingRatesSid: { in: [...rateMap.keys()] } },
-                                select: {
-                                    BookingRatesSid: true,
-                                    RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true,
-                                    CostRate: true, CostAmount: true, CostLocalAmount: true,
-                                },
-                            });
-                            for (const cur of existing) {
-                                const inc = rateMap.get(cur.BookingRatesSid)!;
+                            for (const sid of rateMap.keys()) {
                                 if (isInvoice) {
-                                    const changed = toNumber(cur.RevenueRate) !== inc.Rate || toNumber(cur.RevenueAmount) !== inc.Amount || toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-                                    if (changed) {
-                                        await prisma.bookingRates.update({
-                                            where: { BookingRatesSid: cur.BookingRatesSid },
-                                            data: {
-                                                RevenueVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
-                                                RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                                                RevenueRate: inc.Rate,
-                                                RevenueAmount: inc.Amount,
-                                                RevenueLocalAmount: inc.LocalAmount,
-                                                UpdatedBy: updatedBy,
-                                            },
-                                        });
-                                    }
+                                    await prisma.bookingRates.update({
+                                        where: { BookingRatesSid: sid },
+                                        data: {
+                                            RevenueVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
+                                            RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                                            UpdatedBy: updatedBy,
+                                        },
+                                    });
                                 } else {
-                                    const changed = toNumber(cur.CostRate) !== inc.Rate || toNumber(cur.CostAmount) !== inc.Amount || toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
-                                    if (changed) {
-                                        await prisma.bookingRates.update({
-                                            where: { BookingRatesSid: cur.BookingRatesSid },
-                                            data: {
-                                                CostVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
-                                                CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                                                CostRate: inc.Rate,
-                                                CostAmount: inc.Amount,
-                                                CostLocalAmount: inc.LocalAmount,
-                                                UpdatedBy: updatedBy,
-                                            },
-                                        });
-                                    }
+                                    await prisma.bookingRates.update({
+                                        where: { BookingRatesSid: sid },
+                                        data: {
+                                            CostVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
+                                            CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                                            UpdatedBy: updatedBy,
+                                        },
+                                    });
                                 }
                             }
                         }
                     } else {
-                        // Build rateMap: CostRevenueChargesSid → { Rate, Amount, LocalAmount }
-                        const rateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+                        const rateMap = new Set<number>();
                         for (const detail of allDetails) {
-                            if (detail.CostRevenueChargesSid) {
-                                rateMap.set(Number(detail.CostRevenueChargesSid), {
-                                    Rate: toNumber(detail.Rate),
-                                    Amount: toNumber(detail.Amount),
-                                    LocalAmount: toNumber(detail.LocalAmount),
-                                });
-                            }
+                            if (detail.CostRevenueChargesSid) rateMap.add(Number(detail.CostRevenueChargesSid));
                         }
                         if (rateMap.size > 0) {
-                            const existing = await prisma.costRevenueCharges.findMany({
-                                where: { CostRevenueChargesSid: { in: [...rateMap.keys()] } },
-                                select: {
-                                    CostRevenueChargesSid: true,
-                                    RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true,
-                                    CostRate: true, CostAmount: true, CostLocalAmount: true,
-                                },
-                            });
-                            for (const cur of existing) {
-                                const inc = rateMap.get(cur.CostRevenueChargesSid)!;
+                            for (const sid of rateMap.keys()) {
                                 if (isInvoice) {
-                                    const changed = toNumber(cur.RevenueRate) !== inc.Rate || toNumber(cur.RevenueAmount) !== inc.Amount || toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-                                    if (changed) {
-                                        await prisma.costRevenueCharges.update({
-                                            where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
-                                            data: {
-                                                RevenueVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
-                                                RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                                                RevenueRate: inc.Rate,
-                                                RevenueAmount: inc.Amount,
-                                                RevenueLocalAmount: inc.LocalAmount,
-                                                updatedBy,
-                                            },
-                                        });
-                                    }
+                                    await prisma.costRevenueCharges.update({
+                                        where: { CostRevenueChargesSid: sid },
+                                        data: {
+                                            RevenueVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
+                                            RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                                            updatedBy,
+                                        },
+                                    });
                                 } else {
-                                    const changed = toNumber(cur.CostRate) !== inc.Rate || toNumber(cur.CostAmount) !== inc.Amount || toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
-                                    if (changed) {
-                                        await prisma.costRevenueCharges.update({
-                                            where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
-                                            data: {
-                                                CostVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
-                                                CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
-                                                CostRate: inc.Rate,
-                                                CostAmount: inc.Amount,
-                                                CostLocalAmount: inc.LocalAmount,
-                                                updatedBy,
-                                            },
-                                        });
-                                    }
+                                    await prisma.costRevenueCharges.update({
+                                        where: { CostRevenueChargesSid: sid },
+                                        data: {
+                                            CostVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
+                                            CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                                            updatedBy,
+                                        },
+                                    });
                                 }
                             }
                         }
