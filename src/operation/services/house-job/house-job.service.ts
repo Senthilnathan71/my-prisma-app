@@ -764,6 +764,7 @@ export class HouseJobService {
 
                 const finalHouseJobProxy = await this.syncHouseJobProxy(
                     prisma,
+                    HouseJobSid,
                     payload,
                     payload.createdBy || payload.updatedBy || '',
                     payload.updatedBy ?? null,
