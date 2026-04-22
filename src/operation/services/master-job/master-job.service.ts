@@ -3121,7 +3121,7 @@ if (houseJobsForBookingSync.length > 0) {
         const isNumeric = !isNaN(Number(search)) && search.trim() !== '';
 
         // Build dynamic WHERE conditions
-        let whereConditions = [`mj."Status" = 'A'`];
+        let whereConditions = [`mj."Status" IN ('A','S')`];
         let params_array: any[] = [activeCompanyId, activeBranchId, MenuMasterSid];
         let paramIndex = 4;
 

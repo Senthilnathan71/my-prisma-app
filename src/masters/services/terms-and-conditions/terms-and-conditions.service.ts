@@ -612,124 +612,53 @@ export class TermsAndConditionsService {
 
         return await this._db.$transaction(async (tx) => {
 
-            // ✅ Normalize POL/POD (handles string or array)
-            const formattedPOL = Array.isArray(POL)
-                ? POL.map(String).sort()
-                : POL ? [String(POL)] : [];
-
-            const formattedPOD = Array.isArray(POD)
-                ? POD.map(String).sort()
-                : POD ? [String(POD)] : [];
-
-            // ✅ Normalize department
-            const inputDepartments = DepartmentMasterSid
-                ? [Number(DepartmentMasterSid)]
-                : [];
-
-            // 🔎 Find matching masters
-            const existingMasters = await tx.termsAndConditionsMaster.findMany({
-                where: {
-                    OR: [
-                        { CompanyMasterSid: Number(CompanyMasterSid) },
-                        { CompanyMasterSid: null }
-                    ],
-                    BranchMasterSid: Number(BranchMasterSid),
-                    MenuMasterSid: Number(MenuMasterSid),
-                    Carrier: Carrier ?? null,
-                    status: 'A',
-                    POL: { equals: formattedPOL },
-                    POD: { equals: formattedPOD }
-                },
-                include: {
-                    departments: {
-                        where: { status: 'A' }
-                    }
-                }
-            });
-
-            let master: any = null;
-
-            for (const record of existingMasters) {
-
-                const existingDeptIds = record.departments
-                    .map(d => Number(d.departmentId))
-                    .sort((a, b) => a - b);
-
-                const inputDeptIds = inputDepartments
-                    .map(d => Number(d))
-                    .sort((a, b) => a - b);
-
-                const isSameDepartments =
-                    existingDeptIds.length === inputDeptIds.length &&
-                    existingDeptIds.every((val, index) => val === inputDeptIds[index]);
-
-                if (isSameDepartments) {
-                    master = record;
-                    break;
-                }
-            }
-
-            // -------------------------
-            // CREATE MASTER IF NOT FOUND
-            // -------------------------
-            if (!master) {
-
-                master = await tx.termsAndConditionsMaster.create({
-                    data: {
-                        CompanyMasterSid: Number(CompanyMasterSid),
-                        BranchMasterSid: Number(BranchMasterSid),
-                        MenuMasterSid: Number(MenuMasterSid),
-                        Carrier: Carrier ?? null,
-                        POL: formattedPOL,
-                        POD: formattedPOD,
-                        createdBy,
-                        status: 'A',
-
-                        ...(DepartmentMasterSid && {
-                            departments: {
-                                create: {
-                                    departmentId: Number(DepartmentMasterSid),
-                                    status: 'A'
-                                }
-                            }
-                        })
-                    }
-                });
-
-            }
-
-            // -------------------------
-            // CREATE DETAIL
-            // -------------------------
-            const newDetail = await tx.termsAndConditionsDetail.create({
-                data: {
-                    TermsAndConditionsMasterSid:
-                        master.TermsAndConditionsMasterSid,
-                    TandC,
-                    IsDefaut,
-                    createdBy,
-                    status: 'A'
-                }
-            });
-
             // -------------------------
             // CREATE TRANSACTION
             // -------------------------
-            await tx.tandCTransaction.create({
+            const tandc = await tx.tandCTransaction.create({
                 data: {
                     CompanyMasterSid: Number(CompanyMasterSid),
-                    TandCMasterSid: master.TermsAndConditionsMasterSid,
-                    TandCDetailSid: newDetail.TermsAndConditionsDetailSid,
                     Terms: TandC,
                     DocumentSid: DocumentSid,
+                    MenuMasterSid: Number(MenuMasterSid),
                     createdBy,
                     status: 'A'
                 }
             });
 
-            return newDetail;
+            return tandc;
         });
     }
+
+    async getTandC(payload: {
+  CompanyMasterSid: number;
+  MenuMasterSid: number;
+  DocumentSid: number;
+}) {
+  try {
+    const { CompanyMasterSid, MenuMasterSid, DocumentSid } = payload;
+
+    if (!CompanyMasterSid || !MenuMasterSid || !DocumentSid) {
+      throw new BadRequestException(
+        'CompanyMasterSid, MenuMasterSid and DocumentSid are required'
+      );
+    }
+
+    return await this._db.tandCTransaction.findMany({
+      where: {
+        CompanyMasterSid: Number(CompanyMasterSid),
+        MenuMasterSid: Number(MenuMasterSid),
+        DocumentSid: Number(DocumentSid),
+        status: 'A'
+      },
+      orderBy: {
+        TandCTransactionSid: 'asc'
+      }
+    });
+  } catch (error) {
+    throw new Error(`Failed to fetch TandC transactions: ${error.message}`);
+  }
+}
 
     async getTandCByCondition(payload: TandCPayload) {
   try {
@@ -821,6 +750,7 @@ export class TermsAndConditionsService {
               CompanyMasterSid: master.CompanyMasterSid ?? 0,
               TandCMasterSid: master.TermsAndConditionsMasterSid,
               TandCDetailSid: detail.TermsAndConditionsDetailSid,
+              MenuMasterSid: master.MenuMasterSid,
               Terms: detail.TandC,
               DocumentSid: payload.DocumentSid,
               createdBy: 'system',
@@ -943,6 +873,7 @@ export class TermsAndConditionsService {
               CompanyMasterSid: master.CompanyMasterSid ?? 0,
               TandCMasterSid: master.TermsAndConditionsMasterSid,
               TandCDetailSid: detail.TermsAndConditionsDetailSid,
+              MenuMasterSid: master.MenuMasterSid,
               Terms: detail.TandC,
               DocumentSid: payload.DocumentSid,
               createdBy: 'system',
@@ -1060,6 +991,7 @@ export class TermsAndConditionsService {
             throw error;
         }
     }
+    
 }
 
 interface TandCPayload {
