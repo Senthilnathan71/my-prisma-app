@@ -146,8 +146,8 @@ export class ShippingInstructionService {
             // 4. Build the SI URL
             const siUrl = `${payload.appBaseUrl}/public/shipment-instruction?token=${token}`;
 
-            // 5. Resolve menuEmail from CustomerBrEmail
-            let menuEmail = '';
+            // 5. Resolve toEmail from CustomerBrEmail
+            let customerBrEmail = '';
             if (houseJob.CustomerBranchSid) {
                 const brEmail = await this._db.customerBrEmail.findFirst({
                     where: {
@@ -155,25 +155,25 @@ export class ShippingInstructionService {
                         status: 'A'
                     }
                 });
-                menuEmail = brEmail?.Toemail || '';
+                customerBrEmail = brEmail?.Toemail || '';
             }
-            if (!menuEmail && houseJob.CustomerMasterSid) {
+            if (!customerBrEmail && houseJob.CustomerMasterSid) {
                 const brEmail = await this._db.customerBrEmail.findFirst({
                     where: {
                         CustomerMasterSid: houseJob.CustomerMasterSid,
                         status: 'A'
                     }
                 });
-                menuEmail = brEmail?.Toemail || '';
+                customerBrEmail = brEmail?.Toemail || '';
             }
-            if (!menuEmail) {
+            if (!customerBrEmail) {
                 throw new BadRequestException('To email is not available. Please configure in Customer Branch Email.');
             }
 
             // 6. Build placeholder context (matches frontend EmailTriggerService pattern)
             const placeholderContext: { [key: string]: string } = {
-                menuEmail: menuEmail,
-                organizationEmail: menuEmail,
+                toEmail: customerBrEmail,
+                organizationEmail: customerBrEmail,
                 userEmail: payload.userEmail || '',
                 userName: payload.userName || '',
                 customerName: houseJob.CustomerName || '',
