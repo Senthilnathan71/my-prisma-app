@@ -249,6 +249,15 @@ enum UserTypeCode {
   manager
   teamLead
   user
+  salesman 
+  salesManager
   csPerson
+  csManager
+  opsPerson
+  opsManager
   docPerson
+  docManager
+  accounts
+  accountsManager
+  management
 }
