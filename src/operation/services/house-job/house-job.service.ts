@@ -65,6 +65,114 @@ export class HouseJobService {
         return Array.isArray(flatProducts) ? flatProducts : [];
     }
 
+    private getHouseJobProxyPayloads(payload: any): any[] {
+        const proxyPayload = payload?.houseJobProxy ?? payload?.proxy ?? payload?.HouseJobProxy;
+
+        if (Array.isArray(proxyPayload)) {
+            return proxyPayload;
+        }
+
+        if (proxyPayload && typeof proxyPayload === 'object') {
+            return [proxyPayload];
+        }
+
+        return [];
+    }
+
+    private buildHouseJobProxyData(proxy: any, HouseJobSid: number, createdBy: string, updatedBy?: string | null) {
+        return {
+            HouseJobSid,
+            CustomerName: proxy?.CustomerName || null,
+            CustomerAddress: proxy?.CustomerAddress || null,
+            AgentName: proxy?.AgentName || null,
+            AgentAddress: proxy?.AgentAddress || null,
+            ShipperName: proxy?.ShipperName || null,
+            ShipperAddress: proxy?.ShipperAddress || null,
+            ConsigneeName: proxy?.ConsigneeName || null,
+            ConsigneeAddress: proxy?.ConsigneeAddress || null,
+            VesselName: proxy?.VesselName || null,
+            VoyageNo: proxy?.VoyageNo || null,
+            POO: proxy?.POO || null,
+            FPD: proxy?.FPD || null,
+            CarrierName: proxy?.CarrierName || null,
+            CreatedBy: createdBy,
+            UpdatedBy: updatedBy ?? null,
+            UpdatedOn: updatedBy ? new Date() : null,
+            Status: proxy?.Status ? String(proxy.Status).charAt(0) : 'A',
+        };
+    }
+
+    private async syncHouseJobProxy(
+        prisma: any,
+        HouseJobSid: number,
+        payload: any,
+        createdBy: string,
+        updatedBy: string | null = null,
+        mode: 'create' | 'update' = 'create',
+    ) {
+        const proxyPayloads = this.getHouseJobProxyPayloads(payload);
+        const createdOrUpdatedProxy: any[] = [];
+
+        if (mode === 'update') {
+            if (proxyPayloads.length > 0) {
+                const usedProxyIds = new Set<number>();
+
+                for (const proxyPayload of proxyPayloads) {
+                    const proxyId = proxyPayload?.HouseJobProxySid ?? proxyPayload?.houseJobProxySid ?? null;
+                    const proxyData = this.buildHouseJobProxyData(proxyPayload, HouseJobSid, createdBy, updatedBy);
+                    let proxyRow;
+
+                    if (proxyId) {
+                        proxyRow = await prisma.houseJobProxy.update({
+                            where: { HouseJobProxySid: Number(proxyId) },
+                            data: proxyData,
+                        });
+                    } else {
+                        proxyRow = await prisma.houseJobProxy.create({
+                            data: proxyData,
+                        });
+                    }
+
+                    createdOrUpdatedProxy.push(proxyRow);
+                    usedProxyIds.add(proxyRow.HouseJobProxySid);
+                }
+
+                await prisma.houseJobProxy.updateMany({
+                    where: {
+                        HouseJobSid,
+                        Status: 'A',
+                        HouseJobProxySid: { notIn: Array.from(usedProxyIds) },
+                    },
+                    data: {
+                        Status: 'D',
+                        UpdatedBy: updatedBy ?? createdBy,
+                    },
+                });
+            } else {
+                await prisma.houseJobProxy.updateMany({
+                    where: {
+                        HouseJobSid,
+                        Status: 'A',
+                    },
+                    data: {
+                        Status: 'D',
+                        UpdatedBy: updatedBy ?? createdBy,
+                    },
+                });
+            }
+        } else {
+            for (const proxyPayload of proxyPayloads) {
+                const proxyData = this.buildHouseJobProxyData(proxyPayload, HouseJobSid, createdBy, updatedBy);
+                const proxyRow = await prisma.houseJobProxy.create({
+                    data: proxyData,
+                });
+                createdOrUpdatedProxy.push(proxyRow);
+            }
+        }
+
+        return createdOrUpdatedProxy;
+    }
+
     private buildHouseJobCargoData(cargoPayload: any, payload: any, HouseJobSid: number, createdBy: string, updatedBy?: string | null) {
         return {
             HouseJobSid,
@@ -654,6 +762,14 @@ export class HouseJobService {
                     });
                 }
 
+                const finalHouseJobProxy = await this.syncHouseJobProxy(
+                    prisma,
+                    payload,
+                    payload.createdBy || payload.updatedBy || '',
+                    payload.updatedBy ?? null,
+                    'create',
+                );
+
                 // Create Cost Revenue Charges
                 const finalCharges: any[] = [];
                 const allCostRevenueCharges = payload?.bookingRates || payload?.costRevenueCharges || [];
@@ -870,6 +986,7 @@ export class HouseJobService {
                     houseJobProduct: finalHouseJobProduct,
                     houseConnections: finalHouseConnections,
                     houseJobOthers: finalHouseJobOthers,
+                    houseJobProxy: finalHouseJobProxy,
                     houseJobBOE: finalHouseJobBOE,
                     houseJobVehicle: finalHouseJobVehicle,
                     houseJobCustoms: finalHouseJobCustoms,
@@ -924,6 +1041,9 @@ export class HouseJobService {
                     },
                     Others: {
                         where: { status: 'A' }
+                    },
+                    HouseJobProxy: {
+                        where: { Status: 'A' }
                     },
                     Products: {
                         where: { status: 'A' },
@@ -1409,6 +1529,15 @@ export class HouseJobService {
 
                 })
             }
+
+            const finalHouseJobProxy = await this.syncHouseJobProxy(
+                this._db,
+                HouseJobSid,
+                payload,
+                payload.updatedBy || payload.createdBy || '',
+                payload.updatedBy ?? null,
+                'update',
+            );
             const finalCharges: any[] = [];
             const allCostRevenueCharges = payload?.bookingRates || payload?.costRevenueCharges || [];
 
@@ -1798,6 +1927,7 @@ export class HouseJobService {
                 houseJobProduct: [],
                 houseConnections: finalHouseConnections,
                 houseJobOthers: finalHouseJobOthers,
+                houseJobProxy: finalHouseJobProxy,
                 houseJobBOE: finalHouseJobBOE,
                 houseJobVehicle: finalHouseJobVehicle,
                 houseJobCustoms: finalHouseJobCustoms,
@@ -1816,7 +1946,8 @@ export class HouseJobService {
         Cargo: { where: { status: 'A' } },
         Products: { where: { status: 'A' } },
         Others: { where: { status: 'A' } },
-        Connections: { where: { status: 'A' } }
+        Connections: { where: { status: 'A' } },
+        HouseJobProxy: { where: { Status: 'A' } }
     };
 
     private async enrichWithVoyageDetails(houseJob: any) {
