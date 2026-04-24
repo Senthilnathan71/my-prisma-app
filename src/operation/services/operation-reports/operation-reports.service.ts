@@ -391,6 +391,7 @@ export class OperationReportsService {
                 include: {
                   containerType: {
                     select: {
+                      ContainerTypeMasterSid: true,
                       ContainerSize: true,
                       NoOfTeu: true,
                       ContainerName: true,
@@ -416,11 +417,11 @@ export class OperationReportsService {
 
       const portCodes = new Set<string>();
 
-      houseJobData.forEach((mj) => {
-        if (mj.POL) portCodes.add(mj.POL);
-        if (mj.POD) portCodes.add(mj.POD);
-        if (mj.FPD) portCodes.add(mj.FPD);
-        if (mj.POO) portCodes.add(mj.POO);
+      houseJobData.forEach((hj) => {
+        if (hj.POL) portCodes.add(hj.POL);
+        if (hj.POD) portCodes.add(hj.POD);
+        if (hj.FPD) portCodes.add(hj.FPD);
+        if (hj.POO) portCodes.add(hj.POO);
       });
 
       const ports = await this._db.portMaster.findMany({
@@ -437,60 +438,128 @@ export class OperationReportsService {
         ports.map((port) => [port.PortCode, port.PortName]),
       );
 
-      const containerSize = ["20'", "40'", "45'"];
 
-      const data = houseJobData.map((mj) => {
-        const type = mj.DestinationAgent ? 'Agent' : null;
+      const data = houseJobData.map((hj) => {
+        const type = hj.DestinationAgent ? 'Agent' : null;
 
         const localShipmentVol =
-          mj.JobType === 'Import' || mj.JobType === 'Export'
-            ? mj.Cargo?.reduce(
+          hj.JobType === 'Import' || hj.JobType === 'Export'
+            ? hj.Cargo?.reduce(
                 (sum, cargo) => sum + Number(cargo.Volume || 0),
                 0,
               )
             : 0;
 
         const transhipmentVol =
-          mj.JobType === 'Transhipment'
-            ? mj.Cargo?.reduce(
+          hj.JobType === 'Transhipment'
+            ? hj.Cargo?.reduce(
                 (sum, cargo) => sum + Number(cargo.Volume || 0),
                 0,
               )
             : 0;
 
-        const houseProducts = mj.Products;
-        const allContainers = mj.masterJob?.containers || [];
+        const houseProducts = hj.Products;
+        const allContainers = hj.masterJob?.containers || [];
 
         let totalNoOfTEU = 0;
         let numberOfTwentyFt = 0;
         let numberOfFourtyFt = 0;
         let numberOfFortyFive = 0;
-        let containerInfo: any[] = [];
+        let containerMap = 
+          new Map<number,{
+            ContainerNumber:string,
+            ContainerName :string, 
+            ContainerSize : number,
+            NoOfTeu:number
+          }>();
+
         houseProducts.forEach((hp) => {
+
+          const getContainerSize = (size:string) => {
+            if(size.includes('20')) return 20;
+            if(size.includes('40')) return 40;
+            if(size.includes('45')) return 45;
+            return 0;
+          }
+
           const ourMJContainer = allContainers.find(
             (mc) => mc.MasterJobContainerSid === hp.MasterJobContainerSid,
           );
           const ourContainerType = ourMJContainer?.containerType;
-          containerInfo.push({
-            containerNumber: hp?.ContainerNo,
-            containerType: ourContainerType?.ContainerName,
-            NoOfTeu: toNumber(ourContainerType?.NoOfTeu),
-          });
-          totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
-          const sizeTrimmed =
-            ourContainerType?.ContainerName?.trim().toLowerCase();
-          if (sizeTrimmed?.includes('20ft')) numberOfTwentyFt++;
-          if (
-            sizeTrimmed?.includes('40ft') ||
-            sizeTrimmed?.includes('40 rf') ||
-            sizeTrimmed?.includes('40rf') ||
-            sizeTrimmed?.includes('40 flat rack') ||
-            sizeTrimmed?.includes('fotp')
-          )
-            numberOfFourtyFt++;
-          if (sizeTrimmed?.includes('45ft') || sizeTrimmed?.includes('45hc'))
-            numberOfFortyFive++;
+          
+          if(ourContainerType && ourMJContainer?.MasterJobContainerSid){
+            const alreadyExists = containerMap.has(ourMJContainer?.MasterJobContainerSid);
+
+            if(!alreadyExists)  {
+              containerMap.set(ourMJContainer?.MasterJobContainerSid,{
+                ContainerNumber:ourMJContainer?.ContainerNumber,
+                ContainerName:ourContainerType?.ContainerName,
+                ContainerSize : getContainerSize(ourContainerType?.ContainerSize),
+                NoOfTeu:toNumber(ourContainerType?.NoOfTeu)
+              })
+            }
+          }
         });
+
+        const containerUniqueInfo = Array.from(containerMap.values());
+        containerUniqueInfo.forEach((cont) => {
+          if(cont.ContainerSize === 20) numberOfTwentyFt++;
+          if(cont.ContainerSize === 40) numberOfFourtyFt++;
+          if(cont.ContainerSize === 45) numberOfFortyFive++;
+          totalNoOfTEU += cont.NoOfTeu;
+        });
+
+
+        // houseProducts.forEach((hp) => {
+
+        //   const getContainerSize = (size:string) => {
+        //     if(size.includes('20')) return 20;
+        //     if(size.includes('40')) return 40;
+        //     if(size.includes('45')) return 45;
+        //     return 0;
+        //   }
+
+        //   const ourMJContainer = allContainers.find(
+        //     (mc) => mc.MasterJobContainerSid === hp.MasterJobContainerSid,
+        //   );
+        //   const ourContainerType = ourMJContainer?.containerType;
+          
+        //   if(ourContainerType && containerMap.has(ourMJContainer?.MasterJobContainerSid)){
+        //     const prev = containerMap.get(ourMJContainer?.MasterJobContainerSid);
+
+        //     if(prev) {
+        //       containerMap.set(ourMJContainer?.MasterJobContainerSid,{
+        //         ContainerNumber:prev.ContainerNumber,
+        //         ContainerName:prev.ContainerName,
+        //         ContainerSize:prev.ContainerSize,
+        //         NoOfTeu:prev.NoOfTeu+ toNumber(ourContainerType?.NoOfTeu)
+        //       })
+        //     } else {
+        //       containerMap.set(ourMJContainer?.MasterJobContainerSid,{
+        //         ContainerNumber:ourMJContainer?.ContainerNumber,
+        //         ContainerName:ourContainerType?.ContainerName,
+        //         ContainerSize : getContainerSize(ourContainerType?.ContainerSize),
+        //         NoOfTeu:toNumber(ourContainerType?.NoOfTeu)
+        //       })
+        //     }
+            
+        //   }
+          
+        //   totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
+        //   const sizeTrimmed =
+        //     ourContainerType?.ContainerName?.trim().toLowerCase();
+        //   if (sizeTrimmed?.includes('20ft')) numberOfTwentyFt++;
+        //   if (
+        //     sizeTrimmed?.includes('40ft') ||
+        //     sizeTrimmed?.includes('40 rf') ||
+        //     sizeTrimmed?.includes('40rf') ||
+        //     sizeTrimmed?.includes('40 flat rack') ||
+        //     sizeTrimmed?.includes('fotp')
+        //   )
+        //     numberOfFourtyFt++;
+        //   if (sizeTrimmed?.includes('45ft') || sizeTrimmed?.includes('45hc'))
+        //     numberOfFortyFive++;
+        // });
 
         // const containerInfo = (mj.masterJob?.containers || [])
         //   .filter(c => houseContainerSids.includes(c.MasterJobContainerSid))
@@ -511,79 +580,77 @@ export class OperationReportsService {
         //     if (size === "45") numberofFurtyFive++;
         //   });
 
-        const polName = mj.POL ? portMap.get(mj.POL) || '' : '';
-        const podName = mj.POD ? portMap.get(mj.POD) || '' : '';
-        const fpdName = mj.FPD ? portMap.get(mj.FPD) || '' : '';
-        const pooName = mj.POO ? portMap.get(mj.POO) || '' : '';
-        const jobTypesArray = Array.isArray(mj.JobType)
-          ? mj.JobType
-          : [{ JobType: mj.JobType }];
+        const polName = hj.POL ? portMap.get(hj.POL) || '' : '';
+        const podName = hj.POD ? portMap.get(hj.POD) || '' : '';
+        const fpdName = hj.FPD ? portMap.get(hj.FPD) || '' : '';
+        const pooName = hj.POO ? portMap.get(hj.POO) || '' : '';
+        const jobTypesArray = Array.isArray(hj.JobType)
+          ? hj.JobType
+          : [{ JobType: hj.JobType }];
 
         return {
-          masterNo: mj.masterJob?.MasterJobNumber,
-          Hblno: mj.HBLNo,
-          HblDate: mj.HBLDate,
-          masterDate: mj.MBLDate,
+          masterNo: hj.masterJob?.MasterJobNumber,
+          Hblno: hj.HBLNo,
+          HblDate: hj.HBLDate,
+          masterDate: hj.MBLDate,
           department:
             departments.find(
-              (d) => d.DepartmentMasterSid === mj.DepartmentMasterSid,
+              (d) => d.DepartmentMasterSid === hj.DepartmentMasterSid,
             )?.departmentName || '',
-          CustomerName:agentMaster.find(c=>c.CustomerMasterSid === mj.CustomerMasterSid)?.CustomerName || '',
-          mblNo: mj.masterJob?.MBLNo || '',
-          vesselName: mj?.VesselName || '',
-          voyageNo: mj?.VoyageNo || '',
-          etd: mj?.ETA || '',
-          eta: mj?.ETD || '',
-          originPort: mj.POO || '',
+          CustomerName:agentMaster.find(c=>c.CustomerMasterSid === hj.CustomerMasterSid)?.CustomerName || '',
+          mblNo: hj.masterJob?.MBLNo || '',
+          vesselName: hj?.VesselName || '',
+          voyageNo: hj?.VoyageNo || '',
+          etd: hj?.ETA || '',
+          eta: hj?.ETD || '',
+          originPort: hj.POO || '',
           originPortName: pooName || '',
-          loadPort: mj.POL || '',
+          loadPort: hj.POL || '',
           loadPortName: polName,
-          dischargePort: mj.POD || '',
+          dischargePort: hj.POD || '',
           dischargePortName: podName,
-          destinationPort: mj.FPD || '',
+          destinationPort: hj.FPD || '',
           destinationPortName: fpdName,
-          carrier: mj?.CarrierName || '',
-          weight: mj.Cargo?.reduce(
+          carrier: hj?.CarrierName || '',
+          weight: hj.Cargo?.reduce(
             (sum, item) => sum + toNumber(item?.GrossWeight),
             0
           ) || 0,
-          NoofPkg: mj.Cargo?.reduce(
+          NoofPkg: hj.Cargo?.reduce(
             (sum, item) => sum + toNumber(item?.NoOfPackage),
             0
           ) || 0,
-          volume: mj.Cargo?.reduce(
+          volume: hj.Cargo?.reduce(
             (sum, item) => sum + toNumber(item?.Volume),
             0
           ) || 0,
-          Volumetric: mj.Cargo?.reduce(
+          Volumetric: hj.Cargo?.reduce(
             (sum, item) => sum + (item?.Volumetric ? Number(item.Volumetric) : 0),
             0
           ) || 0,
-          chargeable: mj.Cargo?.reduce(
+          chargeable: hj.Cargo?.reduce(
             (sum, item) => sum + toNumber(item?.ChargeableWeight),
             0
           ) || 0,
-          shipper: mj?.ShipperName || '',
-          Consignee: mj?.ConsigneeName || '',
-          Notify: mj?.Notify || '',
-          Forwarder:mj?.Others?.[0]?.Forwarder,
-          containerNoList: mj?.Products?.map((c: any) => c.ContainerNo).join(
-            ', ',
-          ),
-          // noOfContainers: mj.Cargo?.reduce((sum, cargo) => sum + (cargo.NoofContainers || 0), 0) || 0,
+          shipper: hj?.ShipperName || '',
+          Consignee: hj?.ConsigneeName || '',
+          Notify: hj?.Notify || '',
+          Forwarder:hj?.Others?.[0]?.Forwarder,
+        containerNoList: Array.from(containerMap.values()).map((c) => c.ContainerNumber).join(', '),
+          // noOfContainers: hj.Cargo?.reduce((sum, cargo) => sum + (cargo.NoofContainers || 0), 0) || 0,
           nofcontainer: numberOfFourtyFt + numberOfTwentyFt + numberOfFortyFive,
           mastercontainerSid:
-            mj?.masterJob?.containers
+            hj?.masterJob?.containers
               ?.map((c: any) => c.mastercontainerSid)
               .join(', ') || '',
           masterContanierSid:
-            mj?.masterJob?.containers?.[0]?.MasterJobContainerSid,
-          sendingAgent: mj?.AgentName,
+            hj?.masterJob?.containers?.[0]?.MasterJobContainerSid,
+          sendingAgent: hj?.AgentName,
           receivingAgent:
-            agentMaster.find((d) => d.CustomerMasterSid === mj.DestinationAgent)
+            agentMaster.find((d) => d.CustomerMasterSid === hj.DestinationAgent)
               ?.CustomerName || '',
           type,
-          containerInfo,
+          // containerInfo,
           totalNoOfTEU,
           numberOfTwentyFt,
           numberOfFourtyFt,
@@ -603,11 +670,11 @@ export class OperationReportsService {
               .length || 0),
           localShipmentVol,
           transhipmentVol,
-          houseStatus: mj?.HouseStatus,
-          Salesman: usermaster.find((d) => d.UserMasterSid === mj.SalesmanSid)?.userName || '',
-          ShipmentTerms:mj.Cargo?.[0]?.ShipmentTerms,
-          IncoTerms:mj.IncoTerms,
-          PPCC : mj.FreightTerms,
+          houseStatus: hj?.HouseStatus,
+          Salesman: usermaster.find((d) => d.UserMasterSid === hj.SalesmanSid)?.userName || '',
+          ShipmentTerms:hj.Cargo?.[0]?.ShipmentTerms,
+          IncoTerms:hj.IncoTerms,
+          PPCC : hj.FreightTerms,
         };
       });
 
@@ -620,7 +687,7 @@ export class OperationReportsService {
         departmentNames: resolvedDeptNames.join(', '),
         params,
       };
-    } catch (error) {
+    } catch (error:any) {
       this.logger.error(
         `Error generating shipment summary: ${error.message}`,
         error.stack,
@@ -2278,6 +2345,23 @@ export class OperationReportsService {
         let numberofFourtyOpen = 0;
         let numberofFourtyFiveOpen = 0;
 
+        let containerMap = new Map<
+          number,
+          {
+            ContainerNumber: string;
+            ContainerName: string;
+            ContainerSize: number;
+            NoOfTeu: number;
+          }
+        >();
+
+        const getContainerSize = (size: string) => {
+          if (size.includes('20')) return 20;
+          if (size.includes('40')) return 40;
+          if (size.includes('45')) return 45;
+          return 0;
+        };
+
         houseProducts.forEach((hp) => {
           const ourMJContainer = allContainers.find(
             (mc) => mc.MasterJobContainerSid === hp.MasterJobContainerSid,
@@ -2285,22 +2369,45 @@ export class OperationReportsService {
 
           const ourContainerType = ourMJContainer?.containerType;
 
-          containerInfo.push({
-            containerNumber: hp?.ContainerNo ?? '',
-            containerType: ourContainerType?.ContainerSize ?? '',
-          });
+          if (ourContainerType && ourMJContainer?.MasterJobContainerSid) {
+            const alreadyExists = containerMap.has(
+              ourMJContainer.MasterJobContainerSid,
+            );
 
-          totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
+            if (!alreadyExists) {
+              containerMap.set(ourMJContainer.MasterJobContainerSid, {
+                ContainerNumber: ourMJContainer.ContainerNumber,
+                ContainerName: ourContainerType.ContainerName,
+                ContainerSize: getContainerSize(
+                  ourContainerType.ContainerSize || '',
+                ),
+                NoOfTeu: toNumber(ourContainerType.NoOfTeu),
+              });
 
-          const size = ourContainerType?.ContainerName ?? '';
+              containerInfo.push({
+                containerNumber: hp?.ContainerNo ?? '',
+                containerType: ourContainerType?.ContainerSize ?? '',
+              });
+            }
+          }
+        });
 
-          if (size === '20ft Standard') numberOfTwentyFt++;
-          if (size === '40ft Container') numberOfFourtyFt++;
-          if (size === '45ft High Cube ') numberofFurtyFiveFt++;
+        const containerUniqueInfo = Array.from(containerMap.values());
+        containerUniqueInfo.forEach((cont) => {
+          totalNoOfTEU += cont.NoOfTeu;
+
+          const size = cont.ContainerName ?? '';
+
+          if (cont.ContainerSize === 20 && size === '20ft Standard')
+            numberOfTwentyFt++;
+          if (cont.ContainerSize === 40 && size === '40ft Container')
+            numberOfFourtyFt++;
+          if (cont.ContainerSize === 45) numberofFurtyFiveFt++;
           if (size === '20ft Flat Rack' || size === '20ft Reefer')
             numberOfTwentyRefer++;
           if (size === '40RF' || size === '40 Flat Rack') numberOfFourtyRefer++;
-          if (size === '40 Flat Rack') numberOfFourtyFiveRefer++;
+          if (cont.ContainerSize === 45 && size === '40 Flat Rack')
+            numberOfFourtyFiveRefer++;
           if (size === '20ft Open Top') numberofTwentyOpen++;
           if (size === '40Ft Open Top') numberofFourtyOpen++;
           if (size === '45Ft Open Top') numberofFourtyFiveOpen++;
@@ -2476,10 +2583,10 @@ export class OperationReportsService {
           ?.filter(Boolean)
           ?.join(', ') || '',
           jobType: mj.JobType,
-          containerNoList:
-            mj?.masterJob?.containers
-              ?.map((c: any) => c.ContainerNumber)
-              .join(', ') || '',
+          containerNoList: Array.from(containerMap.values())
+            .map((c) => c.ContainerNumber)
+            .filter(Boolean)
+            .join(', '),
           mastercontainerSid:
             mj?.masterJob?.containers
               ?.map((c: any) => c.mastercontainerSid)
@@ -4891,6 +4998,20 @@ export class OperationReportsService {
         let numberofFurtyFive = 0;
         const houseProducts =
           mj.houseJob?.flatMap((h) => h.Products || []) || [];
+        let containerMap = new Map<
+          number,
+          {
+            ContainerSize: number;
+            NoOfTeu: number;
+          }
+        >();
+
+        const getContainerSize = (size: string) => {
+          if (size.includes('20')) return 20;
+          if (size.includes('40')) return 40;
+          if (size.includes('45')) return 45;
+          return 0;
+        };
 
         houseProducts.forEach((hp) => {
           const ourMJContainer = allContainers.find(
@@ -4899,13 +5020,28 @@ export class OperationReportsService {
 
           const ourContainerType = ourMJContainer?.containerType;
 
-          totalNoOfTEU += toNumber(ourContainerType?.NoOfTeu);
+          if (ourContainerType && ourMJContainer?.MasterJobContainerSid) {
+            const alreadyExists = containerMap.has(
+              ourMJContainer.MasterJobContainerSid,
+            );
 
-          const size = ourContainerType?.ContainerSize;
+            if (!alreadyExists) {
+              containerMap.set(ourMJContainer.MasterJobContainerSid, {
+                ContainerSize: getContainerSize(
+                  ourContainerType.ContainerSize || '',
+                ),
+                NoOfTeu: toNumber(ourContainerType.NoOfTeu),
+              });
+            }
+          }
+        });
 
-          if (size?.includes('20')) numberOfTwentyFt++;
-          if (size?.includes('40')) numberOfFourtyFt++;
-          if (size?.includes('45')) numberofFurtyFive++;
+        const containerUniqueInfo = Array.from(containerMap.values());
+        containerUniqueInfo.forEach((cont) => {
+          if (cont.ContainerSize === 20) numberOfTwentyFt++;
+          if (cont.ContainerSize === 40) numberOfFourtyFt++;
+          if (cont.ContainerSize === 45) numberofFurtyFive++;
+          totalNoOfTEU += cont.NoOfTeu;
         });
 
         return {
@@ -5743,6 +5879,17 @@ export class OperationReportsService {
           // containers: true,
           MenuMasterSid: true,
           MasterJobSid: true,
+          houseJob: {
+            where: { status: 'A' },
+            select: {
+              Products: {
+                where: { status: 'A' },
+                select: {
+                  MasterJobContainerSid: true,
+                },
+              },
+            },
+          },
           containers: {
             where: { Status: 'A' },
             include: {
@@ -5795,11 +5942,37 @@ export class OperationReportsService {
           let numberOfTwentyFt = 0;
           containerSize.forEach((col) => (containerCountByType[col] = 0));
 
-          (m.containers || []).forEach((c) => {
-            const teu = Number(c.containerType?.NoOfTeu || 0);
-            totalNoOfTEU += teu;
+          const uniqueContainerMap = new Map<
+            number,
+            {
+              teu: number;
+              size: string;
+            }
+          >();
+          const houseProducts = m.houseJob.flatMap((h) => h.Products || []);
 
-            const size = c.containerType?.ContainerSize?.trim();
+          houseProducts.forEach((hp) => {
+            if (!hp.MasterJobContainerSid) return;
+
+            const masterContainer = (m.containers || []).find(
+              (c) => c.MasterJobContainerSid === hp.MasterJobContainerSid,
+            );
+
+            if (
+              masterContainer &&
+              !uniqueContainerMap.has(masterContainer.MasterJobContainerSid)
+            ) {
+              uniqueContainerMap.set(masterContainer.MasterJobContainerSid, {
+                teu: Number(masterContainer.containerType?.NoOfTeu || 0),
+                size: masterContainer.containerType?.ContainerSize?.trim() || '',
+              });
+            }
+          });
+
+          Array.from(uniqueContainerMap.values()).forEach((container) => {
+            totalNoOfTEU += container.teu;
+
+            const size = container.size;
 
             if (size === '20') numberOfTwentyFt++;
             if (size === '40') numberOfFourtyFt++;
