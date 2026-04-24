@@ -123,6 +123,7 @@ export class CoaService {
                     JobNoRequire : true,
                     LedgerType: true,
                     LedgerCurrency: true,
+                    SubGroupName: true,
                     HSNRequire: true,
                     Category: true,
                 },
