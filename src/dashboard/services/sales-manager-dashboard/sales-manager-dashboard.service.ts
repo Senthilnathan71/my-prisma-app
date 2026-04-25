@@ -50,16 +50,16 @@ export class SalesManagerDashboardService {
         um."UserMasterSid",
         um."userName",
         um."userEmail",
-        um."userMobileNo"
+        um."contactNumber"
       FROM "UserMaster" um
-      INNER JOIN "UserCompanyMaster" ucm
-        ON um."UserMasterSid" = ucm."UserMasterSid"
+      INNER JOIN "UserBranchMaster" ubm
+        ON um."UserMasterSid" = ubm."UserMasterSid"
       WHERE
-        ucm."CompanyMasterSid" = $1
-        AND ucm."BranchMasterSid" = $2
-        AND ucm."isSalesperson" = '1'
+        ubm."CompanyMasterSid" = $1
+        AND ubm."BranchMasterSid" = $2
+        AND um."isSalesperson" = '1'
         AND um."status" = 'A'
-        AND ucm."status" = 'A'
+        AND ubm."status" = 'A'
       ORDER BY um."userName" ASC`,
       companyMasterSid,
       branchMasterSid,
@@ -69,7 +69,7 @@ export class SalesManagerDashboardService {
       UserMasterSid: r.UserMasterSid,
       userName: r.userName,
       userEmail: r.userEmail,
-      userMobileNo: r.userMobileNo,
+      contactNumber: r.contactNumber,
       avatarColor: this.getAvatarColor(r.UserMasterSid),
     }));
   }
@@ -111,6 +111,7 @@ export class SalesManagerDashboardService {
           AND pcm."status" = 'A'
           AND pcm."CompanyMasterSid" = $1
           AND pcm."BranchMasterSid" = $2
+          AND ($3::int IS NULL OR TRUE)
           AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
           AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
           AND ($6::text IS NULL OR pcm."createdBy" = $6)`,
@@ -357,9 +358,9 @@ export class SalesManagerDashboardService {
           ) AS "quoteApproved",
           (SELECT COUNT(*) FROM "BookingHeader" bh
             WHERE bh."status" = 'A' AND bh."CompanyMasterSid" = $1 AND bh."BranchMasterSid" = $2
-            AND ($3::int IS NULL OR bh."SalesPersonSid" = $3)
-            AND ($4::date IS NULL OR bh."BookingDate" >= $4::date)
-            AND ($5::date IS NULL OR bh."BookingDate" <= $5::date)
+            AND ($3::int IS NULL OR bh."SalesmanSid" = $3)
+            AND ($4::date IS NULL OR bh."BookingDateTime" >= $4::date)
+            AND ($5::date IS NULL OR bh."BookingDateTime" <= $5::date)
           ) AS "bookingCreated"`,
         companyMasterSid,
         branchMasterSid,
@@ -468,9 +469,9 @@ export class SalesManagerDashboardService {
       `WITH salespersons AS (
         SELECT um."UserMasterSid", um."userName", um."userEmail"
         FROM "UserMaster" um
-        INNER JOIN "UserCompanyMaster" ucm ON um."UserMasterSid" = ucm."UserMasterSid"
-        WHERE ucm."CompanyMasterSid" = $1 AND ucm."BranchMasterSid" = $2
-          AND ucm."isSalesperson" = '1' AND um."status" = 'A' AND ucm."status" = 'A'
+        INNER JOIN "UserBranchMaster" ubm ON um."UserMasterSid" = ubm."UserMasterSid"
+        WHERE ubm."CompanyMasterSid" = $1 AND ubm."BranchMasterSid" = $2
+          AND um."isSalesperson" = '1' AND um."status" = 'A' AND ubm."status" = 'A'
       ),
       s1 AS (
         SELECT pcm."createdBy" AS email, COUNT(*) AS cnt
@@ -703,9 +704,9 @@ export class SalesManagerDashboardService {
       `WITH salespersons AS (
         SELECT um."UserMasterSid", um."userName", um."userEmail"
         FROM "UserMaster" um
-        INNER JOIN "UserCompanyMaster" ucm ON um."UserMasterSid" = ucm."UserMasterSid"
-        WHERE ucm."CompanyMasterSid" = $1 AND ucm."BranchMasterSid" = $2
-          AND ucm."isSalesperson" = '1' AND um."status" = 'A' AND ucm."status" = 'A'
+        INNER JOIN "UserBranchMaster" ubm ON um."UserMasterSid" = ubm."UserMasterSid"
+        WHERE ubm."CompanyMasterSid" = $1 AND ubm."BranchMasterSid" = $2
+          AND um."isSalesperson" = '1' AND um."status" = 'A' AND ubm."status" = 'A'
       ),
       lead_to_meeting AS (
         SELECT
@@ -815,7 +816,7 @@ export class SalesManagerDashboardService {
           bh."BookingNo" AS "details"
         FROM "BookingHeader" bh
         LEFT JOIN "CustomerMaster" cm ON bh."CustomerMasterSid" = cm."CustomerMasterSid"
-        LEFT JOIN "UserMaster" um ON bh."SalesPersonSid" = um."UserMasterSid"
+        LEFT JOIN "UserMaster" um ON bh."SalesmanSid" = um."UserMasterSid"
         WHERE bh."status" = 'A'
           AND bh."CompanyMasterSid" = $1 AND bh."BranchMasterSid" = $2
           AND bh."createdOn" IS NOT NULL
@@ -987,9 +988,9 @@ export class SalesManagerDashboardService {
       `WITH salespersons AS (
         SELECT um."UserMasterSid", um."userName", um."userEmail"
         FROM "UserMaster" um
-        INNER JOIN "UserCompanyMaster" ucm ON um."UserMasterSid" = ucm."UserMasterSid"
-        WHERE ucm."CompanyMasterSid" = $1 AND ucm."BranchMasterSid" = $2
-          AND ucm."isSalesperson" = '1' AND um."status" = 'A' AND ucm."status" = 'A'
+        INNER JOIN "UserBranchMaster" ubm ON um."UserMasterSid" = ubm."UserMasterSid"
+        WHERE ubm."CompanyMasterSid" = $1 AND ubm."BranchMasterSid" = $2
+          AND um."isSalesperson" = '1' AND um."status" = 'A' AND ubm."status" = 'A'
       )
       SELECT
         sp."userName",

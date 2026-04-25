@@ -21,6 +21,7 @@ export class UserService {
                     userPassword : true
                 },
                 include: {
+                    userType: { select : {code : true}},
                     countryMaster: {
                         include: {
                             stateMaster: {
