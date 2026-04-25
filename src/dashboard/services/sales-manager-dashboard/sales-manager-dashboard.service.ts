@@ -1083,7 +1083,7 @@ export class SalesManagerDashboardService {
         status: 'A',
       },
       include: {
-        PreCustomerMaster: true,
+        preCustomerMaster: true,
       },
     });
   }
