@@ -85,7 +85,7 @@ async update(id: number, dto: UpdateBoeDto) {
   });
 }
 
-  async remove(id: number) {
+  async remove(id: number, updatedBy: string) {
     const existing = await this.prisma.houseJobBOE.findUnique({
       where: { HouseJobBOESid: id },
     });
@@ -94,7 +94,8 @@ async update(id: number, dto: UpdateBoeDto) {
     return this.prisma.houseJobBOE.update({
       where: { HouseJobBOESid: id },
       data: {
-        Status: 'S',
+        Status: 'D',
+        UpdatedBy: updatedBy,
         UpdatedOn: new Date(),
       },
     });

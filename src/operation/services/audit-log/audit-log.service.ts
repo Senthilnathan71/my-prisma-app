@@ -407,7 +407,7 @@ export class AuditLogService {
             };
 
             const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'BookingConnectionSid',
                 'CarrierSid', 'CompanyMasterSid', 'CustomerBranchSid',
                 'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy', 'MasterNoSid', 'HouseJobSid',
                 'VoyageMasterSid', 'BookingHeaderSid', 'BranchMasterSid', 'BookingCroSid', 'AgentBranchSid'

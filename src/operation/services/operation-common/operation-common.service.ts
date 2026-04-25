@@ -437,7 +437,7 @@ export class OperationCommonService {
         }
     }
 
-    softDeleteCostRevenueCharges(CostRevenueChargesSid:number){
+    softDeleteCostRevenueCharges(CostRevenueChargesSid:number,updatedBy:string){
         try {
             return this._db.costRevenueCharges.update({
                 where : {
@@ -445,7 +445,9 @@ export class OperationCommonService {
                     status : 'A'
                 },
                 data : {
-                    status : 'D'
+                    status : 'D',
+                    updatedBy: updatedBy,
+                    updatedOn: new Date()
                 }
             })
         } catch (error) {

@@ -1924,6 +1924,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         DestinationATA: payload.DestinationATA ? new Date(payload.DestinationATA) : null,
                         CarrierName: payload.CarrierName,
                         CarrierSid: payload.CarrierSid,
+                        UpdatedBy: payload.updatedBy,
+                        UpdatedOn: new Date(),
                     }
                     finalVoyage = await prisma.masterJobVoyage.update({
                         where: {
@@ -2346,7 +2348,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 MinTemperature: customs.MinTemperature ? Number(customs.MinTemperature) : null,
                                 MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
                                 RefTemperatureUnit: customs.RefTemperatureUnit,
-                                UpdatedBy: payload.updatedBy || payload.createdBy,
+                                UpdatedBy: payload.updatedBy,
                                 UpdatedOn: new Date(),
                             };
 

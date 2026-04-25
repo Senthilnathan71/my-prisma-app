@@ -87,13 +87,14 @@ async update(id: number, dto: UpdateVehicleDto) {
   });
 }
 
-  async remove(id: number) {
+  async remove(id: number,updateBy: string) {
     await this.findOne(id);
 
     return this.prisma.houseJobVehicle.update({
       where: { HouseJobVehicleSid: id },
       data: {
         Status: 'S',
+        UpdatedBy: updateBy,
         UpdatedOn: new Date(),
       },
     });

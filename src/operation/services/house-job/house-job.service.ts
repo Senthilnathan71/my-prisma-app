@@ -2146,13 +2146,13 @@ export class HouseJobService {
             throw error;
         }
     }
-    async softDeleteHouseJobProduct(HouseJobProductSid: number) {
+    async softDeleteHouseJobProduct(HouseJobProductSid: number,updateBy: string) {
         try {
             const deletedHouseJobProduct = await this._db.houseJobProduct.update({
                 where: {
                     HouseJobProductSid: HouseJobProductSid
                 },
-                data: { status: 'D' }
+                data: { status: 'D' , updatedBy: updateBy, updatedOn: new Date() }
             })
             return deletedHouseJobProduct;
         } catch (error) {
@@ -2160,14 +2160,16 @@ export class HouseJobService {
         }
     }
 
-    async softDeleteHouseJobConnection(HouseJobConnectionSid: number) {
+    async softDeleteHouseJobConnection(HouseJobConnectionSid: number, updatedBy: string) {
         try {
             return this._db.houseJobConnection.update({
                 where: {
                     HouseJobConnectionSid: HouseJobConnectionSid
                 },
                 data: {
-                    status: "D"
+                    status: "D",
+                    updatedBy: updatedBy, 
+                    updatedOn: new Date()
                 }
             })
         } catch (error) {

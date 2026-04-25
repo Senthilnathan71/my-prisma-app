@@ -100,10 +100,11 @@ export class BoeController {
   @Delete(':id')
   @ApiOperation({ summary: 'Soft delete BOE by ID' })
   @ApiOkResponse({ description: 'BOE deleted successfully', type: ResponseData })
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string,
+  @Body('updatedBy')updatedBy: string) {
     const resp = new ResponseData();
     try {
-      const deleted = await this.boeService.remove(Number(id));
+      const deleted = await this.boeService.remove(Number(id),updatedBy);
       resp.message = 'BOE record deleted successfully';
       resp.data = deleted;
     } catch (err) {

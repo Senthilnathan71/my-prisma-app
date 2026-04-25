@@ -96,10 +96,11 @@ export class VehicleController {
   @Delete(':id')
   @ApiOperation({ summary: 'Soft delete Vehicle by ID' })
   @ApiOkResponse({ description: 'Vehicle deleted successfully', type: ResponseData })
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string,
+  @Body('updatedBy') updatedBy: string) {
     const resp = new ResponseData();
     try {
-      resp.data = await this.vehicleService.remove(Number(id));
+      resp.data = await this.vehicleService.remove(Number(id),updatedBy);
       resp.message = 'Vehicle deleted successfully';
     } catch (err) {
       resp.status = false;

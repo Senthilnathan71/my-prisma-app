@@ -172,10 +172,11 @@ export class OperationCommonController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete-cost-revenue/:CostRevenueChargesSid')
-    async softDeleteCostRevenueCharge(@Param('CostRevenueChargesSid',ParseIntPipe) CostRevenueChargesSid: number) {
+    async softDeleteCostRevenueCharge(@Param('CostRevenueChargesSid',ParseIntPipe) CostRevenueChargesSid: number,
+    @Body('updatedBy') updatedBy: string) {
         let output = new ResponseData()
         try {
-            let lookupDatas = await this.commonService.softDeleteCostRevenueCharges(CostRevenueChargesSid);
+            let lookupDatas = await this.commonService.softDeleteCostRevenueCharges(CostRevenueChargesSid,updatedBy);
             this.logger.debug(`softDeleteCostRevenueCharge: ${JSON.stringify(lookupDatas)}`)
             output.data = lookupDatas;
             output.message = "Cost Revenue Charge soft deleted successfully";

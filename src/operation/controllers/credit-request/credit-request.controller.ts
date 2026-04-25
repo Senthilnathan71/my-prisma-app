@@ -609,6 +609,7 @@ export class CreditRequestController {
   async deleteCustomerCreditRequest(
     @Param('CustomerCreditRequestSid', ParseIntPipe)
     CustomerCreditRequestSid: number,
+    @Body('updatedBy') updatedBy: string
   ) {
     const output = new ResponseData();
     this.logger.log(
@@ -617,7 +618,7 @@ export class CreditRequestController {
     try {
       const result =
         await this.creditRequestService.deleteCustomerCreditRequest(
-          CustomerCreditRequestSid,
+          CustomerCreditRequestSid, updatedBy
         );
       output.data = result;
       output.message = 'Credit request deleted successfully';
