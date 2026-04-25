@@ -9,6 +9,7 @@ import { statusWhereClause, toNumber } from 'src/common/helper';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
 export interface UninvoicedChargeForBooking {
   CompanyMasterSid: number;
@@ -28,6 +29,7 @@ export class InvoiceService {
     private logger: Logger,
     private voucherService: VoucherService,
     private voucherPeriodService: VoucherPeriodService,
+    private companyConfigService: CompanyConfigService,
   ) { }
 
   // Helper method to get CurrencyMasterSid by CurrencyCode
@@ -759,55 +761,60 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
           }
         }
 
-        // 6️⃣ Updated details: sync Rate/Amount/LocalAmount only if changed
-        if (payload.PostStatus !== 'P' && updatedCostRevenueRateMap.size > 0) {
-          const existingCharges = await prisma.costRevenueCharges.findMany({
-            where: { CostRevenueChargesSid: { in: [...updatedCostRevenueRateMap.keys()] } },
-            select: { CostRevenueChargesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
-          });
-          for (const cur of existingCharges) {
-            const inc = updatedCostRevenueRateMap.get(cur.CostRevenueChargesSid)!;
-            const changed =
-              toNumber(cur.RevenueRate) !== inc.Rate ||
-              toNumber(cur.RevenueAmount) !== inc.Amount ||
-              toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-            if (changed) {
-              await prisma.costRevenueCharges.update({
-                where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
-                data: {
-                  RevenueRate: inc.Rate,
-                  RevenueAmount: inc.Amount,
-                  RevenueLocalAmount: inc.LocalAmount,
-                  updatedOn: new Date(),
-                  updatedBy: payload.UpdatedBy,
-                },
-              });
+        // 6️⃣ Updated details: sync Rate/Amount/LocalAmount only if changed (controlled by DisableRateUpdateBack config)
+        const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
+          existingVoucher.CompanyMasterSid, 'DisableRateUpdateBack', prisma
+        );
+        if (disableRateUpdateBack !== 'Y') {
+          if (payload.PostStatus !== 'P' && updatedCostRevenueRateMap.size > 0) {
+            const existingCharges = await prisma.costRevenueCharges.findMany({
+              where: { CostRevenueChargesSid: { in: [...updatedCostRevenueRateMap.keys()] } },
+              select: { CostRevenueChargesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
+            });
+            for (const cur of existingCharges) {
+              const inc = updatedCostRevenueRateMap.get(cur.CostRevenueChargesSid)!;
+              const changed =
+                toNumber(cur.RevenueRate) !== inc.Rate ||
+                toNumber(cur.RevenueAmount) !== inc.Amount ||
+                toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
+              if (changed) {
+                await prisma.costRevenueCharges.update({
+                  where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
+                  data: {
+                    RevenueRate: inc.Rate,
+                    RevenueAmount: inc.Amount,
+                    RevenueLocalAmount: inc.LocalAmount,
+                    updatedOn: new Date(),
+                    updatedBy: payload.UpdatedBy,
+                  },
+                });
+              }
             }
           }
-        }
 
-        if (payload.PostStatus !== 'P' && updatedBookingRateMap.size > 0) {
-          const existingRates = await prisma.bookingRates.findMany({
-            where: { BookingRatesSid: { in: [...updatedBookingRateMap.keys()] } },
-            select: { BookingRatesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
-          });
-          for (const cur of existingRates) {
-            const inc = updatedBookingRateMap.get(cur.BookingRatesSid)!;
-            const changed =
-              toNumber(cur.RevenueRate) !== inc.Rate ||
-              toNumber(cur.RevenueAmount) !== inc.Amount ||
-              toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-            if (changed) {
-              await prisma.bookingRates.update({
-                where: { BookingRatesSid: cur.BookingRatesSid },
-                data: {
-                  RevenueRate: inc.Rate,
-                  RevenueAmount: inc.Amount,
-                  RevenueLocalAmount: inc.LocalAmount,
-                  UpdatedOn: new Date(),
-                  UpdatedBy: payload.UpdatedBy,
-                },
-              });
+          if (payload.PostStatus !== 'P' && updatedBookingRateMap.size > 0) {
+            const existingRates = await prisma.bookingRates.findMany({
+              where: { BookingRatesSid: { in: [...updatedBookingRateMap.keys()] } },
+              select: { BookingRatesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
+            });
+            for (const cur of existingRates) {
+              const inc = updatedBookingRateMap.get(cur.BookingRatesSid)!;
+              const changed =
+                toNumber(cur.RevenueRate) !== inc.Rate ||
+                toNumber(cur.RevenueAmount) !== inc.Amount ||
+                toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
+              if (changed) {
+                await prisma.bookingRates.update({
+                  where: { BookingRatesSid: cur.BookingRatesSid },
+                  data: {
+                    RevenueRate: inc.Rate,
+                    RevenueAmount: inc.Amount,
+                    RevenueLocalAmount: inc.LocalAmount,
+                    UpdatedOn: new Date(),
+                    UpdatedBy: payload.UpdatedBy,
+                  },
+                });
+              }
             }
           }
         }

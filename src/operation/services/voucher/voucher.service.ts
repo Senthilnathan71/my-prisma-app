@@ -2371,46 +2371,48 @@ export class VoucherService {
             }
         });
 
-        // --- Sync actual amounts back to CostRevenueCharges / BookingRates if configured ---
-        if (voucherType === DOC_TYPE_CODE.INVOICE || voucherType === DOC_TYPE_CODE.VENDOR_INVOICE) {
-            const cancelUpdate = await this.companyConfigService.getConfigurationValue(
-                companyMasterSid, 'DisableActualToProvisionalSync', tx
-            );
-            if (cancelUpdate !== 'Y') {
-                const isInvoice = voucherType === DOC_TYPE_CODE.INVOICE;
-                for (const detail of chargeLineItems) {
-                    if (!detail.CostRevenueChargesSid && !detail.BookingRatesSid) continue;
-
-                    const amountData = isInvoice
-                        ? {
-                            RevenueExchangeRate : this.toNumber(detail.ExchangeRate),
-                            RevenueRate: this.toNumber(detail.Rate),
-                            RevenueAmount: this.toNumber(detail.Amount),
-                            RevenueLocalAmount: this.toNumber(detail.LocalAmount),
-                          }
-                        : {
-                            CostExchangeRate : this.toNumber(detail.ExchangeRate),
-                            CostRate: this.toNumber(detail.Rate),
-                            CostAmount: this.toNumber(detail.Amount),
-                            CostLocalAmount: this.toNumber(detail.LocalAmount),
-                          };
-
-                    if (detail.CostRevenueChargesSid) {
-                        await tx.costRevenueCharges.update({
-                            where: { CostRevenueChargesSid: detail.CostRevenueChargesSid },
-                            data: { ...amountData, updatedOn: now, updatedBy: postedBy }
-                        });
-                    }
-
-                    if (detail.BookingRatesSid) {
-                        await tx.bookingRates.update({
-                            where: { BookingRatesSid: detail.BookingRatesSid },
-                            data: { ...amountData, UpdatedOn: now, UpdatedBy: postedBy }
-                        });
-                    }
-                }
-            }
-        }
+        // --- Sync actual amounts back to CostRevenueCharges / BookingRates ---
+        // NOTE: Rate sync during posting is now handled during voucher detail update (invoice.service / vendor-invoice.service)
+        // controlled by 'DisableRateUpdateBack' company config. This block is intentionally disabled.
+        // if (voucherType === DOC_TYPE_CODE.INVOICE || voucherType === DOC_TYPE_CODE.VENDOR_INVOICE) {
+        //     const cancelUpdate = await this.companyConfigService.getConfigurationValue(
+        //         companyMasterSid, 'DisableActualToProvisionalSync', tx
+        //     );
+        //     if (cancelUpdate !== 'Y') {
+        //         const isInvoice = voucherType === DOC_TYPE_CODE.INVOICE;
+        //         for (const detail of chargeLineItems) {
+        //             if (!detail.CostRevenueChargesSid && !detail.BookingRatesSid) continue;
+        //
+        //             const amountData = isInvoice
+        //                 ? {
+        //                     RevenueExchangeRate : this.toNumber(detail.ExchangeRate),
+        //                     RevenueRate: this.toNumber(detail.Rate),
+        //                     RevenueAmount: this.toNumber(detail.Amount),
+        //                     RevenueLocalAmount: this.toNumber(detail.LocalAmount),
+        //                   }
+        //                 : {
+        //                     CostExchangeRate : this.toNumber(detail.ExchangeRate),
+        //                     CostRate: this.toNumber(detail.Rate),
+        //                     CostAmount: this.toNumber(detail.Amount),
+        //                     CostLocalAmount: this.toNumber(detail.LocalAmount),
+        //                   };
+        //
+        //             if (detail.CostRevenueChargesSid) {
+        //                 await tx.costRevenueCharges.update({
+        //                     where: { CostRevenueChargesSid: detail.CostRevenueChargesSid },
+        //                     data: { ...amountData, updatedOn: now, updatedBy: postedBy }
+        //                 });
+        //             }
+        //
+        //             if (detail.BookingRatesSid) {
+        //                 await tx.bookingRates.update({
+        //                     where: { BookingRatesSid: detail.BookingRatesSid },
+        //                     data: { ...amountData, UpdatedOn: now, UpdatedBy: postedBy }
+        //                 });
+        //             }
+        //         }
+        //     }
+        // }
 
         this.logger.log(`Successfully posted voucher ${voucherHeaderSid}: ${transactionSids.length} transactions created`);
 

@@ -7,6 +7,7 @@ import { statusWhereClause, toNumber } from 'src/common/helper';
 import { Prisma } from '@prisma/client';
 import { MenuService } from 'src/masters/services/menu/menu.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
 @Injectable()
 export class VendorInvoiceService {
@@ -17,6 +18,7 @@ export class VendorInvoiceService {
         private readonly voucherService: VoucherService,
         private readonly voucherPeriodService: VoucherPeriodService,
         private readonly menuService: MenuService,
+        private readonly companyConfigService: CompanyConfigService,
     ) {}
 
     /**
@@ -103,6 +105,7 @@ export class VendorInvoiceService {
                         DocumentNumber: payload.BillNo || payload.DocumentNumber,
                         DocumentDate: payload.BillDate ? new Date(payload.BillDate) : null,
                         Amount: payload.BillAmt || payload.Amount,
+                        LocalAmount: payload.LocalAmount ?? 0,
                         MasterJobSid: payload.MasterJobSid,
                         HouseJobSid: payload.HouseJobSid,
                         MasterNumber: payload.MBLNo,
@@ -498,7 +501,8 @@ export class VendorInvoiceService {
                         PostStatus: payload.PostStatus,
                         DocumentNumber: payload.BillNo || payload.DocumentNumber,
                         DocumentDate: payload.BillDate ? new Date(payload.BillDate) : undefined,
-                        Amount: payload.BillAmt || payload.Amount,
+                        Amount: payload.Amount,
+                        LocalAmount: payload.LocalAmount,
                         MasterJobSid: payload.MasterJobSid,
                         HouseJobSid: payload.HouseJobSid,
                         MasterNumber: payload.MBLNo,
@@ -655,55 +659,60 @@ export class VendorInvoiceService {
                         }
                     }
 
-                    // Updated details: sync Rate/Amount/LocalAmount only if changed
-                    if (payload.PostStatus !== 'P' && updatedCostRevenueRateMap.size > 0) {
-                        const existingCharges = await tx.costRevenueCharges.findMany({
-                            where: { CostRevenueChargesSid: { in: [...updatedCostRevenueRateMap.keys()] } },
-                            select: { CostRevenueChargesSid: true, CostRate: true, CostAmount: true, CostLocalAmount: true },
-                        });
-                        for (const cur of existingCharges) {
-                            const inc = updatedCostRevenueRateMap.get(cur.CostRevenueChargesSid)!;
-                            const changed =
-                                toNumber(cur.CostRate) !== inc.Rate ||
-                                toNumber(cur.CostAmount) !== inc.Amount ||
-                                toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
-                            if (changed) {
-                                await tx.costRevenueCharges.update({
-                                    where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
-                                    data: {
-                                        CostRate: inc.Rate,
-                                        CostAmount: inc.Amount,
-                                        CostLocalAmount: inc.LocalAmount,
-                                        updatedOn: new Date(),
-                                        updatedBy: payload.UpdatedBy || 'System',
-                                    },
-                                });
+                    // Updated details: sync Rate/Amount/LocalAmount only if changed (controlled by DisableRateUpdateBack config)
+                    const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
+                        existing.CompanyMasterSid, 'DisableRateUpdateBack', tx
+                    );
+                    if (disableRateUpdateBack !== 'Y') {
+                        if (payload.PostStatus !== 'P' && updatedCostRevenueRateMap.size > 0) {
+                            const existingCharges = await tx.costRevenueCharges.findMany({
+                                where: { CostRevenueChargesSid: { in: [...updatedCostRevenueRateMap.keys()] } },
+                                select: { CostRevenueChargesSid: true, CostRate: true, CostAmount: true, CostLocalAmount: true },
+                            });
+                            for (const cur of existingCharges) {
+                                const inc = updatedCostRevenueRateMap.get(cur.CostRevenueChargesSid)!;
+                                const changed =
+                                    toNumber(cur.CostRate) !== inc.Rate ||
+                                    toNumber(cur.CostAmount) !== inc.Amount ||
+                                    toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
+                                if (changed) {
+                                    await tx.costRevenueCharges.update({
+                                        where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
+                                        data: {
+                                            CostRate: inc.Rate,
+                                            CostAmount: inc.Amount,
+                                            CostLocalAmount: inc.LocalAmount,
+                                            updatedOn: new Date(),
+                                            updatedBy: payload.UpdatedBy || 'System',
+                                        },
+                                    });
+                                }
                             }
                         }
-                    }
 
-                    if (payload.PostStatus !== 'P' && updatedBookingRateMap.size > 0) {
-                        const existingRates = await tx.bookingRates.findMany({
-                            where: { BookingRatesSid: { in: [...updatedBookingRateMap.keys()] } },
-                            select: { BookingRatesSid: true, CostRate: true, CostAmount: true, CostLocalAmount: true },
-                        });
-                        for (const cur of existingRates) {
-                            const inc = updatedBookingRateMap.get(cur.BookingRatesSid)!;
-                            const changed =
-                                toNumber(cur.CostRate) !== inc.Rate ||
-                                toNumber(cur.CostAmount) !== inc.Amount ||
-                                toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
-                            if (changed) {
-                                await tx.bookingRates.update({
-                                    where: { BookingRatesSid: cur.BookingRatesSid },
-                                    data: {
-                                        CostRate: inc.Rate,
-                                        CostAmount: inc.Amount,
-                                        CostLocalAmount: inc.LocalAmount,
-                                        UpdatedOn: new Date(),
-                                        UpdatedBy: payload.UpdatedBy || 'System',
-                                    },
-                                });
+                        if (payload.PostStatus !== 'P' && updatedBookingRateMap.size > 0) {
+                            const existingRates = await tx.bookingRates.findMany({
+                                where: { BookingRatesSid: { in: [...updatedBookingRateMap.keys()] } },
+                                select: { BookingRatesSid: true, CostRate: true, CostAmount: true, CostLocalAmount: true },
+                            });
+                            for (const cur of existingRates) {
+                                const inc = updatedBookingRateMap.get(cur.BookingRatesSid)!;
+                                const changed =
+                                    toNumber(cur.CostRate) !== inc.Rate ||
+                                    toNumber(cur.CostAmount) !== inc.Amount ||
+                                    toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
+                                if (changed) {
+                                    await tx.bookingRates.update({
+                                        where: { BookingRatesSid: cur.BookingRatesSid },
+                                        data: {
+                                            CostRate: inc.Rate,
+                                            CostAmount: inc.Amount,
+                                            CostLocalAmount: inc.LocalAmount,
+                                            UpdatedOn: new Date(),
+                                            UpdatedBy: payload.UpdatedBy || 'System',
+                                        },
+                                    });
+                                }
                             }
                         }
                     }
