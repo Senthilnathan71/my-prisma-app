@@ -155,6 +155,8 @@ import { StandardChargeController } from './controllers/standard-charge/standard
 import { StandardChargeService } from './services/standard-charge/standard-charge.service';
 import { PrintMasterController } from './controllers/print-master/print-master.controller';
 import { PrintMasterService } from './services/print-master/print-master.service';
+import { PreCustomerEventMasterController } from './controllers/pre-customer-event-master/pre-customer-event-master.controller';
+import { PreCustomerEventMasterService } from './services/pre-customer-event-master/pre-customer-event-master.service';
 
 @Module({
   providers: [
@@ -236,7 +238,8 @@ import { PrintMasterService } from './services/print-master/print-master.service
     MailConfigurationService,
     VoucherPeriodService,
     StandardChargeService,
-    PrintMasterService
+    PrintMasterService,
+    PreCustomerEventMasterService
   ],
   controllers: [
     LeadController,
@@ -314,7 +317,8 @@ import { PrintMasterService } from './services/print-master/print-master.service
     MailConfigurationController,
     VoucherPeriodController,
     StandardChargeController,
-    PrintMasterController
+    PrintMasterController,
+    PreCustomerEventMasterController
   ],
   exports: [UserService,MenuService]
 })
