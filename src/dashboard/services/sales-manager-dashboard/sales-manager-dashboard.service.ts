@@ -98,7 +98,6 @@ export class SalesManagerDashboardService {
       s7Result,
       s8Result,
       funnelResult,
-      leadSourceResult,
     ] = await Promise.all([
       // S1: Leads no meeting
       this.db.$queryRawUnsafe(
@@ -315,80 +314,7 @@ export class SalesManagerDashboardService {
         dateFrom,
         dateTo,
       ),
-      // Funnel counts
-      this.db.$queryRawUnsafe(
-        `SELECT
-          (SELECT COUNT(*) FROM "PreCustomerMaster" pcm
-            WHERE pcm."status" = 'A' AND pcm."CompanyMasterSid" = $1 AND pcm."BranchMasterSid" = $2
-            AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
-            AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
-            AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
-          ) AS "leadsCreated",
-          (SELECT COUNT(DISTINCT pcmm."PreCustomerMasterSid") FROM "PreCustomerMeeting" pcmm
-            INNER JOIN "PreCustomerMaster" pcm2 ON pcmm."PreCustomerMasterSid" = pcm2."PreCustomerMasterSid"
-            WHERE pcmm."status" = 'A' AND pcmm."meetingStatus" IN ('Completed','Confirmed')
-            AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
-            AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-          ) AS "meetingsHeld",
-          (SELECT COUNT(*) FROM "CustomerMaster" cm
-            INNER JOIN "PreCustomerMaster" pcm3 ON cm."PreCustomerMasterSid" = pcm3."PreCustomerMasterSid"
-            WHERE cm."status" = 'A' AND cm."CompanyMasterSid" = $1
-            AND ($2::int IS NULL OR pcm3."BranchMasterSid" = $2)
-            AND ($3::int IS NULL OR pcm3."leadAssignTo" = $3)
-            AND ($4::timestamptz IS NULL OR cm."createdOn" >= $4::timestamptz)
-            AND ($5::timestamptz IS NULL OR cm."createdOn" <= $5::timestamptz)
-          ) AS "convertedToCustomer",
-          (SELECT COUNT(*) FROM "QuoteHeader" qh
-            WHERE qh."status" = 'A' AND qh."CompanyMasterSid" = $1 AND qh."BranchMasterSid" = $2
-            AND ($3::int IS NULL OR qh."SalesmanSid" = $3)
-            AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
-            AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
-          ) AS "quoteCreated",
-          (SELECT COUNT(*) FROM "QuoteHeader" qh2
-            WHERE qh2."status" = 'A' AND qh2."CompanyMasterSid" = $1 AND qh2."BranchMasterSid" = $2
-            AND ($3::int IS NULL OR qh2."SalesmanSid" = $3)
-            AND ($4::date IS NULL OR qh2."QuoteDate" >= $4::date)
-            AND ($5::date IS NULL OR qh2."QuoteDate" <= $5::date)
-            AND EXISTS (
-              SELECT 1 FROM "QuoteCarrier" qc
-              WHERE qc."QuoteHeaderSid" = qh2."QuoteHeaderSid"
-              AND COALESCE(qc."status", 'A') = 'A'
-              AND qc."ApprovalStatus"::text = 'Approved'
-            )
-          ) AS "quoteApproved",
-          (SELECT COUNT(*) FROM "BookingHeader" bh
-            WHERE bh."status" = 'A' AND bh."CompanyMasterSid" = $1 AND bh."BranchMasterSid" = $2
-            AND ($3::int IS NULL OR bh."SalesmanSid" = $3)
-            AND ($4::date IS NULL OR bh."BookingDateTime" >= $4::date)
-            AND ($5::date IS NULL OR bh."BookingDateTime" <= $5::date)
-          ) AS "bookingCreated"`,
-        companyMasterSid,
-        branchMasterSid,
-        salespersonId,
-        dateFrom,
-        dateTo,
-      ),
-      // Lead source distribution
-      this.db.$queryRawUnsafe(
-        `SELECT
-          COALESCE(pcm."leadReferredBy", 'Unknown') AS "source",
-          COUNT(*) AS "count"
-        FROM "PreCustomerMaster" pcm
-        WHERE
-          pcm."status" = 'A'
-          AND pcm."CompanyMasterSid" = $1
-          AND pcm."BranchMasterSid" = $2
-          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
-          AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
-          AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
-        GROUP BY COALESCE(pcm."leadReferredBy", 'Unknown')
-        ORDER BY COUNT(*) DESC`,
-        companyMasterSid,
-        branchMasterSid,
-        salespersonId,
-        dateFrom,
-        dateTo,
-      ),
+      this.getLeadMilestoneFunnelCounts(query),
     ]);
 
     const s1 = (s1Result as any[])[0] || {};
@@ -399,7 +325,7 @@ export class SalesManagerDashboardService {
     const s6 = (s6Result as any[])[0] || {};
     const s7 = (s7Result as any[])[0] || {};
     const s8 = (s8Result as any[])[0] || {};
-    const funnel = (funnelResult as any[])[0] || {};
+    const funnel = funnelResult || {};
 
     return {
       counts: {
@@ -420,14 +346,11 @@ export class SalesManagerDashboardService {
         leadsCreated: Number(funnel.leadsCreated) || 0,
         meetingsHeld: Number(funnel.meetingsHeld) || 0,
         convertedToCustomer: Number(funnel.convertedToCustomer) || 0,
+        enquiryCreated: Number(funnel.enquiryCreated) || 0,
         quoteCreated: Number(funnel.quoteCreated) || 0,
         quoteApproved: Number(funnel.quoteApproved) || 0,
         bookingCreated: Number(funnel.bookingCreated) || 0,
       },
-      leadSourceDistribution: (leadSourceResult as any[]).map((r) => ({
-        source: r.source,
-        count: Number(r.count) || 0,
-      })),
     };
   }
 
@@ -457,6 +380,226 @@ export class SalesManagerDashboardService {
       default:
         throw new Error(`Invalid section number: ${sectionNumber}`);
     }
+  }
+
+  private async getLeadMilestoneFunnelCounts(query: SalesManagerQueryDto) {
+    const { companyMasterSid, branchMasterSid, dateFrom, dateTo } =
+      this.normalizeParams(query);
+
+    const approvedQuotePredicate = `(
+      qh."authorizerStatus"::text = 'Approved'
+      OR EXISTS (
+        SELECT 1
+        FROM "QuoteCarrier" qc
+        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+          AND COALESCE(qc."status", 'A') = 'A'
+          AND qc."ApprovalStatus"::text = 'Approved'
+      )
+    )`;
+
+    const results: any[] = await this.db.$queryRawUnsafe(
+      `WITH filtered_leads AS (
+        SELECT DISTINCT pcm."PreCustomerMasterSid"
+        FROM "PreCustomerMaster" pcm
+        WHERE
+          COALESCE(pcm."status", 'A') = 'A'
+          AND pcm."CompanyMasterSid" = $1
+          AND pcm."BranchMasterSid" = $2
+          AND ($3::date IS NULL OR pcm."createdOn"::date >= $3::date)
+          AND ($4::date IS NULL OR pcm."createdOn"::date <= $4::date)
+      ),
+      lead_customers AS (
+        SELECT
+          fl."PreCustomerMasterSid",
+          cm."CustomerMasterSid",
+          cm."createdOn"::date AS "customerCreatedDate"
+        FROM filtered_leads fl
+        INNER JOIN "CustomerMaster" cm
+          ON cm."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+         AND COALESCE(cm."status", 'A') = 'A'
+      ),
+      meetings_stage AS (
+        SELECT DISTINCT fl."PreCustomerMasterSid"
+        FROM filtered_leads fl
+        INNER JOIN "PreCustomerMeeting" pcmm
+          ON pcmm."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+         AND COALESCE(pcmm."status", 'A') = 'A'
+         AND ($3::date IS NULL OR pcmm."meetingDate"::date >= $3::date)
+         AND ($4::date IS NULL OR pcmm."meetingDate"::date <= $4::date)
+      ),
+      enquiry_stage AS (
+        SELECT
+          fl."PreCustomerMasterSid",
+          BOOL_OR(eh."PreCustomerMasterSid" = fl."PreCustomerMasterSid") AS "viaLead",
+          BOOL_OR(lc."CustomerMasterSid" IS NOT NULL) AS "viaCustomer"
+        FROM filtered_leads fl
+        INNER JOIN "EnquiryHeader" eh
+          ON COALESCE(eh."status", 'A') = 'A'
+         AND ($3::date IS NULL OR eh."EnquiryDate" >= $3::date)
+         AND ($4::date IS NULL OR eh."EnquiryDate" <= $4::date)
+        LEFT JOIN lead_customers lc
+          ON lc."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+         AND eh."CustomerMasterSid" = lc."CustomerMasterSid"
+        WHERE
+          eh."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+          OR lc."CustomerMasterSid" IS NOT NULL
+        GROUP BY fl."PreCustomerMasterSid"
+      ),
+      quote_stage AS (
+        SELECT
+          fl."PreCustomerMasterSid",
+          BOOL_OR(qh."PreCustomerMasterSid" = fl."PreCustomerMasterSid") AS "viaLead",
+          BOOL_OR(lc."CustomerMasterSid" IS NOT NULL) AS "viaCustomer"
+        FROM filtered_leads fl
+        INNER JOIN "QuoteHeader" qh
+          ON COALESCE(qh."status", 'A') = 'A'
+         AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
+         AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
+        LEFT JOIN lead_customers lc
+          ON lc."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+         AND qh."CustomerMasterSid" = lc."CustomerMasterSid"
+        WHERE
+          qh."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+          OR lc."CustomerMasterSid" IS NOT NULL
+        GROUP BY fl."PreCustomerMasterSid"
+      ),
+      approved_quote_stage AS (
+        SELECT
+          fl."PreCustomerMasterSid",
+          BOOL_OR(qh."PreCustomerMasterSid" = fl."PreCustomerMasterSid") AS "viaLead",
+          BOOL_OR(lc."CustomerMasterSid" IS NOT NULL) AS "viaCustomer"
+        FROM filtered_leads fl
+        INNER JOIN "QuoteHeader" qh
+          ON COALESCE(qh."status", 'A') = 'A'
+         AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
+         AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
+        LEFT JOIN lead_customers lc
+          ON lc."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+         AND qh."CustomerMasterSid" = lc."CustomerMasterSid"
+        WHERE
+          ${approvedQuotePredicate}
+          AND (
+            qh."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+            OR lc."CustomerMasterSid" IS NOT NULL
+          )
+        GROUP BY fl."PreCustomerMasterSid"
+      ),
+      booking_links AS (
+        SELECT
+          fl."PreCustomerMasterSid",
+          qh."PreCustomerMasterSid" AS "quoteLeadSid",
+          eh."PreCustomerMasterSid" AS "enquiryLeadSid",
+          bh."CustomerMasterSid" AS "bookingCustomerSid",
+          qh."CustomerMasterSid" AS "quoteCustomerSid",
+          eh."CustomerMasterSid" AS "enquiryCustomerSid"
+        FROM filtered_leads fl
+        INNER JOIN "BookingHeader" bh
+          ON COALESCE(bh."status", 'A') = 'A'
+         AND ($3::date IS NULL OR bh."BookingDateTime"::date >= $3::date)
+         AND ($4::date IS NULL OR bh."BookingDateTime"::date <= $4::date)
+        LEFT JOIN "QuoteHeader" qh
+          ON bh."QuotationHeaderSid" = qh."QuoteHeaderSid"
+         AND COALESCE(qh."status", 'A') = 'A'
+        LEFT JOIN "EnquiryHeader" eh
+          ON (
+            bh."EnquiryHeaderSid" = eh."EnquiryHeaderSid"
+            OR qh."EnquirySid" = eh."EnquiryHeaderSid"
+          )
+         AND COALESCE(eh."status", 'A') = 'A'
+      ),
+      booking_stage AS (
+        SELECT
+          bl."PreCustomerMasterSid",
+          BOOL_OR(
+            bl."quoteLeadSid" = bl."PreCustomerMasterSid"
+            OR bl."enquiryLeadSid" = bl."PreCustomerMasterSid"
+          ) AS "viaLead",
+          BOOL_OR(lc."CustomerMasterSid" IS NOT NULL) AS "viaCustomer"
+        FROM booking_links bl
+        LEFT JOIN lead_customers lc
+          ON lc."PreCustomerMasterSid" = bl."PreCustomerMasterSid"
+         AND (
+           bl."bookingCustomerSid" = lc."CustomerMasterSid"
+           OR bl."quoteCustomerSid" = lc."CustomerMasterSid"
+           OR bl."enquiryCustomerSid" = lc."CustomerMasterSid"
+         )
+        WHERE
+          bl."quoteLeadSid" = bl."PreCustomerMasterSid"
+          OR bl."enquiryLeadSid" = bl."PreCustomerMasterSid"
+          OR lc."CustomerMasterSid" IS NOT NULL
+        GROUP BY bl."PreCustomerMasterSid"
+      ),
+      confirmed_meeting_customer_origin AS (
+        SELECT DISTINCT pcmm."PreCustomerMasterSid"
+        FROM "PreCustomerMeeting" pcmm
+        WHERE
+          COALESCE(pcmm."status", 'A') = 'A'
+          AND pcmm."meetingStatus" = 'Confirmed'
+          AND ($3::date IS NULL OR pcmm."meetingDate"::date >= $3::date)
+          AND ($4::date IS NULL OR pcmm."meetingDate"::date <= $4::date)
+      ),
+      approved_quote_customer_origin AS (
+        SELECT DISTINCT qh."PreCustomerMasterSid"
+        FROM "QuoteHeader" qh
+        WHERE
+          COALESCE(qh."status", 'A') = 'A'
+          AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
+          AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
+          AND ${approvedQuotePredicate}
+      ),
+      customer_stage AS (
+        SELECT
+          lc."PreCustomerMasterSid",
+          BOOL_OR(cmco."PreCustomerMasterSid" IS NOT NULL) AS "viaMeeting",
+          BOOL_OR(aqco."PreCustomerMasterSid" IS NOT NULL) AS "viaApprovedQuote"
+        FROM lead_customers lc
+        LEFT JOIN confirmed_meeting_customer_origin cmco
+          ON cmco."PreCustomerMasterSid" = lc."PreCustomerMasterSid"
+        LEFT JOIN approved_quote_customer_origin aqco
+          ON aqco."PreCustomerMasterSid" = lc."PreCustomerMasterSid"
+        WHERE
+          ($3::date IS NULL OR lc."customerCreatedDate" >= $3::date)
+          AND ($4::date IS NULL OR lc."customerCreatedDate" <= $4::date)
+        GROUP BY lc."PreCustomerMasterSid"
+      )
+      SELECT
+        COUNT(*) AS "totalLeads",
+        COUNT(*) FILTER (WHERE meetings_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithMeeting",
+        COUNT(*) FILTER (WHERE enquiry_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithEnquiry",
+        COUNT(*) FILTER (WHERE quote_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithQuote",
+        COUNT(*) FILTER (WHERE approved_quote_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithApprovedQuote",
+        COUNT(*) FILTER (WHERE booking_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithBooking",
+        COUNT(*) FILTER (WHERE customer_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsTurnedCustomer"
+      FROM filtered_leads fl
+      LEFT JOIN meetings_stage
+        ON meetings_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+      LEFT JOIN enquiry_stage
+        ON enquiry_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+      LEFT JOIN quote_stage
+        ON quote_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+      LEFT JOIN approved_quote_stage
+        ON approved_quote_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+      LEFT JOIN booking_stage
+        ON booking_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
+      LEFT JOIN customer_stage
+        ON customer_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"`,
+      companyMasterSid,
+      branchMasterSid,
+      dateFrom,
+      dateTo,
+    );
+
+    const row = results[0] || {};
+
+    return {
+      leadsCreated: Number(row.totalLeads) || 0,
+      meetingsHeld: Number(row.leadsWithMeeting) || 0,
+      convertedToCustomer: Number(row.leadsTurnedCustomer) || 0,
+      enquiryCreated: Number(row.leadsWithEnquiry) || 0,
+      quoteCreated: Number(row.leadsWithQuote) || 0,
+      quoteApproved: Number(row.leadsWithApprovedQuote) || 0,
+      bookingCreated: Number(row.leadsWithBooking) || 0,
+    };
   }
 
   // ─── SCOREBOARD ──────────────────────────────────────────────────────
