@@ -880,6 +880,10 @@ export class CustomerService {
             throw new NotFoundException(`Customer with ID ${CustomerMasterSid} not found`);
         }
 
+        const normalizedExistingName = (existing.CustomerName ?? '').trim();
+        const normalizedIncomingName = (payload?.customer?.CustomerName ?? '').trim();
+        const isCustomerNameChanged = normalizedExistingName !== normalizedIncomingName;
+
         // Validate duplicate name/code (excluding current customer)
         const duplicateCheck = await this.checkUniqueCustomerFields({
             CompanyMasterSid: payload.customer.CompanyMasterSid,
@@ -930,6 +934,21 @@ export class CustomerService {
             });
 
             // 2️⃣ Get existing branches to identify deletions
+            if (isCustomerNameChanged) {
+                await tx.subledgerMaster.updateMany({
+                    where: {
+                        SubledgerMappingSid: CustomerMasterSid,
+                        SubledgerType: 'Customer',
+                        Status: { not: 'D' }
+                    },
+                    data: {
+                        SubledgerName: customer.CustomerName,
+                        UpdatedBy: userEmail,
+                        UpdatedOn: new Date()
+                    }
+                });
+            }
+
             const existingBranches = await tx.customerBranch.findMany({
                 where: { CustomerMasterSid, status: 'A' },
                 select: { CustomerBranchSid: true }
