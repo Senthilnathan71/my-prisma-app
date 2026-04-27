@@ -3410,7 +3410,7 @@ if (houseJobsForBookingSync.length > 0) {
         };
     }
 
-    softDeleteMasterJobConnection(MasterJobConnectionSid: any) {
+    softDeleteMasterJobConnection(MasterJobConnectionSid: any,updatedBy: string) {
         try {
             return this._db.masterJobConnection.updateMany({
                 where: {
@@ -3418,7 +3418,7 @@ if (houseJobsForBookingSync.length > 0) {
                     Status: "A"
                 },
                 data: {
-                    Status: "D"
+                    Status: "D",UpdatedBy: updatedBy, UpdatedOn: new Date()
                 }
             })
         } catch (error) {
@@ -3426,7 +3426,7 @@ if (houseJobsForBookingSync.length > 0) {
         }
     }
 
-    softDeleteMasterJobContainer(MasterJobContainerSid: any) {
+    softDeleteMasterJobContainer(MasterJobContainerSid: any,updatedBy: string) {
         try {
             return this._db.masterJobContainer.updateMany({
                 where: {
@@ -3434,7 +3434,7 @@ if (houseJobsForBookingSync.length > 0) {
                     Status: "A"
                 },
                 data: {
-                    Status: "D"
+                    Status: "D",UpdatedBy: updatedBy, UpdatedOn: new Date()
                 }
             })
         } catch (error) {
