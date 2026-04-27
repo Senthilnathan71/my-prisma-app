@@ -79,6 +79,18 @@ export class HouseJobService {
         return [];
     }
 
+    private getBackToBackValue(otherPayload: any): string {
+        const value =
+            otherPayload?.BacktoBack ??
+            otherPayload?.BackToBack ??
+            otherPayload?.backToBack ??
+            '';
+
+        if (value === true) return 'Y';
+        if (value === false) return 'N';
+        return String(value || '').trim();
+    }
+
     private buildHouseJobProxyData(proxy: any, HouseJobSid: number, createdBy: string, updatedBy?: string | null) {
         return {
             HouseJobSid,
@@ -734,7 +746,7 @@ export class HouseJobService {
                             SwitchBL: otherPayload.SwitchBL || '',
                             TransporterName: otherPayload.TransporterName || '',
                             AgentAddress: otherPayload.AgentAddress || '',
-                            BacktoBack: otherPayload.BackToBack || '',
+                             BacktoBack: this.getBackToBackValue(otherPayload),
                             CarrierBookingRef: otherPayload.CarrierBookingRef || '',
                             CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
                             Coloader: otherPayload.Coloader || '',
@@ -1434,7 +1446,7 @@ export class HouseJobService {
                         SwitchBL: otherPayload.SwitchBL || '',
                         TransporterName: otherPayload.TransporterName || '',
                         AgentAddress: otherPayload.AgentAddress || '',
-                        BacktoBack: otherPayload.BackToBack || '',
+                        BacktoBack: this.getBackToBackValue(otherPayload),
                         CarrierBookingRef: otherPayload.CarrierBookingRef || '',
                         CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
                         Coloader: otherPayload.Coloader || '',
@@ -1496,7 +1508,7 @@ export class HouseJobService {
                         SwitchBL: otherPayload.SwitchBL || '',
                         TransporterName: otherPayload.TransporterName || '',
                         AgentAddress: otherPayload.AgentAddress || '',
-                        BacktoBack: otherPayload.BackToBack || '',
+                        BacktoBack: this.getBackToBackValue(otherPayload),
                         CarrierBookingRef: otherPayload.CarrierBookingRef || '',
                         CarrierBookingDate: otherPayload.CarrierBookingDate ? new Date(otherPayload.CarrierBookingDate) : null,
                         Coloader: otherPayload.Coloader || '',

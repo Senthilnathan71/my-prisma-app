@@ -1518,6 +1518,7 @@ export class MasterJobService {
                             bookingRates: true,
                             Cargo: true,
                             Products: true,
+                            HouseJobProxy: true,
                             Others: true,
                             JobType:true,
                             HouseJobSid: true,

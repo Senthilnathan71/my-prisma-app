@@ -135,6 +135,54 @@ export class BookingService {
         };
     }
 
+    private buildBookingCargoUpdateData(cargoPayload: any, updatedBy: string) {
+        return {
+            CargoType: cargoPayload?.CargoType || 'General',
+            ContainerType: cargoPayload?.ContainerType ?? null,
+            NoofContainers: Number(cargoPayload?.NoofContainers ?? cargoPayload?.Qty ?? 0) || 0,
+            GrossWeight: Number(cargoPayload?.GrossWeight) || 0,
+            NetWeight: Number(cargoPayload?.NetWeight) || 0,
+            Volume: Number(cargoPayload?.Volume) || 0,
+            Volumetric: Number(cargoPayload?.Volumetric) || 0,
+            ChargeableWeight: Number(cargoPayload?.ChargeableWeight) || 0,
+            NoOfPackage: Number(cargoPayload?.NoOfPackage ?? cargoPayload?.PackageQty ?? 0) || 0,
+            ShipmentTerms: cargoPayload?.ShipmentTerms ?? null,
+            MovementType: cargoPayload?.MovementType ?? null,
+            ModeOfTransport: cargoPayload?.ModeOfTransport ?? null,
+            FreightTerms: cargoPayload?.FreightTerms ?? null,
+            StuffingAt: cargoPayload?.StuffingAt ?? null,
+            updatedBy,
+            status: cargoPayload?.status || 'A'
+        };
+    }
+
+    private buildBookingProductUpdateData(product: any, bookingHeaderSid: number, updatedBy: string) {
+        return {
+            BookingHeaderSid: bookingHeaderSid,
+            ProductName: product?.ProductName || '',
+            ShippingBillNo: product?.ShippingBillNo || '',
+            ShippingBillDate: product?.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
+            CargoRecDate: product?.CargoRecDate ? new Date(product.CargoRecDate) : null,
+            ExternaPkg: String(product?.ExternaPkg ?? product?.ExternalPkg ?? '') || '',
+            ExternlQty: product?.ExternlQty ?? product?.ExternalQty ?? '',
+            GrossWeight: Number(product?.GrossWeight) || 0,
+            NetWeight: Number(product?.NetWeight) || 0,
+            Volume: Number(product?.Volume) || 0,
+            IsHaz: product?.IsHaz || 'N',
+            ImcoClass: product?.ImcoClass === null || product?.ImcoClass === undefined || product?.ImcoClass === '' ? null : String(product.ImcoClass),
+            UnNo: String(product?.UnNo ?? '') || '',
+            PkgGroup: product?.PkgGroup || '',
+            Length: product?.Length,
+            Width: product?.Width,
+            Height: product?.Height,
+            Volumetric: Number(product?.Volumetric) || 0,
+            UomMasterSid: product?.UomMasterSid || null,
+            updatedBy,
+            status: product?.status || 'A',
+            ...(product?.CargoRecDate ? { RecdPack: product?.ExternlQty ?? product?.ExternalQty ?? '' } : {})
+        };
+    }
+
     async checkDuplicateBooking(payload: DuplicateCheckDTO) {
         try {
             const whereClause: Prisma.BookingHeaderWhereInput = {
@@ -827,43 +875,142 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                 const finalBookingProducts: any[] = [];
 
                 if (cargoPayloads.length > 0) {
-                    await prisma.bookingProduct.deleteMany({
-                        where: {
-                            BookingHeaderSid: updatedBooking.BookingHeaderSid
-                        }
+                    const existingCargos = await prisma.bookingCargo.findMany({
+                        where: { BookingHeaderSid: updatedBooking.BookingHeaderSid }
+                    });
+                    const existingProducts = await prisma.bookingProduct.findMany({
+                        where: { BookingHeaderSid: updatedBooking.BookingHeaderSid }
                     });
 
-                    await prisma.bookingCargo.deleteMany({
-                        where: {
-                            BookingHeaderSid: updatedBooking.BookingHeaderSid
-                        }
-                    });
+                    const existingCargoSidSet = new Set(existingCargos.map((cargo) => cargo.BookingCargoSid));
+                    const existingProductSidSet = new Set(existingProducts.map((product) => product.BookingProductSid));
+                    const touchedCargoSidSet = new Set<number>();
+                    const touchedProductSidSet = new Set<number>();
 
                     for (const cargoPayload of cargoPayloads) {
-                        const cargoData = this.buildBookingCargoData(cargoPayload, updatedBooking, payload.updatedBy);
-                        const createdCargo = await prisma.bookingCargo.create({
-                            data: cargoData
-                        });
-                        finalBookingCargos.push(createdCargo);
+                        const cargoSid = cargoPayload?.BookingCargoSid ? Number(cargoPayload.BookingCargoSid) : null;
+                        let savedCargo;
+
+                        if (cargoSid && existingCargoSidSet.has(cargoSid)) {
+                            savedCargo = await prisma.bookingCargo.update({
+                                where: { BookingCargoSid: cargoSid },
+                                data: {
+                                    ...this.buildBookingCargoUpdateData(cargoPayload, payload.updatedBy),
+                                    BookingHeaderSid: updatedBooking.BookingHeaderSid
+                                }
+                            });
+                        } else {
+                            savedCargo = await prisma.bookingCargo.create({
+                                data: this.buildBookingCargoData(cargoPayload, updatedBooking, payload.updatedBy)
+                            });
+                        }
+
+                        touchedCargoSidSet.add(savedCargo.BookingCargoSid);
+                        finalBookingCargos.push(savedCargo);
 
                         const cargoProducts = this.getCargoProducts(cargoPayload, []);
                         for (const product of cargoProducts) {
-                            const createdProduct = await prisma.bookingProduct.create({
-                                data: {
-                                    ...this.buildBookingProductData(product, updatedBooking.BookingHeaderSid, payload.updatedBy),
-                                    BookingCargoSid: createdCargo.BookingCargoSid
-                                }
-                            });
-                            finalBookingProducts.push(createdProduct);
+                            const productSid = product?.BookingProductSid ? Number(product.BookingProductSid) : null;
+                            let savedProduct;
+
+                            if (productSid && existingProductSidSet.has(productSid)) {
+                                savedProduct = await prisma.bookingProduct.update({
+                                    where: { BookingProductSid: productSid },
+                                    data: {
+                                        ...this.buildBookingProductUpdateData(product, updatedBooking.BookingHeaderSid, payload.updatedBy),
+                                        BookingCargoSid: savedCargo.BookingCargoSid
+                                    }
+                                });
+                            } else {
+                                savedProduct = await prisma.bookingProduct.create({
+                                    data: {
+                                        ...this.buildBookingProductData(product, updatedBooking.BookingHeaderSid, payload.updatedBy),
+                                        BookingCargoSid: savedCargo.BookingCargoSid
+                                    }
+                                });
+                            }
+
+                            touchedProductSidSet.add(savedProduct.BookingProductSid);
+                            finalBookingProducts.push(savedProduct);
                         }
                     }
+
+                    const cargoIdsToDelete = existingCargos
+                        .filter((cargo) => !touchedCargoSidSet.has(cargo.BookingCargoSid))
+                        .map((cargo) => cargo.BookingCargoSid);
+
+                    if (cargoIdsToDelete.length > 0) {
+                        await prisma.bookingProduct.deleteMany({
+                            where: {
+                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
+                                BookingCargoSid: { in: cargoIdsToDelete }
+                            }
+                        });
+                        await prisma.bookingCargo.deleteMany({
+                            where: {
+                                BookingCargoSid: { in: cargoIdsToDelete }
+                            }
+                        });
+                    }
+
+                    const productIdsToDelete = existingProducts
+                        .filter((product) => !touchedProductSidSet.has(product.BookingProductSid))
+                        .map((product) => product.BookingProductSid)
+                        .filter((productSid) => !Number.isNaN(productSid));
+
+                    if (productIdsToDelete.length > 0) {
+                        await prisma.bookingProduct.deleteMany({
+                            where: {
+                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
+                                BookingProductSid: { in: productIdsToDelete }
+                            }
+                        });
+                    }
                 } else {
+                    const existingProducts = await prisma.bookingProduct.findMany({
+                        where: { BookingHeaderSid: updatedBooking.BookingHeaderSid }
+                    });
+                    const touchedProductSidSet = new Set<number>();
+
                     const productsToCreate = payload.bookingProducts || [];
                     for (const product of productsToCreate) {
-                        const createdProduct = await prisma.bookingProduct.create({
-                            data: this.buildBookingProductData(product, updatedBooking.BookingHeaderSid, payload.updatedBy)
+                        const productSid = product?.BookingProductSid ? Number(product.BookingProductSid) : null;
+                        let savedProduct;
+
+                        if (productSid) {
+                            const existingProduct = existingProducts.find((item) => item.BookingProductSid === productSid);
+                            if (existingProduct) {
+                                savedProduct = await prisma.bookingProduct.update({
+                                    where: { BookingProductSid: productSid },
+                                    data: this.buildBookingProductUpdateData(product, updatedBooking.BookingHeaderSid, payload.updatedBy)
+                                });
+                            } else {
+                                savedProduct = await prisma.bookingProduct.create({
+                                    data: this.buildBookingProductData(product, updatedBooking.BookingHeaderSid, payload.updatedBy)
+                                });
+                            }
+                        } else {
+                            savedProduct = await prisma.bookingProduct.create({
+                                data: this.buildBookingProductData(product, updatedBooking.BookingHeaderSid, payload.updatedBy)
+                            });
+                        }
+
+                        touchedProductSidSet.add(savedProduct.BookingProductSid);
+                        finalBookingProducts.push(savedProduct);
+                    }
+
+                    const productIdsToDelete = existingProducts
+                        .filter((product) => !touchedProductSidSet.has(product.BookingProductSid))
+                        .map((product) => product.BookingProductSid)
+                        .filter((productSid) => !Number.isNaN(productSid));
+
+                    if (productIdsToDelete.length > 0) {
+                        await prisma.bookingProduct.deleteMany({
+                            where: {
+                                BookingHeaderSid: updatedBooking.BookingHeaderSid,
+                                BookingProductSid: { in: productIdsToDelete }
+                            }
                         });
-                        finalBookingProducts.push(createdProduct);
                     }
                 }
 
