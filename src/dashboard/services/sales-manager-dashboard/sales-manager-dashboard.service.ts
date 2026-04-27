@@ -314,7 +314,7 @@ export class SalesManagerDashboardService {
         dateFrom,
         dateTo,
       ),
-      this.getLeadMilestoneFunnelCounts(query),
+      this.getKPIData(query),
     ]);
 
     const s1 = (s1Result as any[])[0] || {};
@@ -342,14 +342,12 @@ export class SalesManagerDashboardService {
         quotesNotApproved: Number(s7.count) || 0,
         quotesNoBooking: Number(s8.count) || 0,
       },
-      funnel: {
+      kpi: {
         leadsCreated: Number(funnel.leadsCreated) || 0,
-        meetingsHeld: Number(funnel.meetingsHeld) || 0,
-        convertedToCustomer: Number(funnel.convertedToCustomer) || 0,
-        enquiryCreated: Number(funnel.enquiryCreated) || 0,
+        meetingScheduled: Number(funnel.meetingScheduled) || 0,
         quoteCreated: Number(funnel.quoteCreated) || 0,
-        quoteApproved: Number(funnel.quoteApproved) || 0,
-        bookingCreated: Number(funnel.bookingCreated) || 0,
+        leadConvertedToCustomer: Number(funnel.leadConvertedToCustomer) || 0,
+        profitAtQuote: Number(funnel.profitAtQuote) || 0
       },
     };
   }
@@ -380,6 +378,93 @@ export class SalesManagerDashboardService {
       default:
         throw new Error(`Invalid section number: ${sectionNumber}`);
     }
+  }
+
+  async getKPIData(query: SalesManagerQueryDto) {
+    const { 
+      companyMasterSid, branchMasterSid, 
+      dateFrom, dateTo , 
+      naiveDateFrom , naiveDateTo 
+    } = this.normalizeParams(query);
+
+    const result : any[] = await this.db.$queryRawUnsafe(`
+    SELECT
+    (
+      SELECT COUNT(*) FROM "PreCustomerMaster" pcm
+      WHERE 
+        pcm."CompanyMasterSid" = $1 AND 
+        pcm."BranchMasterSid" = $2 AND 
+        pcm."createdOn" >= $3::timestamptz AND 
+        pcm."createdOn" <= $4::timestamptz AND
+        pcm."status" = 'A'
+    ) AS "leadsCreated",
+     
+    (
+      SELECT COUNT(*) FROM "PreCustomerMeeting" pcmm
+      WHERE 
+        pcmm."CompanyMasterSid" = $1 AND 
+        pcmm."BranchMasterSid" = $2 AND 
+        pcmm."meetingDate" >= $5::timestamptz AND 
+        pcmm."meetingDate" <= $6::timestamptz AND
+        pcmm."status" = 'A'
+    ) AS "meetingScheduled",
+     
+    (
+      SELECT COUNT(*) FROM "CustomerMaster" cm
+      INNER JOIN "PreCustomerMaster" pcm3 
+        ON cm."PreCustomerMasterSid" = pcm3."PreCustomerMasterSid"
+      WHERE 
+        cm."CompanyMasterSid" = $1 AND 
+        pcm3."BranchMasterSid" = $2 AND
+        cm."createdOn" >= $3::timestamptz AND
+        cm."createdOn" <= $4::timestamptz AND
+        cm."status" = 'A'
+    ) AS "leadConvertedToCustomer",
+      
+    (
+      SELECT COUNT(*) FROM "QuoteHeader" qh
+      WHERE 
+        qh."status" = 'A' AND 
+        qh."CompanyMasterSid" = $1 AND 
+        qh."BranchMasterSid" = $2 AND
+        qh."QuoteDate" >= $3::date AND
+        qh."QuoteDate" <= $4::date
+    ) AS "quoteCreated",
+       
+    (
+      SELECT 
+        COALESCE(SUM(
+          COALESCE(qc."RevenueLocalAmount", 0) - 
+          COALESCE(qc."CostLocalAmount", 0)
+        ), 0)
+      FROM "QuoteHeader" qh
+      JOIN "QuoteRoute" qr 
+        ON qr."QuoteHeaderSid" = qh."QuoteHeaderSid" 
+        AND qr."status" = 'A'
+      JOIN "QuoteCarrier" qcarr 
+        ON qcarr."QuoteRouteSid" = qr."QuoteRouteSid"
+        AND qcarr."ApprovalStatus" = 'Approved'
+        AND qcarr."status" = 'A'
+      JOIN "QuoteCharge" qc 
+        ON qc."QuoteCarrierSid" = qcarr."QuoteCarrierSid" 
+        AND qc."status" = 'A'
+      WHERE 
+        qh."CompanyMasterSid" = $1
+        AND qh."BranchMasterSid" = $2
+        AND qh."QuoteDate" >= $3::date 
+        AND qh."QuoteDate" <= $4::date
+        AND qh."status" = 'A'
+    ) AS "profitAtQuote"
+  `,
+      companyMasterSid,
+      branchMasterSid,
+      dateFrom,   // for createdOn
+      dateTo,
+      naiveDateFrom,   // for meetingDate start (adjust if needed)
+      naiveDateTo,
+    );
+
+    return result[0]; // single row result
   }
 
   private async getLeadMilestoneFunnelCounts(query: SalesManagerQueryDto) {
@@ -876,13 +961,25 @@ export class SalesManagerDashboardService {
       quote_to_approval AS (
         SELECT
           qh."SalesmanSid" AS uid,
-          AVG(EXTRACT(EPOCH FROM (qc."ApprovedDate" - qh."QuoteDate")) / 86400) AS avg_days
+          AVG(EXTRACT(EPOCH FROM (COALESCE(auth."AuthorisedDate", qc."updatedOn") - qh."QuoteDate")) / 86400) AS avg_days
         FROM "QuoteHeader" qh
         INNER JOIN "QuoteCarrier" qc ON qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
+        LEFT JOIN LATERAL (
+          SELECT al."AuthorisedDate"
+          FROM "AuthorityLog" al
+          WHERE al."DocumentSid" = qh."QuoteHeaderSid"
+            AND al."CompanyMasterSid" = qh."CompanyMasterSid"
+            AND al."BranchMasterSid" = qh."BranchMasterSid"
+            AND COALESCE(al."Status", 'A') = 'A'
+            AND al."ApprovalStatus" = 'Approved'
+          ORDER BY al."AuthorisedDate" DESC
+          LIMIT 1
+        ) auth ON true
         WHERE qh."status" = 'A' AND COALESCE(qc."status", 'A') = 'A'
           AND qh."CompanyMasterSid" = $1 AND qh."BranchMasterSid" = $2
           AND qc."ApprovalStatus"::text = 'Approved'
-          AND qc."ApprovedDate" IS NOT NULL
+          AND COALESCE(auth."AuthorisedDate", qc."updatedOn") IS NOT NULL
+          AND qh."QuoteDate" IS NOT NULL
         GROUP BY qh."SalesmanSid"
       )
       SELECT
