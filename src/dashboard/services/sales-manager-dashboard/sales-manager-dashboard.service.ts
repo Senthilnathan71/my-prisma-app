@@ -14,10 +14,14 @@ interface NormalizedParams {
   branchMasterSid: number;
   salespersonId: number | null;
   salespersonEmail: string | null;
-  dateFrom: string | null;
-  dateTo: string | null;
+  dateFrom: Date | string | null;
+  dateTo: Date | string | null;
+  compareDateFrom: string | null;
+  compareDateTo: string | null;
   naiveDateFrom: string | null;
   naiveDateTo: string | null;
+  compareNaiveDateFrom: string | null;
+  compareNaiveDateTo: string | null;
   page: number;
   pageSize: number;
   search: string | null;
@@ -86,6 +90,10 @@ export class SalesManagerDashboardService {
       dateTo,
       naiveDateFrom,
       naiveDateTo,
+      compareDateFrom,
+      compareDateTo,
+      compareNaiveDateFrom,
+      compareNaiveDateTo,
     } = this.normalizeParams(query);
 
     const [
@@ -97,7 +105,7 @@ export class SalesManagerDashboardService {
       s6Result,
       s7Result,
       s8Result,
-      funnelResult,
+      kpiResult,
     ] = await Promise.all([
       // S1: Leads no meeting
       this.db.$queryRawUnsafe(
@@ -325,7 +333,7 @@ export class SalesManagerDashboardService {
     const s6 = (s6Result as any[])[0] || {};
     const s7 = (s7Result as any[])[0] || {};
     const s8 = (s8Result as any[])[0] || {};
-    const funnel = funnelResult || {};
+    const kpiData = kpiResult || {};
 
     return {
       counts: {
@@ -342,13 +350,7 @@ export class SalesManagerDashboardService {
         quotesNotApproved: Number(s7.count) || 0,
         quotesNoBooking: Number(s8.count) || 0,
       },
-      kpi: {
-        leadsCreated: Number(funnel.leadsCreated) || 0,
-        meetingScheduled: Number(funnel.meetingScheduled) || 0,
-        quoteCreated: Number(funnel.quoteCreated) || 0,
-        leadConvertedToCustomer: Number(funnel.leadConvertedToCustomer) || 0,
-        profitAtQuote: Number(funnel.profitAtQuote) || 0
-      },
+      kpi: kpiResult,
     };
   }
 
@@ -381,11 +383,63 @@ export class SalesManagerDashboardService {
   }
 
   async getKPIData(query: SalesManagerQueryDto) {
+    const [current, previous] = await Promise.all([
+      this.getKPIBlock(query, 'current'),
+      this.getKPIBlock(query, 'previous'),
+    ]);
+
+    return {
+      leadsCreated: this.buildKpiMetric(
+        current.leadsCreated,
+        previous.leadsCreated
+      ),
+
+      meetingScheduled: this.buildKpiMetric(
+        current.meetingScheduled,
+        previous.meetingScheduled
+      ),
+
+      quoteCreated: this.buildKpiMetric(
+        current.quoteCreated,
+        previous.quoteCreated
+      ),
+
+      leadConvertedToCustomer: this.buildKpiMetric(
+        current.leadConvertedToCustomer,
+        previous.leadConvertedToCustomer
+      ),
+
+      profitAtQuote: this.buildKpiMetric(
+        current.profitAtQuote,
+        previous.profitAtQuote
+      ),
+    };
+  }
+
+  async getKPIBlock(query: SalesManagerQueryDto, state : 'current' | 'previous') {
     const { 
       companyMasterSid, branchMasterSid, 
       dateFrom, dateTo , 
-      naiveDateFrom , naiveDateTo 
+      naiveDateFrom , naiveDateTo ,
+      compareDateFrom, compareDateTo,
+      compareNaiveDateFrom, compareNaiveDateTo
     } = this.normalizeParams(query);
+
+    const from = state === 'current' ? dateFrom : compareDateFrom;
+    const to = state === 'current' ? dateTo : compareDateTo;
+
+    const naiveFrom = state === 'current' ? naiveDateFrom : compareNaiveDateFrom;
+    const naiveTo = state === 'current' ? naiveDateTo : compareNaiveDateTo;
+
+    if (state === 'previous' && (!from || !to)) {
+      return {
+        leadsCreated: 0,
+        meetingScheduled: 0,
+        quoteCreated: 0,
+        leadConvertedToCustomer: 0,
+        profitAtQuote: 0
+      };
+    }
 
     const result : any[] = await this.db.$queryRawUnsafe(`
     SELECT
@@ -404,8 +458,8 @@ export class SalesManagerDashboardService {
       WHERE 
         pcmm."CompanyMasterSid" = $1 AND 
         pcmm."BranchMasterSid" = $2 AND 
-        pcmm."meetingDate" >= $5::timestamptz AND 
-        pcmm."meetingDate" <= $6::timestamptz AND
+        pcmm."meetingDate"::date >= $5::date AND 
+        pcmm."meetingDate"::date <= $6::date AND
         pcmm."status" = 'A'
     ) AS "meetingScheduled",
      
@@ -458,13 +512,19 @@ export class SalesManagerDashboardService {
   `,
       companyMasterSid,
       branchMasterSid,
-      dateFrom,   // for createdOn
-      dateTo,
-      naiveDateFrom,   // for meetingDate start (adjust if needed)
-      naiveDateTo,
+      from,
+      to,
+      naiveFrom,
+      naiveTo,
     );
 
-    return result[0]; // single row result
+    return {
+      leadsCreated: Number(result[0].leadsCreated || 0),
+      meetingScheduled: Number(result[0].meetingScheduled || 0),
+      quoteCreated: Number(result[0].quoteCreated || 0),
+      leadConvertedToCustomer: Number(result[0].leadConvertedToCustomer || 0),
+      profitAtQuote: Number(result[0].profitAtQuote || 0),
+    };
   }
 
   private async getLeadMilestoneFunnelCounts(query: SalesManagerQueryDto) {
@@ -1825,6 +1885,20 @@ export class SalesManagerDashboardService {
   private normalizeParams(query: SalesManagerQueryDto): NormalizedParams {
     const page = Number(query.page) || 1;
     const pageSize = Number(query.pageSize) || this.defaultPageSize;
+
+    const {
+      compareDateFrom,
+      compareDateTo,
+      compareNaiveDateFrom,
+      compareNaiveDateTo
+    } = this.buildCompareRanges(
+      query.dateFrom ? query.dateFrom : null,
+      query.dateTo ? query.dateTo : null,
+      query.naiveDateFrom ? query.naiveDateFrom : null,
+      query.naiveDateTo ? query.naiveDateTo : null,
+      query.preset
+    );
+
     return {
       companyMasterSid: Number(query.companyMasterSid),
       branchMasterSid: Number(query.branchMasterSid),
@@ -1832,12 +1906,227 @@ export class SalesManagerDashboardService {
       salespersonEmail: query.salespersonEmail || null,
       dateFrom: query.dateFrom || null,
       dateTo: query.dateTo || null,
+      compareDateFrom: compareDateFrom || null,
+      compareDateTo: compareDateTo || null,
       naiveDateFrom: query.naiveDateFrom || null,
       naiveDateTo: query.naiveDateTo || null,
+      compareNaiveDateFrom: compareNaiveDateFrom || null,
+      compareNaiveDateTo: compareNaiveDateTo || null,
       page: page > 0 ? page : 1,
       pageSize: Math.min(Math.max(pageSize, 1), this.maxPageSize),
       search: query.search?.trim() || null,
       bucket: query.bucket || null,
+    };
+  }
+
+  private buildCompareRanges(
+    dateFrom: string | null,
+    dateTo: string | null,
+    naiveFrom: string | null,
+    naiveTo: string | null,
+    preset?: string
+  ) {
+    if (!dateFrom || !dateTo) {
+      return {
+        compareDateFrom: null,
+        compareDateTo: null,
+        compareNaiveDateFrom: null,
+        compareNaiveDateTo: null,
+      };
+    }
+
+    const dFrom = new Date(dateFrom);
+    const dTo = new Date(dateTo);
+
+    const nFrom = naiveFrom ? new Date(naiveFrom) : null;
+    const nTo = naiveTo ? new Date(naiveTo) : null;
+
+    const isUtcStartOfDay = (date: Date) =>
+      date.getUTCHours() === 0 &&
+      date.getUTCMinutes() === 0 &&
+      date.getUTCSeconds() === 0 &&
+      date.getUTCMilliseconds() === 0;
+
+    const isUtcEndOfDay = (date: Date) =>
+      date.getUTCHours() === 23 &&
+      date.getUTCMinutes() === 59 &&
+      date.getUTCSeconds() === 59 &&
+      date.getUTCMilliseconds() === 0;
+
+    const snapUtcStartOfDay = (date: Date) => {
+      const value = new Date(date);
+      value.setUTCHours(0, 0, 0, 0);
+      return value;
+    };
+
+    const snapUtcEndOfDay = (date: Date) => {
+      const value = new Date(date);
+      value.setUTCHours(23, 59, 59, 0);
+      return value;
+    };
+
+    const startOfUtcDay = (year: number, month: number, day: number) =>
+      new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+
+    const endOfUtcDay = (year: number, month: number, day: number) =>
+      new Date(Date.UTC(year, month, day, 23, 59, 59, 0));
+
+    const shiftRange = (from: Date, to: Date) => {
+      const diff = to.getTime() - from.getTime();
+      let shiftedFrom = new Date(from.getTime() - diff - 86400000);
+      let shiftedTo = new Date(to.getTime() - diff - 86400000);
+
+      // Keep full-day filters aligned to full-day boundaries after shifting.
+      if (isUtcStartOfDay(from)) {
+        shiftedFrom = snapUtcStartOfDay(shiftedFrom);
+      }
+
+      if (isUtcEndOfDay(to)) {
+        shiftedTo = snapUtcEndOfDay(shiftedTo);
+      }
+
+      return {
+        from: shiftedFrom,
+        to: shiftedTo,
+      };
+    };
+
+    let compareDate, compareNaive;
+
+    switch (preset) {
+
+      case 'today': {
+        const prevFrom = new Date(dFrom);
+        const prevTo = new Date(dTo);
+
+        prevFrom.setDate(prevFrom.getDate() - 1);
+        prevTo.setDate(prevTo.getDate() - 1);
+
+        compareDate = { from: prevFrom, to: prevTo };
+
+        if (nFrom && nTo) {
+          compareNaive = {
+            from: startOfUtcDay(
+              nFrom.getUTCFullYear(),
+              nFrom.getUTCMonth(),
+              nFrom.getUTCDate() - 1,
+            ),
+            to: endOfUtcDay(
+              nTo.getUTCFullYear(),
+              nTo.getUTCMonth(),
+              nTo.getUTCDate() - 1,
+            ),
+          };
+        } else {
+          compareNaive = compareDate;
+        }
+
+        break;
+      }
+
+      case 'month': {
+        compareDate = {
+          from: new Date(dFrom.getFullYear(), dFrom.getMonth() - 1, 1),
+          to: new Date(dFrom.getFullYear(), dFrom.getMonth(), 0),
+        };
+
+        if (nFrom) {
+          compareNaive = {
+            from: startOfUtcDay(
+              nFrom.getUTCFullYear(),
+              nFrom.getUTCMonth() - 1,
+              1,
+            ),
+            to: endOfUtcDay(
+              nFrom.getUTCFullYear(),
+              nFrom.getUTCMonth(),
+              0,
+            ),
+          };
+        } else {
+          compareNaive = compareDate;
+        }
+
+        break;
+      }
+
+      case 'lastMonth': {
+        compareDate = {
+          from: new Date(dFrom.getFullYear(), dFrom.getMonth() - 2, 1),
+          to: new Date(dFrom.getFullYear(), dFrom.getMonth() - 1, 0),
+        };
+
+        compareNaive = nFrom
+          ? {
+              from: startOfUtcDay(
+                nFrom.getUTCFullYear(),
+                nFrom.getUTCMonth() - 2,
+                1,
+              ),
+              to: endOfUtcDay(
+                nFrom.getUTCFullYear(),
+                nFrom.getUTCMonth() - 1,
+                0,
+              ),
+            }
+          : compareDate;
+        break;
+      }
+
+      case 'fy': {
+        compareDate = {
+          from: new Date(dFrom.getFullYear() - 1, dFrom.getMonth(), dFrom.getDate()),
+          to: new Date(dTo.getFullYear() - 1, dTo.getMonth(), dTo.getDate()),
+        };
+
+        compareNaive = nFrom && nTo
+          ? {
+              from: startOfUtcDay(
+                nFrom.getUTCFullYear() - 1,
+                nFrom.getUTCMonth(),
+                nFrom.getUTCDate(),
+              ),
+              to: endOfUtcDay(
+                nTo.getUTCFullYear() - 1,
+                nTo.getUTCMonth(),
+                nTo.getUTCDate(),
+              ),
+            }
+          : compareDate;
+        break;
+      }
+
+      default: {
+        compareDate = shiftRange(dFrom, dTo);
+
+        compareNaive = (nFrom && nTo)
+          ? shiftRange(nFrom, nTo)
+          : compareDate;
+      }
+    }
+
+    return {
+      compareDateFrom: compareDate.from,
+      compareDateTo: compareDate.to,
+      compareNaiveDateFrom: compareNaive.from,
+      compareNaiveDateTo: compareNaive.to,
+    };
+  }
+
+  private buildKpiMetric(current: number, previous: number) {
+    let percent = 0;
+
+    if (previous === 0) {
+      percent = current > 0 ? 100 : 0;
+    } else {
+      percent = ((current - previous) / previous) * 100;
+    }
+
+    return {
+      current,
+      previous,
+      percent: Number(percent.toFixed(1)),
+      direction: current >= previous ? 'up' : 'down',
     };
   }
 

@@ -27,12 +27,12 @@ export class SalesManagerQueryDto {
   @ApiProperty({ required: false })
   @IsOptional()
   @IsDateString()
-  dateFrom?: string;
+  dateFrom : string;
 
   @ApiProperty({ required: false })
   @IsOptional()
   @IsDateString()
-  dateTo?: string;
+  dateTo : string;
 
   @ApiProperty({ required: false, description: 'Date boundary for timestamp-without-tz columns (meetingDate, followUpDate)' })
   @IsOptional()
@@ -65,4 +65,9 @@ export class SalesManagerQueryDto {
   @IsOptional()
   @IsIn(['overdue', 'today', 'future'])
   bucket?: 'overdue' | 'today' | 'future';
+
+  @ApiProperty({ required: false, enum: ['today', 'week', 'month', 'lastMonth', 'fy'] })
+  @IsOptional()
+  @IsIn(['today', 'week', 'month', 'lastMonth', 'fy'])
+  preset?: 'today' | 'week' | 'month' | 'lastMonth' | 'fy';
 }

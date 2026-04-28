@@ -9,9 +9,11 @@ import {
   CreateMeetingOnBehalfDto,
   SendReminderDto,
 } from '../../DTO/sales-manager-actions.dto';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 @ApiTags('Dashboard - Sales Manager')
 @Controller('dashboard/sales-manager')
+@Auth()
 export class SalesManagerDashboardController {
   constructor(private readonly service: SalesManagerDashboardService) {}
 
