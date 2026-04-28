@@ -6527,14 +6527,6 @@ console.log('Created product:', createdProduct);
 
         // --- Job Close checks ---
 
-        checkRunners.set('JOB_TO_SUBJOB', async () => masterJobOthers?.JobtoSubjob === 'Y');
-
-        checkRunners.set('ALL_PREVIOUS_CLOSED', async () => {
-            return masterJobOthers?.DocCloseStatus === 'Closed' &&
-                masterJobOthers?.OpsCloseStatus === 'Closed' &&
-                masterJobOthers?.AccCloseStatus === 'Closed';
-        });
-
         checkRunners.set('JOB_PROFIT_LOSS', async () => {
             // If JOB_PROFITABLE was already run, reuse result; otherwise compute it
             if (!jobProfitable && hasHouses) {
