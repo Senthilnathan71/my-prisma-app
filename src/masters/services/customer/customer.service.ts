@@ -679,55 +679,29 @@ export class CustomerService {
         excludeCustomerMasterSid?: number;
     }) {
         const { CompanyMasterSid, customerName, customerShortCode, excludeCustomerMasterSid } = params;
+        const normalizedName = customerName?.trim().toLowerCase();
+        const normalizedShortCode = customerShortCode?.trim().toLowerCase();
 
-        // Build OR conditions
-        const orClauses: Prisma.CustomerMasterWhereInput[] = [];
-
-        if (customerName?.trim()) {
-            orClauses.push({
-                CustomerName: {
-                    equals: customerName.trim(),
-                    mode: Prisma.QueryMode.insensitive,
-                },
-            });
-        }
-
-        if (customerShortCode?.trim()) {
-            orClauses.push({
-                CustomerShortCode: {
-                    equals: customerShortCode.trim(),
-                    mode: Prisma.QueryMode.insensitive,
-                },
-            });
-        }
-
-        if (orClauses.length === 0) {
+        if (!normalizedName && !normalizedShortCode) {
             return { nameTaken: false, codeTaken: false, message: 'No fields provided' };
         }
 
-        const where: Prisma.CustomerMasterWhereInput = {
-            CompanyMasterSid,
-            status: 'A',
-            OR: orClauses,
-            ...(excludeCustomerMasterSid ? { CustomerMasterSid: { not: excludeCustomerMasterSid } } : {}),
-        };
-
         const rows = await this._db.customerMaster.findMany({
-            where,
+            where: {
+                CompanyMasterSid,
+                status: 'A',
+                ...(excludeCustomerMasterSid ? { CustomerMasterSid: { not: excludeCustomerMasterSid } } : {}),
+            },
             select: { CustomerName: true, CustomerShortCode: true },
         });
 
-        const nameTaken =
-            !!customerName &&
-            rows.some(
-                (r) => (r.CustomerName ?? '').trim().toLowerCase() === customerName.trim().toLowerCase(),
-            );
+        const nameTaken = !!normalizedName && rows.some(
+            (r) => (r.CustomerName ?? '').trim().toLowerCase() === normalizedName,
+        );
 
-        const codeTaken =
-            !!customerShortCode &&
-            rows.some(
-                (r) => (r.CustomerShortCode ?? '').trim().toLowerCase() === customerShortCode.trim().toLowerCase(),
-            );
+        const codeTaken = !!normalizedShortCode && rows.some(
+            (r) => (r.CustomerShortCode ?? '').trim().toLowerCase() === normalizedShortCode,
+        );
 
         // 🧠 Build friendly message
         let message = 'Checked successfully';
