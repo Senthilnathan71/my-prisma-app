@@ -6351,22 +6351,19 @@ console.log('Created product:', createdProduct);
         // --- Operation checks ---
 
         checkRunners.set('PRE_ALERT', async () => {
-            if (!hasHouses) return false;
-            const shipmentNos = (await this._db.houseJob.findMany({
-                where: { HouseJobSid: { in: houseJobSids } },
-                select: { ShipmentNo: true }
-            })).map(h => h.ShipmentNo).filter(Boolean);
-            const milestones = await this._db.shipmentMilestone.findMany({
+            const log = await this._db.auditLog.findFirst({
                 where: {
-                    OR: [
-                        { HouseJobSid: { in: houseJobSids } },
-                        ...(shipmentNos.length > 0 ? [{ ShipmentNo: { in: shipmentNos as string[] } }] : [])
-                    ],
-                    MilestoneName: { contains: 'Pre Alert', mode: 'insensitive' as const },
-                    Status: 'A'
-                }
+                    tableName: 'MasterJob',
+                    recordId: String(MasterJobSid),
+                    operation: 'PDF',
+                    newVal: {
+                        path: ['PDF'],
+                        equals: 'Pre Alert PDF Downloaded'
+                    }
+                },
+                select: { AuditLogSid: true }
             });
-            return milestones.length > 0;
+            return log !== null;
         });
 
         checkRunners.set('INVOICE_OPS', async () => {
@@ -6386,22 +6383,19 @@ console.log('Created product:', createdProduct);
         });
 
         checkRunners.set('CARGO_MANIFEST', async () => {
-            if (!hasHouses) return false;
-            const shipmentNos = (await this._db.houseJob.findMany({
-                where: { HouseJobSid: { in: houseJobSids } },
-                select: { ShipmentNo: true }
-            })).map(h => h.ShipmentNo).filter(Boolean);
-            const milestones = await this._db.shipmentMilestone.findMany({
+            const log = await this._db.auditLog.findFirst({
                 where: {
-                    OR: [
-                        { HouseJobSid: { in: houseJobSids } },
-                        ...(shipmentNos.length > 0 ? [{ ShipmentNo: { in: shipmentNos as string[] } }] : [])
-                    ],
-                    MilestoneName: { contains: 'Manifest', mode: 'insensitive' as const },
-                    Status: 'A'
-                }
+                    tableName: 'MasterJob',
+                    recordId: String(MasterJobSid),
+                    operation: 'PDF',
+                    newVal: {
+                        path: ['PDF'],
+                        equals: 'Cargo Manifest PDF Downloaded'
+                    }
+                },
+                select: { AuditLogSid: true }
             });
-            return milestones.length > 0;
+            return log !== null;
         });
 
         checkRunners.set('DO_ISSUED', async () => {
