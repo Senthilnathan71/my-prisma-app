@@ -939,44 +939,62 @@ export class SalesManagerDashboardService {
   // ─── WEEKLY TREND ────────────────────────────────────────────────────
 
   async getWeeklyTrend(query: SalesManagerQueryDto) {
-    const { companyMasterSid, branchMasterSid, salespersonId } = this.normalizeParams(query);
+    const {
+      companyMasterSid,
+      branchMasterSid,
+      dateFrom,
+      dateTo,
+      naiveDateFrom,
+      naiveDateTo,
+    } = this.normalizeParams(query);
 
     const rows: any[] = await this.db.$queryRawUnsafe(
-      `WITH weeks AS (
-        SELECT generate_series(
-          date_trunc('week', CURRENT_DATE - INTERVAL '11 weeks'),
-          date_trunc('week', CURRENT_DATE),
+      `WITH anchor AS (
+        SELECT COALESCE($4::timestamptz, $6::timestamp, CURRENT_DATE::timestamp) AS end_date
+      ),
+      weeks AS (
+        SELECT
+          gs AS week_start,
+          LEAST(gs + INTERVAL '6 days', a.end_date) AS week_end
+        FROM anchor a
+        CROSS JOIN generate_series(
+          date_trunc('week', a.end_date - INTERVAL '11 weeks'),
+          date_trunc('week', a.end_date),
           '1 week'::interval
-        ) AS week_start
+        ) gs
       )
       SELECT
-        w.week_start,
+        w.week_end,
         (SELECT COUNT(*) FROM "PreCustomerMaster" pcm
           WHERE pcm."status" = 'A' AND pcm."CompanyMasterSid" = $1 AND pcm."BranchMasterSid" = $2
-          AND ($3::int IS NULL OR pcm."leadAssignTo" = $3)
-          AND pcm."createdOn" >= w.week_start AND pcm."createdOn" < w.week_start + INTERVAL '1 week'
+          AND pcm."createdOn" >= w.week_start
+          AND pcm."createdOn" < w.week_end + INTERVAL '1 day'
         ) AS "newLeads",
         (SELECT COUNT(*) FROM "PreCustomerMeeting" pcmm
           WHERE pcmm."status" = 'A' AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
-          AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-          AND pcmm."meetingDate" >= w.week_start AND pcmm."meetingDate" < w.week_start + INTERVAL '1 week'
+          AND pcmm."meetingDate"::date >= w.week_start::date
+          AND pcmm."meetingDate"::date < w.week_end :: date + INTERVAL '1 day'
         ) AS "meetings",
         (SELECT COUNT(*) FROM "CustomerMaster" cm
           INNER JOIN "PreCustomerMaster" pcm2 ON cm."PreCustomerMasterSid" = pcm2."PreCustomerMasterSid"
           WHERE cm."status" = 'A' AND cm."CompanyMasterSid" = $1
           AND ($2::int IS NULL OR pcm2."BranchMasterSid" = $2)
-          AND ($3::int IS NULL OR pcm2."leadAssignTo" = $3)
-          AND cm."createdOn" >= w.week_start AND cm."createdOn" < w.week_start + INTERVAL '1 week'
+          AND cm."PreCustomerMasterSid" IS NOT NULL
+          AND cm."createdOn" >= w.week_start
+          AND cm."createdOn" < w.week_end + INTERVAL '1 day'
         ) AS "conversions"
       FROM weeks w
       ORDER BY w.week_start ASC`,
       companyMasterSid,
       branchMasterSid,
-      salespersonId,
+      dateFrom,
+      dateTo,
+      naiveDateFrom,
+      naiveDateTo,
     );
 
     return rows.map((r) => ({
-      weekStart: r.week_start,
+      weekStart: r.week_end,
       newLeads: Number(r.newLeads) || 0,
       meetings: Number(r.meetings) || 0,
       conversions: Number(r.conversions) || 0,
