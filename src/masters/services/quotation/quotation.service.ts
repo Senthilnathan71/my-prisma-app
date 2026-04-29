@@ -1625,11 +1625,12 @@ export class QuotationService {
                     status: 'A'
                 },
                 select: {
-                    Toemail: true
+                    Toemail: true,
+                    CCemail: true
                 }
             });
             if (brEmail?.Toemail) {
-                return { Email: brEmail.Toemail };
+                return { Email: brEmail.Toemail, CCemail: brEmail.CCemail || '' };
             }
 
             throw new BadRequestException('To email is not available. Please configure in Customer Branch Email.');
