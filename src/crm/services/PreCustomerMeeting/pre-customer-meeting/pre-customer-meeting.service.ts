@@ -38,20 +38,65 @@ export class PreCustomerMeetingService {
 
     async createNewPreCustomerMeeting(payload: any) {
         try {
+            const companyMasterSid = Number(payload.CompanyMasterSid) || null;
+            const branchMasterSid = Number(payload.BranchMasterSid) || null;
+            const customerMasterSid = Number(payload.CustomerMasterSid) || null;
+            const preCustomerMasterSid = Number(payload.PreCustomerMasterSid) || null;
+            const meetingDate = payload.meetingDate ? new Date(payload.meetingDate) : null;
+
+            if (!companyMasterSid || !branchMasterSid) {
+                throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required');
+            }
+            if (!meetingDate || Number.isNaN(meetingDate.getTime())) {
+                throw new BadRequestException('meetingDate is required');
+            }
+            if (payload.LeadOrCustomer === 'C' && !customerMasterSid) {
+                throw new BadRequestException('CustomerMasterSid is required for customer meetings');
+            }
+            if (payload.LeadOrCustomer === 'L' && !preCustomerMasterSid) {
+                throw new BadRequestException('PreCustomerMasterSid is required for lead meetings');
+            }
+
             const {
                 customerName,
                 userEmail,
                 createdBy,
                 PreCustomerMeetingid,
                 followUp,
+                CompanyMasterSid: _companyMasterSid,
+                BranchMasterSid: _branchMasterSid,
+                CustomerMasterSid: _customerMasterSid,
+                PreCustomerMasterSid: _preCustomerMasterSid,
+                meetingDate: _meetingDate,
                 ...prismaData
             } = payload;
 
-            const createdMeeting = await this._db.preCustomerMeeting.create({
-                data: {
-                    ...prismaData,
-                    createdBy: createdBy || userEmail || 'system',
+            const meetingData: any = {
+                ...prismaData,
+                meetingDate,
+                companyMaster: {
+                    connect: { CompanyMasterSid: companyMasterSid }
                 },
+                branchMaster: {
+                    connect: { BranchMasterSid: branchMasterSid }
+                },
+                createdBy: createdBy || userEmail || 'system',
+            };
+
+            if (customerMasterSid) {
+                meetingData.customerMaster = {
+                    connect: { CustomerMasterSid: customerMasterSid }
+                };
+            }
+
+            if (preCustomerMasterSid) {
+                meetingData.preCustomerMaster = {
+                    connect: { PreCustomerMasterSid: preCustomerMasterSid }
+                };
+            }
+
+            const createdMeeting = await this._db.preCustomerMeeting.create({
+                data: meetingData,
                 include: {
                     branchMaster: true,
                     companyMaster: true,
@@ -87,6 +132,19 @@ export class PreCustomerMeetingService {
 
     async updatePreCustomerMeetingById(PreCustomerMeetingSid: number, payload: any) {
         try {
+            const companyMasterSid = Number(payload.CompanyMasterSid) || null;
+            const branchMasterSid = Number(payload.BranchMasterSid) || null;
+            const customerMasterSid = Number(payload.CustomerMasterSid) || null;
+            const preCustomerMasterSid = Number(payload.PreCustomerMasterSid) || null;
+            const meetingDate = payload.meetingDate ? new Date(payload.meetingDate) : null;
+
+            if (!companyMasterSid || !branchMasterSid) {
+                throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required');
+            }
+            if (!meetingDate || Number.isNaN(meetingDate.getTime())) {
+                throw new BadRequestException('meetingDate is required');
+            }
+
             const exist = await this._db.preCustomerMeeting.findUnique({
                 where: {
                     PreCustomerMeetingSid: PreCustomerMeetingSid
@@ -103,17 +161,43 @@ export class PreCustomerMeetingService {
                 PreCustomerMeetingid,
                 followUp,
                 PreCustomerMeetingSid: _,
+                CompanyMasterSid: _companyMasterSid,
+                BranchMasterSid: _branchMasterSid,
+                CustomerMasterSid: _customerMasterSid,
+                PreCustomerMasterSid: _preCustomerMasterSid,
+                meetingDate: _meetingDate,
                 ...prismaData
             } = payload;
+
+            const meetingData: any = {
+                ...prismaData,
+                meetingDate,
+                companyMaster: {
+                    connect: { CompanyMasterSid: companyMasterSid }
+                },
+                branchMaster: {
+                    connect: { BranchMasterSid: branchMasterSid }
+                },
+                updatedBy: payload.updatedBy || userEmail || createdBy || exist.updatedBy || exist.createdBy || 'system'
+            };
+
+            if (customerMasterSid) {
+                meetingData.customerMaster = {
+                    connect: { CustomerMasterSid: customerMasterSid }
+                };
+            }
+
+            if (preCustomerMasterSid) {
+                meetingData.preCustomerMaster = {
+                    connect: { PreCustomerMasterSid: preCustomerMasterSid }
+                };
+            }
 
             const updatedMeeting = await this._db.preCustomerMeeting.update({
                 where: {
                     PreCustomerMeetingSid: PreCustomerMeetingSid
                 },
-                data: {
-                    ...prismaData,
-                    updatedBy: payload.updatedBy || userEmail || createdBy || exist.updatedBy || exist.createdBy || 'system'
-                },
+                data: meetingData,
                 include: {
                     branchMaster: true,
                     companyMaster: true,
@@ -230,6 +314,10 @@ export class PreCustomerMeetingService {
     async searchList(params: filterDto) {
     const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
     const skip = (page - 1) * pageSize;
+
+    if (!activeCompanyId || !activeBranchId) {
+        throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required');
+    }
 
     const where: Prisma.PreCustomerMeetingWhereInput = {
         status: statusWhereClause,

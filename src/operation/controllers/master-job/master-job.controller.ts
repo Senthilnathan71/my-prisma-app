@@ -372,11 +372,11 @@ export class MasterJobController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('connection/delete/:MasterJobConnectionSid')
-    async softDeleteMasterJobContainer(@Param('MasterJobConnectionSid',ParseIntPipe) MasterJobConnectionSid:number){
+    async softDeleteMasterJobContainer(@Param('MasterJobConnectionSid',ParseIntPipe) MasterJobConnectionSid:number,@Body('updatedBy')updatedBy: string){
         let resp = new ResponseData();
         try {
             this.logger.log(`Soft Deleting Master Job Connection by MasterJobConnectionSid : ${MasterJobConnectionSid}`);
-            const result = await this.masterJobService.softDeleteMasterJobConnection(MasterJobConnectionSid);
+            const result = await this.masterJobService.softDeleteMasterJobConnection(MasterJobConnectionSid,updatedBy);
             this.logger.debug(`Soft Deleted Master Job Connection by MasterJobConnectionSid : ${JSON.stringify(result)}`);
             resp.message = 'Master Job Connection soft deleted successfully';
         } catch (error) {
@@ -398,11 +398,11 @@ export class MasterJobController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('container/delete/:MasterJobContainerSid')
-    async softDeleteMasterJobContainerById(@Param('MasterJobContainerSid',ParseIntPipe) MasterJobContainerSid:number){
+    async softDeleteMasterJobContainerById(@Param('MasterJobContainerSid',ParseIntPipe) MasterJobContainerSid:number,@Body('updatedBy')updatedBy: string){
         let resp = new ResponseData();
         try {
             this.logger.log(`Soft Deleting Master Job Container by MasterJobContainerSid : ${MasterJobContainerSid}`);
-            const result = await this.masterJobService.softDeleteMasterJobContainer(MasterJobContainerSid);
+            const result = await this.masterJobService.softDeleteMasterJobContainer(MasterJobContainerSid,updatedBy);
             this.logger.debug(`Soft Deleted Master Job Container by MasterJobContainerSid : ${JSON.stringify(result)}`);
             resp.message = 'Master Job Container soft deleted successfully';
         } catch (error) {

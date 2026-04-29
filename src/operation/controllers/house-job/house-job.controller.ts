@@ -281,10 +281,11 @@ async createHouseJob(@Body() payload: any) {
     type: ResponseData
   })
   @Delete('product/:HouseJobProductSid')
-  async deleteHouseJobProduct(@Param('HouseJobProductSid', ParseIntPipe) HouseJobProductSid: number) {
+  async deleteHouseJobProduct(@Param('HouseJobProductSid', ParseIntPipe) HouseJobProductSid: number,
+  @Body('updatedBy')updatedBy: string) {
     let output = new ResponseData
     try {
-      let houseJobProduct = await this.houseJobService.softDeleteHouseJobProduct(HouseJobProductSid);
+      let houseJobProduct = await this.houseJobService.softDeleteHouseJobProduct(HouseJobProductSid,updatedBy);
       this.logger.debug(`deleteHouseJobProduct: ${JSON.stringify(houseJobProduct)}`)
       output.data = houseJobProduct;
       output.message = "House Job Product deleted successfully";
@@ -307,10 +308,11 @@ async createHouseJob(@Body() payload: any) {
     type: ResponseData
   })
   @Delete(['connection/:HouseJobConnectionSid', 'connection/delete/:HouseJobConnectionSid'])
-  async deleteHouseJobConnection(@Param('HouseJobConnectionSid', ParseIntPipe) HouseJobConnectionSid: number) {
+  async deleteHouseJobConnection(@Param('HouseJobConnectionSid', ParseIntPipe) HouseJobConnectionSid: number,
+  @Body('updatedBy') updatedBy: string) {
     let output = new ResponseData
     try {
-      const houseJobConnection = await this.houseJobService.softDeleteHouseJobConnection(HouseJobConnectionSid);
+      const houseJobConnection = await this.houseJobService.softDeleteHouseJobConnection(HouseJobConnectionSid,updatedBy);
       this.logger.debug(`deleteHouseJobConnection: ${JSON.stringify(houseJobConnection)}`)
       output.data = houseJobConnection;
       output.message = "House Job Connection deleted successfully";

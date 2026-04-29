@@ -393,7 +393,7 @@ export class CreditRequestService {
    * @param CustomerCreditRequestSid - Credit request SID
    * @returns Updated credit request
    */
-  async deleteCustomerCreditRequest(CustomerCreditRequestSid: number) {
+  async deleteCustomerCreditRequest(CustomerCreditRequestSid: number, updatedBy: string) {
     const existing = await this._db.customerCreditRequest.findUnique({
       where: { CustomerCreditRequestSid },
     });
@@ -412,7 +412,7 @@ export class CreditRequestService {
 
     return this._db.customerCreditRequest.update({
       where: { CustomerCreditRequestSid },
-      data: { Status: 'D' },
+      data: { Status: 'D' , UpdatedBy: updatedBy, UpdatedOn: new Date()},
     });
   }
 

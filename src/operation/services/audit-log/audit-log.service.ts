@@ -116,6 +116,7 @@ export class AuditLogService {
     private getBookingRowLabel(
         log: any,
         rowLabelMaps: {
+            cargoMap: Map<string, string>;
             productMap: Map<string, string>;
             ratesMap: Map<string, string>;
             connectionMap: Map<string, string>;
@@ -145,7 +146,12 @@ export class AuditLogService {
                     rowLabelMaps.connectionMap.get(recordId) ||
                     `Connection [${newVal.VesselName || oldVal.VesselName || recordId}]`
                 );
-
+            
+            case 'BookingCargo':
+                return (
+                    rowLabelMaps.cargoMap.get(recordId) ||
+                    `Cargo [${newVal.CargoType || oldVal.CargoType || recordId}]`
+                );
             default:
                 return null;
         }
@@ -168,6 +174,7 @@ export class AuditLogService {
     private async getBookingLogs(recordId?: string) {
         try {
             let conditions: any[] = [];
+            let cargoRows: any[] = [];
             let productRows: any[] = [];
             let ratesRows: any[] = [];
             let connectionRows: any[] = [];
@@ -175,7 +182,7 @@ export class AuditLogService {
             const bookingHeaderSid = Number(recordId);
 
             const [
-                cargo,
+                fetchedcargo,
                 fetchedProducts,
                 fetchedConnections,
                 others,
@@ -184,16 +191,19 @@ export class AuditLogService {
             ] = await Promise.all([
                 this._db.bookingCargo.findMany({
                     where: { BookingHeaderSid: bookingHeaderSid },
-                    select: { BookingCargoSid: true }
+                    select: { 
+                        BookingCargoSid: true,
+                        CargoType: true
+                    }
                 }),
                 this._db.bookingProduct.findMany({
                     where: { BookingHeaderSid: bookingHeaderSid },
                     select: {
                         BookingProductSid: true,
+                        BookingCargoSid: true,
                         ProductName: true,
                         ShippingBillNo: true
                     },
-                    orderBy: { BookingProductSid: 'desc' }
                 }),
                 this._db.bookingConnection.findMany({
                     where: { BookingHeaderSid: bookingHeaderSid },
@@ -223,41 +233,44 @@ export class AuditLogService {
             productRows = fetchedProducts;
             connectionRows = fetchedConnections;
             ratesRows = fetchedRates;
+            cargoRows = fetchedcargo;
 
             conditions = [
                 {
                     tableName: 'BookingHeader',
                     recordId: recordId
                 },
-                {
-                    tableName: 'BookingCargo',
-                    recordId: { in: cargo.map(x => x.BookingCargoSid.toString()) }
-                },
+                ...(cargoRows.length
+                    ? [{
+                        tableName: 'BookingCargo',
+                        recordId: { in: cargoRows.map(x => String(x.BookingCargoSid)) }
+                    }]
+                    : []),
                 ...(productRows.length
                     ? [{
                         tableName: 'BookingProduct',
-                        recordId: { in: productRows.map(x => x.BookingProductSid.toString()) }
+                        recordId: { in: productRows.map(x => String(x.BookingProductSid)) }
                     }]
                     : []),
                 ...(connectionRows.length
                     ? [{
                         tableName: 'BookingConnection',
-                        recordId: { in: connectionRows.map(x => x.BookingConnectionSid.toString()) }
+                        recordId: { in: connectionRows.map(x => String(x.BookingConnectionSid)) }
                     }]
                     : []),
                 {
                     tableName: 'BookingOthers',
-                    recordId: { in: others.map(x => x.BookingOthersSid.toString()) }
+                    recordId: { in: others.map(x => String(x.BookingOthersSid)) }
                 },
                 ...(ratesRows.length
                     ? [{
                         tableName: 'BookingRates',
-                        recordId: { in: ratesRows.map(x => x.BookingRatesSid.toString()) }
+                        recordId: { in: ratesRows.map(x => String(x.BookingRatesSid)) }
                     }]
                     : []),
                 {
                     tableName: 'BookingCro',
-                    recordId: { in: cro.map(x => x.BookingCroSid.toString()) }
+                    recordId: { in: cro.map(x => String(x.BookingCroSid)) }
                 }
             ];
 
@@ -353,11 +366,24 @@ export class AuditLogService {
                 vouchertype.map(c => [String(c.VoucherTypeMasterSid), c.DocumentTypeName])
             );
 
-            const productMap = new Map<string, string>(
-                productRows.map((p) => [
-                    String(p.BookingProductSid),
-                    `Product [${p.ProductName?.toString().trim() || p.BookingProductSid}]`
+            const cargoMap = new Map<string, string>(
+                cargoRows.map((c) => [
+                    String(c.BookingCargoSid),
+                    `Cargo [${c.CargoType?.toString().trim() || c.BookingCargoSid}]`
                 ])
+            )
+
+            const productMap = new Map<string, string>(
+                productRows.map((p) => {
+                    const cargoLabel = 
+                        cargoMap.get(String(p.BookingCargoSid)) || `[${p.BookingCargoSid}]`;
+                    const productLabel = 
+                        p.ProductName?.toString().trim() || `[${p.BookingProductSid}]`;
+                    return [
+                        String(p.BookingProductSid),
+                        `Product [${cargoLabel} - ${productLabel}]`
+                    ];
+                })
             );
 
             const connectionMap = new Map<string, string>(
@@ -407,7 +433,7 @@ export class AuditLogService {
             };
 
             const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'BookingConnectionSid',
                 'CarrierSid', 'CompanyMasterSid', 'CustomerBranchSid',
                 'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy', 'MasterNoSid', 'HouseJobSid',
                 'VoyageMasterSid', 'BookingHeaderSid', 'BranchMasterSid', 'BookingCroSid', 'AgentBranchSid'
@@ -417,6 +443,7 @@ export class AuditLogService {
                 productMap,
                 connectionMap,
                 ratesMap,
+                cargoMap,
             };
 
             const formattedLogs = logs.map((log: any) => {
@@ -514,6 +541,7 @@ export class AuditLogService {
     private getAgentMasterAirWaybillRowLabel(
         log: any,
         rowLabelMaps: {
+            cargoMap: Map<string, string>;
             productMap: Map<string, string>;
             connectionMap: Map<string, string>;
             rateMap: Map<string, string>;
@@ -549,7 +577,12 @@ export class AuditLogService {
                 return (
                     rowLabelMaps.vehicleMap.get(recordId) ||
                     `Vehicle [${newVal.ChassisNo || oldVal.ChassisNo || recordId}]`
-                )
+                );
+            case 'HouseJobCargo':
+                return (
+                    rowLabelMaps.cargoMap.get(recordId) || 
+                    `Cargo [${newVal.CargoType || oldVal.CargoType || recordId}]`
+                );
             default:
                 return null;
         }
@@ -574,6 +607,7 @@ export class AuditLogService {
     private async getAgentMasterAirWaybillLogs(recordId?: string) {
         try {
             let conditions: any[] = [];
+            let cargoRows: any[] = [];
             let productRows: any[] = [];
             let connectionRows: any[] = [];
             let ratesRows: any[] = [];
@@ -583,7 +617,7 @@ export class AuditLogService {
             const houseJobSid = Number(recordId);
 
             const [
-                cargo,
+                fetchedcargo,
                 fetchedProducts,
                 fetchedConnections,
                 fetchedRates,
@@ -594,16 +628,19 @@ export class AuditLogService {
             ] = await Promise.all([
                 this._db.houseJobCargo.findMany({
                     where: { HouseJobSid: houseJobSid },
-                    select: { HouseJobCargoSid: true }
+                    select: { 
+                        HouseJobCargoSid: true,
+                        CargoType: true
+                    }
                 }),
                 this._db.houseJobProduct.findMany({
                     where: { HouseJobSid: houseJobSid },
                     select: {
                         HouseJobProductSid: true,
+                        HouseJobCargoSid: true,
                         ProductName: true,
                         ShippingBillNo: true
                     },
-                    orderBy: { HouseJobProductSid: 'desc' }
                 }),
                 this._db.houseJobConnection.findMany({
                     where: { HouseJobSid: houseJobSid },
@@ -648,52 +685,55 @@ export class AuditLogService {
             ratesRows = fetchedRates;
             boeRows = fetchedBOE;
             vehicleRows = fetchedVehicles;
+            cargoRows = fetchedcargo;
 
             conditions = [
                 {
                     tableName: 'HouseJob',
                     recordId: recordId
                 },
-                {
-                    tableName: 'HouseJobCargo',
-                    recordId: { in: cargo.map(x => x.HouseJobCargoSid.toString()) }
-                },
+                ...(cargoRows.length
+                    ? [{
+                        tableName: 'HouseJobCargo',
+                        recordId: { in: cargoRows.map(x => String(x.HouseJobCargoSid)) }
+                    }]
+                    : []),
                 ...(productRows.length
                     ? [{
                         tableName: 'HouseJobProduct',
-                        recordId: { in: productRows.map(x => x.HouseJobProductSid.toString()) }
+                        recordId: { in: productRows.map(x => String(x.HouseJobProductSid)) }
                     }]
                     : []),
                 ...(connectionRows.length
                     ? [{
                         tableName: 'HouseJobConnection',
-                        recordId: { in: connectionRows.map(x => x.HouseJobConnectionSid.toString()) }
+                        recordId: { in: connectionRows.map(x => String(x.HouseJobConnectionSid)) }
                     }]
                     : []),
                 {
                     tableName: 'HouseJobOthers',
-                    recordId: { in: others.map(x => x.HouseJobOthersSid.toString()) }
+                    recordId: { in: others.map(x => String(x.HouseJobOthersSid)) }
                 },
                 ...(ratesRows.length
                     ? [{
                         tableName: 'CostRevenueCharges',
-                        recordId: { in: ratesRows.map(x => x.CostRevenueChargesSid.toString()) }
+                        recordId: { in: ratesRows.map(x => String(x.CostRevenueChargesSid)) }
                     }]
                     : []),
                 ...(boeRows.length
                     ? [{
                         tableName: 'HouseJobBOE',
-                        recordId: { in: boeRows.map(x => x.HouseJobBOESid.toString()) }
+                        recordId: { in: boeRows.map(x => String(x.HouseJobBOESid)) }
                     }]
                     : []),
                 {
                     tableName: 'HouseJobCustoms',
-                    recordId: { in: customs.map(x => x.HouseJobCustomsSid.toString()) }
+                    recordId: { in: customs.map(x => String(x.HouseJobCustomsSid)) }
                 },
                 ...(vehicleRows.length
                     ? [{
                         tableName: 'HouseJobVehicle',
-                        recordId: { in: vehicleRows.map(x => x.HouseJobVehicleSid.toString()) }
+                        recordId: { in: vehicleRows.map(x => String(x.HouseJobVehicleSid)) }
                     }]
                     : []),
             ];
@@ -790,11 +830,24 @@ export class AuditLogService {
                 vouchertype.map(c => [String(c.VoucherTypeMasterSid), c.DocumentTypeName])
             );
 
-            const productMap = new Map<string, string>(
-                productRows.map((p) => [
-                    String(p.HouseJobProductSid),
-                    `Product [${p.ProductName?.toString().trim() || p.HouseJobProductSid}]`
+            const cargoMap = new Map<string, string>(
+                cargoRows.map((c) => [
+                    String(c.HouseJobCargoSid),
+                    `Cargo [${c.CargoType?.toString().trim() || c.HouseJobCargoSid}]`
                 ])
+            )
+
+            const productMap = new Map<string, string>(
+                productRows.map((p) => {
+                    const cargoLabel = 
+                        cargoMap.get(String(p.HouseJobCargoSid)) || `[${p.HouseJobCargoSid}]`;
+                    const productLabel = 
+                        p.ProductName?.toString().trim() || `[${p.HouseJobProductSid}]`;
+                    return [
+                        String(p.HouseJobProductSid),
+                        `Product [${cargoLabel} - ${productLabel}]`
+                    ];
+                })
             );
 
             const vehicleMap = new Map<string, string>(
@@ -907,6 +960,7 @@ export class AuditLogService {
                 rateMap,
                 boeMap,
                 vehicleMap,
+                cargoMap
             };
 
             const formattedLogs = logs.map((log: any) => {
@@ -1095,12 +1149,12 @@ export class AuditLogService {
                 ...(detailRows.length
                     ? [{
                         tableName: 'VoucherDetail',
-                        recordId: { in: detailRows.map(x => x.VoucherDetailSid.toString()) }
+                        recordId: { in: detailRows.map(x => String(x.VoucherDetailSid)) }
                     }]
                     : []),
                 {
                     tableName: 'VoucherOthers',
-                    recordId: { in: others.map(x => x.VoucherOthersSid.toString()) }
+                    recordId: { in: others.map(x => String(x.VoucherOthersSid)) }
                 }
             ];
 
@@ -1392,7 +1446,7 @@ export class AuditLogService {
                         tableName: 'CustomerCreditRequest',
                         recordId: {
                             in: creditRequestRows.map((x) =>
-                                x.CustomerCreditRequestSid.toString()
+                                String(x.CustomerCreditRequestSid)
                             )
                         }
                     }]
@@ -1403,7 +1457,7 @@ export class AuditLogService {
                         tableName: 'CustomerKyc',
                         recordId: {
                             in: kycRows.map((x) =>
-                                x.CustomerKycSid.toString()
+                                String(x.CustomerKycSid)
                             )
                         }
                     }]
@@ -1651,38 +1705,38 @@ export class AuditLogService {
                 },
                 {
                     tableName: 'MasterJobVoyage',
-                    recordId: { in: voyage.map(x => x.MasterJobVoyageSid.toString()) }
+                    recordId: { in: voyage.map(x => String(x.MasterJobVoyageSid)) }
                 },
                 ...(containerRows.length
                     ? [{
                         tableName: 'MasterJobContainer',
-                        recordId: { in: containerRows.map(x => x.MasterJobContainerSid.toString()) }
+                        recordId: { in: containerRows.map(x => String(x.MasterJobContainerSid)) }
                     }]
                     : []),
                 {
                     tableName: 'MasterJobOthers',
-                    recordId: { in: others.map(x => x.MasterJobOthersSid.toString()) }
+                    recordId: { in: others.map(x => String(x.MasterJobOthersSid)) }
                 },
                 ...(connectionRows.length
                     ? [{
                         tableName: 'MasterJobConnection',
-                        recordId: { in: connectionRows.map(x => x.MasterJobConnectionSid.toString()) }
+                        recordId: { in: connectionRows.map(x => String(x.MasterJobConnectionSid)) }
                     }]
                     : []),
                 ...(rateRows.length
                     ? [{
                         tableName: 'CostRevenueCharges',
-                        recordId: { in: rateRows.map(x => x.CostRevenueChargesSid.toString()) }
+                        recordId: { in: rateRows.map(x => String(x.CostRevenueChargesSid)) }
                     }]
                     : []),
                 {
                     tableName: 'HouseJobCustoms',
-                    recordId: { in: customs.map(x => x.HouseJobCustomsSid.toString()) }
+                    recordId: { in: customs.map(x => String(x.HouseJobCustomsSid)) }
                 },
                 ...(activityRows.length
                     ? [{
                         tableName: 'ContainerActivity',
-                        recordId: { in: activityRows.map(x => x.ContainerActivitySid.toString()) }
+                        recordId: { in: activityRows.map(x => String(x.ContainerActivitySid)) }
                     }]
                     : []),
             ];
@@ -2009,6 +2063,7 @@ export class AuditLogService {
         rowLabelMaps: {
             routeMap: Map<string, string>;
             carrierMap: Map<string, string>;
+            productMap: Map<string, string>;
             chargeMap: Map<string, string>;
             cargoMap: Map<string, string>;
         },
@@ -2043,6 +2098,11 @@ export class AuditLogService {
                     `Cargo [${newVal.CargoType || oldVal.CargoType || recordId}]`
                 );
 
+            case 'QuoteProduct':
+                return (
+                    rowLabelMaps.productMap.get(recordId) ||
+                    `Product [${newVal.ProductName || oldVal.ProductName || recordId}]`
+                );
             default:
                 return null;
         }
@@ -2054,6 +2114,7 @@ export class AuditLogService {
             QuoteRoute: 'Route Details',
             QuoteCarrier: 'Carrier Details',
             QuoteCargo: 'Cargo Details',
+            QuoteProduct: 'Product Details',
             QuoteCharge: 'Charge Details',
         };
 
@@ -2066,6 +2127,7 @@ export class AuditLogService {
             let routeRows: any[] = [];
             let carrierRows: any[] = [];
             let cargoRows: any[] = [];
+            let productRows: any[] = [];
             let chargeRows: any[] = [];
 
             const quoteHeaderSid = Number(recordId);
@@ -2074,7 +2136,8 @@ export class AuditLogService {
                 route,
                 carrier,
                 cargo,
-                charge,
+                product,
+                charge
             ] = await Promise.all([
                 this._db.quoteRoute.findMany({
                     where: { QuoteHeaderSid: quoteHeaderSid },
@@ -2101,6 +2164,14 @@ export class AuditLogService {
                         CargoType: true,
                     }
                 }),
+                this._db.quoteProduct.findMany({
+                    where: { QuoteHeaderSid: quoteHeaderSid},
+                    select: {
+                        QuoteProductSid: true,
+                        QuoteCargoSid: true,
+                        ProductName: true,
+                    }
+                }),
                 this._db.quoteCharge.findMany({
                     where: { QuoteHeaderSid: quoteHeaderSid },
                     select: {
@@ -2116,6 +2187,7 @@ export class AuditLogService {
             carrierRows = carrier;
             chargeRows = charge;
             cargoRows = cargo;
+            productRows = product;
 
             conditions = [
                 {
@@ -2125,27 +2197,33 @@ export class AuditLogService {
                 ...(routeRows.length
                     ? [{
                         tableName: 'QuoteRoute',
-                        recordId: { in: routeRows.map(x => x.QuoteRouteSid.toString()) }
+                        recordId: { in: routeRows.map(x => String(x.QuoteRouteSid)) }
                     }]
                     : []),
                 ...(carrierRows.length
                     ? [{
                         tableName: 'QuoteCarrier',
-                        recordId: { in: carrierRows.map(x => x.QuoteCarrierSid.toString()) }
+                        recordId: { in: carrierRows.map(x => String(x.QuoteCarrierSid)) }
                     }]
                     : []),
                 ...(chargeRows.length
                     ? [{
                         tableName: 'QuoteCharge',
-                        recordId: { in: chargeRows.map(x => x.QuoteChargeSid.toString()) }
+                        recordId: { in: chargeRows.map(x => String(x.QuoteChargeSid)) }
                     }]
                     : []),
                 ...(cargoRows.length
                     ? [{
                         tableName: 'QuoteCargo',
-                        recordId: { in: cargoRows.map(x => x.QuoteCargoSid.toString()) }
+                        recordId: { in: cargoRows.map(x => String(x.QuoteCargoSid)) }
                     }]
                     : []),
+                ...(productRows.length
+                    ? [{
+                        tableName: 'QuoteProduct',
+                        recordId: { in: productRows.map(x => String(x.QuoteProductSid)) }
+                    }]
+                    :[]),
             ];
 
             const logs = await this._db.auditLog.findMany({
@@ -2261,7 +2339,21 @@ export class AuditLogService {
 
                     return [
                         String(c.QuoteCargoSid),
-                        `Cargo [${routeLabel}]`
+                        `Cargo [${routeLabel} - ${cargoType}]`
+                    ];
+                })
+            );
+
+            const productMap = new Map<string, string>(
+                productRows.map((p) => {
+                    const cargoLabel = 
+                        cargoMap.get(String(p.QuoteCargoSid)) ||
+                        `[${p.QuoteCargoSid}]`;
+                    const productLabel = 
+                        p.ProductName?.toString().trim() || `[${p.QuoteProductSid}]`;
+                    return [
+                        String(p.QuoteProductSid),
+                        `Product [${cargoLabel} - ${productLabel}]`
                     ];
                 })
             );
@@ -2316,6 +2408,7 @@ export class AuditLogService {
                 carrierMap,
                 cargoMap,
                 chargeMap,
+                productMap,
             };
 
             const formattedLogs = logs.map((logs: any) => {
@@ -2473,18 +2566,18 @@ export class AuditLogService {
                 ...(routeRows.length
                     ? [{
                         tableName: 'EnquiryRoute',
-                        recordId: { in: routeRows.map(x => x.EnquiryRouteSid.toString()) }
+                        recordId: { in: routeRows.map(x => String(x.EnquiryRouteSid)) }
                     }]
                     : []),
                 ...(cargoRows.length
                     ? [{
                         tableName: 'EnquiryCargo',
-                        recordId: { in: cargoRows.map(x => x.EnquiryCargoSid.toString()) }
+                        recordId: { in: cargoRows.map(x => String(x.EnquiryCargoSid)) }
                     }]
                     : []),
                 {
                     tableName: 'EnquiryOther',
-                    recordId: { in: other.map(x => x.EnquiryOtherSid.toString()) }
+                    recordId: { in: other.map(x => String(x.EnquiryOtherSid)) }
                 }
             ];
 
@@ -3103,3 +3196,4 @@ export class AuditLogService {
         }
     }
 }
+

@@ -280,6 +280,7 @@ model UserMaster {
   CustomerSalesTeamSales             CustomerSalesTeam[]          @relation("Salesman")
   customerSupport                    CustomerSupport[]
   enquiryHeader                      EnquiryHeader[]
+  preCustomerEventsLed               PreCustomerEvent[]           @relation("EventLeaderUser")
   shortCut                           ShortCut[]
   userBranchMaster                   UserBranchMaster[]
   userCompanyMaster                  UserCompanyMaster[]
@@ -469,6 +470,7 @@ model CityMaster {
   customerBranch    CustomerBranch[]
   PortMaster        PortMaster[]
   preCustomerMaster PreCustomerMaster[]
+  preCustomerEvent  PreCustomerEvent[]
 }
 
 model DepartmentMaster {
@@ -1629,7 +1631,7 @@ model UserCompanyMaster {
 model PreCustomerEvent {
   PreCustomerEventSid Int           @id @default(autoincrement()) @map("PreCustomerEventSid")
   EventName           String        @db.VarChar(100)
-  EventCity           String        @db.VarChar(100)
+  CityMasterSid       Int
   EventDate           DateTime
   TotalLeadRecd       Int           @default(0)
   TotalLeadSuccess    Int           @default(0)
@@ -1643,6 +1645,8 @@ model PreCustomerEvent {
   status              String?       @default("A") @db.Char(1)
   Remarks             String?       @db.VarChar(300)
   companyMaster       CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  eventLeaderUser     UserMaster    @relation("EventLeaderUser", fields: [EventLeader], references: [UserMasterSid])
+  cityMaster          CityMaster    @relation(fields: [CityMasterSid], references: [CityMasterSid])
 }
 
 model ContainerTypeMaster {
