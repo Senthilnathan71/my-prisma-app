@@ -776,6 +776,8 @@ export class SalesManagerDashboardService {
         FROM "PreCustomerMeeting" pcmm
         WHERE pcmm."status" = 'A' AND pcmm."meetingDate" IS NOT NULL
           AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
+          AND ($5::timestamptz IS NULL OR pcmm."meetingDate" >= $5::timestamptz)
+          AND ($6::timestamptz IS NULL OR pcmm."meetingDate" <= $6::timestamptz)
         GROUP BY pcmm."leadAssignTo"
       ),
       s3 AS (
@@ -784,8 +786,8 @@ export class SalesManagerDashboardService {
         WHERE pcmm."followUpDate" IS NOT NULL AND pcmm."status" = 'A'
           AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
           AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
-          AND ($5::timestamp IS NULL OR pcmm."followUpDate" >= $5::timestamp)
-          AND ($6::timestamp IS NULL OR pcmm."followUpDate" <= $6::timestamp)
+          AND ($5::timestamp IS NULL OR pcmm."followUpDate" >= $5::timestamptz)
+          AND ($6::timestamp IS NULL OR pcmm."followUpDate" <= $6::timestamptz)
         GROUP BY pcmm."leadAssignTo"
       ),
       s4 AS (
