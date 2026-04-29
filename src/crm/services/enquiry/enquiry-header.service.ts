@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { DatabaseService } from 'src/database/database.service';
@@ -13,9 +13,13 @@ export class EnquiryHeaderService {
 
     async createEnquiry(payload, user) {
         try {
-            const CompanyMasterSid = user['userBranchMaster'][0].CompanyMasterSid;
-            const BranchMasterSid = user['userBranchMaster'][0].BranchMasterSid;
+            const CompanyMasterSid = Number(payload.CompanyMasterSid || 0);
+            const BranchMasterSid = Number(payload.BranchMasterSid || 0);
             const DepartmentMasterSid = Number(payload.DepartmentMasterSid);
+
+            if (!CompanyMasterSid || !BranchMasterSid) {
+                throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required');
+            }
 
             // Get MenuMasterSid for Enquiry (look up by code or use provided value)
             let MenuMasterSid = payload.MenuMasterSid;
@@ -127,9 +131,26 @@ export class EnquiryHeaderService {
 
 
 
-    async getAllEnquiries() {
+    async getAllEnquiries(user: any) {
         try {
+            const companyEntry = user?.userCompanyMaster?.find((company: any) => company?.IsDefault === 'Y' && company?.status === 'A')
+                || user?.userCompanyMaster?.[0];
+            const companyMaster = companyEntry?.companyMaster;
+            const branchEntry = companyMaster?.userBranchMaster?.find((branch: any) => branch?.IsDefault === 'Y' && branch?.status === 'A')
+                || companyMaster?.userBranchMaster?.[0];
+
+            const CompanyMasterSid = Number(companyEntry?.CompanyMasterSid || companyMaster?.CompanyMasterSid || 0);
+            const BranchMasterSid = Number(branchEntry?.BranchMasterSid || branchEntry?.branchMaster?.BranchMasterSid || 0);
+
+            if (!CompanyMasterSid || !BranchMasterSid) {
+                return [];
+            }
+
             const enquiries = await this._db.enquiryHeader.findMany({
+                where: {
+                    CompanyMasterSid,
+                    BranchMasterSid
+                },
                 include: {
                     enquiryRoute: {
                         include: {
@@ -144,6 +165,63 @@ export class EnquiryHeaderService {
             return enquiries;
         } catch (error) {
             throw error
+        }
+    }
+
+    async searchEnquiries(payload: any) {
+        try {
+            const CompanyMasterSid = Number(payload?.CompanyMasterSid || 0);
+            const BranchMasterSid = Number(payload?.BranchMasterSid || 0);
+            const search = String(payload?.search || '').trim();
+            const page = Math.max(1, Number(payload?.page || 1));
+            const pageSize = Math.max(1, Number(payload?.pageSize || 10));
+            const skip = (page - 1) * pageSize;
+
+            if (!CompanyMasterSid || !BranchMasterSid) {
+                throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required');
+            }
+
+            const where: Prisma.EnquiryHeaderWhereInput = {
+                CompanyMasterSid,
+                BranchMasterSid,
+                status: { not: 'D' },
+                ...(search ? {
+                    OR: [
+                        { CustomerName: { contains: search, mode: 'insensitive' } },
+                        { EnquiryNumber: { contains: search, mode: 'insensitive' } },
+                        { ShipmentType: { contains: search, mode: 'insensitive' } },
+                        { CustomerRef: { contains: search, mode: 'insensitive' } }
+                    ]
+                } : {})
+            };
+
+            const [items, totalCount] = await Promise.all([
+                this._db.enquiryHeader.findMany({
+                    where,
+                    include: {
+                        enquiryRoute: {
+                            include: {
+                                enquiryCargo: true
+                            }
+                        }
+                    },
+                    orderBy: {
+                        EnquiryHeaderSid: 'desc'
+                    },
+                    skip,
+                    take: pageSize
+                }),
+                this._db.enquiryHeader.count({
+                    where
+                })
+            ]);
+
+            return {
+                items,
+                totalCount
+            };
+        } catch (error) {
+            throw error;
         }
     }
 
@@ -177,6 +255,13 @@ export class EnquiryHeaderService {
 
     async updateEnquiry(enquiryHeaderSid: number, payload, user) {
         try {
+            const CompanyMasterSid = Number(payload.CompanyMasterSid || 0);
+            const BranchMasterSid = Number(payload.BranchMasterSid || 0);
+
+            if (!CompanyMasterSid || !BranchMasterSid) {
+                throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required');
+            }
+
             // Step 1: Update Enquiry Header
             const statusUpdate = payload.status === "A" ? "A" : "S";
             const updatedEnquiryHeader = await this._db.enquiryHeader.update({
@@ -188,6 +273,8 @@ export class EnquiryHeaderService {
                     IncoTerms: payload.IncoTerms,
                     CustomerRef: payload.CustomerRef,
                     status: statusUpdate,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
                     updatedBy: user['userEmail'],
                     updatedOn: new Date()
                 }

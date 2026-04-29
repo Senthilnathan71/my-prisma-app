@@ -53,15 +53,39 @@ export class EnquiryHeaderController {
     })
     @HttpCode(HttpStatus.OK)
     @Get()
-    async getAllEnquiries(@UserData() UserData: any) {
+    async getAllEnquiries(@UserData() user: any) {
         const output = new ResponseData
         try {
-            const enquiries = await this.enquiryHeaderService.getAllEnquiries()
+            const enquiries = await this.enquiryHeaderService.getAllEnquiries(user)
             output.data = enquiries;
             this.logger.debug(`getAllEnquiries: Fetch Enquiry Data- ${JSON.stringify(enquiries)}`)
 
         } catch (error) {
             this.logger.debug(`getAllEnquiries: Enquiry data fetch failed- ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Search Enquiry Header' })
+    @ApiCreatedResponse({
+        description: 'Enquiry Header Search fetched successfully',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('search-list')
+    async searchEnquiries(@Body() body: any) {
+        const output = new ResponseData;
+        try {
+            const enquiries = await this.enquiryHeaderService.searchEnquiries(body);
+            output.data = enquiries;
+            output.status = true;
+        } catch (error) {
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;

@@ -34,11 +34,28 @@ export class QuotationController {
         return output
     }
     @Get()
-    async getAllEnquiries(@UserData() UserData: any) {
+    async getAllEnquiries(@UserData() user: any) {
         const output = new ResponseData
         try {
-            const enquiries = await this.quotationService.getAllQuotations()
+            const enquiries = await this.quotationService.getAllQuotations(user)
             output.data = enquiries;
+        } catch (error) {
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
+    @Post('search-list')
+    async searchQuotations(@Body() body: any) {
+        const output = new ResponseData
+        try {
+            output.data = await this.quotationService.searchQuotations(body);
+            output.status = true;
         } catch (error) {
             output.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {

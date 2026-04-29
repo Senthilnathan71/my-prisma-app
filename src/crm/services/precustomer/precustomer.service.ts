@@ -83,9 +83,16 @@ export class PrecustomerService {
 
     async createPrecustomer(params: CreatePrecustomerDto, user?: any) {
         try {
+            const companyMasterSid = Number(params.CompanyMasterSid) || null;
+            const branchMasterSid = Number(params.BranchMasterSid) || null;
+
+            if (!companyMasterSid || !branchMasterSid) {
+                throw new BadRequestException("CompanyMasterSid and BranchMasterSid are required");
+            }
+
             const payload: any = {
-                CompanyMasterSid: params.CompanyMasterSid,
-                BranchMasterSid: params.BranchMasterSid,
+                CompanyMasterSid: companyMasterSid,
+                BranchMasterSid: branchMasterSid,
                 CityMasterSid: Number(params.CityMasterSid),
                 CountryMasterSid: params.CountryMasterSid,
                 StateMasterSid: params.StateMasterSid,
@@ -202,7 +209,7 @@ export class PrecustomerService {
         async searchPrecustomer(params: filterDto) {
             const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
             const skip = (page - 1) * pageSize;
-    
+
             const where: Prisma.PreCustomerMasterWhereInput = {
                 status: statusWhereClause,
                 CompanyMasterSid: activeCompanyId,
@@ -218,28 +225,30 @@ export class PrecustomerService {
                     } : {}
                 ),
             };
-    
-            const [items, totalCount] = await this._db.$transaction([
-            this._db.preCustomerMaster.findMany({
+
+            const query: any = {
                 where,
-                skip,
-                take: pageSize,
                 orderBy: { PreCustomerMasterSid: 'desc' },
-                include:{
-                    branchMaster:true,
-                    companyMaster:true,
-                    preCustomerMeeting:true,
-                    countryMaster:true,
-                    stateMaster:true,
-                    cityMaster:true,
-                }
-            }),
-            this._db.preCustomerMaster.count({ where }),
-        ]);
-    
-        return { items, totalCount };
+                include: {
+                    branchMaster: true,
+                    companyMaster: true,
+                    preCustomerMeeting: true,
+                    countryMaster: true,
+                    stateMaster: true,
+                    cityMaster: true,
+                },
+            };
+
+            query.skip = skip;
+            query.take = pageSize;
+
+            const items = await this._db.preCustomerMaster.findMany(query);
+            const totalCount = await this._db.preCustomerMaster.count({ where });
+
+            return { items, totalCount };
+        }
     }
 
 
-}
+
 

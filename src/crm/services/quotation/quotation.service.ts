@@ -13,13 +13,16 @@ export class QuotationService {
 
     async createQuotation(payload, user) {
         try {
-            const CompanyMasterSid = user['userBranchMaster'][0].CompanyMasterSid;
-            const BranchMasterSid = user['userBranchMaster'][0].BranchMasterSid;
+            const CompanyMasterSid = Number(payload.CompanyMasterSid || 0);
+            const BranchMasterSid = Number(payload.BranchMasterSid || 0);
             const SalesmanSid =
                 user?.['UserMasterSid']
                 ?? user?.['userBranchMaster']?.[0]?.UserMasterSid
                 ?? user?.['userCompanyMaster']?.[0]?.UserMasterSid
                 ?? null;
+            if (!CompanyMasterSid || !BranchMasterSid) {
+                throw new Error('CompanyMasterSid and BranchMasterSid are required');
+            }
             // Get DepartmentMasterSid from the first route (if available)
             const DepartmentMasterSid = payload.routes?.[0]?.DepartmentMasterSid
                 ? Number(payload.routes[0].DepartmentMasterSid)
@@ -160,9 +163,26 @@ export class QuotationService {
 
 
 
-    async getAllQuotations() {
+    async getAllQuotations(user: any) {
         try {
+            const companyEntry = user?.userCompanyMaster?.find((company: any) => company?.IsDefault === 'Y' && company?.status === 'A')
+                || user?.userCompanyMaster?.[0];
+            const companyMaster = companyEntry?.companyMaster;
+            const branchEntry = companyMaster?.userBranchMaster?.find((branch: any) => branch?.IsDefault === 'Y' && branch?.status === 'A')
+                || companyMaster?.userBranchMaster?.[0];
+
+            const CompanyMasterSid = Number(companyEntry?.CompanyMasterSid || companyMaster?.CompanyMasterSid || 0);
+            const BranchMasterSid = Number(branchEntry?.BranchMasterSid || branchEntry?.branchMaster?.BranchMasterSid || 0);
+
+            if (!CompanyMasterSid || !BranchMasterSid) {
+                return [];
+            }
+
             const quotations = await this._db.quoteHeader.findMany({
+                where: {
+                    CompanyMasterSid,
+                    BranchMasterSid
+                },
                 select: {
                     QuoteHeaderSid: true,
                     QuoteNumber: true,
@@ -178,6 +198,39 @@ export class QuotationService {
             return quotations;
         } catch (error) {
             console.log("cutomerError", error)
+        }
+    }
+
+    async searchQuotations(payload: any) {
+        try {
+            const CompanyMasterSid = Number(payload?.CompanyMasterSid || 0);
+            const BranchMasterSid = Number(payload?.BranchMasterSid || 0);
+
+            if (!CompanyMasterSid || !BranchMasterSid) {
+                throw new Error('CompanyMasterSid and BranchMasterSid are required');
+            }
+
+            const quotations = await this._db.quoteHeader.findMany({
+                where: {
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    status: { not: 'D' }
+                },
+                select: {
+                    QuoteHeaderSid: true,
+                    QuoteNumber: true,
+                    CustomerName: true,
+                    CustomerAddress: true,
+                    QuoteDate: true,
+                    status: true
+                },
+                orderBy: {
+                    QuoteHeaderSid: 'desc'
+                }
+            });
+            return quotations;
+        } catch (error) {
+            throw error;
         }
     }
 
@@ -213,11 +266,17 @@ export class QuotationService {
             // Step 1: Update Enquiry Header
             const statusUpdate = payload.status === 'Active' ? 'A' : (payload.status === 'Suspend' ? 'S' : undefined);
             const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
+            const CompanyMasterSid = Number(payload.CompanyMasterSid || 0);
+            const BranchMasterSid = Number(payload.BranchMasterSid || 0);
             const SalesmanSid =
                 user?.['UserMasterSid']
                 ?? user?.['userBranchMaster']?.[0]?.UserMasterSid
                 ?? user?.['userCompanyMaster']?.[0]?.UserMasterSid
                 ?? null;
+
+            if (!CompanyMasterSid || !BranchMasterSid) {
+                throw new Error('CompanyMasterSid and BranchMasterSid are required');
+            }
 
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
@@ -230,6 +289,8 @@ export class QuotationService {
                     SalesmanSid: SalesmanSid,
                     AgreedRate: payload.AgreedRate || "N",
                     IsContract: payload.IsContract || "N",
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
                     ...(statusUpdate ? { status: statusUpdate } : {}),
                     updatedBy: user['userEmail'],
                     updatedOn: new Date()
