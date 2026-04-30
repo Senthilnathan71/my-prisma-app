@@ -89,9 +89,6 @@ export class UserService {
             where: {
                 status:"A",
                 userEmail: where.UserEmail
-            },
-            omit : {
-                userPassword : true
             }
         })
         return userData
