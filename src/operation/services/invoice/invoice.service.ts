@@ -994,6 +994,8 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
               ConsigneeAddress:true,
               CustomerName:true,
               CustomerAddress:true,
+              IsServiceJob:true,
+              JobType:true,
             }
           },
           currencyMaster: {
