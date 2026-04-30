@@ -16,6 +16,8 @@ export type MilestoneCode =
     | 'JOB_PROFITABLE'
     | 'UNBOOKED_COST'
     | 'UNBOOKED_REVENUE'
+    | 'JOB_TO_SUBJOB'
+    | 'ALL_PREVIOUS_CLOSED'
     | 'JOB_PROFIT_LOSS';
 
 export type MilestoneCategory = 'documentation' | 'operation' | 'accounts' | 'jobClose';
@@ -53,6 +55,8 @@ export const MILESTONE_REGISTRY: MilestoneDefinition[] = [
     { code: 'UNBOOKED_COST', label: 'Unbooked cost to Accrual', failedLabel: 'Unbooked cost not moved to Accrual', category: 'accounts', applicableTo: 'both' },
     { code: 'UNBOOKED_REVENUE', label: 'Unbooked Revenue to WIP', failedLabel: 'Unbooked Revenue not moved to WIP', category: 'accounts', applicableTo: 'both' },
     // Job Close - Both
+    { code: 'JOB_TO_SUBJOB', label: 'Job to SubJob done', failedLabel: 'Job to SubJob not done', category: 'jobClose', applicableTo: 'both' },
+    { code: 'ALL_PREVIOUS_CLOSED', label: 'All previous closers done', failedLabel: 'All previous closers not done', category: 'jobClose', applicableTo: 'both' },
     { code: 'JOB_PROFIT_LOSS', label: 'Job Profit or Loss', failedLabel: 'Job Profit or Loss', category: 'jobClose', applicableTo: 'both', nonBlocking: true },
 ];
 

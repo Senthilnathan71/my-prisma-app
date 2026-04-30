@@ -1116,6 +1116,7 @@ export class HouseJobService {
                             MenuMasterSid: true,
                             MBLNo: true,
                             WeightIn: true,
+                            JobStatus: true,
                             containers: true,
                             others: true,
                             voyages: {

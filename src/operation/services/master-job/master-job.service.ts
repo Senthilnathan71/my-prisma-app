@@ -6527,6 +6527,14 @@ console.log('Created product:', createdProduct);
 
         // --- Job Close checks ---
 
+        checkRunners.set('JOB_TO_SUBJOB', async () => masterJobOthers?.JobtoSubjob === 'Y');
+
+        checkRunners.set('ALL_PREVIOUS_CLOSED', async () => {
+            return masterJobOthers?.DocCloseStatus === 'Closed' &&
+                masterJobOthers?.OpsCloseStatus === 'Closed' &&
+                masterJobOthers?.AccCloseStatus === 'Closed';
+        });
+
         checkRunners.set('JOB_PROFIT_LOSS', async () => {
             // If JOB_PROFITABLE was already run, reuse result; otherwise compute it
             if (!jobProfitable && hasHouses) {
@@ -6616,6 +6624,7 @@ console.log('Created product:', createdProduct);
                     OpsCloseStatus: true,
                     AccCloseStatus: true,
                     JobCloseStatus: true,
+                    JobtoSubjob: true,
                 }
             });
 
@@ -6630,8 +6639,21 @@ console.log('Created product:', createdProduct);
             });
             const houseJobSids = houseJobs.map(h => h.HouseJobSid);
 
+            // Merge in-flight closure statuses from the payload so milestone checks
+            // (e.g. ALL_PREVIOUS_CLOSED) evaluate against the state the user is saving,
+            // not the pre-save DB snapshot.
+            const effectiveOthers = masterJobOthers
+                ? {
+                    ...masterJobOthers,
+                    DocCloseStatus: DocCloseStatus ?? masterJobOthers.DocCloseStatus,
+                    OpsCloseStatus: OpsCloseStatus ?? masterJobOthers.OpsCloseStatus,
+                    AccCloseStatus: AccCloseStatus ?? masterJobOthers.AccCloseStatus,
+                    JobCloseStatus: JobCloseStatus ?? masterJobOthers.JobCloseStatus,
+                }
+                : masterJobOthers;
+
             const milestoneChecks = await this.computeMilestoneChecks(
-                MasterJobSid, masterJob.MasterJobNumber!, houseJobSids, department?.ExportImport || '', masterJobOthers,
+                MasterJobSid, masterJob.MasterJobNumber!, houseJobSids, department?.ExportImport || '', effectiveOthers,
                 masterJob.CompanyMasterSid, department?.departmentType || ''
             );
 
@@ -6704,7 +6726,7 @@ console.log('Created product:', createdProduct);
             const updatedJob = await this._db.masterJob.update({
                 where: { MasterJobSid },
                 data: {
-                    JobStatus: allClosed ? 'Job Closed' : 'Job Generated',
+                    JobStatus: allClosed ? 'Closed' : 'Job Generated',
                     UpdatedBy: UpdatedBy,
                     UpdatedOn: new Date(),
                 }
