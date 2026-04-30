@@ -8,16 +8,28 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { EmailModule } from 'src/email/email.module';
 import { SessionCleanupService } from './auth/session-cleanup.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
     MastersModule,
     PassportModule,
-    JwtModule.register({
-      secret: 'ngadmin',
-      signOptions: {
-        expiresIn: '3h'
-      }
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+
+        if(!secret){
+          throw new Error('❌ JWT_SECRET is not defined in environment variables');
+        }
+        return {
+          secret,
+          signOptions: {
+            expiresIn: '3h',
+          },
+        };
+      },
+      inject: [ConfigService],
     }),
     EmailModule
   ],

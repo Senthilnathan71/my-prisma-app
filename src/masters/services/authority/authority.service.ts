@@ -25,7 +25,9 @@ export class AuthorityService {
                             status: 'A'
                         },
                         include: {
-                            userMaster: true
+                            userMaster: {
+                                omit : { userPassword : true }
+                            }
                         }
                     }
                 },
@@ -365,7 +367,7 @@ export class AuthorityService {
                 menuMaster: true,
                 authorityDetail: {
                     where: { status: statusWhereClause },
-                    include: { userMaster: true }
+                    include: { userMaster: { omit : { userPassword : true } } }
                 }
             },
             orderBy: { updatedOn: 'desc' }
