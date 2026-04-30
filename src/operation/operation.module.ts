@@ -1,6 +1,5 @@
 import { forwardRef, Logger, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { jwtConstants } from 'src/auth/auth/constants';
 import { BookingController } from './controllers/booking/booking.controller';
 import { BookingService } from './services/booking/booking.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
@@ -77,95 +76,110 @@ import { AuditLogService } from './services/audit-log/audit-log.service';
 import { AuditLogController } from './controllers/audit-log/audit-log.controller';
 import { PaymentRequestController } from './controllers/payment-request/payment-request.controller';
 import { PaymentRequestService } from './services/payment-request/payment-request.service';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
-        imports: [
-                CommonModule,
-                SettingsModule,
-                forwardRef(() => AccountsModule),
-                JwtModule.register({
-                        secret: jwtConstants.secret,
-                        signOptions: { expiresIn: '7d' }
-                })
-        ],
-        providers: [
-                Logger,
-                EmailService,
-                GlobalConfigService,
-                BookingService,
-                OperationCommonService,
-                CurrencyExchangeService,
-                MasterJobService,
-                CargoreceiptService,
-                LoadingPlanService,
-                InvoiceService,
-                DocumentService,
-                ManifestDocumentService,
-                MergeBookingService,
-                HouseJobService,
-                SplitbookingService,
-                VoucherService,
-                VendorInvoiceService,
-                ExcelParserService,
-                CreditRequestService,
-                MenuService,
-                ServiceJobService,
-                CreditNoteService,
-                DocVendorInvoiceService,
-                OperationReportsService,
-                ReportExportService,
-                PdfmakeNodeService,
-                BoeService,
-                VendorCreditNoteService,
-                VehicleService,
-                CustomsService,
-                ReverseVoucherService,
-                EDIManifestService,
-                VoucherMatchingService,
-                ShipmentMilestoneService,
-                VoucherPeriodService,
-                OutstandingService,
-                CompanyConfigService,
-                VoucherCorrectionService,
-                AgentMasterAirWaybillService,
-                ProRateService,
-                ShippingInstructionService,
-                AuditLogService,
-                PaymentRequestService
-        ],
-        controllers: [
-                BookingController,
-                OperationCommonController,
-                MasterJobController,
-                CargoreceiptController,
-                LoadingPlanController,
-                InvoiceController,
-                ManifestDocumentController,
-                MergeBookingController,
-                DocumentController,
-                HouseJobController,
-                SplitbookingController,
-                VoucherController,
-                VendorInvoiceController,
-                CreditRequestController,
-                ServiceJobController,
-                CreditNoteController,
-                DocVendorInvoiceController,
-                OperationReportsController,
-                BoeController,
-                VendorCreditNoteController,
-                VehicleController,
-                CustomsController,
-                ReverseVoucherController,
-                VoucherMatchingController,
-                ShipmentMilestoneController,
-                VoucherCorrectionController,
-                AgentMasterAirWaybillController,
-                ProRateController,
-                ShippingInstructionController,
-                AuditLogController,
-                PaymentRequestController
-        ],
-        exports : [ProRateService]
+	imports: [
+		CommonModule,
+		SettingsModule,
+		forwardRef(() => AccountsModule),
+		JwtModule.registerAsync({
+			imports: [ConfigModule],
+			useFactory: (configService: ConfigService) => {
+
+				const secret = configService.get<string>('JWT_SECRET');
+
+				if (!secret) {
+					throw new Error('❌ JWT_SECRET is not defined in environment variables');
+				}
+				return {
+					secret,
+					signOptions: {
+						expiresIn: '3h',
+					},
+				};
+			},
+			inject: [ConfigService],
+		}),
+	],
+	providers: [
+		Logger,
+		EmailService,
+		GlobalConfigService,
+		BookingService,
+		OperationCommonService,
+		CurrencyExchangeService,
+		MasterJobService,
+		CargoreceiptService,
+		LoadingPlanService,
+		InvoiceService,
+		DocumentService,
+		ManifestDocumentService,
+		MergeBookingService,
+		HouseJobService,
+		SplitbookingService,
+		VoucherService,
+		VendorInvoiceService,
+		ExcelParserService,
+		CreditRequestService,
+		MenuService,
+		ServiceJobService,
+		CreditNoteService,
+		DocVendorInvoiceService,
+		OperationReportsService,
+		ReportExportService,
+		PdfmakeNodeService,
+		BoeService,
+		VendorCreditNoteService,
+		VehicleService,
+		CustomsService,
+		ReverseVoucherService,
+		EDIManifestService,
+		VoucherMatchingService,
+		ShipmentMilestoneService,
+		VoucherPeriodService,
+		OutstandingService,
+		CompanyConfigService,
+		VoucherCorrectionService,
+		AgentMasterAirWaybillService,
+		ProRateService,
+		ShippingInstructionService,
+		AuditLogService,
+		PaymentRequestService
+	],
+	controllers: [
+		BookingController,
+		OperationCommonController,
+		MasterJobController,
+		CargoreceiptController,
+		LoadingPlanController,
+		InvoiceController,
+		ManifestDocumentController,
+		MergeBookingController,
+		DocumentController,
+		HouseJobController,
+		SplitbookingController,
+		VoucherController,
+		VendorInvoiceController,
+		CreditRequestController,
+		ServiceJobController,
+		CreditNoteController,
+		DocVendorInvoiceController,
+		OperationReportsController,
+		BoeController,
+		VendorCreditNoteController,
+		VehicleController,
+		CustomsController,
+		ReverseVoucherController,
+		VoucherMatchingController,
+		ShipmentMilestoneController,
+		VoucherCorrectionController,
+		AgentMasterAirWaybillController,
+		ProRateController,
+		ShippingInstructionController,
+		AuditLogController,
+		PaymentRequestController
+	],
+	exports: [ProRateService]
 })
 export class OperationModule { }

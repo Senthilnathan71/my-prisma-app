@@ -1,6 +1,5 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
 import * as jwt from "jsonwebtoken";
-import { jwtConstants } from "src/auth/auth/constants";
 
 export const TokenPayload = createParamDecorator(
     (data: unknown, ctx: ExecutionContext) => {
@@ -11,7 +10,11 @@ export const TokenPayload = createParamDecorator(
             const token = authHeader.split(" ")[1];
 
             try {
-                const payload = jwt.verify(token, jwtConstants.secret);
+                const secret = process.env.JWT_SECRET;
+                if (!secret) {
+                    throw new Error('❌ JWT_SECRET is not defined');
+                }
+                const payload = jwt.verify(token, secret);
                 return payload;
             } catch (error) {
                 return null;
