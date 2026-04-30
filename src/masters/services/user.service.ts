@@ -89,6 +89,9 @@ export class UserService {
             where: {
                 status:"A",
                 userEmail: where.UserEmail
+            },
+            omit : {
+                userPassword : true
             }
         })
         return userData
@@ -128,7 +131,8 @@ export class UserService {
             const salesPerson = await this._db.userMaster.findMany({
                 where: {
                     isSalesperson: '1'
-                }
+                },
+                omit : { userPassword : true }
             })
             return salesPerson;
         } catch (error) {

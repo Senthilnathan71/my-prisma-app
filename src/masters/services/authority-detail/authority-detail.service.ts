@@ -15,7 +15,7 @@ export class AuthorityDetailService {
                 include: {
                     branchMaster: true,
                     companyMaster: true,
-                    userMaster: true
+                    userMaster: { omit : { userPassword : true } }
                 }
             });
             return allAuthorityDetails;
@@ -46,7 +46,7 @@ export class AuthorityDetailService {
                 include: {
                     branchMaster: true,
                     companyMaster: true,
-                    userMaster: true
+                    userMaster: { omit : { userPassword : true } }
                 }
             });
             if (!authorityDetail) {
@@ -151,7 +151,7 @@ export class AuthorityDetailService {
             include: {
                 branchMaster: true,
                 companyMaster: true,
-                userMaster: true
+                userMaster: { omit : { userPassword : true } }
             }
         }).catch((err) => {
             throw new Error(`Error Occurred : ${JSON.stringify(err)}`);
