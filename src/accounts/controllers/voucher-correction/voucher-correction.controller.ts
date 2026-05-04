@@ -2,11 +2,13 @@ import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logge
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { VoucherCorrectionService } from 'src/operation/services/voucher-correction/voucher-correction.service';
+import { VoucherCorrectionService } from 'src/accounts/services/voucher-correction/voucher-correction.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 class CompanyIdDto {
     CompanyMasterSid: number;
     BranchMasterSid: number;
 }
+@Auth()
 @Controller('voucher-correction')
 export class VoucherCorrectionController {
     constructor(

@@ -5,7 +5,7 @@ import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { EmailService } from 'src/email/email.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { CreditNoteService } from 'src/operation/services/credit-note/credit-note.service';
+import { CreditNoteService } from 'src/accounts/services/credit-note/credit-note.service';
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;

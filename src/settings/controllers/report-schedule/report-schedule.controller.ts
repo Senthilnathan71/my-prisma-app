@@ -19,7 +19,9 @@ import { ResponseData } from 'src/common/response-data';
 import { CreateReportScheduleDto } from '../../DTO/create-report-schedule.dto';
 import { UpdateReportScheduleDto } from '../../DTO/update-report-schedule.dto';
 import { ReportScheduleService } from 'src/settings/services/report-schedule/report-schedule.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @ApiTags('Report Schedule')
 @Controller('report-schedule')
 export class ReportScheduleController {

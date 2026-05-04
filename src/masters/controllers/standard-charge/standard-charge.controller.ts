@@ -21,7 +21,6 @@ import { ApiCreatedResponse, ApiOkResponse, ApiOperation } from '@nestjs/swagger
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { StandardChargeService } from 'src/masters/services/standard-charge/standard-charge.service';
-import { CompanyIdDto } from '../department/department.controller';
 import { PullStandardRateDTO } from 'src/masters/DTO/standard-rate.dto';
 import { Auth } from 'src/common/decorators/auth.decorator';
 export class StdChargeDeptDto {

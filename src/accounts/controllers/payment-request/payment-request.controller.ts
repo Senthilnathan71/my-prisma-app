@@ -14,10 +14,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { PaymentRequestService } from 'src/accounts/services/payment-request/payment-request.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { PaymentRequestService } from 'src/operation/services/payment-request/payment-request.service';
-
+@Auth()
 @Controller('payment-request')
 export class PaymentRequestController {
   constructor(

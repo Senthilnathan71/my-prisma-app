@@ -16,7 +16,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { SettingsModule } from './settings/settings.module';
 import { OcrModule } from './ocr/ocr.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { ReportScheduleModule } from './report-schedule/report-schedule.module';
 import { CrmDesktopModule } from './crm-desktop/crm-desktop.module';
 
 @Module({
@@ -34,7 +33,6 @@ import { CrmDesktopModule } from './crm-desktop/crm-desktop.module';
     SettingsModule,
     OcrModule,
     DashboardModule,
-    ReportScheduleModule,
     CrmDesktopModule,
     ScheduleModule.forRoot(),
   ],

@@ -14,8 +14,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { DocVendorInvoiceService } from 'src/accounts/services/document/doc-vendorinvoice.service';
 import { Auth } from 'src/common/decorators/auth.decorator';
-import { DocVendorInvoiceService } from 'src/operation/services/document/doc-vendorinvoice.service';
 
 export interface VendorInvoiceExtractionResult {
   success: boolean;

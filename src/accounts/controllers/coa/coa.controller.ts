@@ -20,7 +20,7 @@ class GroupDto {
     GroupName: string;
     CompanyMasterSid: number;
 }
-
+@Auth()
 @Controller('coa')
 export class CoaController {
     constructor(private coaService: CoaService, private logger: Logger) { }

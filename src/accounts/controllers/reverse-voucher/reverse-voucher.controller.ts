@@ -3,7 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
-import { ReverseVoucherService } from 'src/operation/services/reverse-voucher/reverse-voucher.service';
+import { ReverseVoucherService } from 'src/accounts/services/reverse-voucher/reverse-voucher.service';
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;

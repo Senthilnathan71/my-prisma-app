@@ -3,6 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoucherPeriodService } from 'src/accounts/services/voucher-period/voucher-period.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 class VoucherPeriodFilterDto {
     CompanyMasterSid: number;
@@ -10,6 +11,7 @@ class VoucherPeriodFilterDto {
     YearMasterSid: number;
 }
 
+@Auth()
 @Controller('voucher-period')
 export class VoucherPeriodController {
     constructor(private voucherPeriodService: VoucherPeriodService, private logger: Logger) { }

@@ -7,7 +7,7 @@ import {
   ReceiptFilterDto,
 } from '../../dto/receipt.dto';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { VoucherService } from 'src/operation/services/voucher/voucher.service';
+import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
 import moment from 'moment';
 import { Decimal } from '@prisma/client/runtime/library';
 import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';

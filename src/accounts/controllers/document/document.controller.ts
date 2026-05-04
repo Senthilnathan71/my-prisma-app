@@ -473,8 +473,8 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { DocumentService } from 'src/accounts/services/document/document.service';
 import { Auth } from 'src/common/decorators/auth.decorator';
-import { DocumentService } from 'src/operation/services/document/document.service';
 // import { DocumentService } from './document.service';
 
 // Import the interface from service

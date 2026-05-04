@@ -3,7 +3,9 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { AutoMatchBankReconciliationDto, BankReconciliationFilterDto, BankReconciliationReportDto, ManualMatchBankReconciliationDto, UnmatchBankReconciliationDto, UpdateClearanceBankReconciliationDto } from '../../dto/bank-reconciliation.dto';
 import { BankReconciliationService } from '../../services/bank-reconciliation/bank-reconciliation.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @Controller('accounts/bank-reconciliation')
 export class BankReconciliationController {
   private readonly logger = new Logger(BankReconciliationController.name);

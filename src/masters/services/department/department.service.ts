@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
+import { CompanyIdDto } from 'src/masters/DTO/company-id.dto';
 import { DatabaseService } from 'src/database/database.service';
-import { CompanyIdDto } from 'src/masters/controllers/department/department.controller';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 

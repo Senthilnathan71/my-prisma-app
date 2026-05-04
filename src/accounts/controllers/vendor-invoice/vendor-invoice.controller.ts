@@ -1,8 +1,10 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
-import { VendorInvoiceService } from 'src/operation/services/vendor-invoice/vendor-invoice.service';
+import { VendorInvoiceService } from 'src/accounts/services/vendor-invoice/vendor-invoice.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @Controller('vendor-invoice')
 export class VendorInvoiceController {
   private readonly logger = new Logger(VendorInvoiceController.name);

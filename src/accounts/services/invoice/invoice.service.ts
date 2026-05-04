@@ -6,7 +6,7 @@ import { Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { Debug } from '@prisma/client/runtime/library';
 import { statusWhereClause, toNumber } from 'src/common/helper';
-import { VoucherService } from 'src/operation/services/voucher/voucher.service';
+import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
 import { VoucherPeriodService } from 'src/accounts/services/voucher-period/voucher-period.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';

@@ -2,8 +2,10 @@ import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Lo
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from "src/accounts/dto/voucher.dto";
 import { ResponseData } from "src/common/response-data";
-import { VoucherService } from "src/operation/services/voucher/voucher.service";
+import { VoucherService } from "src/accounts/services/voucher/voucher.service";
+import { Auth } from "src/common/decorators/auth.decorator";
 
+@Auth()
 @Controller('voucher')
 export class VoucherController {
     constructor(

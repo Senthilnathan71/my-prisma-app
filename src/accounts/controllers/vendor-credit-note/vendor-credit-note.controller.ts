@@ -1,12 +1,14 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
+import { VendorCreditNoteService } from 'src/accounts/services/vendor-credit-note/vendor-credit-note.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
-import { VendorCreditNoteService } from 'src/operation/services/vendor-credit-note/vendor-credit-note.service';
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
 }
+@Auth()
 @Controller('vendor-credit-note')
 export class VendorCreditNoteController {
     private readonly logger = new Logger(VendorCreditNoteController.name);

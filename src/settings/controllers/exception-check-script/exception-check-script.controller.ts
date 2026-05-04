@@ -10,7 +10,9 @@ import { ExceptionCheckScriptService } from '../../services/exception-check-scri
 import { ExceptionCheckScriptExecutorService, ExecutionTimeoutError } from '../../services/exception-check-script/exception-check-script-executor.service';
 import { CreateExceptionCheckScriptDto } from '../../DTO/create-exception-check-script.dto';
 import { UpdateExceptionCheckScriptDto } from '../../DTO/update-exception-check-script.dto';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @ApiTags('Exception Check Script')
 @Controller('exception-check-script')
 export class ExceptionCheckScriptController {

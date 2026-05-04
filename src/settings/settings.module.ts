@@ -11,14 +11,12 @@ import { ExceptionCheckScriptExecutorService } from './services/exception-check-
 import { SchedulerService } from 'src/common/services/scheduler/scheduler.service';
 import { ReportExportService } from 'src/common/services/report-export.service';
 import { PdfmakeNodeService } from 'src/common/services/report-generators/pdfmake-node.service';
-import { EmailService } from 'src/email/email.service';
-import { OperationModule } from 'src/operation/operation.module';
+import { EmailModule } from 'src/email/email.module';
+import { AccountsModule } from 'src/accounts/accounts.module';
 import { ReportScheduleController } from './controllers/report-schedule/report-schedule.controller';
 import { ReportScheduleService } from './services/report-schedule/report-schedule.service';
 import { ReportScheduleExecutorService } from './services/report-schedule/report-schedule-executor.service';
-import { AccountsReportsService } from 'src/accounts/services/accounts-reports/accounts-reports.service';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
-import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { MenuService } from './services/menu/menu.service';
 import { RoleService } from './services/role/role.service';
@@ -32,7 +30,7 @@ import { ModuleController } from './controllers/module/module.controller';
 import { MailConfigurationController } from './controllers/mail-configuration/mail-configuration.controller';
 
 @Module({
-  imports : [ forwardRef(() => OperationModule) ],
+  imports: [EmailModule, forwardRef(() => AccountsModule)],
   providers: [
     NumberSeriesService,
     MenuUserConfigService,
@@ -42,21 +40,16 @@ import { MailConfigurationController } from './controllers/mail-configuration/ma
     SchedulerService,
     ReportExportService,
     PdfmakeNodeService,
-    EmailService,
     Logger,
     ReportScheduleService,
     ReportScheduleExecutorService,
-    AccountsReportsService,
     GlobalConfigService,
-    VoucherService,
     CompanyConfigService,
     MenuService,
     RoleService,
     RoleMenuService,
     ModuleService,
     MailConfigurationService,
-    ReportScheduleService,
-    ExceptionCheckScriptService,
   ],
   controllers: [
     NumberSeriesController,

@@ -2,9 +2,11 @@ import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logge
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { VoucherMatchingService } from 'src/operation/services/voucher-matching/voucher-matching.service';
+import { VoucherMatchingService } from 'src/accounts/services/voucher-matching/voucher-matching.service';
 import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, FetchOutstandingVouchers, CancelVoucherMatchingDto } from 'src/accounts/dto/voucher-matching.dto';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @Controller('voucher-matching')
 export class VoucherMatchingController {
 

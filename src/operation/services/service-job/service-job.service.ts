@@ -7,7 +7,7 @@ import { OperationCommonService } from '../operation-common/operation-common.ser
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { statusWhereClause } from 'src/common/helper';
 import * as moment from 'moment-timezone';
-import { DuplicateCheckDTO } from 'src/operation/controllers/service-job/service-job.controller';
+import { DuplicateCheckDTO } from 'src/operation/DTO/service-job.dto';
 
 export class CreateServiceJobDto {
     FreightPPCC: string;
