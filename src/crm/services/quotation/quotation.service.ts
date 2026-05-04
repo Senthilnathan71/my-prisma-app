@@ -11,6 +11,15 @@ export class QuotationService {
         private numberSeriesService: NumberSeriesService,
     ) { }
 
+    private toNullableDate(value: any): Date | null {
+        if (!value) {
+            return null;
+        }
+
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
     async createQuotation(payload, user) {
         try {
             const CompanyMasterSid = Number(payload.CompanyMasterSid || 0);
@@ -94,8 +103,8 @@ export class QuotationService {
                                 CarrierMasterSid: route.CarrierMasterSid,
                                 ServiceLevel: route.ServiceLevel || null,
                                 segmentType: route.segmentType,
-                                effDate: new Date(route.effDate),
-                                expdate: new Date(route.expDate),
+                                effDate: this.toNullableDate(route.effDate),
+                                expdate: this.toNullableDate(route.expDate),
                                 twentyft: Number(route.twentyft) || null,
                                 fortyft: Number(route.fortyft) || null,
                                 createdBy: user['userEmail'],
@@ -129,10 +138,14 @@ export class QuotationService {
                         QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                         QuoteRouteSid: quoteRoute.createdQuoteRoute.QuoteRouteSid, // Fixed reference
                         CustomerMasterSid: quoteHeader.CustomerMasterSid,
+                        ChargeUomSid: Number(cargo.ChargeUomSid) || null,
                         ChargeDisplayName: cargo.charge,
                         CurrencyMasterSid: Number(cargo.currency),
                         UOMMasterSid: Number(cargo.unit),
+                        RevenueChargeUomSid: Number(cargo.unit) || null,
                         perUnit: cargo.perUnit,
+                        CostChargeUomSid: Number(cargo.costUnit) || null,
+                        CostCurrencyMasterSid: Number(cargo.costCurrency) || null,
                         costUnit: cargo.costUnit ? String(cargo.costUnit) : null,
                         costCurrency: cargo.costCurrency ? String(cargo.costCurrency) : null,
                         costPerUnit: cargo.costPerUnit,
@@ -315,8 +328,8 @@ export class QuotationService {
                             CarrierName: route.Carrier,
                             CarrierMasterSid: route.CarrierMasterSid,
                             ServiceLevel: route.ServiceLevel || null,
-                            effDate: new Date(route.effDate),
-                            expdate: new Date(route.expDate),
+                            effDate: this.toNullableDate(route.effDate),
+                            expdate: this.toNullableDate(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
                             updatedBy: user['userEmail'],
@@ -335,8 +348,8 @@ export class QuotationService {
                             CarrierName: route.Carrier,
                             CarrierMasterSid: route.CarrierMasterSid,
                             ServiceLevel: route.ServiceLevel || null,
-                            effDate: new Date(route.effDate),
-                            expdate: new Date(route.expDate),
+                            effDate: this.toNullableDate(route.effDate),
+                            expdate: this.toNullableDate(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
                             cargoType: route.cargoType,
@@ -363,10 +376,14 @@ export class QuotationService {
                             updateCargoData = await this._db.quoteCharge.update({
                                 where: { QuoteChargeSid: cargoItem.QuoteChargeSid },
                                 data: {
+                                    ChargeUomSid: Number(cargoItem.ChargeUomSid) || null,
                                     ChargeDisplayName: cargoItem.charge,
                                     CurrencyMasterSid: Number(cargoItem.currency),
                                     UOMMasterSid: Number(cargoItem.unit),
+                                    RevenueChargeUomSid: Number(cargoItem.unit) || null,
                                     perUnit: cargoItem.perUnit,
+                                    CostChargeUomSid: Number(cargoItem.costUnit) || null,
+                                    CostCurrencyMasterSid: Number(cargoItem.costCurrency) || null,
                                     costUnit: cargoItem.costUnit ? String(cargoItem.costUnit) : null,
                                     costCurrency: cargoItem.costCurrency ? String(cargoItem.costCurrency) : null,
                                     costPerUnit: cargoItem.costPerUnit,
@@ -377,10 +394,14 @@ export class QuotationService {
                         } else {
                             createCargoData = await this._db.quoteCharge.create({
                                 data: {
+                                    ChargeUomSid: Number(cargoItem.ChargeUomSid) || null,
                                     ChargeDisplayName: cargoItem.charge,
                                     CurrencyMasterSid: Number(cargoItem.currency),
                                     UOMMasterSid: Number(cargoItem.unit),
+                                    RevenueChargeUomSid: Number(cargoItem.unit) || null,
                                     perUnit: cargoItem.perUnit,
+                                    CostChargeUomSid: Number(cargoItem.costUnit) || null,
+                                    CostCurrencyMasterSid: Number(cargoItem.costCurrency) || null,
                                     costUnit: cargoItem.costUnit ? String(cargoItem.costUnit) : null,
                                     costCurrency: cargoItem.costCurrency ? String(cargoItem.costCurrency) : null,
                                     costPerUnit: cargoItem.costPerUnit,

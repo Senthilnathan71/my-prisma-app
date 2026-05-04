@@ -2,8 +2,8 @@ import { applyDecorators, UseInterceptors } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { FilesInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
-import { extname, resolve } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { extname} from "path";
+
 
 export function FilesUploadInterceptor(
   fieldName: string,
@@ -17,17 +17,8 @@ export function FilesUploadInterceptor(
         storage: diskStorage({
           destination: (req, file, cb) => {
             const configService = new ConfigService();
-            const dest = configService.get<string>(destinationKey);
-            if (!dest) {
-              return cb(new Error(`${destinationKey} is not configured`), '');
-            }
-
-            const resolvedDest = resolve(process.cwd(), dest);
-            if (!existsSync(resolvedDest)) {
-              mkdirSync(resolvedDest, { recursive: true });
-            }
-
-            cb(null, resolvedDest);
+            const dest = configService.get(destinationKey);
+            cb(null, dest);
           },
           filename: (req, file, cb) => {
             const name = file.originalname

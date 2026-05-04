@@ -121,7 +121,11 @@ export class PreCustomerMeetingService {
 
     async CreateAndUpdatePreCustomerMeeting(user, params: any) {
         try {
-            let output;
+            let output: any;
+            let updatePreCustomer: any;
+            let newMeeting: any;
+            let existingLead: any;
+            let createdCustomer: any = null;
             const payload: any = {
                 meetingType: params.meetingType,
                 leadAssignTo: Number(params.leadAssignTo),
@@ -141,9 +145,6 @@ export class PreCustomerMeetingService {
                 meetingDuration: params.meetingDuration
             };
             console.log('Final payload:', payload);
-            let updatePreCustomer;
-            let newMeeting;
-            let existingLead;
             if (params.PreCustomerMeetingSid) {
                 existingLead = await this._db.preCustomerMeeting.findUnique({
                     where: {
@@ -273,10 +274,6 @@ export class PreCustomerMeetingService {
                 output = updatePreCustomer
             }
 
-            // Create customer if meeting confirmed
-            // Create customer if meeting confirmed
-            let createdCustomer;
-
             const meetingData = newMeeting || updatePreCustomer;
 
             if (
@@ -314,6 +311,9 @@ export class PreCustomerMeetingService {
                                 createdBy: user.userEmail 
                             }
                         });
+                    } else {
+                        createdCustomer = existingCustomer;
+                    }
 
                         // update meeting to Customer
                         await this._db.preCustomerMeeting.update({
@@ -326,7 +326,6 @@ export class PreCustomerMeetingService {
                             }
                         });
 
-                    }
 
                     // update lead status
                     await this._db.preCustomerMaster.update({
@@ -340,7 +339,15 @@ export class PreCustomerMeetingService {
 
                 }
             }
-            return { message: mes, data: output };
+            const finalMeeting = await this._db.preCustomerMeeting.findUnique({
+      where: { PreCustomerMeetingSid: (newMeeting || updatePreCustomer).PreCustomerMeetingSid },
+      include: {
+        preCustomerMaster: true,
+        customerMaster: true
+      }
+    });
+            return { message: mes, data: finalMeeting ?? output,
+      createdCustomer: createdCustomer ?? null };
 
         } catch (error) {
             console.log(error.stack)

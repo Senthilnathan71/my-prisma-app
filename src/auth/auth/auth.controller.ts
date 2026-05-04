@@ -1,4 +1,3 @@
-import { jwtConstants } from './constants';
 import { UserService } from './../../masters/services/user.service';
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, HttpStatus, InternalServerErrorException, Logger, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { ResponseData } from '../../common/response-data';
@@ -147,10 +146,10 @@ export class AuthController {
                 this.logger.warn(`The email address provided is not registered. - ${loginData.email.email}`);
                 throw new BadRequestException('The email address provided is not registered.');
             }
-            const token = this.jwtService.sign({
-                userId: user.UserMasterSid,
-                secret: jwtConstants.secret, expires: '1hr'
-            })
+            const token = this.jwtService.sign(
+                { userId: user.UserMasterSid },
+                { expiresIn: '1h' }
+            )
 
             // const resetPasswordLink = `${this.configService.get('WEB_URL')}auth/reset-password?token=${token}`
             const resetPasswordLink = `https://app.dofi.co/auth/reset-password?token=${token}`

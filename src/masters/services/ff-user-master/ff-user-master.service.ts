@@ -642,6 +642,7 @@ export class FfUserMasterService {
         const [items, totalCount] = await this._db.$transaction([
             this._db.userMaster.findMany({
                 where,
+                omit : { userPassword : true},
                 skip,
                 take: pageSize,
                 orderBy: { UserMasterSid: 'desc' },

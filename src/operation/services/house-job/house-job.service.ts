@@ -114,6 +114,14 @@ export class HouseJobService {
         };
     }
 
+    private getHblDisplayLabel(department: { departmentType?: string | null } | null | undefined): string {
+        return String(department?.departmentType ?? '').trim().toUpperCase() === 'AIR' ? 'HAWBL No' : 'HBL No';
+    }
+
+    private buildDuplicateHblMessage(label: string, value: string): string {
+        return `${label} '${value}' already exists. Please use a unique ${label}.`;
+    }
+
     private async syncHouseJobProxy(
         prisma: any,
         HouseJobSid: number,
@@ -588,6 +596,25 @@ export class HouseJobService {
                     HBLNo = `HOUSE-${dateString}-${(hblBaseCount + 1)
                         .toString()
                         .padStart(3, '0')}`;
+                }
+            }
+
+            const duplicateHblNo = String(HBLNo ?? '').trim();
+            const shouldCheckDuplicate =
+                String(department?.departmentType ?? '').trim().toUpperCase() === 'AIR' ||
+                String(departmentExportImport ?? '').trim().toUpperCase() === 'EXPORT';
+
+            if (shouldCheckDuplicate && duplicateHblNo) {
+                const isDuplicate = await this.checkDuplicateHBLNumber(
+                    duplicateHblNo,
+                    payload.CompanyMasterSid,
+                    payload.DepartmentMasterSid
+                );
+
+                if (isDuplicate) {
+                    throw new BadRequestException(
+                        this.buildDuplicateHblMessage(this.getHblDisplayLabel(department), duplicateHblNo)
+                    );
                 }
             }
 
@@ -1206,12 +1233,33 @@ export class HouseJobService {
             const department = await this._db.departmentMaster.findUnique({
                 where: { DepartmentMasterSid: payload.DepartmentMasterSid },
                 select: {
-                    departmentType: true
+                    departmentType: true,
+                    ExportImport: true
                 }
             });
 
             if (!department) {
                 throw new BadRequestException('Department not found.');
+            }
+
+            const hblNoValue = String(payload.HBLNo ?? '').trim();
+            const shouldCheckDuplicate =
+                String(department.departmentType ?? '').trim().toUpperCase() === 'AIR' ||
+                String(department.ExportImport ?? '').trim().toUpperCase() === 'EXPORT';
+
+            if (shouldCheckDuplicate && hblNoValue) {
+                const isDuplicate = await this.checkDuplicateHBLNumber(
+                    hblNoValue,
+                    payload.CompanyMasterSid,
+                    payload.DepartmentMasterSid,
+                    HouseJobSid
+                );
+
+                if (isDuplicate) {
+                    throw new BadRequestException(
+                        this.buildDuplicateHblMessage(this.getHblDisplayLabel(department), hblNoValue)
+                    );
+                }
             }
 
            const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
@@ -2113,6 +2161,37 @@ export class HouseJobService {
         } catch (error) {
             throw error;
         }
+    }
+
+    async checkDuplicateHBLNumber(
+        hblNo: string,
+        companyMasterSid: number,
+        departmentMasterSid?: number | null,
+        excludeHouseJobSid?: number | null
+    ): Promise<boolean> {
+        if (!hblNo) {
+            return false;
+        }
+
+        const whereClause: Prisma.HouseJobWhereInput = {
+            HBLNo: {
+                equals: hblNo.trim(),
+                mode: 'insensitive'
+            },
+            CompanyMasterSid: companyMasterSid,
+            status: 'A'
+        };
+
+        if (departmentMasterSid) {
+            whereClause.DepartmentMasterSid = departmentMasterSid;
+        }
+
+        if (excludeHouseJobSid) {
+            whereClause.HouseJobSid = { not: excludeHouseJobSid };
+        }
+
+        const existing = await this._db.houseJob.findFirst({ where: whereClause });
+        return !!existing;
     }
 
     async updateHBLCount(payload: {

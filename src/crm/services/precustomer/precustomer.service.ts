@@ -207,13 +207,14 @@ export class PrecustomerService {
 
 
         async searchPrecustomer(params: filterDto) {
-            const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
+            const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId, userEmail } = params as any;
             const skip = (page - 1) * pageSize;
 
             const where: Prisma.PreCustomerMasterWhereInput = {
                 status: statusWhereClause,
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
+                ...(userEmail ? { createdBy: userEmail } : {}),
                 ...(search
                     ? {
                         OR: [
