@@ -2,11 +2,13 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ReverseVoucherService } from 'src/operation/services/reverse-voucher/reverse-voucher.service';
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
 }
+@Auth()
 @Controller('reverse-voucher')
 export class ReverseVoucherController {
     private readonly logger = new Logger(ReverseVoucherController.name);

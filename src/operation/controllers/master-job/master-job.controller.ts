@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UploadedFile, UseInterceptors, Res, StreamableFile } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { MasterJobService } from 'src/operation/services/master-job/master-job.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ExcelParserService } from 'src/common/services/excel-parser/excel-parser.service';
@@ -9,6 +10,7 @@ import { ReportEmailService } from 'src/common/services/report-email.service';
 import { SendReportEmailDto, SendReportEmailResponseDto } from 'src/common/dto/report.dto';
 import { EDIManifestService } from 'src/operation/services/edi-manifest/edi-manifest.service';
 
+@Auth()
 @Controller('master-job')
 export class MasterJobController {
     constructor(

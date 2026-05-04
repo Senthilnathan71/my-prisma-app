@@ -8,6 +8,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ManifestDocumentService } from 'src/operation/services/manifest-document/manifest-document.service';
 
 interface ManifestData {
@@ -59,6 +60,7 @@ export interface ManifestProcessResponse {
   };
 }
 
+@Auth()
 @Controller('api/manifestDoc')
 export class ManifestDocumentController {
   constructor(private readonly manifestService: ManifestDocumentService) {}
