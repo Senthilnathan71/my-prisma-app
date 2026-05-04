@@ -56,8 +56,17 @@ async function bootstrap() {
   //   // {  }
   // );
 
+  const desktopUrl = process.env.FRONTEND_DESKTOP_URL;
+  const mobileUrl = process.env.FRONTEND_MOBILE_URL;
+
+  if (!desktopUrl && !mobileUrl) {
+    throw new Error(
+      'CORS configuration error: FRONTEND_DESKTOP_URL or FRONTEND_MOBILE_URL must be defined'
+    );
+  }
+
   app.enableCors({
-    origin: process.env.FRONTEND_DESKTOP_URL || process.env.FRONTEND_MOBILE_URL,
+    origin: desktopUrl || mobileUrl,
     credentials: true,
   });
   
