@@ -596,6 +596,7 @@ export class VendorInvoiceService {
                                     TaxPercentage2: toNumber(detail.TaxPercentage2),
                                     TaxAmount2: toNumber(detail.TaxAmount2),
                                     LocalAmount: toNumber(detail.LocalAmount),
+                                    PartyAmount: toNumber(detail.PartyAmount),
                                     CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
                                     CurrencyMasterSid: detail.CurrencyMasterSid || currencyMasterSid,
                                     ExchangeRate: toNumber(detail.ExchangeRate) || 0,
