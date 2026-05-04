@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -8,7 +9,7 @@ class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
 }
-
+@Auth()
 @Controller('customer-salesteam')
 export class CustomerSalesteamController {
     constructor(private CusSalesTeamService: CustomerSalesteamService, private logger: Logger) { }

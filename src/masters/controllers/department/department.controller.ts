@@ -10,7 +10,7 @@ export interface CompanyIdDto {
     CompanyMasterSid: number;
     type : string[]
 }
-
+@Auth()
 @Controller('department')
 
 export class DepartmentController {

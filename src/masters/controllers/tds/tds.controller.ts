@@ -9,6 +9,8 @@ class CompanyIdDto {
     CompanyMasterSid: number;
 }
 
+@Auth()
+
 @Controller('tds')
 
 export class TdsController {

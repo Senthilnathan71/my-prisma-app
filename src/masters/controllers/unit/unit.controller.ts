@@ -6,7 +6,7 @@ import { UnitService } from 'src/masters/services/unit/unit.service';
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-
+@Auth()
 @Controller('unit')
 
 export class UnitController {

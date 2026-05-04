@@ -5,9 +5,8 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
-
-@Controller('company-config')
 @Auth()
+@Controller('company-config')
 export class CompanyConfigController {
     constructor(private companyConfigService: CompanyConfigService, private logger: Logger) { }
 

@@ -1,8 +1,9 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { CustomerMilestoneService } from 'src/masters/services/customer-milestone/customer-milestone.service';
-
+@Auth()
 @Controller('customer-milestone')
 export class CustomerMilestoneController {
     constructor(

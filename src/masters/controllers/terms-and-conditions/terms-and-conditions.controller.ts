@@ -1,11 +1,12 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { TermsAndConditionsService } from 'src/masters/services/terms-and-conditions/terms-and-conditions.service';
 
-
+@Auth()
 
 @Controller('terms-and-conditions')
 export class TermsAndConditionsController {

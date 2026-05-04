@@ -16,12 +16,13 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import e from 'express';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CurrencyService } from 'src/masters/services/currency/currency.service';
-
+@Auth()
 @Controller('currency')
 export class CurrencyController {
   constructor(

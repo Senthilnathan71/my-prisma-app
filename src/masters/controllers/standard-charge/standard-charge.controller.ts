@@ -23,11 +23,12 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { StandardChargeService } from 'src/masters/services/standard-charge/standard-charge.service';
 import { CompanyIdDto } from '../department/department.controller';
 import { PullStandardRateDTO } from 'src/masters/DTO/standard-rate.dto';
+import { Auth } from 'src/common/decorators/auth.decorator';
 export class StdChargeDeptDto {
     CompanyMasterSid: number;
     DepartmentMasterSid: number;
 }
-
+@Auth()
 @Controller('standard-charge')
 export class StandardChargeController {
     constructor(

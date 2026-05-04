@@ -1,11 +1,12 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CostCenterService } from 'src/masters/services/cost-center/cost-center.service';
-
+@Auth()
 @Controller('cost-center')
 export class CostCenterController {
     constructor(private costCenterService: CostCenterService, private logger: Logger) { }

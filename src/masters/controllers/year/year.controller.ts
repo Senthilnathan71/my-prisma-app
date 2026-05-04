@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, Query, Res, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -8,6 +9,7 @@ import { YearService } from 'src/masters/services/year/year.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
+@Auth()
 @Controller('year')
 export class YearController {
     constructor(private yearService: YearService, private logger: Logger) { }

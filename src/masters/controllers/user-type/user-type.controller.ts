@@ -1,10 +1,11 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { UserTypeService } from 'src/masters/services/user-type/user-type.service';
 
-
+@Auth()
 @Controller('user-type')
 export class UserTypeController {
     constructor(private userTypeService: UserTypeService, private logger: Logger) { }

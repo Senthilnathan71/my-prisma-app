@@ -15,10 +15,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { ContainerActivityMasterService } from 'src/masters/services/container-activity-master/container-activity-master.service';
-
+@Auth()
 @Controller('container-activity-master')
 export class ContainerActivityMasterController {
   constructor(
