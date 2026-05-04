@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { EmailService } from 'src/email/email.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CreditNoteService } from 'src/operation/services/credit-note/credit-note.service';
@@ -10,6 +11,7 @@ class CompanyIdDto {
   BranchMasterSid: number;
 }
 
+@Auth()
 @Controller('credit-note')
 export class CreditNoteController {
     private readonly logger = new Logger(CreditNoteController.name);

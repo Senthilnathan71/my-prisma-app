@@ -6,6 +6,7 @@ import { ResponseData } from 'src/common/response-data';
 import { ShippingInstructionService } from 'src/operation/services/shipping-instruction/shipping-instruction.service';
 import { HouseJobService } from 'src/operation/services/house-job/house-job.service';
 
+@Auth()
 @Controller('shipping-instruction')
 export class ShippingInstructionController {
     constructor(

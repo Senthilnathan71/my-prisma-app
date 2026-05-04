@@ -14,6 +14,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { DocVendorInvoiceService } from 'src/operation/services/document/doc-vendorinvoice.service';
 
 export interface VendorInvoiceExtractionResult {
@@ -110,6 +111,7 @@ export interface ExtractionReview {
   validated: boolean;
 }
 
+@Auth()
 @Controller('api/documents/vendor-invoice')
 export class DocVendorInvoiceController {
   private readonly logger = new Logger(DocVendorInvoiceController.name);

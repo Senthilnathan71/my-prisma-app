@@ -1,9 +1,11 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CargoreceiptService } from 'src/operation/services/cargoreceipt/cargoreceipt.service';
 
+@Auth()
 @Controller('cargoreceipt')
 export class CargoreceiptController {
     constructor(

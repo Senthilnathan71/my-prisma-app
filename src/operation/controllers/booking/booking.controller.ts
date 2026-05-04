@@ -2,11 +2,13 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 import { ResponseData } from "src/common/response-data";
+import { Auth } from "src/common/decorators/auth.decorator";
 import { EmailService } from "src/email/email.service";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { DuplicateCheckDTO } from "src/operation/DTO/booking.dto";
 import { BookingService } from "src/operation/services/booking/booking.service";
 
+@Auth()
 @Controller('ff-booking')
 export class BookingController {
     constructor(private bookingService: BookingService, private logger: Logger,private emailService:EmailService) { }

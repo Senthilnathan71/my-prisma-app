@@ -1,8 +1,10 @@
 import { BadRequestException, Body, Controller, HttpCode, HttpStatus, Logger, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { MergeBookingService } from 'src/operation/services/merge-booking/merge-booking.service';
 
+@Auth()
 @Controller('merge-booking')
 export class MergeBookingController {
     constructor(

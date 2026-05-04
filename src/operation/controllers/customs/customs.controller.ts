@@ -17,10 +17,12 @@ import {
   ApiOkResponse,
 } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { CreateCustomsDto, UpdateCustomsDto } from 'src/operation/DTO/customs.dto';
 import { CustomsService } from 'src/operation/services/customs/customs.service';
 
 @ApiTags('HouseJob Customs')
+@Auth()
 @Controller('customs')
 export class CustomsController {
   constructor(private readonly customsService: CustomsService) {}

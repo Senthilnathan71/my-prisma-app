@@ -15,9 +15,11 @@ import { ApiOperation, ApiTags, ApiCreatedResponse, ApiOkResponse } from '@nestj
 import { ResponseData } from 'src/common/response-data';
 import { CreateBoeDto, UpdateBoeDto } from 'src/operation/DTO/boe-create.dto';
 import { BoeService } from 'src/operation/services/boe/boe.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 
 @ApiTags('HouseJob BOE')
+@Auth()
 @Controller('boe')
 export class BoeController {
   constructor(private readonly boeService: BoeService) {}
