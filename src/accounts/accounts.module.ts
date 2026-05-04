@@ -29,12 +29,19 @@ import { BankReconciliationService } from './services/bank-reconciliation/bank-r
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { OperationModule } from 'src/operation/operation.module';
 import { BankReconciliationController } from './controllers/bank-reconciliation/bank-reconciliation.controller';
+import { InvoiceController } from './controllers/invoice/invoice.controller';
+import { InvoiceService } from './services/invoice/invoice.service';
+import { VoucherPeriodController } from './controllers/voucher-period/voucher-period.controller';
+import { VoucherPeriodService } from './services/voucher-period/voucher-period.service';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
-    imports : [
+    imports: [
+        EmailModule,
         forwardRef(() => OperationModule)
     ],
     controllers: [
+        InvoiceController,
         CoaController,
         SupplierTdsMappingController,
         SubledgermasterController,
@@ -46,10 +53,12 @@ import { BankReconciliationController } from './controllers/bank-reconciliation/
         AccountsReportsController,
         ManagementReportsController,
         PaymentController,
-        BankReconciliationController
+        BankReconciliationController,
+        VoucherPeriodController
     ],
     providers: [
         GlobalConfigService,
+        InvoiceService,
         CoaService,
         SupplierTdsMappingService,
         SubledgermasterService,
@@ -66,9 +75,10 @@ import { BankReconciliationController } from './controllers/bank-reconciliation/
         PdfmakeNodeService,
         Logger,
         VoucherService,
-        CompanyConfigService
+        CompanyConfigService,
+        VoucherPeriodService
     ],
-    exports: [AccountsReportsService]
+    exports: [AccountsReportsService, VoucherPeriodService]
 })
 export class AccountsModule { }
 

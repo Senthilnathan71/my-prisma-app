@@ -4,7 +4,7 @@ import { VoucherService } from '../voucher/voucher.service';
 import { Prisma } from '@prisma/client';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
-import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
+import { VoucherPeriodService } from 'src/accounts/services/voucher-period/voucher-period.service';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 
 @Injectable()
@@ -89,7 +89,7 @@ export class ReverseVoucherService {
                         CreatedBy: payload.CreatedBy || 'System',
                         ReversalVoucher: payload.ReversalVoucher || null,
                         //TODO - need to remove
-                        UpdatedOn : new Date()
+                        UpdatedOn: new Date()
                     }
                 });
 
@@ -250,37 +250,37 @@ export class ReverseVoucherService {
             }
 
             if (reverseVoucher.ReversalVoucher) {
-                       // Checking if any other credit note is created against this vendor invoice
-                       const reversalVoucher = await this._db.voucherHeader.findFirst({
-                         where: {
-                           AND: [
-                             { VoucherHeaderSid: reverseVoucher.ReversalVoucher },
-                             { PostStatus: 'P' },
-                           ]
-                         },
-                         select: {
-                           VoucherHeaderSid: true,
-                           VoucherNumber: true,
-                           VoucherDetail: {
-                             select: {
-                               VoucherDetailSid: true,
-                               Rate: true,
-                               CostRevenueChargesSid: true
-                             }
-                           }
-                         }
-                       })
-            
-                       // If no reversal voucher found, return original vendor credit note
-                       if (!reversalVoucher) {
-                         return reverseVoucher;
-                       }
-            
-                       return {
-                         ...reverseVoucher,
-                         reversalVoucher
-                       }
-                     }
+                // Checking if any other credit note is created against this vendor invoice
+                const reversalVoucher = await this._db.voucherHeader.findFirst({
+                    where: {
+                        AND: [
+                            { VoucherHeaderSid: reverseVoucher.ReversalVoucher },
+                            { PostStatus: 'P' },
+                        ]
+                    },
+                    select: {
+                        VoucherHeaderSid: true,
+                        VoucherNumber: true,
+                        VoucherDetail: {
+                            select: {
+                                VoucherDetailSid: true,
+                                Rate: true,
+                                CostRevenueChargesSid: true
+                            }
+                        }
+                    }
+                })
+
+                // If no reversal voucher found, return original vendor credit note
+                if (!reversalVoucher) {
+                    return reverseVoucher;
+                }
+
+                return {
+                    ...reverseVoucher,
+                    reversalVoucher
+                }
+            }
 
             return reverseVoucher;
         } catch (error) {
@@ -1004,21 +1004,21 @@ export class ReverseVoucherService {
                 });
                 allCompleteDetails.push(completeDetail);
             }
-            
+
             // Find reversal voucher customer entries (may include write-off party lines)
             const objects = await tx.voucherTransaction.findMany({
                 where: {
                     VoucherHeaderSid: voucher.ReversalVoucher!,
                     Status: 'A',
-                    subledgerMaster: {  SubledgerType: 'Customer' }
+                    subledgerMaster: { SubledgerType: 'Customer' }
                 },
-                orderBy : {
-                    Sno : 'asc'
+                orderBy: {
+                    Sno: 'asc'
                 },
-                include : {
-                    subledgerMaster : {
-                        select : {
-                            SubledgerName : true
+                include: {
+                    subledgerMaster: {
+                        select: {
+                            SubledgerName: true
                         }
                     }
                 }

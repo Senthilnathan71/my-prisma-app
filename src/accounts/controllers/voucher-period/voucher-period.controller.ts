@@ -2,7 +2,7 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
+import { VoucherPeriodService } from 'src/accounts/services/voucher-period/voucher-period.service';
 
 class VoucherPeriodFilterDto {
     CompanyMasterSid: number;

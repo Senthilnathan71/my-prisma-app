@@ -149,8 +149,6 @@ import { CompanyConfigService } from './services/company/company-config.service'
 import { MailConfigurationController } from './controllers/mail-configuration/mail-configuration.controller';
 import { MailConfigurationService } from './services/mail-configuration/mail-configuration.service';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
-import { VoucherPeriodService } from './services/voucher-period/voucher-period.service';
-import { VoucherPeriodController } from './controllers/voucher-period/voucher-period.controller';
 import { StandardChargeController } from './controllers/standard-charge/standard-charge.controller';
 import { StandardChargeService } from './services/standard-charge/standard-charge.service';
 import { PrintMasterController } from './controllers/print-master/print-master.controller';
@@ -236,7 +234,6 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
     RoleMenuService,
     CompanyConfigService,
     MailConfigurationService,
-    VoucherPeriodService,
     StandardChargeService,
     PrintMasterService,
     PreCustomerEventMasterService
@@ -315,7 +312,6 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
     RoleMenuController,
     CompanyConfigController,
     MailConfigurationController,
-    VoucherPeriodController,
     StandardChargeController,
     PrintMasterController,
     PreCustomerEventMasterController

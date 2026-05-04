@@ -7,18 +7,18 @@ import * as moment from 'moment-timezone';
 import { Debug } from '@prisma/client/runtime/library';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
-import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
+import { VoucherPeriodService } from 'src/accounts/services/voucher-period/voucher-period.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
 export interface UninvoicedChargeForBooking {
   CompanyMasterSid: number;
   BranchMasterSid: number;
-  BookingHeaderSid ?: number;
-  RevenueCustomerBranchSid ?: number;
-  RevenueCustomerMasterSid ?: number;
-  transactionSid ?: number;
-  MenuMasterSid ?: number;
+  BookingHeaderSid?: number;
+  RevenueCustomerBranchSid?: number;
+  RevenueCustomerMasterSid?: number;
+  transactionSid?: number;
+  MenuMasterSid?: number;
   IsBooking: boolean;
 }
 
@@ -35,16 +35,16 @@ export class InvoiceService {
   // Helper method to get CurrencyMasterSid by CurrencyCode
   private async getCurrencyMasterIdByCode(currencyCode: string, prisma: any): Promise<number | null> {
     if (!currencyCode) return null;
-    
+
     try {
       const currency = await prisma.currencyMaster.findFirst({
-        where: { 
+        where: {
           CurrencyCode: currencyCode,
           Status: 'A'
         },
         select: { CurrencyMasterSid: true }
       });
-      
+
       return currency ? currency.CurrencyMasterSid : null;
     } catch (error) {
       this.logger.warn(`Failed to find currency for code: ${currencyCode}`, error);
@@ -114,41 +114,18 @@ export class InvoiceService {
     }
   }
 
-  async fetchInvoices() {
-    try {
-      const result = await this._db.voucherHeader.findMany({
-        where: { Status: 'A',
-        //    voucherTypeMaster: {
-        //   DocumentTypeName: 'Invoice'
-        // }
-         },
-        include: {
-          VoucherDetail: { where: { Status: 'A' } },
-          VoucherOthers: { where: { Status: 'A' } },
-          masterJob: true,
-          houseJob: true,
-          currencyMaster: true,
-          subledgerMaster: true,
-          voucherTypeMaster: true
-        }
-      });
-      return result;
-    } catch (error) {
-      this.logger.error('fetchInvoices error', error);
-      throw new InternalServerErrorException("Something Went Wrong while fetching the data");
-    }
-  }
 
   async findVoucherHeaderById(VoucherHeaderSid: number) {
     try {
       const voucherHeader = await this._db.voucherHeader.findUnique({
-        where: { VoucherHeaderSid: VoucherHeaderSid , Status : statusWhereClause },
+        where: { VoucherHeaderSid: VoucherHeaderSid, Status: statusWhereClause },
         include: {
           VoucherDetail: {
-            where: { Status: 'A' ,
-        //       voucherTypeMaster: {
-        //   DocumentTypeName: 'Invoice'
-        // }
+            where: {
+              Status: 'A',
+              //       voucherTypeMaster: {
+              //   DocumentTypeName: 'Invoice'
+              // }
             },
             include: {
               chargeMaster: {
@@ -167,22 +144,22 @@ export class InvoiceService {
               currencyMaster: true,
               hSSACMaster: true,
             },
-            orderBy : {
-              Sno : 'asc'
+            orderBy: {
+              Sno: 'asc'
             }
           },
           VoucherOthers: { where: { Status: 'A' } },
-          masterJob: { 
+          masterJob: {
             where: { Status: 'A' },
-            include : {
-              voyages : {
-                where : { Status : 'A'}
+            include: {
+              voyages: {
+                where: { Status: 'A' }
               },
-              containers:{
-                where:{
-                  Status:'A', 
-                  houseJobProduct : { 
-                    some : { status : 'A'}
+              containers: {
+                where: {
+                  Status: 'A',
+                  houseJobProduct: {
+                    some: { status: 'A' }
                   }
                 }
               }
@@ -190,31 +167,31 @@ export class InvoiceService {
           },
           houseJob: {
             where: { status: 'A' },
-            include : {
-              Cargo : {
-                select : {
-                  NoOfPackage : true,
-                  GrossWeight : true,
-                  Volume : true,
-                  ChargeableWeight:true,
-                  CommodityDescription:true
+            include: {
+              Cargo: {
+                select: {
+                  NoOfPackage: true,
+                  GrossWeight: true,
+                  Volume: true,
+                  ChargeableWeight: true,
+                  CommodityDescription: true
                 }
               },
-              Others : {
-                select : {
-                  YardCFS : true,
-                  CustomerRefNo:true,
+              Others: {
+                select: {
+                  YardCFS: true,
+                  CustomerRefNo: true,
                 }
               },
-              Products:{
-                select:{
-                  ShippingBillNo:true,
-                  MasterJobContainerSid:true,
-                  masterJobContainer:true
+              Products: {
+                select: {
+                  ShippingBillNo: true,
+                  MasterJobContainerSid: true,
+                  masterJobContainer: true
                 }
               }
             }
-           },
+          },
           BookingHeader: {
             select: {
               BookingHeaderSid: true,
@@ -233,17 +210,17 @@ export class InvoiceService {
               ConsigneeAddress: true,
               CustomerName: true,
               CustomerAddress: true,
-              SalesmanSid : true,
-              DepartmentMasterSid:true,
-              bookingCargo : {
-                where : {
-                  status : 'A'
+              SalesmanSid: true,
+              DepartmentMasterSid: true,
+              bookingCargo: {
+                where: {
+                  status: 'A'
                 },
-                select : {
-                  NoOfPackage : true,
-                  GrossWeight : true,
-                  Volume : true,
-                  ChargeableWeight:true
+                select: {
+                  NoOfPackage: true,
+                  GrossWeight: true,
+                  Volume: true,
+                  ChargeableWeight: true
                 }
               }
             }
@@ -360,7 +337,7 @@ export class InvoiceService {
           Status: "A",
           CompanyMasterSid: payload.CompanyMasterSid,
           BranchMasterSid: payload.BranchMasterSid,
-          VoucherType: voucherTypeMaster.VoucherTypeMasterSid,VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+          VoucherType: voucherTypeMaster.VoucherTypeMasterSid, VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
           PartyMasterSid: providedPartySid,
           PartyName: resolvedPartyName ?? (payload.PartyName !== undefined && payload.PartyName !== null ? String(payload.PartyName) : null),
           PartyAddress: payload.PartyAddress,
@@ -388,7 +365,7 @@ export class InvoiceService {
           DocumentNumber: payload.DocumentNumber || '',
           DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : null,
           Narration: payload.Narration || "",
-         
+
         };
 
         this.logger.debug(`createInvoice - voucherHeaderPayload: ${JSON.stringify(voucherHeaderPayload)}`);
@@ -402,7 +379,7 @@ export class InvoiceService {
         if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail) && payload.VoucherDetail.length > 0) {
           const voucherDetailsPayload = await Promise.all(
             payload.VoucherDetail.map(async (detail: any, index: number) => {
-              
+
               return {
                 VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
                 CreatedBy: payload.CreatedBy,
@@ -429,7 +406,7 @@ export class InvoiceService {
                 DrCr: detail.DrCr,
                 TaxableAmount: toNumber(detail.TaxableAmount),
                 TaxPercentage1: toNumber(detail.TaxPercentage1),
-                TaxAmount1:toNumber(detail.TaxAmount1),
+                TaxAmount1: toNumber(detail.TaxAmount1),
                 TaxPercentage2: toNumber(detail.TaxPercentage2),
                 TaxAmount2: toNumber(detail.TaxAmount2),
                 Amount: toNumber(detail.Amount),
@@ -522,12 +499,12 @@ export class InvoiceService {
           throw new BadRequestException('Voucher not found');
         }
 
-        if(payload.status === 'S'){
+        if (payload.status === 'S') {
           return await this.voucherService.deleteVoucher({
-            VoucherHeaderSid : VoucherHeaderSid,
-            CompanyMasterSid : payload.CompanyMasterSid,
-            BranchMasterSid : payload.BranchMasterSid,
-            UserEmail : payload.UpdatedBy
+            VoucherHeaderSid: VoucherHeaderSid,
+            CompanyMasterSid: payload.CompanyMasterSid,
+            BranchMasterSid: payload.BranchMasterSid,
+            UserEmail: payload.UpdatedBy
           })
         }
 
@@ -556,8 +533,8 @@ export class InvoiceService {
           PostDate: payload.PostDate ? new Date(payload.PostDate) : existingVoucher.PostDate,
           PartyMasterSid: payload.PartyMasterSid ? Number(payload.PartyMasterSid) : existingVoucher.PartyMasterSid,
           PartyName: payload.PartyName != null ? (resolvedPartyNameForUpdate ?? String(payload.PartyName)) : existingVoucher.PartyName,
-          COAMasterSid : payload.COAMasterSid ? Number(payload.COAMasterSid) : existingVoucher.COAMasterSid,
-          
+          COAMasterSid: payload.COAMasterSid ? Number(payload.COAMasterSid) : existingVoucher.COAMasterSid,
+
           PartyAddress: payload.PartyAddress || existingVoucher.PartyAddress,
           CustomerBranchSid: payload.CustomerBranchSid || existingVoucher.CustomerBranchSid,
           PlaceOfSupply: payload.PlaceOfSupply || existingVoucher.PlaceOfSupply,
@@ -581,7 +558,7 @@ export class InvoiceService {
           DocumentNumber: payload.DocumentNumber || existingVoucher.DocumentNumber,
           DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : existingVoucher.DocumentDate,
           Narration: payload.Narration || existingVoucher.Narration,
-          Status : String(payload.status || 'A').charAt(0)?.toUpperCase()
+          Status: String(payload.status || 'A').charAt(0)?.toUpperCase()
         };
 
         const updatedVoucherHeader = await prisma.voucherHeader.update({
@@ -589,237 +566,237 @@ export class InvoiceService {
           data: voucherHeaderPayload
         });
 
-       // -------------------------------
-// UPDATE VOUCHER DETAILS 
-// -------------------------------
+        // -------------------------------
+        // UPDATE VOUCHER DETAILS 
+        // -------------------------------
 
-if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
-  // 1️⃣ Collect incoming detail IDs
-  const incomingIds = payload.VoucherDetail
-    .filter(d => d.VoucherDetailSid)
-    .map(d => Number(d.VoucherDetailSid));
+        if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
+          // 1️⃣ Collect incoming detail IDs
+          const incomingIds = payload.VoucherDetail
+            .filter(d => d.VoucherDetailSid)
+            .map(d => Number(d.VoucherDetailSid));
 
-  // 2️⃣ Soft-delete missing details
-  await prisma.voucherDetail.updateMany({
-    where: {
-      VoucherHeaderSid,
-      VoucherDetailSid: { notIn: incomingIds }
-    },
-    data: { Status: 'D' }
-  });
-  // new details → link VoucherHeaderSid; updated details → check rate changes
-  const newCostRevenueSids = new Set<number>();
-  const newBookingRateSids = new Set<number>();
-  const updatedCostRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
-  const updatedBookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
-  // 3️⃣ Create / Update details
-  let sno = 1;
+          // 2️⃣ Soft-delete missing details
+          await prisma.voucherDetail.updateMany({
+            where: {
+              VoucherHeaderSid,
+              VoucherDetailSid: { notIn: incomingIds }
+            },
+            data: { Status: 'D' }
+          });
+          // new details → link VoucherHeaderSid; updated details → check rate changes
+          const newCostRevenueSids = new Set<number>();
+          const newBookingRateSids = new Set<number>();
+          const updatedCostRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+          const updatedBookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+          // 3️⃣ Create / Update details
+          let sno = 1;
 
-  for (const detail of payload.VoucherDetail) {
+          for (const detail of payload.VoucherDetail) {
 
-    // Resolve CurrencyMasterSid if needed
-    const currencyMasterSid = detail.CurrencyMasterSid
-      ? Number(detail.CurrencyMasterSid)
-      : await this.getCurrencyMasterIdByCode(detail.CurrencyCode, prisma);
-    if (detail.VoucherDetailSid) {
-      if (detail.CostRevenueChargesSid) {
-        updatedCostRevenueRateMap.set(Number(detail.CostRevenueChargesSid), {
-          Rate: toNumber(detail.Rate),
-          Amount: toNumber(detail.Amount),
-          LocalAmount: toNumber(detail.LocalAmount),
-        });
-      }
-      if (detail.BookingRateSid) {
-        updatedBookingRateMap.set(Number(detail.BookingRateSid), {
-          Rate: toNumber(detail.Rate),
-          Amount: toNumber(detail.Amount),
-          LocalAmount: toNumber(detail.LocalAmount),
-        });
-      }
-    } else {
-      if (detail.CostRevenueChargesSid) newCostRevenueSids.add(Number(detail.CostRevenueChargesSid));
-      if (detail.BookingRateSid) newBookingRateSids.add(Number(detail.BookingRateSid));
-    }
-    if (detail.VoucherDetailSid) {
-      // -------------------------------
-      // UPDATE EXISTING RECORD
-      // -------------------------------
-      await prisma.voucherDetail.update({
-        where: { VoucherDetailSid: Number(detail.VoucherDetailSid) },
-        data: {
-          Sno: sno++,
-          ChargeMasterSid: detail.ChargeMasterSid || null,
-          ChargeDescription: detail.ChargeDescription || '',
-          LedgerMasterSid: detail.LedgerMasterSid || null,
-          COAMasterSid: detail.COAMasterSid || null,
-          HSSACMasterSid: detail.HSSACMasterSid || null,
-          DepartmentMasterSid: detail.DepartmentMasterSid || null,
-          HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
-          MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
-          CostRevenue: detail.CostRevenue,
-          ChargeUOMSid: detail.ChargeUOMSid || null,
-          CurrencyMasterSid: currencyMasterSid || payload.CurrencyMasterSid || null,
-          CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
-          ExchangeRate: toNumber(detail.ExchangeRate),
-          Rate: toNumber(detail.Rate),
-          NumberOfUnit: toNumber(detail.NumberOfUnit),
-          Narration: detail.Narration,
-          DrCr: detail.DrCr || 'D',
-          TaxableAmount: toNumber(detail.TaxableAmount),
-          TaxPercentage1: toNumber(detail.TaxPercentage1),
-           TaxAmount1: toNumber(detail.TaxAmount1),
-          TaxPercentage2: toNumber(detail.TaxPercentage2),
-          TaxAmount2: toNumber(detail.TaxAmount2),
-          Amount: toNumber(detail.Amount),
-          LocalAmount: toNumber(detail.LocalAmount),
-          PartyAmount: toNumber(detail.PartyAmount),
-          InvoiceType: detail.InvoiceType,
-          CostCenter: detail.CostCenter || null,
-          ProfitCenter: detail.ProfitCenter || null,
-          BookingRatesSid: detail.BookingRatesSid || detail.BookingRateSid || null,
-          CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
-          Remarks: detail.Remarks,
-          UpdatedBy: payload.UpdatedBy,
-          Status: 'A'
-        }
-      });
-  Debug.log('DEBUG - VoucherDetail created successfully');
-    } else {
-      // -------------------------------
-      // CREATE NEW RECORD
-      // -------------------------------
-      await prisma.voucherDetail.create({
-        data: {
-          VoucherHeaderSid,
-          Sno: sno++,
-          CompanyMasterSid: existingVoucher.CompanyMasterSid,
-          BranchMasterSid: existingVoucher.BranchMasterSid,
-
-          ChargeMasterSid: detail.ChargeMasterSid || null,
-          ChargeDescription: detail.ChargeDescription || '',
-          LedgerMasterSid: detail.LedgerMasterSid || null,
-          COAMasterSid: detail.COAMasterSid || null,
-          HSSACMasterSid: detail.HSSACMasterSid || null,
-          DepartmentMasterSid: detail.DepartmentMasterSid || null,
-          HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
-          MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
-          CostRevenue: detail.CostRevenue,
-          ChargeUOMSid: detail.ChargeUOMSid || null,
-          CurrencyMasterSid: currencyMasterSid || payload.CurrencyMasterSid || null,
-          CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
-          ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
-          Rate: detail.Rate || 0,
-          NumberOfUnit: detail.NumberOfUnit || 1,
-          Narration: detail.Narration,
-          DrCr: detail.DrCr || 'D',
-          TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
-          TaxPercentage1: detail.TaxPercentage1 || 0,
-          TaxAmount1: detail.TaxAmount1 || 0,
-          TaxPercentage2: detail.TaxPercentage2 || 0,
-          TaxAmount2: detail.TaxAmount2 || 0,
-
-          Amount: detail.Amount || 0,
-          LocalAmount: detail.LocalAmount || 0,
-          PartyAmount: detail.PartyAmount || 0,
-          InvoiceType: detail.InvoiceType,
-          CostCenter: detail.CostCenter || null,
-          ProfitCenter: detail.ProfitCenter || null,
-          BookingRatesSid: detail.BookingRatesSid || detail.BookingRateSid || null,
-          CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
-          Remarks: detail.Remarks,
-
-          CreatedBy: payload.UpdatedBy,
-          Status: 'A'
-        }
-      });
-    }
-  }
-
-        // 5️⃣ New details: link VoucherHeaderSid to CostRevenueCharges / BookingRates
-        if (payload.PostStatus !== 'P') {
-          for (const sid of newCostRevenueSids) {
-            await prisma.costRevenueCharges.update({
-              where: { CostRevenueChargesSid: sid },
-              data: {
-                RevenueVoucherHeaderSid: VoucherHeaderSid,
-                RevenueVoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid,
-                updatedOn: new Date(),
-                updatedBy: payload.UpdatedBy,
-              },
-            });
-          }
-          for (const sid of newBookingRateSids) {
-            await prisma.bookingRates.update({
-              where: { BookingRatesSid: sid },
-              data: {
-                RevenueVoucherHeaderSid: VoucherHeaderSid,
-                RevenueVoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid,
-                UpdatedOn: new Date(),
-                UpdatedBy: payload.UpdatedBy,
-              },
-            });
-          }
-        }
-
-        // 6️⃣ Updated details: sync Rate/Amount/LocalAmount only if changed (controlled by DisableRateUpdateBack config)
-        const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
-          existingVoucher.CompanyMasterSid, 'DisableRateUpdateBack', prisma
-        );
-        if (disableRateUpdateBack !== 'Y') {
-          if (payload.PostStatus !== 'P' && updatedCostRevenueRateMap.size > 0) {
-            const existingCharges = await prisma.costRevenueCharges.findMany({
-              where: { CostRevenueChargesSid: { in: [...updatedCostRevenueRateMap.keys()] } },
-              select: { CostRevenueChargesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
-            });
-            for (const cur of existingCharges) {
-              const inc = updatedCostRevenueRateMap.get(cur.CostRevenueChargesSid)!;
-              const changed =
-                toNumber(cur.RevenueRate) !== inc.Rate ||
-                toNumber(cur.RevenueAmount) !== inc.Amount ||
-                toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-              if (changed) {
-                await prisma.costRevenueCharges.update({
-                  where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
-                  data: {
-                    RevenueRate: inc.Rate,
-                    RevenueAmount: inc.Amount,
-                    RevenueLocalAmount: inc.LocalAmount,
-                    updatedOn: new Date(),
-                    updatedBy: payload.UpdatedBy,
-                  },
+            // Resolve CurrencyMasterSid if needed
+            const currencyMasterSid = detail.CurrencyMasterSid
+              ? Number(detail.CurrencyMasterSid)
+              : await this.getCurrencyMasterIdByCode(detail.CurrencyCode, prisma);
+            if (detail.VoucherDetailSid) {
+              if (detail.CostRevenueChargesSid) {
+                updatedCostRevenueRateMap.set(Number(detail.CostRevenueChargesSid), {
+                  Rate: toNumber(detail.Rate),
+                  Amount: toNumber(detail.Amount),
+                  LocalAmount: toNumber(detail.LocalAmount),
                 });
+              }
+              if (detail.BookingRateSid) {
+                updatedBookingRateMap.set(Number(detail.BookingRateSid), {
+                  Rate: toNumber(detail.Rate),
+                  Amount: toNumber(detail.Amount),
+                  LocalAmount: toNumber(detail.LocalAmount),
+                });
+              }
+            } else {
+              if (detail.CostRevenueChargesSid) newCostRevenueSids.add(Number(detail.CostRevenueChargesSid));
+              if (detail.BookingRateSid) newBookingRateSids.add(Number(detail.BookingRateSid));
+            }
+            if (detail.VoucherDetailSid) {
+              // -------------------------------
+              // UPDATE EXISTING RECORD
+              // -------------------------------
+              await prisma.voucherDetail.update({
+                where: { VoucherDetailSid: Number(detail.VoucherDetailSid) },
+                data: {
+                  Sno: sno++,
+                  ChargeMasterSid: detail.ChargeMasterSid || null,
+                  ChargeDescription: detail.ChargeDescription || '',
+                  LedgerMasterSid: detail.LedgerMasterSid || null,
+                  COAMasterSid: detail.COAMasterSid || null,
+                  HSSACMasterSid: detail.HSSACMasterSid || null,
+                  DepartmentMasterSid: detail.DepartmentMasterSid || null,
+                  HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                  MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
+                  CostRevenue: detail.CostRevenue,
+                  ChargeUOMSid: detail.ChargeUOMSid || null,
+                  CurrencyMasterSid: currencyMasterSid || payload.CurrencyMasterSid || null,
+                  CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
+                  ExchangeRate: toNumber(detail.ExchangeRate),
+                  Rate: toNumber(detail.Rate),
+                  NumberOfUnit: toNumber(detail.NumberOfUnit),
+                  Narration: detail.Narration,
+                  DrCr: detail.DrCr || 'D',
+                  TaxableAmount: toNumber(detail.TaxableAmount),
+                  TaxPercentage1: toNumber(detail.TaxPercentage1),
+                  TaxAmount1: toNumber(detail.TaxAmount1),
+                  TaxPercentage2: toNumber(detail.TaxPercentage2),
+                  TaxAmount2: toNumber(detail.TaxAmount2),
+                  Amount: toNumber(detail.Amount),
+                  LocalAmount: toNumber(detail.LocalAmount),
+                  PartyAmount: toNumber(detail.PartyAmount),
+                  InvoiceType: detail.InvoiceType,
+                  CostCenter: detail.CostCenter || null,
+                  ProfitCenter: detail.ProfitCenter || null,
+                  BookingRatesSid: detail.BookingRatesSid || detail.BookingRateSid || null,
+                  CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
+                  Remarks: detail.Remarks,
+                  UpdatedBy: payload.UpdatedBy,
+                  Status: 'A'
+                }
+              });
+              Debug.log('DEBUG - VoucherDetail created successfully');
+            } else {
+              // -------------------------------
+              // CREATE NEW RECORD
+              // -------------------------------
+              await prisma.voucherDetail.create({
+                data: {
+                  VoucherHeaderSid,
+                  Sno: sno++,
+                  CompanyMasterSid: existingVoucher.CompanyMasterSid,
+                  BranchMasterSid: existingVoucher.BranchMasterSid,
+
+                  ChargeMasterSid: detail.ChargeMasterSid || null,
+                  ChargeDescription: detail.ChargeDescription || '',
+                  LedgerMasterSid: detail.LedgerMasterSid || null,
+                  COAMasterSid: detail.COAMasterSid || null,
+                  HSSACMasterSid: detail.HSSACMasterSid || null,
+                  DepartmentMasterSid: detail.DepartmentMasterSid || null,
+                  HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                  MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
+                  CostRevenue: detail.CostRevenue,
+                  ChargeUOMSid: detail.ChargeUOMSid || null,
+                  CurrencyMasterSid: currencyMasterSid || payload.CurrencyMasterSid || null,
+                  CurrencyCode: detail.CurrencyCode || payload.CurrencyCode,
+                  ExchangeRate: detail.ExchangeRate || payload.ExchangeRate || 1,
+                  Rate: detail.Rate || 0,
+                  NumberOfUnit: detail.NumberOfUnit || 1,
+                  Narration: detail.Narration,
+                  DrCr: detail.DrCr || 'D',
+                  TaxableAmount: detail.TaxableAmount || detail.Amount || 0,
+                  TaxPercentage1: detail.TaxPercentage1 || 0,
+                  TaxAmount1: detail.TaxAmount1 || 0,
+                  TaxPercentage2: detail.TaxPercentage2 || 0,
+                  TaxAmount2: detail.TaxAmount2 || 0,
+
+                  Amount: detail.Amount || 0,
+                  LocalAmount: detail.LocalAmount || 0,
+                  PartyAmount: detail.PartyAmount || 0,
+                  InvoiceType: detail.InvoiceType,
+                  CostCenter: detail.CostCenter || null,
+                  ProfitCenter: detail.ProfitCenter || null,
+                  BookingRatesSid: detail.BookingRatesSid || detail.BookingRateSid || null,
+                  CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
+                  Remarks: detail.Remarks,
+
+                  CreatedBy: payload.UpdatedBy,
+                  Status: 'A'
+                }
+              });
+            }
+          }
+
+          // 5️⃣ New details: link VoucherHeaderSid to CostRevenueCharges / BookingRates
+          if (payload.PostStatus !== 'P') {
+            for (const sid of newCostRevenueSids) {
+              await prisma.costRevenueCharges.update({
+                where: { CostRevenueChargesSid: sid },
+                data: {
+                  RevenueVoucherHeaderSid: VoucherHeaderSid,
+                  RevenueVoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid,
+                  updatedOn: new Date(),
+                  updatedBy: payload.UpdatedBy,
+                },
+              });
+            }
+            for (const sid of newBookingRateSids) {
+              await prisma.bookingRates.update({
+                where: { BookingRatesSid: sid },
+                data: {
+                  RevenueVoucherHeaderSid: VoucherHeaderSid,
+                  RevenueVoucherTypeMasterSid: existingVoucher.VoucherTypeMasterSid,
+                  UpdatedOn: new Date(),
+                  UpdatedBy: payload.UpdatedBy,
+                },
+              });
+            }
+          }
+
+          // 6️⃣ Updated details: sync Rate/Amount/LocalAmount only if changed (controlled by DisableRateUpdateBack config)
+          const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
+            existingVoucher.CompanyMasterSid, 'DisableRateUpdateBack', prisma
+          );
+          if (disableRateUpdateBack !== 'Y') {
+            if (payload.PostStatus !== 'P' && updatedCostRevenueRateMap.size > 0) {
+              const existingCharges = await prisma.costRevenueCharges.findMany({
+                where: { CostRevenueChargesSid: { in: [...updatedCostRevenueRateMap.keys()] } },
+                select: { CostRevenueChargesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
+              });
+              for (const cur of existingCharges) {
+                const inc = updatedCostRevenueRateMap.get(cur.CostRevenueChargesSid)!;
+                const changed =
+                  toNumber(cur.RevenueRate) !== inc.Rate ||
+                  toNumber(cur.RevenueAmount) !== inc.Amount ||
+                  toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
+                if (changed) {
+                  await prisma.costRevenueCharges.update({
+                    where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
+                    data: {
+                      RevenueRate: inc.Rate,
+                      RevenueAmount: inc.Amount,
+                      RevenueLocalAmount: inc.LocalAmount,
+                      updatedOn: new Date(),
+                      updatedBy: payload.UpdatedBy,
+                    },
+                  });
+                }
+              }
+            }
+
+            if (payload.PostStatus !== 'P' && updatedBookingRateMap.size > 0) {
+              const existingRates = await prisma.bookingRates.findMany({
+                where: { BookingRatesSid: { in: [...updatedBookingRateMap.keys()] } },
+                select: { BookingRatesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
+              });
+              for (const cur of existingRates) {
+                const inc = updatedBookingRateMap.get(cur.BookingRatesSid)!;
+                const changed =
+                  toNumber(cur.RevenueRate) !== inc.Rate ||
+                  toNumber(cur.RevenueAmount) !== inc.Amount ||
+                  toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
+                if (changed) {
+                  await prisma.bookingRates.update({
+                    where: { BookingRatesSid: cur.BookingRatesSid },
+                    data: {
+                      RevenueRate: inc.Rate,
+                      RevenueAmount: inc.Amount,
+                      RevenueLocalAmount: inc.LocalAmount,
+                      UpdatedOn: new Date(),
+                      UpdatedBy: payload.UpdatedBy,
+                    },
+                  });
+                }
               }
             }
           }
 
-          if (payload.PostStatus !== 'P' && updatedBookingRateMap.size > 0) {
-            const existingRates = await prisma.bookingRates.findMany({
-              where: { BookingRatesSid: { in: [...updatedBookingRateMap.keys()] } },
-              select: { BookingRatesSid: true, RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true },
-            });
-            for (const cur of existingRates) {
-              const inc = updatedBookingRateMap.get(cur.BookingRatesSid)!;
-              const changed =
-                toNumber(cur.RevenueRate) !== inc.Rate ||
-                toNumber(cur.RevenueAmount) !== inc.Amount ||
-                toNumber(cur.RevenueLocalAmount) !== inc.LocalAmount;
-              if (changed) {
-                await prisma.bookingRates.update({
-                  where: { BookingRatesSid: cur.BookingRatesSid },
-                  data: {
-                    RevenueRate: inc.Rate,
-                    RevenueAmount: inc.Amount,
-                    RevenueLocalAmount: inc.LocalAmount,
-                    UpdatedOn: new Date(),
-                    UpdatedBy: payload.UpdatedBy,
-                  },
-                });
-              }
-            }
-          }
         }
-
-}
 
 
 
@@ -836,7 +813,7 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
               data: {
                 UpdatedBy: payload.UpdatedBy,
                 UpdatedOn: new Date(),
-                IRNStatus: payload.VoucherOthers.IRNStatus, 
+                IRNStatus: payload.VoucherOthers.IRNStatus,
                 IRNNumber: payload.VoucherOthers.IRNNumber,
                 IRNQRCode: payload.VoucherOthers.IRNQRCode,
                 VoucherReverseSid: payload.VoucherOthers.VoucherReverseSid ? Number(payload.VoucherOthers.VoucherReverseSid) : null,
@@ -874,44 +851,6 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
     }
   }
 
-  async deleteVoucherHeader(VoucherHeaderSid: number) {
-    try {
-      const result = await this._db.$transaction(async (prisma) => {
-        const existing = await prisma.voucherHeader.findUnique({
-          where: { VoucherHeaderSid: VoucherHeaderSid } as any
-        });
-
-        if (!existing || existing.Status !== 'A') {
-          throw new BadRequestException('Voucher not found or already deleted');
-        }
-
-        const deletedVoucherHeader = await prisma.voucherHeader.update({
-          where: { VoucherHeaderSid: VoucherHeaderSid } as any,
-          data: { Status: 'D' }
-        });
-
-        const deletedVoucherDetails = await prisma.voucherDetail.updateMany({
-          where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' },
-          data: { Status: 'D' }
-        });
-
-        const deletedVoucherOthers = await prisma.voucherOthers.updateMany({
-          where: { VoucherHeaderSid: VoucherHeaderSid, Status: 'A' },
-          data: { Status: 'D' }
-        });
-
-        return {
-          deletedVoucherHeader,
-          deletedVoucherDetails,
-          deletedVoucherOthers
-        };
-      });
-      return result;
-    } catch (error) {
-      this.logger.error(`deleteVoucherHeader Error: ${error?.message}`, error?.stack);
-      throw error;
-    }
-  }
 
   async searchVoucherHeader(params: filterDto) {
     const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
@@ -942,8 +881,8 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
       BranchMasterSid: activeBranchId,
       Status: statusWhereClause,
       voucherTypeMaster: {
-      DocumentTypeCode: DOC_TYPE_CODE.INVOICE
-    },
+        DocumentTypeCode: DOC_TYPE_CODE.INVOICE
+      },
       ...(partyMasterSid ? { PartyMasterSid: Number(partyMasterSid) } : {}),
       ...(currencyCode ? { CurrencyCode: String(currencyCode) } : {}),
       ...(Object.keys(dateRange).length ? { [dateField]: dateRange } : {}),
@@ -963,46 +902,46 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
         where,
         skip,
         take: pageSize,
-        orderBy: [{ VoucherDate: 'desc' } ,{ VoucherNumber : 'desc' }],
+        orderBy: [{ VoucherDate: 'desc' }, { VoucherNumber: 'desc' }],
         include: {
           VoucherDetail: {
             where: { Status: 'A' },
             take: 1
           },
-          departmentMaster : {
-            select : { departmentType : true },
+          departmentMaster: {
+            select: { departmentType: true },
           },
-          BookingHeader:{
-            where:{status:'A'},
-            select:{
-              BookingNo:true,
+          BookingHeader: {
+            where: { status: 'A' },
+            select: {
+              BookingNo: true,
             }
           },
           masterJob: {
-            where:{Status:'A'},
-            select:{
-              MasterJobNumber:true,
-              MasterJobDate:true,
+            where: { Status: 'A' },
+            select: {
+              MasterJobNumber: true,
+              MasterJobDate: true,
             }
           },
           houseJob: {
-            where:{status:'A'},
-            select:{
-              HBLNo:true,
-              ShipperName:true,
-              ConsigneeName:true,
-              ConsigneeAddress:true,
-              CustomerName:true,
-              CustomerAddress:true,
-              IsServiceJob:true,
-              JobType:true,
+            where: { status: 'A' },
+            select: {
+              HBLNo: true,
+              ShipperName: true,
+              ConsigneeName: true,
+              ConsigneeAddress: true,
+              CustomerName: true,
+              CustomerAddress: true,
+              IsServiceJob: true,
+              JobType: true,
             }
           },
           currencyMaster: {
-            where:{status:'A'},
-            select:{
-              currencyCode:true,
-              currencyName:true,
+            where: { status: 'A' },
+            select: {
+              currencyCode: true,
+              currencyName: true,
             }
           }
         }
@@ -1013,36 +952,150 @@ if (payload.VoucherDetail && Array.isArray(payload.VoucherDetail)) {
     return { items, totalCount };
   }
 
-async getUninvoicedRevenueCharges(payload: UninvoicedChargeForBooking) {
-  try {
-    const { 
-      CompanyMasterSid, 
-      BranchMasterSid,
-      BookingHeaderSid, 
-      transactionSid, 
-      MenuMasterSid,
-      RevenueCustomerBranchSid,
-      RevenueCustomerMasterSid,
-      IsBooking 
-    } = payload;
+  async getUninvoicedRevenueCharges(payload: UninvoicedChargeForBooking) {
+    try {
+      const {
+        CompanyMasterSid,
+        BranchMasterSid,
+        BookingHeaderSid,
+        transactionSid,
+        MenuMasterSid,
+        RevenueCustomerBranchSid,
+        RevenueCustomerMasterSid,
+        IsBooking
+      } = payload;
 
-    // Check if it is a request for booking rates
-    if(IsBooking) {
-      const whereCondition : Prisma.BookingRatesWhereInput = {
-        CompanyMasterSid : CompanyMasterSid,
-        BranchMasterSid : BranchMasterSid,
-        BookingHeaderSid : BookingHeaderSid,
-        RevenueVoucherHeaderSid: null,
-        Status: 'A',
-        CustomerMasterSid : RevenueCustomerMasterSid,
-        CustomerBranchSid : RevenueCustomerBranchSid
+      // Check if it is a request for booking rates
+      if (IsBooking) {
+        const whereCondition: Prisma.BookingRatesWhereInput = {
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid: BranchMasterSid,
+          BookingHeaderSid: BookingHeaderSid,
+          RevenueVoucherHeaderSid: null,
+          Status: 'A',
+          CustomerMasterSid: RevenueCustomerMasterSid,
+          CustomerBranchSid: RevenueCustomerBranchSid
+        }
+
+        // Fetch booking rates
+        const charges = await this._db.bookingRates.findMany({
+          where: whereCondition,
+          include: {
+            customerMasterBP: {
+              select: {
+                CustomerMasterSid: true,
+                CustomerName: true,
+                PanType: true,
+                CustomerAddress1: true,
+                CustomerAddress2: true
+              }
+            },
+            customerBranch: {
+              select: {
+                CustomerBranchSid: true,
+                Address: true,
+                GSTNo: true,
+                Registered: true,
+                Zip_PostBox: true,
+                CustomerGstType: true,
+                stateMaster: {
+                  select: {
+                    StateMasterSid: true,
+                    stateName: true,
+                    IsUnionTerritory: true
+                  }
+                },
+                cityMaster: {
+                  select: {
+                    cityName: true
+                  }
+                }
+              },
+            },
+            revenueChargeUOMMaster: {
+              select: {
+                UOMMasterSid: true,
+                UOMCode: true,
+                UOMName: true
+              }
+            }
+          },
+          orderBy: {
+            SerialNumber: 'asc'
+          }
+        });
+
+        // Enriching booking rates with customer, currency and charge master
+        return await Promise.all(charges.map(async (charge) => {
+          const { customerMasterBP, customerBranch, revenueChargeUOMMaster, ...bookingRate } = charge;
+
+          const revenueCurrencyMaster = charge.RevenueCurrencyMasterSid ? (
+            await this._db.currencyMaster.findUnique({
+              where: {
+                CurrencyMasterSid: charge.RevenueCurrencyMasterSid,
+                status: 'A'
+              },
+              select: {
+                CurrencyMasterSid: true,
+                currencyCode: true,
+                currencyName: true
+              }
+            })
+          ) : null;
+
+          const chargeMaster = charge.ChargeMasterSid ? (
+            await this._db.chargeMaster.findUnique({
+              where: {
+                ChargeMasterSid: charge.ChargeMasterSid,
+                Status: 'A'
+              },
+              select: {
+                ChargeMasterSid: true,
+                chargeName: true,
+                chargeCode: true,
+                UOM: true,
+                HSNSAC: true,
+                chargeTaxMaster: {
+                  where: { Status: 'A' },
+                  select: {
+                    ChargeTaxMasterSid: true,
+                    HSNCode: true,
+                    HSSACMasterSid: true,
+                    TaxRate: true,
+                    TaxGroup: true
+                  }
+                }
+              }
+            })
+          ) : null;
+
+          return {
+            ...bookingRate,
+            revenueCustomerMaster: customerMasterBP,
+            revenueCustomerBranch: customerBranch,
+            revenueCurrencyMaster,
+            chargeMaster,
+            revenueChargeUOMMaster: revenueChargeUOMMaster,
+          }
+        }));
       }
 
-      // Fetch booking rates
-      const charges = await this._db.bookingRates.findMany({
+      // Build where condition
+      const whereCondition: Prisma.CostRevenueChargesWhereInput = {
+        TransactionSid: transactionSid,
+        MenuMasterSid,
+        CompanyMasterSid,
+        BranchMasterSid,
+        status: 'A',
+        RevenueVoucherHeaderSid: null,
+        ...(RevenueCustomerMasterSid ? { RevenueCustomerMasterSid } : {}),
+        ...(RevenueCustomerBranchSid ? { RevenueCustomerBranchSid } : {})
+      };
+
+      const charges = await this._db.costRevenueCharges.findMany({
         where: whereCondition,
         include: {
-          customerMasterBP : {
+          revenueCustomerMaster: {
             select: {
               CustomerMasterSid: true,
               CustomerName: true,
@@ -1051,7 +1104,7 @@ async getUninvoicedRevenueCharges(payload: UninvoicedChargeForBooking) {
               CustomerAddress2: true
             }
           },
-          customerBranch: {
+          revenueCustomerBranch: {
             select: {
               CustomerBranchSid: true,
               Address: true,
@@ -1071,45 +1124,16 @@ async getUninvoicedRevenueCharges(payload: UninvoicedChargeForBooking) {
                   cityName: true
                 }
               }
-            },
-          },
-          revenueChargeUOMMaster: {
-            select: {
-              UOMMasterSid: true,
-              UOMCode: true,
-              UOMName: true
             }
-          }
-        },
-        orderBy: {
-          SerialNumber: 'asc'
-        }
-      });
-
-      // Enriching booking rates with customer, currency and charge master
-      return await Promise.all(charges.map(async (charge) => {
-        const {customerMasterBP , customerBranch , revenueChargeUOMMaster,...bookingRate} = charge;
-
-        const revenueCurrencyMaster = charge.RevenueCurrencyMasterSid ? (
-          await this._db.currencyMaster.findUnique({
-            where: {
-              CurrencyMasterSid: charge.RevenueCurrencyMasterSid,
-              status: 'A'
-            },
+          },
+          revenueCurrencyMaster: {
             select: {
               CurrencyMasterSid: true,
               currencyCode: true,
               currencyName: true
             }
-          })
-        ) : null;
-
-        const chargeMaster = charge.ChargeMasterSid ? ( 
-          await this._db.chargeMaster.findUnique({
-            where: {
-              ChargeMasterSid: charge.ChargeMasterSid,
-              Status: 'A'
-            },
+          },
+          chargeMaster: {
             select: {
               ChargeMasterSid: true,
               chargeName: true,
@@ -1127,149 +1151,25 @@ async getUninvoicedRevenueCharges(payload: UninvoicedChargeForBooking) {
                 }
               }
             }
-          })
-         ) : null;
-
-        return {
-          ...bookingRate,
-          revenueCustomerMaster : customerMasterBP,
-          revenueCustomerBranch : customerBranch,
-          revenueCurrencyMaster,
-          chargeMaster,
-          revenueChargeUOMMaster : revenueChargeUOMMaster,
-        }
-      }));
-    }
-    
-    // Build where condition
-    const whereCondition: Prisma.CostRevenueChargesWhereInput = {
-      TransactionSid: transactionSid,
-      MenuMasterSid,
-      CompanyMasterSid,
-      BranchMasterSid,
-      status: 'A',
-      RevenueVoucherHeaderSid: null,
-      ...(RevenueCustomerMasterSid ? { RevenueCustomerMasterSid } : {}),
-      ...(RevenueCustomerBranchSid ? { RevenueCustomerBranchSid } : {})
-    };
-    
-    const charges = await this._db.costRevenueCharges.findMany({
-      where: whereCondition,
-      include: {
-        revenueCustomerMaster: {
-          select: {
-            CustomerMasterSid: true,
-            CustomerName: true,
-            PanType: true,
-            CustomerAddress1: true,
-            CustomerAddress2: true
-          }
-        },
-        revenueCustomerBranch: {
-          select: {
-            CustomerBranchSid: true,
-            Address: true,
-            GSTNo: true,
-            Registered: true,
-            Zip_PostBox: true,
-            CustomerGstType: true,
-            stateMaster: {
-              select: {
-                StateMasterSid: true,
-                stateName: true,
-                IsUnionTerritory: true
-              }
-            },
-            cityMaster: {
-              select: {
-                cityName: true
-              }
+          },
+          revenueChargeUOMMaster: {
+            select: {
+              UOMMasterSid: true,
+              UOMCode: true,
+              UOMName: true
             }
           }
         },
-        revenueCurrencyMaster: {
-          select: {
-            CurrencyMasterSid: true,
-            currencyCode: true,
-            currencyName: true
-          }
-        },
-        chargeMaster: {
-          select: {
-            ChargeMasterSid: true,
-            chargeName: true,
-            chargeCode: true,
-            UOM: true,
-            HSNSAC: true,
-            chargeTaxMaster: {
-              where: { Status: 'A' },
-              select: {
-                ChargeTaxMasterSid: true,
-                HSNCode: true,
-                HSSACMasterSid: true,
-                TaxRate: true,
-                TaxGroup: true
-              }
-            }
-          }
-        },
-        revenueChargeUOMMaster: {
-          select: {
-            UOMMasterSid: true,
-            UOMCode: true,
-            UOMName: true
-          }
-        }
-      },
-      orderBy: {
-        SerialNumber: 'asc'
-      }
-    });
-
-    return charges;
-  } catch (error) {
-    this.logger.error('getUninvoicedRevenueCharges error', error);
-    throw error;
-  }
-}
-
-   async updateChargesWithVoucher(payload: {
-    costRevenueChargesSids: number[],
-    voucherHeaderSid: number,
-    voucherTypeMasterSid: number,
-    updatedBy: string
-  }) {
-    try {
-      const { costRevenueChargesSids, voucherHeaderSid, voucherTypeMasterSid, updatedBy } = payload;
-      
-      if (!costRevenueChargesSids || costRevenueChargesSids.length === 0) {
-        throw new BadRequestException('No CostRevenueChargesSids provided');
-      }
-
-      const result = await this._db.costRevenueCharges.updateMany({
-        where: {
-          CostRevenueChargesSid: {
-            in: costRevenueChargesSids
-          }
-        },
-        data: {
-          RevenueVoucherHeaderSid: voucherHeaderSid,
-          RevenueVoucherTypeMasterSid: voucherTypeMasterSid,
-          updatedBy: updatedBy,
-          updatedOn: new Date()
+        orderBy: {
+          SerialNumber: 'asc'
         }
       });
 
-      return {
-        count: result.count,
-        updatedSids: costRevenueChargesSids
-      };
+      return charges;
     } catch (error) {
-      this.logger.error('updateChargesWithVoucher error', error);
+      this.logger.error('getUninvoicedRevenueCharges error', error);
       throw error;
     }
   }
-
-
 
 }

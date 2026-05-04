@@ -15,8 +15,6 @@ import { LoadingPlanController } from './controllers/loading-plan/loading-plan.c
 import { LoadingPlanService } from './services/loading-plan/loading-plan.service';
 import { MergeBookingController } from './controllers/merge-booking/merge-booking.controller';
 import { MergeBookingService } from './services/merge-booking/merge-booking.service';
-import { InvoiceService } from './services/invoice/invoice.service';
-import { InvoiceController } from './controllers/invoice/invoice.controller';
 import { DocumentController } from './controllers/document/document.controller';
 import { DocumentService } from './services/document/document.service';
 import { ManifestDocumentController } from './controllers/manifest-document/manifest-document.controller';
@@ -60,7 +58,6 @@ import { VoucherMatchingController } from './controllers/voucher-matching/vouche
 import { ShipmentMilestoneController } from './controllers/shipment-milestone/shipment-milestone.controller';
 import { ShipmentMilestoneService } from './services/shipment-milestone/shipment-milestone.service';
 import { SettingsModule } from 'src/settings/settings.module';
-import { VoucherPeriodService } from 'src/masters/services/voucher-period/voucher-period.service';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { VoucherCorrectionController } from './controllers/voucher-correction/voucher-correction.controller';
@@ -112,7 +109,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 		MasterJobService,
 		CargoreceiptService,
 		LoadingPlanService,
-		InvoiceService,
 		DocumentService,
 		ManifestDocumentService,
 		MergeBookingService,
@@ -137,7 +133,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 		EDIManifestService,
 		VoucherMatchingService,
 		ShipmentMilestoneService,
-		VoucherPeriodService,
 		OutstandingService,
 		CompanyConfigService,
 		VoucherCorrectionService,
@@ -153,7 +148,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 		MasterJobController,
 		CargoreceiptController,
 		LoadingPlanController,
-		InvoiceController,
 		ManifestDocumentController,
 		MergeBookingController,
 		DocumentController,
