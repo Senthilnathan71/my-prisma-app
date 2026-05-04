@@ -20,6 +20,16 @@ import { AccountsReportsService } from 'src/accounts/services/accounts-reports/a
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { MenuService } from './services/menu/menu.service';
+import { RoleService } from './services/role/role.service';
+import { RoleMenuService } from './services/role-menu/role-menu.service';
+import { ModuleService } from './services/module/module.service';
+import { MailConfigurationService } from './services/mail-configuration/mail-configuration.service';
+import { MenuController } from './controllers/menu/menu.controller';
+import { RoleMenuController } from './controllers/role-menu/role-menu.controller';
+import { RoleController } from './controllers/role/role.controller';
+import { ModuleController } from './controllers/module/module.controller';
+import { MailConfigurationController } from './controllers/mail-configuration/mail-configuration.controller';
 
 @Module({
   imports : [ forwardRef(() => OperationModule) ],
@@ -40,14 +50,26 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
     GlobalConfigService,
     VoucherService,
     CompanyConfigService,
+    MenuService,
+    RoleService,
+    RoleMenuService,
+    ModuleService,
+    MailConfigurationService,
+    ReportScheduleService,
+    ExceptionCheckScriptService,
   ],
   controllers: [
     NumberSeriesController,
     MenuUserConfigController,
     ActivityAllocationController,
     ExceptionCheckScriptController,
-    ReportScheduleController
+    ReportScheduleController,
+    MenuController,
+    RoleMenuController,
+    RoleController,
+    ModuleController,
+    MailConfigurationController
   ],
-  exports: [NumberSeriesService],
+  exports: [NumberSeriesService,MenuService],
 })
 export class SettingsModule {}

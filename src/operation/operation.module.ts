@@ -79,6 +79,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 	imports: [
 		CommonModule,
 		forwardRef(() => SettingsModule),
+		forwardRef(() => SettingsModule),
 		forwardRef(() => AccountsModule),
 		JwtModule.registerAsync({
 			imports: [ConfigModule],

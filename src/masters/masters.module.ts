@@ -62,10 +62,6 @@ import { BranchBankController } from './controllers/branch-bank/branch-bank.cont
 import { BranchBankService } from './services/branch-bank/branch-bank.service';
 import { TariffDetailController } from './controllers/tariff-detail/tariff-detail.controller';
 import { TariffDetailService } from './services/tariff-detail/tariff-detail.service';
-import { ModuleService } from '../settings/services/module/module.service';
-import { ModuleController } from '../settings/controllers/module/module.controller';
-import { RoleService } from '../settings/services/role/role.service';
-import { RoleController } from '../settings/controllers/role/role.controller';
 import { ImcoController } from './controllers/imco/imco.controller';
 import { ImcoService } from './services/imco/imco.service';
 import { BlclauseController } from './controllers/blclause/blclause.controller';
@@ -76,8 +72,6 @@ import { TermsAndConditionsService } from './services/terms-and-conditions/terms
 import { TermsAndConditionsDetailService } from './services/terms-and-conditions-detail/terms-and-conditions-detail.service';
 import { TermsAndConditionsController } from './controllers/terms-and-conditions/terms-and-conditions.controller';
 import { TermsAndConditionsDetailController } from './controllers/terms-and-conditions-detail/terms-and-conditions-detail.controller';
-import { MenuController } from '../settings/controllers/menu/menu.controller';
-import { MenuService } from '../settings/services/menu/menu.service';
 import { ChargeTaxController } from './controllers/charge-tax/charge-tax.controller';
 import { ChargeTaxService } from './services/charge-tax/charge-tax.service';
 import { ChargeGroupController } from './controllers/charge-group/charge-group.controller';
@@ -134,13 +128,8 @@ import { TaxGroupService } from './services/tax-group/tax-group.service';
 import { TaxGroupController } from './controllers/tax-group/tax-group.controller';
 import { NetworkMasterService } from './services/network-master/network-master.service';
 import { NetworkMasterController } from './controllers/network-master/network-master.controller';
-import { RoleMenuController } from '../settings/controllers/role-menu/role-menu.controller';
-import { RoleMenuService } from '../settings/services/role-menu/role-menu.service';
 import { CompanyConfigController } from './controllers/company/company-config.controller';
 import { CompanyConfigService } from './services/company/company-config.service';
-import { MailConfigurationController } from '../settings/controllers/mail-configuration/mail-configuration.controller';
-import { MailConfigurationService } from '../settings/services/mail-configuration/mail-configuration.service';
-import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { StandardChargeController } from './controllers/standard-charge/standard-charge.controller';
 import { StandardChargeService } from './services/standard-charge/standard-charge.service';
 import { PrintMasterController } from './controllers/print-master/print-master.controller';
@@ -150,7 +139,6 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
 
 @Module({
   providers: [
-    NumberSeriesService,
     UserService,
     Logger,
     PrecustomerService,
@@ -183,14 +171,11 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
     HssacService,
     BranchBankService,
     TariffDetailService,
-    ModuleService,
-    RoleService,
     ImcoService,
     BlclauseService,
     ProductService,
     TermsAndConditionsService,
     TermsAndConditionsDetailService,
-    MenuService,
     ChargeTaxService,
     ChargeGroupService,
     VoyageDetailService,
@@ -219,9 +204,7 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
     MawbStockService,
     TaxGroupService,
     NetworkMasterService,
-    RoleMenuService,
     CompanyConfigService,
-    MailConfigurationService,
     StandardChargeService,
     PrintMasterService,
     PreCustomerEventMasterService
@@ -259,14 +242,11 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
     HssacController,
     BranchBankController,
     TariffDetailController,
-    ModuleController,
-    RoleController,
     ImcoController,
     BlclauseController,
     ProductController,
     TermsAndConditionsController,
     TermsAndConditionsDetailController,
-    MenuController,
     ChargeTaxController,
     ChargeGroupController,
     VoyageDetailController,
@@ -293,14 +273,12 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
     MawbStockController,
     TaxGroupController,
     NetworkMasterController,
-    RoleMenuController,
     CompanyConfigController,
-    MailConfigurationController,
     StandardChargeController,
     PrintMasterController,
     PreCustomerEventMasterController
   ],
-  exports: [UserService,MenuService]
+  exports: [UserService]
 })
 
 export class MastersModule { }

@@ -1,4 +1,4 @@
-import { Logger, Module } from '@nestjs/common';
+import { forwardRef, Logger, Module } from '@nestjs/common';
 import { RecentScreenController } from './controllers/recent-screen/recent-screen.controller';
 import { RecentScreenService } from './services/recent-screen/recent-screen.service';
 import { FavouriteScreenController } from './controllers/favourite-screen/favourite-screen.controller';
@@ -22,10 +22,11 @@ import { DocReferenceService } from './services/doc-reference/doc-reference.serv
 import { ReportEmailService } from './services/report-email.service';
 import { GlobalDocumentSearchController } from './controllers/global-document-search/global-document-search.controller';
 import { GlobalDocumentSearchService } from './services/global-document-search/global-document-search.service';
+import { SettingsModule } from 'src/settings/settings.module';
 
 @Module({
     imports:[
-        MastersModule
+        forwardRef(() => SettingsModule)
     ],
     controllers: [
         RecentScreenController,
