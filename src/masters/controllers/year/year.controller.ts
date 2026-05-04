@@ -9,7 +9,6 @@ import { YearService } from 'src/masters/services/year/year.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
-@Auth()
 @Controller('year')
 export class YearController {
     constructor(private yearService: YearService, private logger: Logger) { }
