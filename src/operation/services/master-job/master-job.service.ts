@@ -571,6 +571,20 @@ export class MasterJobService {
                 let createdContainers: any;
                 const allContainers = payload?.masterJobContainers || [];
                 if (allContainers.length > 0) {
+                    const seenContainerNumbers = new Set<string>();
+                    for (const item of allContainers) {
+                        const containerNumber = String(item.ContainerNumber ?? '').trim();
+                        if (!containerNumber) {
+                            continue;
+                        }
+
+                        const normalizedContainerNumber = containerNumber.toUpperCase();
+                        if (seenContainerNumbers.has(normalizedContainerNumber)) {
+                            throw new BadRequestException('Container No already exists');
+                        }
+                        seenContainerNumbers.add(normalizedContainerNumber);
+                    }
+
                     const containerPayload = allContainers.map(item => ({
                         MasterJobSid: createdMasterJob.MasterJobSid,
                         CreatedBy: payload.createdBy,
@@ -2133,9 +2147,28 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                 const finalMasterJobContainers: any[] = [];
                 const allContainers = payload?.masterJobContainers || [];
                 if (allContainers.length > 0) {
+                    const seenContainerNumbers = new Set<string>();
                     for (const item of allContainers) {
                         let createdContainer;
                         let updatedContainer;
+                        const containerNumber = String(item.ContainerNumber ?? '').trim();
+                        if (containerNumber) {
+                            const normalizedContainerNumber = containerNumber.toUpperCase();
+                            if (seenContainerNumbers.has(normalizedContainerNumber)) {
+                                throw new BadRequestException('Container No already exists');
+                            }
+                            seenContainerNumbers.add(normalizedContainerNumber);
+
+                            const hasDuplicateContainer = await this.checkDuplicateContainerNumber(
+                                containerNumber,
+                                updatedMasterJob.MasterJobSid,
+                                item.MasterJobContainerSid ? Number(item.MasterJobContainerSid) : null
+                            );
+                            if (hasDuplicateContainer) {
+                                throw new BadRequestException('Container No already exists');
+                            }
+                        }
+
                         if (item.MasterJobContainerSid) {
                             const containerPayload = {
                                 ContainerType: Number(item.ContainerType),
@@ -4948,6 +4981,33 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
         }
 
         const existing = await this._db.masterJob.findFirst({ where: whereClause });
+
+        return !!existing;
+    }
+
+    async checkDuplicateContainerNumber(
+        containerNumber: string,
+        masterJobSid: number,
+        excludeMasterJobContainerSid?: number | null
+    ): Promise<boolean> {
+        if (!containerNumber) {
+            return false;
+        }
+
+        const whereClause: Prisma.MasterJobContainerWhereInput = {
+            ContainerNumber: {
+                equals: containerNumber.trim(),
+                mode: 'insensitive'
+            },
+            MasterJobSid: masterJobSid,
+            Status: 'A'
+        };
+
+        if (excludeMasterJobContainerSid) {
+            whereClause.MasterJobContainerSid = { not: excludeMasterJobContainerSid };
+        }
+
+        const existing = await this._db.masterJobContainer.findFirst({ where: whereClause });
 
         return !!existing;
     }
