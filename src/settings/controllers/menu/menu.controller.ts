@@ -5,7 +5,7 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { MenuService } from 'src/masters/services/menu/menu.service';
+import { MenuService } from 'src/settings/services/menu/menu.service';
 
 @Controller('menu')
 @Auth()

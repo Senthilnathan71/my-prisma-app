@@ -1,14 +1,16 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { RoleService } from 'src/masters/services/role/role.service';
+import { RoleService } from 'src/settings/services/role/role.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
 @Controller('role')
+@Auth()
 export class RoleController {
     constructor(private roleService: RoleService, private logger: Logger) { }
 

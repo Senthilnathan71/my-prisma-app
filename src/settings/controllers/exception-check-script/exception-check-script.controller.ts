@@ -6,10 +6,10 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ResponseData } from 'src/common/response-data';
-import { ExceptionCheckScriptService } from './exception-check-script.service';
-import { ExceptionCheckScriptExecutorService, ExecutionTimeoutError } from './exception-check-script-executor.service';
-import { CreateExceptionCheckScriptDto } from './dto/create-exception-check-script.dto';
-import { UpdateExceptionCheckScriptDto } from './dto/update-exception-check-script.dto';
+import { ExceptionCheckScriptService } from '../../services/exception-check-script/exception-check-script.service';
+import { ExceptionCheckScriptExecutorService, ExecutionTimeoutError } from '../../services/exception-check-script/exception-check-script-executor.service';
+import { CreateExceptionCheckScriptDto } from '../../DTO/create-exception-check-script.dto';
+import { UpdateExceptionCheckScriptDto } from '../../DTO/update-exception-check-script.dto';
 
 @ApiTags('Exception Check Script')
 @Controller('exception-check-script')

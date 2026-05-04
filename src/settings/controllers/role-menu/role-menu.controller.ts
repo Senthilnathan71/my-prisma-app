@@ -1,11 +1,13 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { RoleMenuPayload, SaveRoleMenuPrintDto, SaveRoleMenuReportDto } from 'src/masters/DTO/role-menu.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { RoleMenuService } from 'src/masters/services/role-menu/role-menu.service';
+import { RoleMenuService } from 'src/settings/services/role-menu/role-menu.service';
 
 @Controller('role-menu')
+@Auth()
 export class RoleMenuController {
     private readonly logger = new Logger(RoleMenuController.name);
 

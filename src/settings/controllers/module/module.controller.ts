@@ -5,7 +5,7 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { ModuleService } from 'src/masters/services/module/module.service';
+import { ModuleService } from 'src/settings/services/module/module.service';
 
 @Controller('module')
 @Auth()

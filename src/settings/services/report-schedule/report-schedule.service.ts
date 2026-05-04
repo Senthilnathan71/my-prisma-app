@@ -3,8 +3,9 @@ import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { SchedulerService } from 'src/common/services/scheduler/scheduler.service';
 import { ReportScheduleExecutorService } from './report-schedule-executor.service';
-import { CreateReportScheduleDto } from './dto/create-report-schedule.dto';
-import { UpdateReportScheduleDto } from './dto/update-report-schedule.dto';
+import { CreateReportScheduleDto } from 'src/settings/DTO/create-report-schedule.dto';
+import { UpdateReportScheduleDto } from 'src/settings/DTO/update-report-schedule.dto';
+
 
 @Injectable()
 export class ReportScheduleService implements OnModuleInit {

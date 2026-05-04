@@ -6,7 +6,7 @@ import { create } from 'domain';
 import { stat } from 'fs';
 import { parseDateFromString, toNumber } from 'src/common/helper';
 import { LoadingPlanService } from '../loading-plan/loading-plan.service';
-import { MenuService } from 'src/masters/services/menu/menu.service';
+import { MenuService } from 'src/settings/services/menu/menu.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { catchError, of } from 'rxjs';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';

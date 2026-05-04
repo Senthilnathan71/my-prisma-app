@@ -23,7 +23,7 @@ import {
     SearchMailConfigurationDto,
     UpdateMailConfigurationDto,
 } from 'src/masters/DTO/mail-configuration.dto';
-import { MailConfigurationService } from 'src/masters/services/mail-configuration/mail-configuration.service';
+import { MailConfigurationService } from 'src/settings/services/mail-configuration/mail-configuration.service';
 
 @Controller('mail-configuration')
 @Auth()

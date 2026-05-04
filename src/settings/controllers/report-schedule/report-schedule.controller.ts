@@ -15,9 +15,10 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
-import { ReportScheduleService } from './report-schedule.service';
-import { CreateReportScheduleDto } from './dto/create-report-schedule.dto';
-import { UpdateReportScheduleDto } from './dto/update-report-schedule.dto';
+
+import { CreateReportScheduleDto } from '../../DTO/create-report-schedule.dto';
+import { UpdateReportScheduleDto } from '../../DTO/update-report-schedule.dto';
+import { ReportScheduleService } from 'src/settings/services/report-schedule/report-schedule.service';
 
 @ApiTags('Report Schedule')
 @Controller('report-schedule')

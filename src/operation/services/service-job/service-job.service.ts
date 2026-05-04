@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
-import { MenuService } from 'src/masters/services/menu/menu.service';
+import { MenuService } from 'src/settings/services/menu/menu.service';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';

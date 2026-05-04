@@ -8,9 +8,9 @@ import {
 import { DatabaseService } from 'src/database/database.service';
 import { SchedulerService } from 'src/common/services/scheduler/scheduler.service';
 import { ExceptionCheckScriptExecutorService } from './exception-check-script-executor.service';
-import { CreateExceptionCheckScriptDto } from './dto/create-exception-check-script.dto';
-import { UpdateExceptionCheckScriptDto } from './dto/update-exception-check-script.dto';
-import { validateReadOnlySql } from './exception-check-script-validator';
+import { CreateExceptionCheckScriptDto } from '../../DTO/create-exception-check-script.dto';
+import { UpdateExceptionCheckScriptDto } from '../../DTO/update-exception-check-script.dto';
+import { validateReadOnlySql } from 'src/settings/controllers/exception-check-script/exception-check-script-validator';
 
 @Injectable()
 export class ExceptionCheckScriptService implements OnModuleInit {

@@ -5,7 +5,7 @@ import { VoucherPeriodService } from 'src/accounts/services/voucher-period/vouch
 import * as moment from 'moment-timezone';
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { Prisma } from '@prisma/client';
-import { MenuService } from 'src/masters/services/menu/menu.service';
+import { MenuService } from 'src/settings/services/menu/menu.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
