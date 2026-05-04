@@ -5,12 +5,6 @@ import { PrecustomerController } from '../crm/controllers/precustomer/precustome
 import { PrecustomerService } from '../crm/services/precustomer/precustomer.service';
 import { CityService } from './services/city/city.service';
 import { RegionController } from './controllers/region/region.controller';
-import { PreCustomerMeetingService } from './services/precustomer/precustomer-meeting.service';
-import { PreCustomerMeetingController } from './controllers/precustomer/precustomer-meeting.controller';
-import { EnquiryHeaderController } from './controllers/enquiry/enquiry-header.controller';
-import { EnquiryHeaderService } from './services/enquiry/enquiry-header.service';
-import { QuotationService } from './services/quotation/quotation.service';
-import { QuotationController } from './controllers/quotation/quotation.controller';
 import { PortService } from './services/port/port-master.service';
 import { PortMasterController } from './controllers/port/port-master.controller';
 import { CountryController } from './controllers/country/country.controller';
@@ -136,8 +130,6 @@ import { CustomerMilestoneController } from './controllers/customer-milestone/cu
 import { CustomerMilestoneService } from './services/customer-milestone/customer-milestone.service';
 import { MawbStockService } from './services/mawb-stock/mawb-stock.service';
 import { MawbStockController } from './controllers/mawb-stock/mawb-stock.controller';
-import { LeadController } from './controllers/lead/lead.controller';
-import { LeadService } from './services/lead/lead.service';
 import { TaxGroupService } from './services/tax-group/tax-group.service';
 import { TaxGroupController } from './controllers/tax-group/tax-group.controller';
 import { NetworkMasterService } from './services/network-master/network-master.service';
@@ -161,14 +153,10 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
 @Module({
   providers: [
     NumberSeriesService,
-    LeadService,
     UserService,
     Logger,
     PrecustomerService,
-    PreCustomerMeetingService,
     CityService,
-    EnquiryHeaderService,
-    QuotationService,
     PortService,
     CountryService,
     StateService,
@@ -242,14 +230,10 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
     PreCustomerEventMasterService
   ],
   controllers: [
-    LeadController,
     UserController,
     CityController,
-    PreCustomerMeetingController,
     PrecustomerController,
     RegionController,
-    EnquiryHeaderController,
-    QuotationController,
     PortMasterController,
     CountryController,
     StateController,

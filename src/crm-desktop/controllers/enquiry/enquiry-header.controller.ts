@@ -4,11 +4,12 @@ import { Auth } from "src/common/decorators/auth.decorator";
 import { UserData } from "src/common/decorators/user.decorator";
 import { ResponseData } from "src/common/response-data";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
-import { EnquiryHeaderService } from "src/masters/services/enquiry/enquiry-header.service";
+import { EnquiryHeaderService } from "src/crm-desktop/services/enquiry/enquiry-header.service";
 class CompanyIdDto {
     CompanyMasterSid: number;
     BranchMasterSid: number;
 }
+@Auth()
 @Controller('ff-enquiry')
 
 export class EnquiryHeaderController {

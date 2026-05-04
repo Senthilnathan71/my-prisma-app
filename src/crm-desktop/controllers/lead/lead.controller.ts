@@ -4,7 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { LeadService } from 'src/masters/services/lead/lead.service';
+import { LeadService } from 'src/crm-desktop/services/lead/lead.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
     BranchMasterSid: number;

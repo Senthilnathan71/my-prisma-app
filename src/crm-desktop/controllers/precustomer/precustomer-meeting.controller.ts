@@ -1,19 +1,20 @@
-import { CreatePreCustomerMeetingDto } from './../../DTO/create-precustomer-meeting.dto';
+
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, Put, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
-import { PreCustomerMeetingService } from 'src/masters/services/precustomer/precustomer-meeting.service';
+import { PreCustomerMeetingService } from 'src/crm-desktop/services/precustomer/precustomer-meeting.service';
 import { PrecustomerService } from 'src/crm/services/precustomer/precustomer.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { CreatePreCustomerMeetingDto } from 'src/crm-desktop/DTO/create-precustomer-meeting.dto';
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
 }
-@Controller('ff-pre-customer-meeting')
 @Auth()
+@Controller('ff-pre-customer-meeting')
 export class PreCustomerMeetingController {
 
     constructor(private preCustomerMeetingService: PreCustomerMeetingService, private logger: Logger) { }

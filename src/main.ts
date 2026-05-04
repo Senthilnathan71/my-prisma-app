@@ -56,7 +56,11 @@ async function bootstrap() {
   //   // {  }
   // );
 
-  app.enableCors();
+  app.enableCors({
+    origin: process.env.FRONTEND_DESKTOP_URL || process.env.FRONTEND_MOBILE_URL,
+    credentials: true,
+  });
+  
   app.use(json({ limit: '200mb' }));
   app.use(urlencoded({ extended: true, limit: '200mb' }));
   // swagger setup
@@ -71,7 +75,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('documentation', app, document)
 
-  app.enableCors();
   console.log(`LISTENING PORT IS ${process.env.PORT}}` );
   await app.listen(process.env.PORT ?? 3008);
 }

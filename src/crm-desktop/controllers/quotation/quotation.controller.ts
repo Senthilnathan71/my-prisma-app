@@ -5,12 +5,13 @@ import { ResponseData } from "src/common/response-data";
 import { EmailService } from "src/email/email.service";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
-import { QuotationService } from "src/masters/services/quotation/quotation.service";
+import { QuotationService } from "src/crm-desktop/services/quotation/quotation.service";
+import { Auth } from "src/common/decorators/auth.decorator";
 class CompanyIdDto {
     CompanyMasterSid: number;
     BranchMasterSid: number;
 }
-
+@Auth()
 @Controller('ff-quotation')
 export class QuotationController {
     constructor(private quotationService: QuotationService, private logger: Logger, private emailService: EmailService) { }

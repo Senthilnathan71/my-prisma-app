@@ -3,7 +3,7 @@ import { LeadStatus, Prisma } from '@prisma/client';
 import { parseDateFromString, statusWhereClause, toUTCISO } from 'src/common/helper';
 import { contains } from 'class-validator';
 import { DatabaseService } from 'src/database/database.service';
-import { CreatePreCustomerMeetingDto } from 'src/masters/DTO/create-precustomer-meeting.dto';
+import { CreatePreCustomerMeetingDto } from 'src/crm-desktop/DTO/create-precustomer-meeting.dto';
 import { CreatePrecustomerDto } from 'src/masters/DTO/create-Precustomer.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
