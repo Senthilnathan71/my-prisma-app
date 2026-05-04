@@ -66,7 +66,7 @@ async function bootstrap() {
   }
 
   app.enableCors({
-    origin: [desktopUrl , mobileUrl],
+    origin: [desktopUrl, mobileUrl].filter(Boolean),
     credentials: true,
   });
   
