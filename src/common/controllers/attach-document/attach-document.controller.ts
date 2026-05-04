@@ -14,7 +14,9 @@ import { DynamicFilesUploadInterceptor } from 'src/common/decorators/edoc.decora
 import { UserData } from 'src/common/decorators/user.decorator';
 import { EmailService } from 'src/email/email.service';
 import { Response,Request } from 'express'; // 👈 import this
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @Controller('attach-document')
 export class AttachDocumentController {
     constructor(private configService: ConfigService,
