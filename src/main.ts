@@ -58,15 +58,22 @@ async function bootstrap() {
 
   const desktopUrl = process.env.FRONTEND_DESKTOP_URL;
   const mobileUrl = process.env.FRONTEND_MOBILE_URL;
+  const localUrl = 'http://localhost:4200';
 
-  if (!desktopUrl && !mobileUrl) {
+  if (!desktopUrl) {
     throw new Error(
-      'CORS configuration error: FRONTEND_DESKTOP_URL or FRONTEND_MOBILE_URL must be defined'
+      'CORS configuration error: FRONTEND_DESKTOP_URL must be defined'
+    );
+  }
+
+  if (!mobileUrl) {
+    throw new Error(
+      'CORS configuration error: FRONTEND_MOBILE_URL must be defined'
     );
   }
 
   app.enableCors({
-    origin: [desktopUrl, mobileUrl].filter(Boolean),
+    origin: [desktopUrl, mobileUrl, localUrl].filter(Boolean),
     credentials: true,
   });
   
