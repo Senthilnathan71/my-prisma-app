@@ -9,7 +9,7 @@ import { SettingsModule } from 'src/settings/settings.module';
 
 
 @Module({
-  imports: [SettingsModule],
+  imports: [SettingsModule,EmailModule],
   controllers: [
     SalesDashboardController, 
     SalesManagerDashboardController

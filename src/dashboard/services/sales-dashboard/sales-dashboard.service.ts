@@ -591,6 +591,8 @@ export class SalesDashboardService {
       params.companyMasterSid,
       params.branchMasterSid,
       params.salespersonId,
+      params.naiveDateFrom,
+      params.naiveDateTo,
     ];
     const search = this.buildSearchClause(
       params.search,
@@ -635,6 +637,8 @@ export class SalesDashboardService {
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+        AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)
         AND ${bucketClause}
         ${search.clause}
       ORDER BY pcmm."meetingDate" ${orderDir}`;
@@ -654,6 +658,8 @@ export class SalesDashboardService {
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+        AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)
         AND ${bucketClause}
         ${search.clause}`;
 

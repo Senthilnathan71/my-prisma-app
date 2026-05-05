@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Query, Param, Body, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Query, Body, ParseIntPipe } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SalesManagerDashboardService } from '../../services/sales-manager-dashboard/sales-manager-dashboard.service';
@@ -40,21 +40,6 @@ export class SalesManagerDashboardController {
     } catch (error) {
       resp.status = false;
       resp.message = error.message || 'Failed to fetch counts';
-    }
-    return resp;
-  }
-
-  @Get('section/:sectionNumber')
-  async getSectionData(
-    @Query() query: SalesManagerQueryDto,
-    @Param('sectionNumber', ParseIntPipe) sectionNumber: number,
-  ) {
-    const resp = new ResponseData();
-    try {
-      resp.data = await this.service.getSectionData(sectionNumber, query);
-    } catch (error) {
-      resp.status = false;
-      resp.message = error.message || 'Failed to fetch section data';
     }
     return resp;
   }
