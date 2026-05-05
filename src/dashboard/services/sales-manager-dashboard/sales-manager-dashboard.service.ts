@@ -524,6 +524,11 @@ export class SalesManagerDashboardService {
           AND pcm."CompanyMasterSid" = $1 AND pcm."BranchMasterSid" = $2
           AND ($3::timestamptz IS NULL OR pcm."createdOn" >= $3::timestamptz)
           AND ($4::timestamptz IS NULL OR pcm."createdOn" <= $4::timestamptz)
+          AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+          AND cm."status" = 'A'
+          )
         GROUP BY pcm."createdBy"
       ),
       s2 AS (

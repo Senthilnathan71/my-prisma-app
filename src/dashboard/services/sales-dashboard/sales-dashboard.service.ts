@@ -535,6 +535,11 @@ export class SalesDashboardService {
         AND ($3::timestamptz IS NULL OR pcm."createdOn" >= $3::timestamptz)
         AND ($4::timestamptz IS NULL OR pcm."createdOn" <= $4::timestamptz)
         AND ($5::text IS NULL OR pcm."createdBy" = $5)
+        AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+          AND cm."status" = 'A'
+        )
         ${search.clause}
       ORDER BY pcm."createdOn" DESC`;
 
@@ -553,6 +558,11 @@ export class SalesDashboardService {
         AND ($3::timestamptz IS NULL OR pcm."createdOn" >= $3::timestamptz)
         AND ($4::timestamptz IS NULL OR pcm."createdOn" <= $4::timestamptz)
         AND ($5::text IS NULL OR pcm."createdBy" = $5)
+        AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+          AND cm."status" = 'A'
+        )
         ${search.clause}`;
 
     return this.executePagedQuery<any>(
