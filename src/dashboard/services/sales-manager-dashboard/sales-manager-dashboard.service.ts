@@ -10,6 +10,7 @@ import {
 } from '../../DTO/sales-manager-actions.dto';
 
 interface NormalizedParams {
+  userId: number | null;
   companyMasterSid: number;
   branchMasterSid: number;
   salespersonId: number | null;
@@ -48,7 +49,11 @@ export class SalesManagerDashboardService {
 
   // ─── SALESPERSONS LIST ───────────────────────────────────────────────
 
-  async getSalespersons(companyMasterSid: number, branchMasterSid: number) {
+  async getSalespersons(
+    companyMasterSid: number,
+    branchMasterSid: number,
+    userId: number,
+  ) {
     const rows: any[] = await this.db.$queryRawUnsafe(
       `SELECT
         um."UserMasterSid",
@@ -61,12 +66,14 @@ export class SalesManagerDashboardService {
       WHERE
         ubm."CompanyMasterSid" = $1
         AND ubm."BranchMasterSid" = $2
+        AND um."DeptHead" = $3
         AND um."isSalesperson" = '1'
         AND um."status" = 'A'
         AND ubm."status" = 'A'
       ORDER BY um."userName" ASC`,
       companyMasterSid,
       branchMasterSid,
+      userId,
     );
 
     return rows.map((r) => ({
@@ -82,6 +89,7 @@ export class SalesManagerDashboardService {
 
   async getCounts(query: SalesManagerQueryDto) {
     const {
+      userId,
       companyMasterSid,
       branchMasterSid,
       salespersonId,
@@ -122,6 +130,13 @@ export class SalesManagerDashboardService {
           AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
           AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
           AND ($6::text IS NULL OR pcm."createdBy" = $6)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."userEmail" = pcm."createdBy"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND NOT EXISTS (
           SELECT 1 FROM "CustomerMaster" cm
           WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
@@ -133,6 +148,7 @@ export class SalesManagerDashboardService {
         dateFrom,
         dateTo,
         salespersonEmail,
+        userId,
       ),
       // S2: Meetings scheduled (overdue/today/future)
       this.db.$queryRawUnsafe(
@@ -146,10 +162,18 @@ export class SalesManagerDashboardService {
           AND pcmm."meetingDate" IS NOT NULL
           AND pcmm."CompanyMasterSid" = $1
           AND pcmm."BranchMasterSid" = $2
-          AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)`,
+          AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+              AND scoped_um."DeptHead" = $4
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )`,
         companyMasterSid,
         branchMasterSid,
         salespersonId,
+        userId,
       ),
       // S3: Follow-ups pending
       this.db.$queryRawUnsafe(
@@ -164,12 +188,20 @@ export class SalesManagerDashboardService {
           AND ($4::timestamp IS NULL OR pcmm."followUpDate" >= $4::timestamp)
           AND ($5::timestamp IS NULL OR pcmm."followUpDate" <= $5::timestamp)
           AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+              AND scoped_um."DeptHead" = $6
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           `,
         companyMasterSid,
         branchMasterSid,
         salespersonId,
         naiveDateFrom,
         naiveDateTo,
+        userId,
       ),
       // S4: Business not converted
       this.db.$queryRawUnsafe(
@@ -192,6 +224,26 @@ export class SalesManagerDashboardService {
           AND pcm."CompanyMasterSid" = $1
           AND pcm."BranchMasterSid" = $2
           AND (
+            EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."userEmail" = pcm."createdBy"
+                AND scoped_um."DeptHead" = $7
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
+            OR EXISTS (
+              SELECT 1 FROM "PreCustomerMeeting" pcmm_team
+              WHERE pcmm_team."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+              AND EXISTS (
+                SELECT 1 FROM "UserMaster" scoped_um
+                WHERE scoped_um."UserMasterSid" = pcmm_team."leadAssignTo"
+                  AND scoped_um."DeptHead" = $7
+                  AND scoped_um."isSalesperson" = '1'
+                  AND scoped_um."status" = 'A'
+              )
+            )
+          )
+          AND (
             ($3::int IS NULL AND $6::text IS NULL)
             OR pcm."createdBy" = $6
             OR EXISTS (
@@ -208,6 +260,7 @@ export class SalesManagerDashboardService {
         naiveDateFrom,
         naiveDateTo,
         salespersonEmail,
+        userId,
       ),
       // S5: Customer no quote/booking
       this.db.$queryRawUnsafe(
@@ -219,6 +272,26 @@ export class SalesManagerDashboardService {
           cm."status" = 'A'
           AND cm."CompanyMasterSid" = $1
           AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
+          AND (
+            EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."userEmail" = pcm."createdBy"
+                AND scoped_um."DeptHead" = $7
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
+            OR EXISTS (
+              SELECT 1 FROM "PreCustomerMeeting" pcmm_team
+              WHERE pcmm_team."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+              AND EXISTS (
+                SELECT 1 FROM "UserMaster" scoped_um
+                WHERE scoped_um."UserMasterSid" = pcmm_team."leadAssignTo"
+                  AND scoped_um."DeptHead" = $7
+                  AND scoped_um."isSalesperson" = '1'
+                  AND scoped_um."status" = 'A'
+              )
+            )
+          )
           AND NOT EXISTS (
             SELECT 1 FROM "QuoteHeader" qh
             WHERE qh."CustomerMasterSid" = cm."CustomerMasterSid"
@@ -244,6 +317,7 @@ export class SalesManagerDashboardService {
         dateFrom,
         dateTo,
         salespersonEmail,
+        userId,
       ),
       // S6: Enquiry counts
       this.db.$queryRawUnsafe(
@@ -257,12 +331,20 @@ export class SalesManagerDashboardService {
           AND ($3::int IS NULL OR eh."UserMasterSid" = $3)
           AND ($4::date IS NULL OR eh."EnquiryDate" >= $4::date)
           AND ($5::date IS NULL OR eh."EnquiryDate" <= $5::date)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = eh."UserMasterSid"
+              AND scoped_um."DeptHead" = $6
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND eh."QuoteHeaderSid" IS NULL`,
         companyMasterSid,
         branchMasterSid,
         salespersonId,
         dateFrom,
         dateTo,
+        userId,
       ),
       // S7: Quotes pending approval
       this.db.$queryRawUnsafe(
@@ -275,6 +357,13 @@ export class SalesManagerDashboardService {
           AND ($3::int IS NULL OR qh."SalesmanSid" = $3)
           AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
           AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
+              AND scoped_um."DeptHead" = $6
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND EXISTS (
             SELECT 1 FROM "QuoteCarrier" qc
             WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
@@ -297,6 +386,7 @@ export class SalesManagerDashboardService {
         salespersonId,
         dateFrom,
         dateTo,
+        userId,
       ),
       // S8: Approved quotes no booking
       this.db.$queryRawUnsafe(
@@ -310,6 +400,13 @@ export class SalesManagerDashboardService {
           AND ($3::int IS NULL OR qh."SalesmanSid" = $3)
           AND ($4::date IS NULL OR qh."QuoteDate" >= $4::date)
           AND ($5::date IS NULL OR qh."QuoteDate" <= $5::date)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
+              AND scoped_um."DeptHead" = $6
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND EXISTS (
             SELECT 1 FROM "QuoteCarrier" qc
             WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
@@ -326,6 +423,7 @@ export class SalesManagerDashboardService {
         salespersonId,
         dateFrom,
         dateTo,
+        userId,
       ),
       this.getKPIData(query),
     ]);
@@ -395,6 +493,7 @@ export class SalesManagerDashboardService {
 
   async getKPIBlock(query: SalesManagerQueryDto, state : 'current' | 'previous') {
     const { 
+      userId,
       companyMasterSid, branchMasterSid, 
       dateFrom, dateTo , 
       naiveDateFrom , naiveDateTo ,
@@ -427,6 +526,13 @@ export class SalesManagerDashboardService {
         pcm."BranchMasterSid" = $2 AND 
         pcm."createdOn" >= $3::timestamptz AND 
         pcm."createdOn" <= $4::timestamptz AND
+        EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."userEmail" = pcm."createdBy"
+            AND scoped_um."DeptHead" = $7
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        ) AND
         pcm."status" = 'A'
     ) AS "leadsCreated",
      
@@ -437,6 +543,13 @@ export class SalesManagerDashboardService {
         pcmm."BranchMasterSid" = $2 AND 
         pcmm."meetingDate"::date >= $5::date AND 
         pcmm."meetingDate"::date <= $6::date AND
+        EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+            AND scoped_um."DeptHead" = $7
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        ) AND
         pcmm."status" = 'A'
     ) AS "meetingScheduled",
      
@@ -449,6 +562,26 @@ export class SalesManagerDashboardService {
         pcm3."BranchMasterSid" = $2 AND
         cm."createdOn" >= $3::timestamptz AND
         cm."createdOn" <= $4::timestamptz AND
+        (
+          EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."userEmail" = pcm3."createdBy"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
+          OR EXISTS (
+            SELECT 1 FROM "PreCustomerMeeting" pcmm_team
+            WHERE pcmm_team."PreCustomerMasterSid" = pcm3."PreCustomerMasterSid"
+            AND EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."UserMasterSid" = pcmm_team."leadAssignTo"
+                AND scoped_um."DeptHead" = $7
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
+          )
+        ) AND
         cm."status" = 'A'
     ) AS "leadConvertedToCustomer",
       
@@ -459,6 +592,13 @@ export class SalesManagerDashboardService {
         qh."CompanyMasterSid" = $1 AND 
         qh."BranchMasterSid" = $2 AND
         qh."QuoteDate" >= $3::date AND
+        EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
+            AND scoped_um."DeptHead" = $7
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        ) AND
         qh."QuoteDate" <= $4::date
     ) AS "quoteCreated",
        
@@ -484,6 +624,13 @@ export class SalesManagerDashboardService {
         AND qh."BranchMasterSid" = $2
         AND qh."QuoteDate" >= $3::date 
         AND qh."QuoteDate" <= $4::date
+        AND EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
+            AND scoped_um."DeptHead" = $7
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        )
         AND qh."status" = 'A'
     ) AS "profitAtQuote"
   `,
@@ -493,6 +640,7 @@ export class SalesManagerDashboardService {
       to,
       naiveFrom,
       naiveTo,
+      userId,
     );
 
     return {
@@ -505,7 +653,7 @@ export class SalesManagerDashboardService {
   }
 
   async getScoreboard(query: SalesManagerQueryDto) {
-    const { companyMasterSid, branchMasterSid, dateFrom, dateTo, naiveDateFrom, naiveDateTo } =
+    const { userId, companyMasterSid, branchMasterSid, dateFrom, dateTo, naiveDateFrom, naiveDateTo } =
       this.normalizeParams(query);
 
     const rows: any[] = await this.db.$queryRawUnsafe(
@@ -514,6 +662,7 @@ export class SalesManagerDashboardService {
         FROM "UserMaster" um
         INNER JOIN "UserBranchMaster" ubm ON um."UserMasterSid" = ubm."UserMasterSid"
         WHERE ubm."CompanyMasterSid" = $1 AND ubm."BranchMasterSid" = $2
+          AND um."DeptHead" = $7
           AND um."isSalesperson" = '1' AND um."status" = 'A' AND ubm."status" = 'A'
       ),
       s1 AS (
@@ -524,6 +673,13 @@ export class SalesManagerDashboardService {
           AND pcm."CompanyMasterSid" = $1 AND pcm."BranchMasterSid" = $2
           AND ($3::timestamptz IS NULL OR pcm."createdOn" >= $3::timestamptz)
           AND ($4::timestamptz IS NULL OR pcm."createdOn" <= $4::timestamptz)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."userEmail" = pcm."createdBy"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND NOT EXISTS (
           SELECT 1 FROM "CustomerMaster" cm
           WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
@@ -538,6 +694,13 @@ export class SalesManagerDashboardService {
           AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
           AND ($5::timestamptz IS NULL OR pcmm."meetingDate" >= $5::timestamptz)
           AND ($6::timestamptz IS NULL OR pcmm."meetingDate" <= $6::timestamptz)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
         GROUP BY pcmm."leadAssignTo"
       ),
       s3 AS (
@@ -548,6 +711,13 @@ export class SalesManagerDashboardService {
           AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
           AND ($5::timestamp IS NULL OR pcmm."followUpDate" >= $5::timestamptz)
           AND ($6::timestamp IS NULL OR pcmm."followUpDate" <= $6::timestamptz)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
         GROUP BY pcmm."leadAssignTo"
       ),
       s4 AS (
@@ -555,6 +725,13 @@ export class SalesManagerDashboardService {
         FROM "PreCustomerMaster" pcm
         INNER JOIN "PreCustomerMeeting" pcmm ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
         WHERE pcm."status" = 'A' AND pcm."CompanyMasterSid" = $1 AND pcm."BranchMasterSid" = $2
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND EXISTS (
             SELECT 1 FROM "PreCustomerMeeting" pcmm3
             WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
@@ -575,6 +752,13 @@ export class SalesManagerDashboardService {
         INNER JOIN "PreCustomerMeeting" pcmm ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
         WHERE cm."status" = 'A' AND cm."CompanyMasterSid" = $1
           AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND NOT EXISTS (SELECT 1 FROM "QuoteHeader" qh WHERE qh."CustomerMasterSid" = cm."CustomerMasterSid")
           AND NOT EXISTS (SELECT 1 FROM "BookingHeader" bh WHERE bh."CustomerMasterSid" = cm."CustomerMasterSid")
           AND ($3::timestamptz IS NULL OR cm."createdOn" >= $3::timestamptz)
@@ -589,6 +773,13 @@ export class SalesManagerDashboardService {
           AND eh."QuoteHeaderSid" IS NULL
           AND ($3::date IS NULL OR eh."EnquiryDate" >= $3::date)
           AND ($4::date IS NULL OR eh."EnquiryDate" <= $4::date)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = eh."UserMasterSid"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
         GROUP BY eh."UserMasterSid"
       ),
       s7 AS (
@@ -597,6 +788,13 @@ export class SalesManagerDashboardService {
         WHERE qh."status" = 'A' AND qh."CompanyMasterSid" = $1 AND qh."BranchMasterSid" = $2
           AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
           AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND EXISTS (
             SELECT 1 FROM "QuoteCarrier" qc
             WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid" AND COALESCE(qc."status", 'A') = 'A'
@@ -620,6 +818,13 @@ export class SalesManagerDashboardService {
           AND qh."CompanyMasterSid" = $1 AND qh."BranchMasterSid" = $2
           AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
           AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND EXISTS (
             SELECT 1 FROM "QuoteCarrier" qc
             WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid" AND COALESCE(qc."status", 'A') = 'A'
@@ -659,6 +864,7 @@ export class SalesManagerDashboardService {
       dateTo,
       naiveDateFrom,
       naiveDateTo,
+      userId,
     );
 
     return rows.map((r) => ({
@@ -684,6 +890,7 @@ export class SalesManagerDashboardService {
 
   async getWeeklyTrend(query: SalesManagerQueryDto) {
     const {
+      userId,
       companyMasterSid,
       branchMasterSid,
       dateFrom,
@@ -711,11 +918,25 @@ export class SalesManagerDashboardService {
         w.week_end,
         (SELECT COUNT(*) FROM "PreCustomerMaster" pcm
           WHERE pcm."status" = 'A' AND pcm."CompanyMasterSid" = $1 AND pcm."BranchMasterSid" = $2
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."userEmail" = pcm."createdBy"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND pcm."createdOn" >= w.week_start
           AND pcm."createdOn" < w.week_end + INTERVAL '1 day'
         ) AS "newLeads",
         (SELECT COUNT(*) FROM "PreCustomerMeeting" pcmm
           WHERE pcmm."status" = 'A' AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+              AND scoped_um."DeptHead" = $7
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND pcmm."meetingDate"::date >= w.week_start::date
           AND pcmm."meetingDate"::date < w.week_end :: date + INTERVAL '1 day'
         ) AS "meetings",
@@ -724,6 +945,26 @@ export class SalesManagerDashboardService {
           WHERE cm."status" = 'A' AND cm."CompanyMasterSid" = $1
           AND ($2::int IS NULL OR pcm2."BranchMasterSid" = $2)
           AND cm."PreCustomerMasterSid" IS NOT NULL
+          AND (
+            EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."userEmail" = pcm2."createdBy"
+                AND scoped_um."DeptHead" = $7
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
+            OR EXISTS (
+              SELECT 1 FROM "PreCustomerMeeting" pcmm_team
+              WHERE pcmm_team."PreCustomerMasterSid" = pcm2."PreCustomerMasterSid"
+              AND EXISTS (
+                SELECT 1 FROM "UserMaster" scoped_um
+                WHERE scoped_um."UserMasterSid" = pcmm_team."leadAssignTo"
+                  AND scoped_um."DeptHead" = $7
+                  AND scoped_um."isSalesperson" = '1'
+                  AND scoped_um."status" = 'A'
+              )
+            )
+          )
           AND cm."createdOn" >= w.week_start
           AND cm."createdOn" < w.week_end + INTERVAL '1 day'
         ) AS "conversions"
@@ -735,6 +976,7 @@ export class SalesManagerDashboardService {
       dateTo,
       naiveDateFrom,
       naiveDateTo,
+      userId,
     );
 
     return rows.map((r) => ({
@@ -748,7 +990,7 @@ export class SalesManagerDashboardService {
   // ─── ACTIVITY FEED ───────────────────────────────────────────────────
 
   async getActivityFeed(query: SalesManagerQueryDto) {
-    const { companyMasterSid, branchMasterSid } = this.normalizeParams(query);
+    const { userId, companyMasterSid, branchMasterSid } = this.normalizeParams(query);
 
     const rows: any[] = await this.db.$queryRawUnsafe(
       `(
@@ -764,6 +1006,13 @@ export class SalesManagerDashboardService {
         LEFT JOIN "UserMaster" um ON pcmm."leadAssignTo" = um."UserMasterSid"
         WHERE pcmm."meetingStatus" IN ('Completed', 'Confirmed')
           AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+              AND scoped_um."DeptHead" = $3
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND pcmm."updatedOn" IS NOT NULL
         ORDER BY pcmm."updatedOn" DESC
         LIMIT 10
@@ -781,6 +1030,13 @@ export class SalesManagerDashboardService {
         LEFT JOIN "UserMaster" um ON qh."SalesmanSid" = um."UserMasterSid"
         WHERE qh."status" = 'A'
           AND qh."CompanyMasterSid" = $1 AND qh."BranchMasterSid" = $2
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
+              AND scoped_um."DeptHead" = $3
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND qh."createdOn" IS NOT NULL
         ORDER BY qh."createdOn" DESC
         LIMIT 10
@@ -798,6 +1054,13 @@ export class SalesManagerDashboardService {
         LEFT JOIN "UserMaster" um ON bh."SalesmanSid" = um."UserMasterSid"
         WHERE bh."status" = 'A'
           AND bh."CompanyMasterSid" = $1 AND bh."BranchMasterSid" = $2
+          AND EXISTS (
+            SELECT 1 FROM "UserMaster" scoped_um
+            WHERE scoped_um."UserMasterSid" = bh."SalesmanSid"
+              AND scoped_um."DeptHead" = $3
+              AND scoped_um."isSalesperson" = '1'
+              AND scoped_um."status" = 'A'
+          )
           AND bh."createdOn" IS NOT NULL
         ORDER BY bh."createdOn" DESC
         LIMIT 10
@@ -806,6 +1069,7 @@ export class SalesManagerDashboardService {
       LIMIT 20`,
       companyMasterSid,
       branchMasterSid,
+      userId,
     );
 
     return rows.map((r) => ({
@@ -820,7 +1084,7 @@ export class SalesManagerDashboardService {
   // ─── ALERTS ──────────────────────────────────────────────────────────
 
   async getAlerts(query: SalesManagerQueryDto) {
-    const { companyMasterSid, branchMasterSid } = this.normalizeParams(query);
+    const { userId, companyMasterSid, branchMasterSid } = this.normalizeParams(query);
 
     const [idleLeads, overdueMeetings, staleFollowups, unconvertedHighTouch] =
       await Promise.all([
@@ -832,6 +1096,13 @@ export class SalesManagerDashboardService {
           LEFT JOIN "UserMaster" um ON pcm."createdBy" = um."userEmail"
           WHERE pcm."CompanyMasterSid" = $1 AND pcm."BranchMasterSid" = $2
             AND pcm."status" = 'A'
+            AND EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."userEmail" = pcm."createdBy"
+                AND scoped_um."DeptHead" = $3
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
             AND pcm."createdOn" < NOW() - INTERVAL '7 days'
             AND NOT EXISTS (
               SELECT 1 FROM "PreCustomerMeeting" m
@@ -841,6 +1112,7 @@ export class SalesManagerDashboardService {
           HAVING COUNT(*) > 0`,
           companyMasterSid,
           branchMasterSid,
+          userId,
         ),
         this.db.$queryRawUnsafe(
           `SELECT pcmm."leadAssignTo", um."userName", COUNT(*) AS "total"
@@ -848,6 +1120,13 @@ export class SalesManagerDashboardService {
           LEFT JOIN "UserMaster" um ON pcmm."leadAssignTo" = um."UserMasterSid"
           WHERE pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
             AND pcmm."status" = 'A'
+            AND EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+                AND scoped_um."DeptHead" = $3
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
             AND pcmm."meetingDate"::date < CURRENT_DATE
             AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
           GROUP BY pcmm."leadAssignTo", um."userName"
@@ -855,6 +1134,7 @@ export class SalesManagerDashboardService {
           ORDER BY COUNT(*) DESC`,
           companyMasterSid,
           branchMasterSid,
+          userId,
         ),
         this.db.$queryRawUnsafe(
           `SELECT pcmm."leadAssignTo", um."userName", COUNT(*) AS "total",
@@ -863,6 +1143,13 @@ export class SalesManagerDashboardService {
           LEFT JOIN "UserMaster" um ON pcmm."leadAssignTo" = um."UserMasterSid"
           WHERE pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
             AND pcmm."status" = 'A'
+            AND EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+                AND scoped_um."DeptHead" = $3
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
             AND pcmm."followUpDate" IS NOT NULL
             AND pcmm."followUpDate"::date < CURRENT_DATE
             AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
@@ -871,6 +1158,7 @@ export class SalesManagerDashboardService {
           ORDER BY COUNT(*) DESC`,
           companyMasterSid,
           branchMasterSid,
+          userId,
         ),
         this.db.$queryRawUnsafe(
           `SELECT pcmm."leadAssignTo", um."userName",
@@ -885,6 +1173,13 @@ export class SalesManagerDashboardService {
           LEFT JOIN "UserMaster" um ON pcmm."leadAssignTo" = um."UserMasterSid"
           WHERE pcm."status" = 'A' AND pcm."CompanyMasterSid" = $1 AND pcm."BranchMasterSid" = $2
             AND EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+                AND scoped_um."DeptHead" = $3
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
+            AND EXISTS (
               SELECT 1 FROM "PreCustomerMeeting" pcmm3
               WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
               AND pcmm3."meetingStatus" IN ('Completed', 'Confirmed')
@@ -897,6 +1192,7 @@ export class SalesManagerDashboardService {
           HAVING COUNT(DISTINCT pcm."PreCustomerMasterSid") > 0`,
           companyMasterSid,
           branchMasterSid,
+          userId,
         ),
       ]);
 
@@ -1073,7 +1369,7 @@ export class SalesManagerDashboardService {
   }
 
   private async getMeetingsScheduledBucket(params: NormalizedParams, bucket: 'overdue' | 'today' | 'future'): Promise<PagedResult<any>> {
-    const baseParams: any[] = [params.companyMasterSid, params.branchMasterSid, params.salespersonId];
+    const baseParams: any[] = [params.companyMasterSid, params.branchMasterSid, params.salespersonId, params.userId];
     const search = this.buildSearchClause(params.search, [
       `pcm."preCustomerName"`, `cm."CustomerName"`, `pcmm."meetingType"`, `um."userName"`,
     ], baseParams.length + 1);
@@ -1093,6 +1389,13 @@ export class SalesManagerDashboardService {
       WHERE pcmm."status" = 'A' AND pcmm."meetingDate" IS NOT NULL
         AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+        AND EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+            AND scoped_um."DeptHead" = $4
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        )
         AND ${bucketClause}
         ${search.clause}
       ORDER BY pcmm."meetingDate" ${orderDir}`;
@@ -1106,6 +1409,13 @@ export class SalesManagerDashboardService {
       WHERE pcmm."status" = 'A' AND pcmm."meetingDate" IS NOT NULL
         AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+        AND EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+            AND scoped_um."DeptHead" = $4
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        )
         AND ${bucketClause}
         ${search.clause}`;
 
@@ -1132,6 +1442,7 @@ export class SalesManagerDashboardService {
     );
 
     return {
+      userId: Number(query.userId),
       companyMasterSid: Number(query.companyMasterSid),
       branchMasterSid: Number(query.branchMasterSid),
       salespersonId: query.salespersonId ? Number(query.salespersonId) : null,

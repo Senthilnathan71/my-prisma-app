@@ -1,8 +1,14 @@
-import { IsOptional, IsNumber, IsDateString, IsString, IsIn } from 'class-validator';
+import { IsOptional, IsNumber, IsDateString, IsString, IsIn, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SalesManagerQueryDto {
+  @ApiProperty({ required: true, description: 'Logged-in sales manager user id used to scope assigned salespersons' })
+  @IsNumber()
+  @Min(1)
+  @Type(() => Number)
+  userId: number;
+
   @ApiProperty({ required: true })
   @IsNumber()
   @Type(() => Number)

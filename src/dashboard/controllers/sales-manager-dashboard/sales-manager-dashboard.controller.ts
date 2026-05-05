@@ -21,10 +21,11 @@ export class SalesManagerDashboardController {
   async getSalespersons(
     @Query('companyMasterSid', ParseIntPipe) companyMasterSid: number,
     @Query('branchMasterSid', ParseIntPipe) branchMasterSid: number,
+    @Query('userId', ParseIntPipe) userId: number,
   ) {
     const resp = new ResponseData();
     try {
-      resp.data = await this.service.getSalespersons(companyMasterSid, branchMasterSid);
+      resp.data = await this.service.getSalespersons(companyMasterSid, branchMasterSid, userId);
     } catch (error) {
       resp.status = false;
       resp.message = error.message || 'Failed to fetch salespersons';
