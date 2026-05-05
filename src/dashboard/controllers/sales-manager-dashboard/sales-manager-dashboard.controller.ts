@@ -56,18 +56,6 @@ export class SalesManagerDashboardController {
     return resp;
   }
 
-  @Get('heatmap')
-  async getHeatmap(@Query() query: SalesManagerQueryDto) {
-    const resp = new ResponseData();
-    try {
-      resp.data = await this.service.getHeatmap(query);
-    } catch (error) {
-      resp.status = false;
-      resp.message = error.message || 'Failed to fetch heatmap';
-    }
-    return resp;
-  }
-
   @Get('weekly-trend')
   async getWeeklyTrend(@Query() query: SalesManagerQueryDto) {
     const resp = new ResponseData();
@@ -80,17 +68,6 @@ export class SalesManagerDashboardController {
     return resp;
   }
 
-  @Get('response-times')
-  async getResponseTimes(@Query() query: SalesManagerQueryDto) {
-    const resp = new ResponseData();
-    try {
-      resp.data = await this.service.getResponseTimes(query);
-    } catch (error) {
-      resp.status = false;
-      resp.message = error.message || 'Failed to fetch response times';
-    }
-    return resp;
-  }
 
   @Get('activity-feed')
   async getActivityFeed(@Query() query: SalesManagerQueryDto) {
@@ -112,18 +89,6 @@ export class SalesManagerDashboardController {
     } catch (error) {
       resp.status = false;
       resp.message = error.message || 'Failed to fetch alerts';
-    }
-    return resp;
-  }
-
-  @Get('aging')
-  async getAgingAnalysis(@Query() query: SalesManagerQueryDto) {
-    const resp = new ResponseData();
-    try {
-      resp.data = await this.service.getAgingAnalysis(query);
-    } catch (error) {
-      resp.status = false;
-      resp.message = error.message || 'Failed to fetch aging analysis';
     }
     return resp;
   }

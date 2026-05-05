@@ -520,6 +520,11 @@ export class SalesDashboardService {
       FROM "PreCustomerMaster" pcm
       LEFT JOIN "PreCustomerMeeting" pcmm
         ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
+      AND NOT EXISTS (
+        SELECT 1 FROM "CustomerMaster" cm
+        WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+        AND cm."status" = 'A'
+      )
       LEFT JOIN "UserMaster" um
         ON pcm."leadAssignTo" = um."UserMasterSid"
       WHERE

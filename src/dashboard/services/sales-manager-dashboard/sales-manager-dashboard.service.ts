@@ -121,7 +121,12 @@ export class SalesManagerDashboardService {
           AND ($3::int IS NULL OR TRUE)
           AND ($4::timestamptz IS NULL OR pcm."createdOn" >= $4::timestamptz)
           AND ($5::timestamptz IS NULL OR pcm."createdOn" <= $5::timestamptz)
-          AND ($6::text IS NULL OR pcm."createdBy" = $6)`,
+          AND ($6::text IS NULL OR pcm."createdBy" = $6)
+          AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+          AND cm."status" = 'A'
+          )`,
         companyMasterSid,
         branchMasterSid,
         salespersonId,
@@ -158,7 +163,8 @@ export class SalesManagerDashboardService {
           AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
           AND ($4::timestamp IS NULL OR pcmm."followUpDate" >= $4::timestamp)
           AND ($5::timestamp IS NULL OR pcmm."followUpDate" <= $5::timestamp)
-          AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')`,
+          AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+          `,
         companyMasterSid,
         branchMasterSid,
         salespersonId,
@@ -242,9 +248,7 @@ export class SalesManagerDashboardService {
       // S6: Enquiry counts
       this.db.$queryRawUnsafe(
         `SELECT
-          COUNT(*) AS "enquiryCreated",
-          COUNT(*) FILTER (WHERE eh."QuoteHeaderSid" IS NOT NULL) AS "enquiryConvertedToQuotation",
-          COUNT(*) FILTER (WHERE eh."QuoteHeaderSid" IS NULL) AS "enquiriesNoQuotation"
+          COUNT(*) AS "enquiriesNoQuotation"
         FROM "EnquiryHeader" eh
         WHERE
           COALESCE(eh."status", 'A') = 'A'
@@ -252,7 +256,8 @@ export class SalesManagerDashboardService {
           AND eh."BranchMasterSid" = $2
           AND ($3::int IS NULL OR eh."UserMasterSid" = $3)
           AND ($4::date IS NULL OR eh."EnquiryDate" >= $4::date)
-          AND ($5::date IS NULL OR eh."EnquiryDate" <= $5::date)`,
+          AND ($5::date IS NULL OR eh."EnquiryDate" <= $5::date)
+          AND eh."QuoteHeaderSid" IS NULL`,
         companyMasterSid,
         branchMasterSid,
         salespersonId,
@@ -499,228 +504,6 @@ export class SalesManagerDashboardService {
     };
   }
 
-  private async getLeadMilestoneFunnelCounts(query: SalesManagerQueryDto) {
-    const { companyMasterSid, branchMasterSid, dateFrom, dateTo } =
-      this.normalizeParams(query);
-
-    const approvedQuotePredicate = `(
-      qh."authorizerStatus"::text = 'Approved'
-      OR EXISTS (
-        SELECT 1
-        FROM "QuoteCarrier" qc
-        WHERE qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
-          AND COALESCE(qc."status", 'A') = 'A'
-          AND qc."ApprovalStatus"::text = 'Approved'
-      )
-    )`;
-
-    const results: any[] = await this.db.$queryRawUnsafe(
-      `WITH filtered_leads AS (
-        SELECT DISTINCT pcm."PreCustomerMasterSid"
-        FROM "PreCustomerMaster" pcm
-        WHERE
-          COALESCE(pcm."status", 'A') = 'A'
-          AND pcm."CompanyMasterSid" = $1
-          AND pcm."BranchMasterSid" = $2
-          AND ($3::date IS NULL OR pcm."createdOn"::date >= $3::date)
-          AND ($4::date IS NULL OR pcm."createdOn"::date <= $4::date)
-      ),
-      lead_customers AS (
-        SELECT
-          fl."PreCustomerMasterSid",
-          cm."CustomerMasterSid",
-          cm."createdOn"::date AS "customerCreatedDate"
-        FROM filtered_leads fl
-        INNER JOIN "CustomerMaster" cm
-          ON cm."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-         AND COALESCE(cm."status", 'A') = 'A'
-      ),
-      meetings_stage AS (
-        SELECT DISTINCT fl."PreCustomerMasterSid"
-        FROM filtered_leads fl
-        INNER JOIN "PreCustomerMeeting" pcmm
-          ON pcmm."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-         AND COALESCE(pcmm."status", 'A') = 'A'
-         AND ($3::date IS NULL OR pcmm."meetingDate"::date >= $3::date)
-         AND ($4::date IS NULL OR pcmm."meetingDate"::date <= $4::date)
-      ),
-      enquiry_stage AS (
-        SELECT
-          fl."PreCustomerMasterSid",
-          BOOL_OR(eh."PreCustomerMasterSid" = fl."PreCustomerMasterSid") AS "viaLead",
-          BOOL_OR(lc."CustomerMasterSid" IS NOT NULL) AS "viaCustomer"
-        FROM filtered_leads fl
-        INNER JOIN "EnquiryHeader" eh
-          ON COALESCE(eh."status", 'A') = 'A'
-         AND ($3::date IS NULL OR eh."EnquiryDate" >= $3::date)
-         AND ($4::date IS NULL OR eh."EnquiryDate" <= $4::date)
-        LEFT JOIN lead_customers lc
-          ON lc."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-         AND eh."CustomerMasterSid" = lc."CustomerMasterSid"
-        WHERE
-          eh."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-          OR lc."CustomerMasterSid" IS NOT NULL
-        GROUP BY fl."PreCustomerMasterSid"
-      ),
-      quote_stage AS (
-        SELECT
-          fl."PreCustomerMasterSid",
-          BOOL_OR(qh."PreCustomerMasterSid" = fl."PreCustomerMasterSid") AS "viaLead",
-          BOOL_OR(lc."CustomerMasterSid" IS NOT NULL) AS "viaCustomer"
-        FROM filtered_leads fl
-        INNER JOIN "QuoteHeader" qh
-          ON COALESCE(qh."status", 'A') = 'A'
-         AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
-         AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
-        LEFT JOIN lead_customers lc
-          ON lc."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-         AND qh."CustomerMasterSid" = lc."CustomerMasterSid"
-        WHERE
-          qh."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-          OR lc."CustomerMasterSid" IS NOT NULL
-        GROUP BY fl."PreCustomerMasterSid"
-      ),
-      approved_quote_stage AS (
-        SELECT
-          fl."PreCustomerMasterSid",
-          BOOL_OR(qh."PreCustomerMasterSid" = fl."PreCustomerMasterSid") AS "viaLead",
-          BOOL_OR(lc."CustomerMasterSid" IS NOT NULL) AS "viaCustomer"
-        FROM filtered_leads fl
-        INNER JOIN "QuoteHeader" qh
-          ON COALESCE(qh."status", 'A') = 'A'
-         AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
-         AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
-        LEFT JOIN lead_customers lc
-          ON lc."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-         AND qh."CustomerMasterSid" = lc."CustomerMasterSid"
-        WHERE
-          ${approvedQuotePredicate}
-          AND (
-            qh."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-            OR lc."CustomerMasterSid" IS NOT NULL
-          )
-        GROUP BY fl."PreCustomerMasterSid"
-      ),
-      booking_links AS (
-        SELECT
-          fl."PreCustomerMasterSid",
-          qh."PreCustomerMasterSid" AS "quoteLeadSid",
-          eh."PreCustomerMasterSid" AS "enquiryLeadSid",
-          bh."CustomerMasterSid" AS "bookingCustomerSid",
-          qh."CustomerMasterSid" AS "quoteCustomerSid",
-          eh."CustomerMasterSid" AS "enquiryCustomerSid"
-        FROM filtered_leads fl
-        INNER JOIN "BookingHeader" bh
-          ON COALESCE(bh."status", 'A') = 'A'
-         AND ($3::date IS NULL OR bh."BookingDateTime"::date >= $3::date)
-         AND ($4::date IS NULL OR bh."BookingDateTime"::date <= $4::date)
-        LEFT JOIN "QuoteHeader" qh
-          ON bh."QuotationHeaderSid" = qh."QuoteHeaderSid"
-         AND COALESCE(qh."status", 'A') = 'A'
-        LEFT JOIN "EnquiryHeader" eh
-          ON (
-            bh."EnquiryHeaderSid" = eh."EnquiryHeaderSid"
-            OR qh."EnquirySid" = eh."EnquiryHeaderSid"
-          )
-         AND COALESCE(eh."status", 'A') = 'A'
-      ),
-      booking_stage AS (
-        SELECT
-          bl."PreCustomerMasterSid",
-          BOOL_OR(
-            bl."quoteLeadSid" = bl."PreCustomerMasterSid"
-            OR bl."enquiryLeadSid" = bl."PreCustomerMasterSid"
-          ) AS "viaLead",
-          BOOL_OR(lc."CustomerMasterSid" IS NOT NULL) AS "viaCustomer"
-        FROM booking_links bl
-        LEFT JOIN lead_customers lc
-          ON lc."PreCustomerMasterSid" = bl."PreCustomerMasterSid"
-         AND (
-           bl."bookingCustomerSid" = lc."CustomerMasterSid"
-           OR bl."quoteCustomerSid" = lc."CustomerMasterSid"
-           OR bl."enquiryCustomerSid" = lc."CustomerMasterSid"
-         )
-        WHERE
-          bl."quoteLeadSid" = bl."PreCustomerMasterSid"
-          OR bl."enquiryLeadSid" = bl."PreCustomerMasterSid"
-          OR lc."CustomerMasterSid" IS NOT NULL
-        GROUP BY bl."PreCustomerMasterSid"
-      ),
-      confirmed_meeting_customer_origin AS (
-        SELECT DISTINCT pcmm."PreCustomerMasterSid"
-        FROM "PreCustomerMeeting" pcmm
-        WHERE
-          COALESCE(pcmm."status", 'A') = 'A'
-          AND pcmm."meetingStatus" = 'Confirmed'
-          AND ($3::date IS NULL OR pcmm."meetingDate"::date >= $3::date)
-          AND ($4::date IS NULL OR pcmm."meetingDate"::date <= $4::date)
-      ),
-      approved_quote_customer_origin AS (
-        SELECT DISTINCT qh."PreCustomerMasterSid"
-        FROM "QuoteHeader" qh
-        WHERE
-          COALESCE(qh."status", 'A') = 'A'
-          AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
-          AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
-          AND ${approvedQuotePredicate}
-      ),
-      customer_stage AS (
-        SELECT
-          lc."PreCustomerMasterSid",
-          BOOL_OR(cmco."PreCustomerMasterSid" IS NOT NULL) AS "viaMeeting",
-          BOOL_OR(aqco."PreCustomerMasterSid" IS NOT NULL) AS "viaApprovedQuote"
-        FROM lead_customers lc
-        LEFT JOIN confirmed_meeting_customer_origin cmco
-          ON cmco."PreCustomerMasterSid" = lc."PreCustomerMasterSid"
-        LEFT JOIN approved_quote_customer_origin aqco
-          ON aqco."PreCustomerMasterSid" = lc."PreCustomerMasterSid"
-        WHERE
-          ($3::date IS NULL OR lc."customerCreatedDate" >= $3::date)
-          AND ($4::date IS NULL OR lc."customerCreatedDate" <= $4::date)
-        GROUP BY lc."PreCustomerMasterSid"
-      )
-      SELECT
-        COUNT(*) AS "totalLeads",
-        COUNT(*) FILTER (WHERE meetings_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithMeeting",
-        COUNT(*) FILTER (WHERE enquiry_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithEnquiry",
-        COUNT(*) FILTER (WHERE quote_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithQuote",
-        COUNT(*) FILTER (WHERE approved_quote_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithApprovedQuote",
-        COUNT(*) FILTER (WHERE booking_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsWithBooking",
-        COUNT(*) FILTER (WHERE customer_stage."PreCustomerMasterSid" IS NOT NULL) AS "leadsTurnedCustomer"
-      FROM filtered_leads fl
-      LEFT JOIN meetings_stage
-        ON meetings_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-      LEFT JOIN enquiry_stage
-        ON enquiry_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-      LEFT JOIN quote_stage
-        ON quote_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-      LEFT JOIN approved_quote_stage
-        ON approved_quote_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-      LEFT JOIN booking_stage
-        ON booking_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"
-      LEFT JOIN customer_stage
-        ON customer_stage."PreCustomerMasterSid" = fl."PreCustomerMasterSid"`,
-      companyMasterSid,
-      branchMasterSid,
-      dateFrom,
-      dateTo,
-    );
-
-    const row = results[0] || {};
-
-    return {
-      leadsCreated: Number(row.totalLeads) || 0,
-      meetingsHeld: Number(row.leadsWithMeeting) || 0,
-      convertedToCustomer: Number(row.leadsTurnedCustomer) || 0,
-      enquiryCreated: Number(row.leadsWithEnquiry) || 0,
-      quoteCreated: Number(row.leadsWithQuote) || 0,
-      quoteApproved: Number(row.leadsWithApprovedQuote) || 0,
-      bookingCreated: Number(row.leadsWithBooking) || 0,
-    };
-  }
-
-  // ─── SCOREBOARD ──────────────────────────────────────────────────────
-
   async getScoreboard(query: SalesManagerQueryDto) {
     const { companyMasterSid, branchMasterSid, dateFrom, dateTo, naiveDateFrom, naiveDateTo } =
       this.normalizeParams(query);
@@ -892,24 +675,6 @@ export class SalesManagerDashboardService {
     }));
   }
 
-  // ─── HEATMAP ─────────────────────────────────────────────────────────
-
-  async getHeatmap(query: SalesManagerQueryDto) {
-    const scoreboard = await this.getScoreboard(query);
-    const sectionLabels = [
-      'Leads No Mtg', 'Meetings', 'Follow-Ups', 'Not Converted',
-      'Cust. No Quote', 'Enq. No Quotation', 'Pending Approval', 'Appr. No Booking',
-    ];
-
-    return scoreboard.map((sp) => ({
-      userName: sp.userName,
-      data: sectionLabels.map((label, i) => ({
-        x: label,
-        y: sp[`s${i + 1}`] || 0,
-      })),
-    }));
-  }
-
   // ─── WEEKLY TREND ────────────────────────────────────────────────────
 
   async getWeeklyTrend(query: SalesManagerQueryDto) {
@@ -972,89 +737,6 @@ export class SalesManagerDashboardService {
       newLeads: Number(r.newLeads) || 0,
       meetings: Number(r.meetings) || 0,
       conversions: Number(r.conversions) || 0,
-    }));
-  }
-
-  // ─── RESPONSE TIMES ──────────────────────────────────────────────────
-
-  async getResponseTimes(query: SalesManagerQueryDto) {
-    const { companyMasterSid, branchMasterSid } = this.normalizeParams(query);
-
-    const rows: any[] = await this.db.$queryRawUnsafe(
-      `WITH salespersons AS (
-        SELECT um."UserMasterSid", um."userName", um."userEmail"
-        FROM "UserMaster" um
-        INNER JOIN "UserBranchMaster" ubm ON um."UserMasterSid" = ubm."UserMasterSid"
-        WHERE ubm."CompanyMasterSid" = $1 AND ubm."BranchMasterSid" = $2
-          AND um."isSalesperson" = '1' AND um."status" = 'A' AND ubm."status" = 'A'
-      ),
-      lead_to_meeting AS (
-        SELECT
-          pcmm."leadAssignTo" AS uid,
-          AVG(EXTRACT(EPOCH FROM (pcmm."meetingDate" - pcm."createdOn")) / 86400) AS avg_days
-        FROM "PreCustomerMeeting" pcmm
-        INNER JOIN "PreCustomerMaster" pcm ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-        WHERE pcmm."status" = 'A' AND pcm."status" = 'A'
-          AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
-          AND pcmm."meetingDate" IS NOT NULL AND pcm."createdOn" IS NOT NULL
-        GROUP BY pcmm."leadAssignTo"
-      ),
-      lead_to_customer AS (
-        SELECT
-          pcm."leadAssignTo" AS uid,
-          AVG(EXTRACT(EPOCH FROM (cm."createdOn" - pcm."createdOn")) / 86400) AS avg_days
-        FROM "CustomerMaster" cm
-        INNER JOIN "PreCustomerMaster" pcm ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-        WHERE cm."status" = 'A' AND pcm."status" = 'A'
-          AND cm."CompanyMasterSid" = $1
-          AND cm."createdOn" IS NOT NULL AND pcm."createdOn" IS NOT NULL
-        GROUP BY pcm."leadAssignTo"
-      ),
-      quote_to_approval AS (
-        SELECT
-          qh."SalesmanSid" AS uid,
-          AVG(EXTRACT(EPOCH FROM (COALESCE(auth."AuthorisedDate", qc."updatedOn") - qh."QuoteDate")) / 86400) AS avg_days
-        FROM "QuoteHeader" qh
-        INNER JOIN "QuoteCarrier" qc ON qc."QuoteHeaderSid" = qh."QuoteHeaderSid"
-        LEFT JOIN LATERAL (
-          SELECT al."AuthorisedDate"
-          FROM "AuthorityLog" al
-          WHERE al."DocumentSid" = qh."QuoteHeaderSid"
-            AND al."CompanyMasterSid" = qh."CompanyMasterSid"
-            AND al."BranchMasterSid" = qh."BranchMasterSid"
-            AND COALESCE(al."Status", 'A') = 'A'
-            AND al."ApprovalStatus" = 'Approved'
-          ORDER BY al."AuthorisedDate" DESC
-          LIMIT 1
-        ) auth ON true
-        WHERE qh."status" = 'A' AND COALESCE(qc."status", 'A') = 'A'
-          AND qh."CompanyMasterSid" = $1 AND qh."BranchMasterSid" = $2
-          AND qc."ApprovalStatus"::text = 'Approved'
-          AND COALESCE(auth."AuthorisedDate", qc."updatedOn") IS NOT NULL
-          AND qh."QuoteDate" IS NOT NULL
-        GROUP BY qh."SalesmanSid"
-      )
-      SELECT
-        sp."UserMasterSid",
-        sp."userName",
-        ROUND(COALESCE(ltm.avg_days, 0)::numeric, 1) AS "avgLeadToMeeting",
-        ROUND(COALESCE(ltc.avg_days, 0)::numeric, 1) AS "avgLeadToCustomer",
-        ROUND(COALESCE(qta.avg_days, 0)::numeric, 1) AS "avgQuoteToApproval"
-      FROM salespersons sp
-      LEFT JOIN lead_to_meeting ltm ON ltm.uid = sp."UserMasterSid"
-      LEFT JOIN lead_to_customer ltc ON ltc.uid = sp."UserMasterSid"
-      LEFT JOIN quote_to_approval qta ON qta.uid = sp."UserMasterSid"
-      ORDER BY sp."userName" ASC`,
-      companyMasterSid,
-      branchMasterSid,
-    );
-
-    return rows.map((r) => ({
-      UserMasterSid: r.UserMasterSid,
-      userName: r.userName,
-      avgLeadToMeeting: Number(r.avgLeadToMeeting) || 0,
-      avgLeadToCustomer: Number(r.avgLeadToCustomer) || 0,
-      avgQuoteToApproval: Number(r.avgQuoteToApproval) || 0,
     }));
   }
 
@@ -1271,49 +953,6 @@ export class SalesManagerDashboardService {
     return alerts;
   }
 
-  // ─── AGING ANALYSIS ──────────────────────────────────────────────────
-
-  async getAgingAnalysis(query: SalesManagerQueryDto) {
-    const { companyMasterSid, branchMasterSid } = this.normalizeParams(query);
-
-    const rows: any[] = await this.db.$queryRawUnsafe(
-      `WITH salespersons AS (
-        SELECT um."UserMasterSid", um."userName", um."userEmail"
-        FROM "UserMaster" um
-        INNER JOIN "UserBranchMaster" ubm ON um."UserMasterSid" = ubm."UserMasterSid"
-        WHERE ubm."CompanyMasterSid" = $1 AND ubm."BranchMasterSid" = $2
-          AND um."isSalesperson" = '1' AND um."status" = 'A' AND ubm."status" = 'A'
-      )
-      SELECT
-        sp."userName",
-        COUNT(*) FILTER (WHERE CURRENT_DATE - pcm."createdOn"::date BETWEEN 0 AND 7) AS "days0to7",
-        COUNT(*) FILTER (WHERE CURRENT_DATE - pcm."createdOn"::date BETWEEN 8 AND 30) AS "days8to30",
-        COUNT(*) FILTER (WHERE CURRENT_DATE - pcm."createdOn"::date BETWEEN 31 AND 60) AS "days31to60",
-        COUNT(*) FILTER (WHERE CURRENT_DATE - pcm."createdOn"::date > 60) AS "days60plus"
-      FROM salespersons sp
-      LEFT JOIN "PreCustomerMaster" pcm
-        ON pcm."createdBy" = sp."userEmail"
-        AND pcm."status" = 'A'
-        AND pcm."CompanyMasterSid" = $1
-        AND pcm."BranchMasterSid" = $2
-        AND NOT EXISTS (
-          SELECT 1 FROM "CustomerMaster" cm
-          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid" AND cm."status" = 'A'
-        )
-      GROUP BY sp."userName"
-      ORDER BY sp."userName" ASC`,
-      companyMasterSid,
-      branchMasterSid,
-    );
-
-    return rows.map((r) => ({
-      userName: r.userName,
-      days0to7: Number(r.days0to7) || 0,
-      days8to30: Number(r.days8to30) || 0,
-      days31to60: Number(r.days31to60) || 0,
-      days60plus: Number(r.days60plus) || 0,
-    }));
-  }
 
   // ─── MEETINGS BOARD ──────────────────────────────────────────────────
 
