@@ -1,9 +1,10 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { CustomerBranchContactService } from 'src/masters/services/customer-branch-contact/customer-branch-contact.service';
-
+@Auth()
 @Controller('customer-branch-contact')
 export class CustomerBranchContactController {
     constructor(private logger: Logger, private customerBrContactServ: CustomerBranchContactService) { }

@@ -5,9 +5,8 @@ import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VesselService } from 'src/masters/services/vessel/vessel.service';
-
-@Controller('vessel')
 @Auth()
+@Controller('vessel')
 export class VesselController {
     constructor(private vesselService: VesselService, private logger: Logger) { }
 

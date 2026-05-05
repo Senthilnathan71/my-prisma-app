@@ -1,9 +1,10 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { CreatePrintMasterDto, PrintMasterSearchDto, UpdatePrintMasterDto } from 'src/masters/DTO/print-master.dto';
 import { PrintMasterService } from 'src/masters/services/print-master/print-master.service';
-
+@Auth()
 @Controller('print-master')
 export class PrintMasterController {
     private readonly logger = new Logger(PrintMasterController.name);

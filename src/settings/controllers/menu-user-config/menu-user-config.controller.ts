@@ -4,12 +4,12 @@ import {
   Body,
   UseGuards,
 } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/common/decorators/jwt-auth.guard';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { MenuUserConfigService } from '../../services/menu-user-config/menu-user-config.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @Controller('menu-user-config')
-@UseGuards(JwtAuthGuard)
 export class MenuUserConfigController {
   constructor(
     private readonly menuUserConfigService: MenuUserConfigService,

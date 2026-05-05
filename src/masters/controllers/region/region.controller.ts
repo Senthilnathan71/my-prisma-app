@@ -3,9 +3,8 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { CityService } from 'src/masters/services/city/city.service';
-
-@Controller('region')
 @Auth()
+@Controller('region')
 export class RegionController {
 
     constructor(private cityService: CityService, private logger: Logger) { }

@@ -6,7 +6,7 @@ import { ResponseData } from "src/common/response-data";
 import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { UomService } from "src/masters/services/uom/uom-master.service";
-
+@Auth()
 @Controller('uom')
 
 export class UomMasterController {

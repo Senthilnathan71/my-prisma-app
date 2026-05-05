@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
-import { MenuService } from 'src/masters/services/menu/menu.service';
+import { MenuService } from 'src/settings/services/menu/menu.service';
 import * as moment from 'moment-timezone';
 import { parseDateFromString, statusWhereClause, toNumber } from 'src/common/helper';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';

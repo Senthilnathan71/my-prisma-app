@@ -8,11 +8,13 @@ import {
   DraftVoucherResponseDto,
 } from '../../dto/voucher-posting.dto';
 import { ResponseData } from '../../../common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 /**
  * Controller for voucher posting operations
  * Handles API endpoints for posting vouchers from draft to VoucherTransaction table
  */
+@Auth()
 @ApiTags('Voucher Posting')
 @Controller('accounts/voucher-posting')
 export class VoucherPostingController {

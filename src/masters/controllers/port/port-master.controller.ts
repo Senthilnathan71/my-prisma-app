@@ -21,7 +21,7 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { PortService } from 'src/masters/services/port/port-master.service';
-
+@Auth()
 @Controller('port')
 
 export class PortMasterController {

@@ -15,9 +15,10 @@ import {
   GenerateNumberDto,
   PreviewNumberDto,
 } from '../../DTO/number-series.dto';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @Controller('number-series')
-@UseGuards(JwtAuthGuard)
 export class NumberSeriesController {
   constructor(private readonly numberSeriesService: NumberSeriesService) {}
 

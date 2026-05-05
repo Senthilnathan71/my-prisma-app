@@ -4,9 +4,11 @@ import { ResponseData } from 'src/common/response-data';
 import { ChargeTaxService } from 'src/masters/services/charge-tax/charge-tax.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { Auth } from 'src/common/decorators/auth.decorator';
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
+@Auth()
 @Controller('charge-tax')
 export class ChargeTaxController {
     constructor(private chargeTaxService: ChargeTaxService, private logger: Logger) { }

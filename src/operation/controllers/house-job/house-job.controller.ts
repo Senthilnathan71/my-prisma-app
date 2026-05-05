@@ -1,10 +1,12 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, Res, Delete, Query } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { HouseJobService } from 'src/operation/services/house-job/house-job.service';
 import { EDIManifestService } from 'src/operation/services/edi-manifest/edi-manifest.service';
 import { Response } from 'express';
 
+@Auth()
 @Controller('house-job')
 export class HouseJobController {
     constructor(

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ActivityAllocationService } from '../../services/activity-allocation/activity-allocation.service';
 
 class ResponseData<T = any> {
@@ -7,6 +8,7 @@ class ResponseData<T = any> {
   data: T | null = null;
 }
 
+@Auth()
 @Controller('activity-allocation')
 export class ActivityAllocationController {
   constructor(

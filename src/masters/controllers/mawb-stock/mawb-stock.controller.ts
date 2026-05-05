@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { MawbStockService } from 'src/masters/services/mawb-stock/mawb-stock.service';
@@ -8,7 +9,7 @@ class CompanyIdDto {
     BranchMasterSid: number;
 }
 
-
+@Auth()
 @Controller('mawb-stock')
 export class MawbStockController {
     constructor(private mawbStockService: MawbStockService, private logger: Logger) { }

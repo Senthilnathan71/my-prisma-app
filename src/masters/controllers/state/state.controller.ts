@@ -21,7 +21,7 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { StateService } from 'src/masters/services/state/state.service';
-
+@Auth()
 @Controller('state')
 
 export class StateController {

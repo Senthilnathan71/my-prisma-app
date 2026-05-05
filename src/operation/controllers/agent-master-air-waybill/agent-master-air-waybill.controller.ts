@@ -19,7 +19,7 @@ import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { AgentMasterAirWaybillService } from 'src/operation/services/agent-master-air-waybill/agent-master-air-waybill.service';
 
-
+@Auth()
 @Controller('agent-master-air-waybill')
 export class AgentMasterAirWaybillController {
   private readonly logger = new Logger(AgentMasterAirWaybillController.name);

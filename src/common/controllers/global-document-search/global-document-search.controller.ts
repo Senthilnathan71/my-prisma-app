@@ -1,8 +1,10 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { GlobalDocumentSearchService } from 'src/common/services/global-document-search/global-document-search.service';
 
+@Auth()
 @ApiTags('Global Document Search')
 @Controller('global-search')
 export class GlobalDocumentSearchController {

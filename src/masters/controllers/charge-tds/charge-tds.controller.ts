@@ -4,7 +4,8 @@ import { ResponseData } from 'src/common/response-data';
 import { ChargeTdsService } from 'src/masters/services/charge-tds/charge-tds.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-
+import { Auth } from 'src/common/decorators/auth.decorator';
+@Auth()
 @Controller('charge-tds')
 export class ChargeTdsController {
     constructor(private chargeTdsService: ChargeTdsService, private logger: Logger) { }

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
-import { MenuService } from 'src/masters/services/menu/menu.service';
+import { MenuService } from 'src/settings/services/menu/menu.service';
 import { SalesDashboardQueryDto } from '../../DTO/sales-dashboard.dto';
 
 type SectionBucket = 'overdue' | 'today' | 'future';

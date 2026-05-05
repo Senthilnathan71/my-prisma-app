@@ -21,9 +21,8 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { SectorService } from 'src/masters/services/sector/sector.service';
-
-@Controller('sector')
 @Auth()
+@Controller('sector')
 export class SectorController {
   constructor(
     private sectorService: SectorService,

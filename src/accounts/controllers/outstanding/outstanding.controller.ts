@@ -3,11 +3,13 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { OutstandingService } from '../../services/outstanding/outstanding.service';
 import { VoucherOutstandingResponseDto, CustomerOutstandingResponseDto } from '../../dto/outstanding.dto';
 import { ResponseData } from '../../../common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 /**
  * Controller for outstanding balance calculations
  * Handles API endpoints for retrieving outstanding amounts for vouchers and customers
  */
+@Auth()
 @ApiTags('Outstanding')
 @Controller('accounts/outstanding')
 export class OutstandingController {

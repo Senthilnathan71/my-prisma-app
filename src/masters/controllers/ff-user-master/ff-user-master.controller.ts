@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -8,7 +9,7 @@ import { FfUserMasterService } from 'src/masters/services/ff-user-master/ff-user
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
-
+@Auth()
 @Controller('ff-user')
 export class FfUserMasterController {
     constructor(private ffUserMasterService: FfUserMasterService, private logger: Logger) { }

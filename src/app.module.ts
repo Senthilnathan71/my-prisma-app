@@ -16,8 +16,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { SettingsModule } from './settings/settings.module';
 import { OcrModule } from './ocr/ocr.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { ReportScheduleModule } from './report-schedule/report-schedule.module';
-import { ExceptionCheckScriptModule } from './exception-check-script/exception-check-script.module';
+import { CrmDesktopModule } from './crm-desktop/crm-desktop.module';
 
 @Module({
   imports: [
@@ -34,8 +33,7 @@ import { ExceptionCheckScriptModule } from './exception-check-script/exception-c
     SettingsModule,
     OcrModule,
     DashboardModule,
-    ReportScheduleModule,
-    ExceptionCheckScriptModule,
+    CrmDesktopModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],

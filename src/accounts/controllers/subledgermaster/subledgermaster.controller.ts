@@ -1,12 +1,14 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { SubledgermasterService } from 'src/accounts/services/subledgermaster/subledgermaster.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
+@Auth()
 @Controller('subledgermaster')
 export class SubledgermasterController {
     constructor(private SubledgermasterService: SubledgermasterService, private logger: Logger) { }

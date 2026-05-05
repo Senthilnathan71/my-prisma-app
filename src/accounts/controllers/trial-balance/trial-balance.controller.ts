@@ -13,7 +13,9 @@ import {
   TrialBalanceQueryDto,
   TrialBalanceResponseDto,
 } from '../../dto/trial-balance.dto';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @ApiTags('Trial Balance')
 @Controller('accounts/trial-balance')
 export class TrialBalanceController {

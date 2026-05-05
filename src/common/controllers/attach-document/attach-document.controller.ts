@@ -9,12 +9,14 @@ import * as fs from "fs";
 import * as pug from 'pug';
 import * as path from "path";
 import { ConfigService } from '@nestjs/config';
-import { MenuService } from 'src/masters/services/menu/menu.service';
+import { MenuService } from 'src/settings/services/menu/menu.service';
 import { DynamicFilesUploadInterceptor } from 'src/common/decorators/edoc.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { EmailService } from 'src/email/email.service';
 import { Response,Request } from 'express'; // 👈 import this
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @Controller('attach-document')
 export class AttachDocumentController {
     constructor(private configService: ConfigService,
