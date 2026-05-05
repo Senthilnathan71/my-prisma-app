@@ -15,11 +15,12 @@ import {
     Query
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { ReportMasterService } from 'src/masters/services/report-master/report-master.service';
-
+@Auth()
 @Controller('report-master')
 export class ReportMasterController {
     

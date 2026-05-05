@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { FetchExchangeRate } from 'src/masters/DTO/currency-exchange.dto';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -9,6 +10,7 @@ class CompanyIdDto {
     CompanyMasterSid: number;
     BranchMasterSid: number;
 }
+@Auth()
 @Controller('currency-exchange')
 export class CurrencyExchangeController {
     constructor(private currencyExService: CurrencyExchangeService, private logger: Logger) { }

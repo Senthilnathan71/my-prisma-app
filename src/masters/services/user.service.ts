@@ -128,7 +128,8 @@ export class UserService {
             const salesPerson = await this._db.userMaster.findMany({
                 where: {
                     isSalesperson: '1'
-                }
+                },
+                omit : { userPassword : true }
             })
             return salesPerson;
         } catch (error) {

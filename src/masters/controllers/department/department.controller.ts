@@ -2,15 +2,12 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
+import { CompanyIdDto } from 'src/masters/DTO/company-id.dto';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { DepartmentService } from 'src/masters/services/department/department.service';
-export interface CompanyIdDto {
-    CompanyMasterSid: number;
-    type : string[]
-}
-
+@Auth()
 @Controller('department')
 
 export class DepartmentController {

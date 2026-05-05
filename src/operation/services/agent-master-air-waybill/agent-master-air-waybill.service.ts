@@ -3,7 +3,7 @@ import { MawbStock, Prisma } from '@prisma/client';
 import * as moment from 'moment-timezone';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
-import { MenuService } from 'src/masters/services/menu/menu.service';
+import { MenuService } from 'src/settings/services/menu/menu.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { HouseJobService } from '../house-job/house-job.service';

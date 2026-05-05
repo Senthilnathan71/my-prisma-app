@@ -9,6 +9,7 @@ import { ChargeService } from 'src/masters/services/charge/charge.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
+@Auth()
 @Controller('charge')
 export class ChargeController {
     constructor(private chargeService: ChargeService, private logger: Logger) { }

@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Res, UnauthorizedException, UploadedFiles } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { FilesUploadInterceptor } from 'src/common/decorators/file-upload.decorator';
 import { ImageUploadInterceptor } from 'src/common/decorators/image-upload.decorator';
 import { checkIfFileExists } from 'src/common/helper';
@@ -10,7 +11,7 @@ import { BranchService } from 'src/masters/services/branch/branch.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
-
+@Auth()
 @Controller('branch')
 export class BranchController {
     constructor(private branchService: BranchService, private logger: Logger, private configService: ConfigService) { }

@@ -1,10 +1,11 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { TdsExemptionService } from 'src/masters/services/tds-exemption/tds-exemption.service';
 
-
+@Auth()
 @Controller('tds-exemption')
 export class TdsExemptionController {
     constructor(private tdsExemptionService: TdsExemptionService, private logger: Logger) { }

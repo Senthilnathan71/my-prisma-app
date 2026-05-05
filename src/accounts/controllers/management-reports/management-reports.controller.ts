@@ -15,8 +15,10 @@ import {
 import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { ManagementReportsService } from 'src/accounts/services/management-reports/management-reports.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 @Controller('management/reports')
+@Auth()
 export class ManagementReportsController {
   constructor(
     private managementReportsService: ManagementReportsService,

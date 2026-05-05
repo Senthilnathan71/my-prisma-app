@@ -16,7 +16,9 @@ import {
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { JournalVoucherService } from 'src/accounts/services/journal-voucher/journal-voucher.service';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
+@Auth()
 @Controller('accounts/journal-voucher')
 export class JournalVoucherController {
   private readonly logger = new Logger(JournalVoucherController.name);

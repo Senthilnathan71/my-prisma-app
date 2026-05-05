@@ -88,6 +88,7 @@ export class YearService {
         try {
             const user = await this._db.userMaster.findFirst({
                 where: { userEmail: email },
+                omit : { userPassword : true },
                 include: {
                     userCompanyMaster: {
                         where: {

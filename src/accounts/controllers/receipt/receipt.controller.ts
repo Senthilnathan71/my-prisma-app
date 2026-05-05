@@ -29,6 +29,7 @@ import {
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { PrismaClientValidationError } from '@prisma/client/runtime/library';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 /**
  * Receipt Voucher Controller
@@ -42,6 +43,7 @@ import { PrismaClientValidationError } from '@prisma/client/runtime/library';
  * - PUT /api/accounts/receipt/:id - Update receipt
  * - POST /api/accounts/receipt/:id/reverse - Reverse receipt
  */
+@Auth()
 @Controller('accounts/receipt')
 export class ReceiptController {
   private readonly logger = new Logger(ReceiptController.name);

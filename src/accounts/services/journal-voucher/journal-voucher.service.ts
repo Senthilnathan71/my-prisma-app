@@ -11,7 +11,7 @@ import { TaxVoucherType, DOC_TYPE_CODE } from 'src/common/config/voucher-type.co
 import { statusWhereClause, toNumber } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
-import { VoucherService } from 'src/operation/services/voucher/voucher.service';
+import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
 
 @Injectable()
 export class JournalVoucherService {

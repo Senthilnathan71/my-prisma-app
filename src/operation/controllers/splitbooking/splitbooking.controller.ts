@@ -1,8 +1,10 @@
 import { BadRequestException, Body, Controller, HttpCode, HttpStatus, Logger, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { SplitbookingService } from 'src/operation/services/splitbooking/splitbooking.service';
 
+@Auth()
 @Controller('splitbooking')
 export class SplitbookingController {
     constructor(

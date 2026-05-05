@@ -6,6 +6,7 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { NetworkMasterService } from 'src/masters/services/network-master/network-master.service';
+@Auth()
 @Controller('network-master')
 export class NetworkMasterController {
     constructor(private networkMasterService: NetworkMasterService, private logger: Logger) { }

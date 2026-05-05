@@ -31,6 +31,7 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { PaymentService } from 'src/accounts/services/payment/payment.service';
 import { OutstandingInvoiceDto, SearchOutstandingDto } from 'src/accounts/dto/receipt.dto';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 
 /**
  * Payment Voucher Controller
@@ -40,6 +41,7 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
  * - Payment retrieval and listing
  * - Payment update and reversal
  */
+@Auth()
 @Controller('api/accounts/payment')
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);

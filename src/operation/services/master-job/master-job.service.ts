@@ -6,7 +6,7 @@ import { create } from 'domain';
 import { stat } from 'fs';
 import { parseDateFromString, toNumber } from 'src/common/helper';
 import { LoadingPlanService } from '../loading-plan/loading-plan.service';
-import { MenuService } from 'src/masters/services/menu/menu.service';
+import { MenuService } from 'src/settings/services/menu/menu.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { catchError, of } from 'rxjs';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
@@ -41,6 +41,14 @@ export class MasterJobService {
 
         const normalized = String(value ?? '').trim().toUpperCase();
         return ['Y', 'YES', 'TRUE', '1'].includes(normalized);
+    }
+
+    private getMblDisplayLabel(department: { departmentType?: string | null; ExportImport?: string | null } | null | undefined): string {
+        return String(department?.departmentType ?? '').trim().toUpperCase() === 'AIR' ? 'MAWB No' : 'MBL No';
+    }
+
+    private buildDuplicateMblMessage(label: string, value: string): string {
+        return `${label} '${value}' already exists. Please use a unique ${label}.`;
     }
 
     private isImportableRateRow(rate: any): boolean {
@@ -394,13 +402,30 @@ export class MasterJobService {
                 }
                 else {
                     if (departmentExportImport === 'Export') {
-                        assignedMBLNo = generatedMasterJobNumber || "";
+                        assignedMBLNo = (!mblValue || mblValue.toLowerCase() === 'null' || mblValue.toLowerCase() === 'undefined')
+                            ? (generatedMasterJobNumber || "")
+                            : mblValue;
                     } else {
                         if (!mblValue || mblValue.toLowerCase() === 'null' || mblValue.toLowerCase() === 'undefined') {
                             assignedMBLNo = generatedMasterJobNumber || "";
                         } else {
                             assignedMBLNo = mblValue;
                         }
+                    }
+                }
+
+                const duplicateMblNo = String(assignedMBLNo ?? '').trim();
+                if (duplicateMblNo) {
+                    const isDuplicate = await this.checkDuplicateMBLNumber(
+                        duplicateMblNo,
+                        payload.CompanyMasterSid,
+                        payload.DepartmentMasterSid,
+                    );
+
+                    if (isDuplicate) {
+                        throw new BadRequestException(
+                            this.buildDuplicateMblMessage(this.getMblDisplayLabel(department), duplicateMblNo)
+                        );
                     }
                 }
                 const payloadPOO = String(payload.POO ?? '').trim();
@@ -546,6 +571,20 @@ export class MasterJobService {
                 let createdContainers: any;
                 const allContainers = payload?.masterJobContainers || [];
                 if (allContainers.length > 0) {
+                    const seenContainerNumbers = new Set<string>();
+                    for (const item of allContainers) {
+                        const containerNumber = String(item.ContainerNumber ?? '').trim();
+                        if (!containerNumber) {
+                            continue;
+                        }
+
+                        const normalizedContainerNumber = containerNumber.toUpperCase();
+                        if (seenContainerNumbers.has(normalizedContainerNumber)) {
+                            throw new BadRequestException('Container No already exists');
+                        }
+                        seenContainerNumbers.add(normalizedContainerNumber);
+                    }
+
                     const containerPayload = allContainers.map(item => ({
                         MasterJobSid: createdMasterJob.MasterJobSid,
                         CreatedBy: payload.createdBy,
@@ -1793,6 +1832,18 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
     // Give me the function to update master job
     async updateMasterJob(payload: any) {
         try {
+            const department = await this._db.departmentMaster.findUnique({
+                where: { DepartmentMasterSid: payload.DepartmentMasterSid },
+                select: {
+                    departmentType: true,
+                    ExportImport: true
+                }
+            });
+
+            if (!department) {
+                throw new BadRequestException("Department not found");
+            }
+
             const updatedMasterJob = await this._db.$transaction(async (prisma) => {
                 const allHouseJobs = await prisma.houseJob.findMany({
                     where: {
@@ -1828,6 +1879,22 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                 where: { MasterJobSid: payload.MasterJobSid },
                 select: { MBLNo: true }
             });
+
+            const duplicateMblNo = String(payload.MBLNo ?? '').trim();
+            if (duplicateMblNo) {
+                const isDuplicate = await this.checkDuplicateMBLNumber(
+                    duplicateMblNo,
+                    payload.CompanyMasterSid,
+                    payload.DepartmentMasterSid,
+                    payload.MasterJobSid
+                );
+
+                if (isDuplicate) {
+                    throw new BadRequestException(
+                        this.buildDuplicateMblMessage(this.getMblDisplayLabel(department), duplicateMblNo)
+                    );
+                }
+            }
 
             // Handle MAWB stock update if MBLNo has changed
             if (currentMasterJob && 
@@ -2080,9 +2147,28 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                 const finalMasterJobContainers: any[] = [];
                 const allContainers = payload?.masterJobContainers || [];
                 if (allContainers.length > 0) {
+                    const seenContainerNumbers = new Set<string>();
                     for (const item of allContainers) {
                         let createdContainer;
                         let updatedContainer;
+                        const containerNumber = String(item.ContainerNumber ?? '').trim();
+                        if (containerNumber) {
+                            const normalizedContainerNumber = containerNumber.toUpperCase();
+                            if (seenContainerNumbers.has(normalizedContainerNumber)) {
+                                throw new BadRequestException('Container No already exists');
+                            }
+                            seenContainerNumbers.add(normalizedContainerNumber);
+
+                            const hasDuplicateContainer = await this.checkDuplicateContainerNumber(
+                                containerNumber,
+                                updatedMasterJob.MasterJobSid,
+                                item.MasterJobContainerSid ? Number(item.MasterJobContainerSid) : null
+                            );
+                            if (hasDuplicateContainer) {
+                                throw new BadRequestException('Container No already exists');
+                            }
+                        }
+
                         if (item.MasterJobContainerSid) {
                             const containerPayload = {
                                 ContainerType: Number(item.ContainerType),
@@ -4101,13 +4187,17 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
             if (masterJobData.MBLNo) {
                 const isDuplicate = await this.checkDuplicateMBLNumber(
                     masterJobData.MBLNo,
-                    companyMasterSid
+                    companyMasterSid,
+                    masterJobData.DepartmentMasterSid
                 );
 
                 if (isDuplicate) {
                     return {
                         status: false,
-                        message: `MBL Number '${masterJobData.MBLNo}' already exists. Please use a unique MBL Number.`,
+                        message: this.buildDuplicateMblMessage(
+                            this.getMblDisplayLabel({ departmentType: masterJobData.departmentType, ExportImport: masterJobData.ExportImport }),
+                            masterJobData.MBLNo
+                        ),
                         data: null
                     };
                 }
@@ -4863,21 +4953,61 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
     /**
      * Check if MBL Number already exists for the company
      */
-    async checkDuplicateMBLNumber(mblNo: string, companyMasterSid: number): Promise<boolean> {
+    async checkDuplicateMBLNumber(
+        mblNo: string,
+        companyMasterSid: number,
+        departmentMasterSid?: number | null,
+        excludeMasterJobSid?: number | null
+    ): Promise<boolean> {
         if (!mblNo) {
             return false;
         }
 
-        const existing = await this._db.masterJob.findFirst({
-            where: {
-                MBLNo: {
-                    equals: mblNo.trim(),
-                    mode: 'insensitive'
-                },
-                CompanyMasterSid: companyMasterSid,
-                Status: 'A'  // Only check active records
-            }
-        });
+        const whereClause: Prisma.MasterJobWhereInput = {
+            MBLNo: {
+                equals: mblNo.trim(),
+                mode: 'insensitive'
+            },
+            CompanyMasterSid: companyMasterSid,
+            Status: 'A'
+        };
+
+        if (departmentMasterSid) {
+            whereClause.DepartmentMasterSid = departmentMasterSid;
+        }
+
+        if (excludeMasterJobSid) {
+            whereClause.MasterJobSid = { not: excludeMasterJobSid };
+        }
+
+        const existing = await this._db.masterJob.findFirst({ where: whereClause });
+
+        return !!existing;
+    }
+
+    async checkDuplicateContainerNumber(
+        containerNumber: string,
+        masterJobSid: number,
+        excludeMasterJobContainerSid?: number | null
+    ): Promise<boolean> {
+        if (!containerNumber) {
+            return false;
+        }
+
+        const whereClause: Prisma.MasterJobContainerWhereInput = {
+            ContainerNumber: {
+                equals: containerNumber.trim(),
+                mode: 'insensitive'
+            },
+            MasterJobSid: masterJobSid,
+            Status: 'A'
+        };
+
+        if (excludeMasterJobContainerSid) {
+            whereClause.MasterJobContainerSid = { not: excludeMasterJobContainerSid };
+        }
+
+        const existing = await this._db.masterJobContainer.findFirst({ where: whereClause });
 
         return !!existing;
     }

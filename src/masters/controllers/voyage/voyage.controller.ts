@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
@@ -9,6 +10,7 @@ class CompanyIdDto {
     CompanyMasterSid: number;
     BranchMasterSid: number;
 }
+@Auth()
 @Controller('voyage')
 export class VoyageController {
     constructor(private voyageService: VoyageService, private logger: Logger) { }

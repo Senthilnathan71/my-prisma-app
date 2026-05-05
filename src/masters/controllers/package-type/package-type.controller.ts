@@ -15,6 +15,7 @@ import {
   Query
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -22,6 +23,7 @@ import { PackageTypeService } from 'src/masters/services/package-type/package-ty
 class CompanyIdDto {
   CompanyMasterSid: number;
 }
+@Auth()
 @Controller('package-type')
 export class PackageTypeController {
   constructor(

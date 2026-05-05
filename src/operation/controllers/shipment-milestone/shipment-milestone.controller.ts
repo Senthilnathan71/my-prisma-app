@@ -22,6 +22,7 @@ import {
     ApiOperation,
 } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import {
     ShipmentMilestoneCheckExistDTO,
     ShipmentMilestoneCreateDTO,
@@ -33,6 +34,7 @@ import {
 } from 'src/operation/DTO/shipment-milestone.dto';
 import { ShipmentMilestoneService } from 'src/operation/services/shipment-milestone/shipment-milestone.service';
 
+@Auth()
 @Controller('shipment-milestone')
 export class ShipmentMilestoneController {
     private readonly logger = new Logger(ShipmentMilestoneController.name);

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OutstandingService } from '../outstanding/outstanding.service';
-import { VoucherService } from 'src/operation/services/voucher/voucher.service';
+import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
 import { OutstandingInvoiceDto, SearchOutstandingDto } from 'src/accounts/dto/receipt.dto';
 import { Prisma } from '@prisma/client';
 import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';

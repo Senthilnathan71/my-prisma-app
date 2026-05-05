@@ -2,10 +2,12 @@ import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatu
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { CreditLimitDto, OutstandingDto, OutstandingByJobDto, ValidateCreditDto, CreditSummaryDto, CustomerTypeDto, PaymentStatusDto, ValidateBLDODto } from 'src/masters/DTO/credit-limit.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CreditRequestService, CustomerCreditRequestInterface, CustomerCreditRequestWithKycInterface, CustomerKycInterface } from 'src/operation/services/credit-request/credit-request.service';
 
+@Auth()
 @Controller('credit-request')
 export class CreditRequestController {
     constructor(private creditRequestService: CreditRequestService, private logger: Logger) { }

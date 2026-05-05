@@ -9,9 +9,8 @@ import { checkIfFileExists } from 'src/common/helper';
 import { ResponseData } from 'src/common/response-data';
 import { UserService } from 'src/masters/services/user.service';
 import { resourceLimits } from 'worker_threads';
-
-@Controller('user')
 @Auth()
+@Controller('user')
 export class UserController {
 
     constructor(private userService: UserService,

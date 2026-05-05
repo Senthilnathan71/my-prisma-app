@@ -1,8 +1,10 @@
 import { BadRequestException, Body, Controller, HttpCode, HttpStatus, Logger, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { LookupsService } from 'src/common/services/lookups/lookups.service';
 
+@Auth()
 @Controller('lookups')
 export class LookupsController {
     constructor(

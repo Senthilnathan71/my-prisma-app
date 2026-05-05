@@ -9,8 +9,10 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { OcrService } from 'src/ocr/services/ocr.service';
 
+@Auth()
 @Controller('api/ocr')
 export class OcrController {
   constructor(private readonly ocrService: OcrService) {}

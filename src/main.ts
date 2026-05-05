@@ -56,7 +56,27 @@ async function bootstrap() {
   //   // {  }
   // );
 
-  app.enableCors();
+  const desktopUrl = process.env.FRONTEND_DESKTOP_URL;
+  const mobileUrl = process.env.FRONTEND_MOBILE_URL;
+  const localUrl = 'http://localhost:4200';
+
+  if (!desktopUrl) {
+    throw new Error(
+      'CORS configuration error: FRONTEND_DESKTOP_URL must be defined'
+    );
+  }
+
+  if (!mobileUrl) {
+    throw new Error(
+      'CORS configuration error: FRONTEND_MOBILE_URL must be defined'
+    );
+  }
+
+  app.enableCors({
+    origin: [desktopUrl, mobileUrl, localUrl].filter(Boolean),
+    credentials: true,
+  });
+  
   app.use(json({ limit: '200mb' }));
   app.use(urlencoded({ extended: true, limit: '200mb' }));
   // swagger setup
@@ -71,7 +91,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, options);
   SwaggerModule.setup('documentation', app, document)
 
-  app.enableCors();
   console.log(`LISTENING PORT IS ${process.env.PORT}}` );
   await app.listen(process.env.PORT ?? 3008);
 }

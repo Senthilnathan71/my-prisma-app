@@ -10,9 +10,8 @@ import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CompanyService } from 'src/masters/services/company/company.service';
-
-@Controller('company')
 @Auth()
+@Controller('company')
 export class CompanyController {
     constructor(private companyService: CompanyService, private logger: Logger, private configService: ConfigService) { }
 

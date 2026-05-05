@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { OperationCommonService } from 'src/operation/services/operation-common/operation-common.service';
 
 interface CostRevenueDTO {
@@ -17,6 +18,7 @@ interface ShipmentMilestoneDTO {
     ShipmentNo ?: string
 }
 
+@Auth()
 @Controller('operation-common')
 export class OperationCommonController {
     constructor(

@@ -21,26 +21,8 @@ import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { DuplicateCheckDTO } from 'src/operation/DTO/service-job.dto';
 import { ServiceJobService } from 'src/operation/services/service-job/service-job.service';
-import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-export class DuplicateCheckDTO {
-  @IsInt()
-  CompanyMasterSid: number;
-
-  @IsInt()
-  BranchMasterSid: number;
-
-  @IsInt()
-  DepartmentMasterSid: number;
-
-  @IsOptional()
-  @IsString()
-  HBLNo?: string;
-
-  @IsOptional()
-  @IsString()
-  MBLNo?: string;
-}
 @Auth()
 @Controller('service-job')
 

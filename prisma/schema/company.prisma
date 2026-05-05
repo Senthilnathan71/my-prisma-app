@@ -3281,7 +3281,7 @@ model VoucherDetail {
   CurrencyCode          String              @db.VarChar(3)
   ExchangeRate          Decimal             @db.Decimal(8, 5)
   Rate                  Decimal             @db.Decimal(15, 3)
-  NumberOfUnit          Decimal?            @db.Decimal(7, 3)
+  NumberOfUnit          Decimal?            @db.Decimal(9, 3)
   Narration             String?             @db.VarChar(200)
   DrCr                  String              @db.VarChar(50)
   TaxableAmount         Decimal             @db.Decimal(15, 3)

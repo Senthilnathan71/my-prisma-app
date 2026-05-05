@@ -1,10 +1,11 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { TdsDetailService } from 'src/masters/services/tds-detail/tds-detail.service';
 
-
+@Auth()
 @Controller('tds-detail')
 export class TdsDetailController {
     constructor(private tdsDetailService: TdsDetailService, private logger: Logger) { }

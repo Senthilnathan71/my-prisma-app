@@ -21,6 +21,7 @@ import { ResponseData } from 'src/common/response-data';
 import { DocReferenceService } from 'src/common/services/doc-reference/doc-reference.service';
 import { CreateDocReferenceDto, UpdateDocReferenceDto } from './dto/create-doc-reference.dto';
 
+@Auth()
 @Controller('doc-reference')
 export class DocReferenceController {
   constructor(

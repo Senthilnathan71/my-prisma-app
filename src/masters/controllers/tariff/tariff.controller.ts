@@ -9,6 +9,7 @@ import { TariffService } from 'src/masters/services/tariff/tariff.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
+@Auth()
 @Controller('tariff')
 
 export class TariffController {

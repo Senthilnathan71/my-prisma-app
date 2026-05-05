@@ -15,11 +15,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { ContainerTypeService } from 'src/masters/services/container-type/container-type.service';
-
+@Auth()
 @Controller('container-type')
 export class ContainerTypeController {
   constructor(

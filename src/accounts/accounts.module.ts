@@ -23,34 +23,77 @@ import { ManagementReportsService } from './services/management-reports/manageme
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { ReportExportService } from 'src/common/services/report-export.service';
 import { PdfmakeNodeService } from 'src/common/services/report-generators/pdfmake-node.service';
-import { VoucherService } from 'src/operation/services/voucher/voucher.service';
 import { PaymentService } from './services/payment/payment.service';
 import { BankReconciliationService } from './services/bank-reconciliation/bank-reconciliation.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { OperationModule } from 'src/operation/operation.module';
 import { BankReconciliationController } from './controllers/bank-reconciliation/bank-reconciliation.controller';
+import { InvoiceController } from './controllers/invoice/invoice.controller';
+import { InvoiceService } from './services/invoice/invoice.service';
+import { VoucherPeriodController } from './controllers/voucher-period/voucher-period.controller';
+import { VoucherPeriodService } from './services/voucher-period/voucher-period.service';
+import { EmailModule } from 'src/email/email.module';
+import { DocumentService } from './services/document/document.service';
+import { VendorInvoiceService } from './services/vendor-invoice/vendor-invoice.service';
+import { CreditNoteService } from './services/credit-note/credit-note.service';
+import { DocVendorInvoiceService } from './services/document/doc-vendorinvoice.service';
+import { VendorCreditNoteService } from './services/vendor-credit-note/vendor-credit-note.service';
+import { ReverseVoucherService } from './services/reverse-voucher/reverse-voucher.service';
+import { VoucherMatchingService } from './services/voucher-matching/voucher-matching.service';
+import { VoucherCorrectionService } from './services/voucher-correction/voucher-correction.service';
+import { PaymentRequestService } from './services/payment-request/payment-request.service';
+import { DocumentController } from './controllers/document/document.controller';
+import { VoucherController } from './controllers/voucher/voucher.controller';
+import { VendorInvoiceController } from './controllers/vendor-invoice/vendor-invoice.controller';
+import { CreditNoteController } from './controllers/credit-note/credit-note.controller';
+import { DocVendorInvoiceController } from './controllers/document/doc-vendorinvoice.controller';
+import { VendorCreditNoteController } from './controllers/vendor-credit-note/vendor-credit-note.controller';
+import { ReverseVoucherController } from './controllers/reverse-voucher/reverse-voucher.controller';
+import { VoucherMatchingController } from './controllers/voucher-matching/voucher-matching.controller';
+import { VoucherCorrectionController } from './controllers/voucher-correction/voucher-correction.controller';
+import { PaymentRequestController } from './controllers/payment-request/payment-request.controller';
+import { VoucherService } from './services/voucher/voucher.service';
+import { SettingsModule } from 'src/settings/settings.module';
 
 @Module({
-    imports : [
+    imports: [
+        EmailModule,
+        forwardRef(() => SettingsModule),
         forwardRef(() => OperationModule)
     ],
     controllers: [
+        InvoiceController,
         CoaController,
+        CreditNoteController,
+        DocumentController,
+        DocVendorInvoiceController,
         SupplierTdsMappingController,
         SubledgermasterController,
         OutstandingController,
         ReceiptController,
+        ReverseVoucherController,
         VoucherPostingController,
         JournalVoucherController,
         TrialBalanceController,
         AccountsReportsController,
         ManagementReportsController,
         PaymentController,
-        BankReconciliationController
+        PaymentRequestController,
+        BankReconciliationController,
+        VendorInvoiceController,
+		VendorCreditNoteController,
+        VoucherController,
+        VoucherCorrectionController,
+        VoucherMatchingController,
+        VoucherPeriodController,
     ],
     providers: [
+        DocumentService,
         GlobalConfigService,
+        InvoiceService,
         CoaService,
+        CreditNoteService,
+        DocVendorInvoiceService,
         SupplierTdsMappingService,
         SubledgermasterService,
         OutstandingService,
@@ -62,13 +105,20 @@ import { BankReconciliationController } from './controllers/bank-reconciliation/
         TrialBalanceService,
         AccountsReportsService,
         ManagementReportsService,
+        PaymentRequestService,
+        ReverseVoucherService,
         ReportExportService,
         PdfmakeNodeService,
         Logger,
         VoucherService,
-        CompanyConfigService
+        CompanyConfigService,
+        VendorInvoiceService,
+        VendorCreditNoteService,
+        VoucherCorrectionService,
+        VoucherMatchingService,
+        VoucherPeriodService
     ],
-    exports: [AccountsReportsService]
+    exports: [AccountsReportsService, VoucherPeriodService]
 })
 export class AccountsModule { }
 

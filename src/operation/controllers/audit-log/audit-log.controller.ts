@@ -1,8 +1,10 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, HttpStatus, Logger, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
+import { Auth } from 'src/common/decorators/auth.decorator';
 import { AuditLogService } from 'src/operation/services/audit-log/audit-log.service';
 
+@Auth()
 @Controller('audit-log')
 export class AuditLogController {
     constructor(
