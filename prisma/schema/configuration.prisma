@@ -6,6 +6,8 @@ model CompanyConfiguration {
   UpdatedBy               String?       @db.VarChar(100)
   Status                  String        @default("A") @db.Char(1)
   CompanyMasterSid        Int
+  DisplayName             String?       @db.VarChar(200)
+  ConfigType              String?       @db.VarChar(20)
   ConfigurationName       String        @db.VarChar(50)
   ConfigurationValue      String        @db.VarChar(200)
   CompanyMaster           CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])

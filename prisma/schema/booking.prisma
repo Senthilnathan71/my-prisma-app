@@ -21,6 +21,7 @@ model BookingHeader {
   VoyageNo                   String?                      @db.VarChar(10)
   ETD                        DateTime?
   ETA                        DateTime?
+  PortCutoffDate             DateTime?                    @db.Date
   IncoTerms                  String?                      @db.VarChar(10)
   BLLocation                 Int?
   ShipperName                String?                      @db.VarChar(100)
