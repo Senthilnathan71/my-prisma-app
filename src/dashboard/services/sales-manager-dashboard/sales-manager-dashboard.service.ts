@@ -995,6 +995,7 @@ export class SalesManagerDashboardService {
     const rows: any[] = await this.db.$queryRawUnsafe(
       `(
         SELECT
+          pcmm."PreCustomerMeetingSid" AS "sid",
           'meeting_completed' AS "activityType",
           pcmm."updatedOn" AS "activityDate",
           um."userName" AS "salesperson",
@@ -1020,6 +1021,7 @@ export class SalesManagerDashboardService {
       UNION ALL
       (
         SELECT
+          qh."QuoteHeaderSid" AS sid,
           'quote_created' AS "activityType",
           qh."createdOn" AS "activityDate",
           um."userName" AS "salesperson",
@@ -1044,6 +1046,7 @@ export class SalesManagerDashboardService {
       UNION ALL
       (
         SELECT
+          bh."BookingHeaderSid" AS "sid",
           'booking_created' AS "activityType",
           bh."createdOn" AS "activityDate",
           um."userName" AS "salesperson",
@@ -1073,6 +1076,7 @@ export class SalesManagerDashboardService {
     );
 
     return rows.map((r) => ({
+      sid : r.sid,
       activityType: r.activityType,
       activityDate: r.activityDate,
       salesperson: r.salesperson,
