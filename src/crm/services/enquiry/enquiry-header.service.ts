@@ -102,6 +102,10 @@ export class EnquiryHeaderService {
                         Volume: Number(cargo.cbm),  // Convert to Decimal
                         Qty: Number(cargo.Qty),  // Convert to Decimal
                         ContainerType: cargo.contentType,
+                        ShipmentTerms: cargo.ShipmentTerms || null,
+                        ChargeableWeight: cargo.ChargeableWeight !== undefined && cargo.ChargeableWeight !== null && cargo.ChargeableWeight !== '' ? Number(cargo.ChargeableWeight) : null,
+                        Volumetric: cargo.volumetric !== undefined && cargo.volumetric !== null && cargo.volumetric !== '' ? Number(cargo.volumetric) : null,
+                        NetWeight: cargo.NetWeight !== undefined && cargo.NetWeight !== null && cargo.NetWeight !== '' ? Number(cargo.NetWeight) : null,
                         length : Number(cargo.length),
                         width : Number(cargo.width),
                         height : Number(cargo.height),
@@ -333,6 +337,10 @@ export class EnquiryHeaderService {
                                     Qty: Number(cargoItem.Qty),
                                     GrossWeight: Number(cargoItem.Weight),
                                     Volume: Number(cargoItem.cbm),
+                                    ShipmentTerms: cargoItem.ShipmentTerms || null,
+                                    ChargeableWeight: cargoItem.ChargeableWeight !== undefined && cargoItem.ChargeableWeight !== null && cargoItem.ChargeableWeight !== '' ? Number(cargoItem.ChargeableWeight) : null,
+                                    Volumetric: cargoItem.volumetric !== undefined && cargoItem.volumetric !== null && cargoItem.volumetric !== '' ? Number(cargoItem.volumetric) : null,
+                                    NetWeight: cargoItem.NetWeight !== undefined && cargoItem.NetWeight !== null && cargoItem.NetWeight !== '' ? Number(cargoItem.NetWeight) : null,
                                     length : Number(cargoItem.length),
                                     width : Number(cargoItem.width),
                                     height : Number(cargoItem.height),
@@ -349,6 +357,10 @@ export class EnquiryHeaderService {
                                     Qty: Number(cargoItem.Qty),
                                     GrossWeight: Number(cargoItem.Weight),
                                     Volume: Number(cargoItem.cbm),
+                                    ShipmentTerms: cargoItem.ShipmentTerms || null,
+                                    ChargeableWeight: cargoItem.ChargeableWeight !== undefined && cargoItem.ChargeableWeight !== null && cargoItem.ChargeableWeight !== '' ? Number(cargoItem.ChargeableWeight) : null,
+                                    Volumetric: cargoItem.volumetric !== undefined && cargoItem.volumetric !== null && cargoItem.volumetric !== '' ? Number(cargoItem.volumetric) : null,
+                                    NetWeight: cargoItem.NetWeight !== undefined && cargoItem.NetWeight !== null && cargoItem.NetWeight !== '' ? Number(cargoItem.NetWeight) : null,
                                     EnquiryHeaderSid: enquiryHeaderSid,
                                     EnquiryRouteSid: routeData.EnquiryRouteSid, // Link to the correct route
                                     length: Number(cargoItem.length),
