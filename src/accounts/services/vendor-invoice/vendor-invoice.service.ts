@@ -104,7 +104,7 @@ export class VendorInvoiceService {
                         ExchangeRate: payload.ExchangeRate || 1,
                         DocumentNumber: payload.BillNo || payload.DocumentNumber,
                         DocumentDate: payload.BillDate ? new Date(payload.BillDate) : null,
-                        Amount: payload.BillAmt || payload.Amount,
+                        Amount: payload.Amount,
                         LocalAmount: payload.LocalAmount ?? 0,
                         MasterJobSid: payload.MasterJobSid,
                         HouseJobSid: payload.HouseJobSid,

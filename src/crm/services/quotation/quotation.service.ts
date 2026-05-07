@@ -20,6 +20,38 @@ export class QuotationService {
         return Number.isNaN(date.getTime()) ? null : date;
     }
 
+    private toNullableNumber(value: any): number | null {
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
+        const numericValue = Number(value);
+        if (Number.isNaN(numericValue) || numericValue <= 0) {
+            return null;
+        }
+        return numericValue;
+    }
+
+    private toRequiredNumber(value: any, fallback: number = 0): number {
+        const numericValue = Number(value);
+        if (Number.isNaN(numericValue) || numericValue <= 0) {
+            return fallback;
+        }
+        return numericValue;
+    }
+
+    private getRoutesFromPayload(payload: any): any[] {
+        if (Array.isArray(payload?.quoteRoutes)) return payload.quoteRoutes;
+        if (Array.isArray(payload?.routes)) return payload.routes;
+        return [];
+    }
+
+    private getRouteValue(route: any, keys: string[], fallback: any = null): any {
+        for (const key of keys) {
+            if (route?.[key] !== undefined && route?.[key] !== null) return route[key];
+        }
+        return fallback;
+    }
+
     async createQuotation(payload, user) {
         try {
             const CompanyMasterSid = Number(payload.CompanyMasterSid || 0);
@@ -33,8 +65,9 @@ export class QuotationService {
                 throw new Error('CompanyMasterSid and BranchMasterSid are required');
             }
             // Get DepartmentMasterSid from the first route (if available)
-            const DepartmentMasterSid = payload.routes?.[0]?.DepartmentMasterSid
-                ? Number(payload.routes[0].DepartmentMasterSid)
+            const routes = this.getRoutesFromPayload(payload);
+            const DepartmentMasterSid = routes?.[0]?.DepartmentMasterSid
+                ? Number(routes[0].DepartmentMasterSid)
                 : null;
 
             // Get MenuMasterSid for Quotation (look up by code or use provided value)
@@ -61,13 +94,13 @@ export class QuotationService {
                     BranchMasterSid,
                     MenuMasterSid,
                     DepartmentMasterSid ?? undefined,
-                    payload.quoteDate ? new Date(payload.quoteDate) : undefined,
+                    (payload.quoteDate || payload.QuoteDate) ? new Date(payload.quoteDate || payload.QuoteDate) : undefined,
                 );
             }
 
             return await this._db.$transaction(async (prisma) => {
                 // Step 1: Create Quote Header
-                const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
+                const quoteDate = (payload.quoteDate || payload.QuoteDate) ? new Date(payload.quoteDate || payload.QuoteDate) : new Date();
                 const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
                     CustomerMasterSid: Number(payload.CustomerMasterSid),
@@ -88,28 +121,28 @@ export class QuotationService {
 
                 // Step 2: Create Quote Routes & Quote Carriers
                 const quoteRoutes = await Promise.all(
-                    payload.routes.map(async (route) => {
+                    routes.map(async (route) => {
                         const createdQuoteRoute = await prisma.quoteRoute.create({
                             data: {
-                                PORSid: Number(route.POR),
-                                POLSid: Number(route.POL),
-                                PODSid: Number(route.POD),
-                                FDPSid: Number(route.FPOD),
-                                DepartmentMasterSid: Number(route.DepartmentMasterSid),
+                                PORSid: this.toRequiredNumber(this.getRouteValue(route, ['POR', 'PORSid'])),
+                                POLSid: this.toRequiredNumber(this.getRouteValue(route, ['POL', 'POLSid'])),
+                                PODSid: this.toRequiredNumber(this.getRouteValue(route, ['POD', 'PODSid'])),
+                                FDPSid: this.toRequiredNumber(this.getRouteValue(route, ['FPOD', 'FPODSid', 'FDPSid'])),
+                                DepartmentMasterSid: this.toRequiredNumber(route.DepartmentMasterSid),
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
-                                CarrierName: route.Carrier,
-                                CarrierMasterSid: route.CarrierMasterSid,
-                                ServiceLevel: route.ServiceLevel || null,
+                                CarrierName: this.getRouteValue(route, ['Carrier', 'CarrierName'], ''),
+                                CarrierMasterSid: this.toNullableNumber(this.getRouteValue(route, ['CarrierMasterSid'])),
+                                ServiceLevel: this.getRouteValue(route, ['ServiceLevel', 'ShipmentTerms', 'IncoTerms'], null),
                                 segmentType: route.segmentType,
                                 effDate: this.toNullableDate(route.effDate),
                                 expdate: this.toNullableDate(route.expDate),
                                 twentyft: Number(route.twentyft) || null,
                                 fortyft: Number(route.fortyft) || null,
                                 createdBy: user['userEmail'],
-                                cargoType: route.cargoType,
-                                TransitDays: route.transit || null
+                                cargoType: this.getRouteValue(route, ['cargoType', 'CargoType'], ''),
+                                TransitDays: this.toNullableNumber(this.getRouteValue(route, ['transit', 'TransitDays']))
                             },
                         });
 
@@ -117,8 +150,8 @@ export class QuotationService {
                             data: {
                                 QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
                                 QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
-                                CarrierMasterSid: route.CarrierMasterSid,
-                                CarrierName: route.Carrier,
+                                CarrierMasterSid: this.toNullableNumber(this.getRouteValue(route, ['CarrierMasterSid'])),
+                                CarrierName: this.getRouteValue(route, ['Carrier', 'CarrierName'], ''),
                                 CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                 BranchMasterSid: quoteHeader.BranchMasterSid,
                                 ApprovalStatus: ApprovalStatus.Approved,
@@ -126,29 +159,69 @@ export class QuotationService {
                             },
                         });
 
-                        return { createdQuoteRoute, createdQuoteCarrier };
+                        const routeCargoItems = Array.isArray(route.quoteCargo) && route.quoteCargo.length > 0
+                            ? route.quoteCargo
+                            : [{
+                                CargoType: this.getRouteValue(route, ['cargoType', 'CargoType'], ''),
+                                GrossWeight: this.getRouteValue(route, ['GrossWeight']),
+                                NetWeight: this.getRouteValue(route, ['NetWeight']),
+                                Volume: this.getRouteValue(route, ['Volume', 'CBM']),
+                                ContainerType: this.getRouteValue(route, ['ContainerType'], ''),
+                                Qty: this.getRouteValue(route, ['Qty', 'NoofContainers', 'NoOfContainers']),
+                                ShipmentTerms: this.getRouteValue(route, ['ShipmentTerms', 'ServiceLevel'], ''),
+                            }];
+
+                        const createdQuoteCargo = await Promise.all(
+                            routeCargoItems.map((cargoItem: any) =>
+                                prisma.quoteCargo.create({
+                                    data: {
+                                        CompanyMasterSid: quoteHeader.CompanyMasterSid,
+                                        BranchMasterSid: quoteHeader.BranchMasterSid,
+                                        QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
+                                        QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
+                                        CreatedBy: user['userEmail'],
+                                        Status: "A",
+                                        CargoType: cargoItem.CargoType || '',
+                                        GrossWeight: Number(cargoItem.GrossWeight) || 0,
+                                        NetWeight: Number(cargoItem.NetWeight) || 0,
+                                        Volume: Number(cargoItem.Volume) || 0,
+                                        ContainerType: cargoItem.ContainerType || '',
+                                        Qty: Number(cargoItem.Qty) || 0,
+                                        ShipmentTerms: cargoItem.ShipmentTerms || route.ServiceLevel || '',
+                                    },
+                                })
+                            )
+                        );
+
+                        return { createdQuoteRoute, createdQuoteCarrier, createdQuoteCargo };
                     })
                 );
 
                 // Step 3: Create Quote Charges
                 const quoteCargoPayload = quoteRoutes.flatMap((quoteRoute, index) =>
-                    payload.routes[index].cargo.map(cargo => ({
+                    (Array.isArray(routes[index]?.cargo) ? routes[index].cargo : (Array.isArray(routes[index]?.quoteCharges) ? routes[index].quoteCharges : [])).map(cargo => ({
                         CompanyMasterSid: quoteHeader.CompanyMasterSid,
                         BranchMasterSid: quoteHeader.BranchMasterSid,
                         QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                         QuoteRouteSid: quoteRoute.createdQuoteRoute.QuoteRouteSid, // Fixed reference
                         CustomerMasterSid: quoteHeader.CustomerMasterSid,
-                        ChargeUomSid: Number(cargo.ChargeUomSid) || null,
-                        ChargeDisplayName: cargo.charge,
-                        CurrencyMasterSid: Number(cargo.currency),
-                        UOMMasterSid: Number(cargo.unit),
-                        RevenueChargeUomSid: Number(cargo.unit) || null,
-                        perUnit: cargo.perUnit,
-                        CostChargeUomSid: Number(cargo.costUnit) || null,
-                        CostCurrencyMasterSid: Number(cargo.costCurrency) || null,
-                        costUnit: cargo.costUnit ? String(cargo.costUnit) : null,
-                        costCurrency: cargo.costCurrency ? String(cargo.costCurrency) : null,
-                        costPerUnit: cargo.costPerUnit,
+                        ChargeUomSid: this.toNullableNumber(cargo.ChargeUomSid),
+                        ChargeDisplayName: cargo.charge ?? cargo.ChargeDisplayName ?? '',
+                        CurrencyMasterSid: this.toNullableNumber(cargo.currency ?? cargo.CurrencyMasterSid),
+                        UOMMasterSid: this.toNullableNumber(cargo.unit ?? cargo.UOMMasterSid ?? cargo.RevenueChargeUomSid),
+                        RevenueChargeUomSid: this.toNullableNumber(cargo.unit ?? cargo.RevenueChargeUomSid ?? cargo.UOMMasterSid),
+                        perUnit: cargo.perUnit ?? cargo.RevenueRate ?? null,
+                        RevenueRate: cargo.RevenueRate ?? cargo.perUnit ?? null,
+                        RevenueAmount: cargo.revenueAmount ?? cargo.RevenueAmount ?? null,
+                        RevenueLocalAmount: cargo.revenueLocalAmount ?? cargo.RevenueLocalAmount ?? null,
+                        CostChargeUomSid: this.toNullableNumber(cargo.costUnit ?? cargo.CostChargeUomSid),
+                        CostCurrencyMasterSid: this.toNullableNumber(cargo.costCurrency ?? cargo.CostCurrencyMasterSid),
+                        costUnit: (cargo.costUnit ?? cargo.CostChargeUomSid) ? String(cargo.costUnit ?? cargo.CostChargeUomSid) : null,
+                        costCurrency: (cargo.costCurrency ?? cargo.CostCurrencyMasterSid) ? String(cargo.costCurrency ?? cargo.CostCurrencyMasterSid) : null,
+                        costPerUnit: cargo.costPerUnit ?? cargo.CostRate ?? null,
+                        CostRate: cargo.CostRate ?? cargo.costPerUnit ?? null,
+                        CostAmount: cargo.costAmount ?? cargo.CostAmount ?? null,
+                        CostLocalAmount: cargo.costLocalAmount ?? cargo.CostLocalAmount ?? null,
                         createdBy: user['userEmail']
                     }))
                 );
@@ -260,6 +333,11 @@ export class QuotationService {
                             status : 'A'
                         },
                         include: {
+                            quoteCargo: {
+                                where: {
+                                    Status: 'A'
+                                }
+                            },
                             quoteCharge: {
                                 where: {
                                     status : 'A'
@@ -278,9 +356,10 @@ export class QuotationService {
         try {
             // Step 1: Update Enquiry Header
             const statusUpdate = payload.status === 'Active' ? 'A' : (payload.status === 'Suspend' ? 'S' : undefined);
-            const quoteDate = payload.quoteDate ? new Date(payload.quoteDate) : new Date();
+            const quoteDate = (payload.quoteDate || payload.QuoteDate) ? new Date(payload.quoteDate || payload.QuoteDate) : new Date();
             const CompanyMasterSid = Number(payload.CompanyMasterSid || 0);
             const BranchMasterSid = Number(payload.BranchMasterSid || 0);
+            const routes = this.getRoutesFromPayload(payload);
             const SalesmanSid =
                 user?.['UserMasterSid']
                 ?? user?.['userBranchMaster']?.[0]?.UserMasterSid
@@ -314,47 +393,47 @@ export class QuotationService {
             let finalCargoData: any = [];
 
             // Step 2: Update or create routes
-            for (const route of payload.routes) {
+            for (const route of routes) {
                 let updateData, createData;
 
                 if (route.QuoteRouteSid) {
                     updateData = await this._db.quoteRoute.update({
                         where: { QuoteRouteSid: route.QuoteRouteSid },
                         data: {
-                            PORSid: Number(route.POR),
-                            POLSid: Number(route.POL),
-                            PODSid: Number(route.POD),
-                            FDPSid: Number(route.FPOD),
-                            CarrierName: route.Carrier,
-                            CarrierMasterSid: route.CarrierMasterSid,
-                            ServiceLevel: route.ServiceLevel || null,
+                            PORSid: this.toNullableNumber(this.getRouteValue(route, ['POR', 'PORSid'])) ?? undefined,
+                            POLSid: this.toNullableNumber(this.getRouteValue(route, ['POL', 'POLSid'])) ?? undefined,
+                            PODSid: this.toNullableNumber(this.getRouteValue(route, ['POD', 'PODSid'])) ?? undefined,
+                            FDPSid: this.toNullableNumber(this.getRouteValue(route, ['FPOD', 'FPODSid', 'FDPSid'])) ?? undefined,
+                            CarrierName: this.getRouteValue(route, ['Carrier', 'CarrierName'], ''),
+                            CarrierMasterSid: this.toNullableNumber(this.getRouteValue(route, ['CarrierMasterSid'])),
+                            ServiceLevel: this.getRouteValue(route, ['ServiceLevel', 'ShipmentTerms', 'IncoTerms'], null),
                             effDate: this.toNullableDate(route.effDate),
                             expdate: this.toNullableDate(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
                             updatedBy: user['userEmail'],
                             updatedOn: new Date(),
-                            cargoType: route.cargoType,
-                            TransitDays: Number(route.transit) || null
+                            cargoType: this.getRouteValue(route, ['cargoType', 'CargoType'], ''),
+                            TransitDays: this.toNullableNumber(this.getRouteValue(route, ['transit', 'TransitDays']))
                         }
                     });
                 } else {
                     createData = await this._db.quoteRoute.create({
                         data: {
-                            PORSid: Number(route.POR),
-                            POLSid: Number(route.POL),
-                            PODSid: Number(route.POD),
-                            FDPSid: Number(route.FPOD),
-                            CarrierName: route.Carrier,
-                            CarrierMasterSid: route.CarrierMasterSid,
-                            ServiceLevel: route.ServiceLevel || null,
+                            PORSid: this.toRequiredNumber(this.getRouteValue(route, ['POR', 'PORSid'])),
+                            POLSid: this.toRequiredNumber(this.getRouteValue(route, ['POL', 'POLSid'])),
+                            PODSid: this.toRequiredNumber(this.getRouteValue(route, ['POD', 'PODSid'])),
+                            FDPSid: this.toRequiredNumber(this.getRouteValue(route, ['FPOD', 'FPODSid', 'FDPSid'])),
+                            CarrierName: this.getRouteValue(route, ['Carrier', 'CarrierName'], ''),
+                            CarrierMasterSid: this.toNullableNumber(this.getRouteValue(route, ['CarrierMasterSid'])),
+                            ServiceLevel: this.getRouteValue(route, ['ServiceLevel', 'ShipmentTerms', 'IncoTerms'], null),
                             effDate: this.toNullableDate(route.effDate),
                             expdate: this.toNullableDate(route.expDate),
                             twentyft: Number(route.twentyft) || null,
                             fortyft: Number(route.fortyft) || null,
-                            cargoType: route.cargoType,
-                            TransitDays: Number(route.transit) || null,
-                            DepartmentMasterSid: Number(route.DepartmentMasterSid),
+                            cargoType: this.getRouteValue(route, ['cargoType', 'CargoType'], ''),
+                            TransitDays: this.toNullableNumber(this.getRouteValue(route, ['transit', 'TransitDays'])),
+                            DepartmentMasterSid: this.toRequiredNumber(route.DepartmentMasterSid),
                             CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                             BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                             QuoteHeaderSid: QuoteHeaderSid,
@@ -366,9 +445,78 @@ export class QuotationService {
                 const routeData = updateData || createData;
                 finalRouteData.push(routeData);
 
+                const routeCargoItems = Array.isArray(route.quoteCargo) && route.quoteCargo.length > 0
+                    ? route.quoteCargo
+                    : [{
+                        CargoType: this.getRouteValue(route, ['cargoType', 'CargoType'], ''),
+                        GrossWeight: this.getRouteValue(route, ['GrossWeight']),
+                        NetWeight: this.getRouteValue(route, ['NetWeight']),
+                        Volume: this.getRouteValue(route, ['Volume', 'CBM']),
+                        ContainerType: this.getRouteValue(route, ['ContainerType'], ''),
+                        Qty: this.getRouteValue(route, ['Qty', 'NoofContainers', 'NoOfContainers']),
+                        ShipmentTerms: this.getRouteValue(route, ['ShipmentTerms', 'ServiceLevel'], ''),
+                    }];
+
+                const incomingCargoIds = routeCargoItems
+                    .map((item: any) => Number(item.QuoteCargoSid))
+                    .filter((id: number) => !!id);
+
+                await this._db.quoteCargo.updateMany({
+                    where: {
+                        QuoteRouteSid: routeData.QuoteRouteSid,
+                        Status: 'A',
+                        ...(incomingCargoIds.length ? { QuoteCargoSid: { notIn: incomingCargoIds } } : {})
+                    },
+                    data: {
+                        Status: 'D',
+                        UpdatedBy: user['userEmail'],
+                        UpdatedOn: new Date()
+                    }
+                });
+
+                for (const cargoItem of routeCargoItems) {
+                    const quoteCargoSid = Number(cargoItem.QuoteCargoSid || 0);
+                    const cargoPayload = {
+                        CargoType: cargoItem.CargoType || '',
+                        GrossWeight: Number(cargoItem.GrossWeight) || 0,
+                        NetWeight: Number(cargoItem.NetWeight) || 0,
+                        Volume: Number(cargoItem.Volume) || 0,
+                        ContainerType: cargoItem.ContainerType || '',
+                        Qty: Number(cargoItem.Qty) || 0,
+                        ShipmentTerms: cargoItem.ShipmentTerms || route.ServiceLevel || '',
+                    };
+
+                    if (quoteCargoSid) {
+                        await this._db.quoteCargo.update({
+                            where: { QuoteCargoSid: quoteCargoSid },
+                            data: {
+                                ...cargoPayload,
+                                Status: 'A',
+                                UpdatedBy: user['userEmail'],
+                                UpdatedOn: new Date()
+                            }
+                        });
+                    } else {
+                        await this._db.quoteCargo.create({
+                            data: {
+                                CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
+                                BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
+                                QuoteHeaderSid: QuoteHeaderSid,
+                                QuoteRouteSid: routeData.QuoteRouteSid,
+                                CreatedBy: user['userEmail'],
+                                Status: 'A',
+                                ...cargoPayload
+                            }
+                        });
+                    }
+                }
+
                 // Step 3: Update or create cargo for each route
-                if (route.cargo && route.cargo.length > 0) {
-                    for (const cargoItem of route.cargo) {
+                const routeCharges = Array.isArray(route.cargo)
+                    ? route.cargo
+                    : (Array.isArray(route.quoteCharges) ? route.quoteCharges : []);
+                if (routeCharges.length > 0) {
+                    for (const cargoItem of routeCharges) {
                         let updateCargoData;
                         let createCargoData;
 
@@ -376,17 +524,23 @@ export class QuotationService {
                             updateCargoData = await this._db.quoteCharge.update({
                                 where: { QuoteChargeSid: cargoItem.QuoteChargeSid },
                                 data: {
-                                    ChargeUomSid: Number(cargoItem.ChargeUomSid) || null,
-                                    ChargeDisplayName: cargoItem.charge,
-                                    CurrencyMasterSid: Number(cargoItem.currency),
-                                    UOMMasterSid: Number(cargoItem.unit),
-                                    RevenueChargeUomSid: Number(cargoItem.unit) || null,
-                                    perUnit: cargoItem.perUnit,
-                                    CostChargeUomSid: Number(cargoItem.costUnit) || null,
-                                    CostCurrencyMasterSid: Number(cargoItem.costCurrency) || null,
-                                    costUnit: cargoItem.costUnit ? String(cargoItem.costUnit) : null,
-                                    costCurrency: cargoItem.costCurrency ? String(cargoItem.costCurrency) : null,
-                                    costPerUnit: cargoItem.costPerUnit,
+                                    ChargeUomSid: this.toNullableNumber(cargoItem.ChargeUomSid),
+                                    ChargeDisplayName: cargoItem.charge ?? cargoItem.ChargeDisplayName ?? '',
+                                    CurrencyMasterSid: this.toNullableNumber(cargoItem.currency ?? cargoItem.CurrencyMasterSid),
+                                    UOMMasterSid: this.toNullableNumber(cargoItem.unit ?? cargoItem.UOMMasterSid ?? cargoItem.RevenueChargeUomSid),
+                                    RevenueChargeUomSid: this.toNullableNumber(cargoItem.unit ?? cargoItem.RevenueChargeUomSid ?? cargoItem.UOMMasterSid),
+                                    perUnit: cargoItem.perUnit ?? cargoItem.RevenueRate ?? null,
+                                    RevenueRate: cargoItem.RevenueRate ?? cargoItem.perUnit ?? null,
+                                    RevenueAmount: cargoItem.revenueAmount ?? cargoItem.RevenueAmount ?? null,
+                                    RevenueLocalAmount: cargoItem.revenueLocalAmount ?? cargoItem.RevenueLocalAmount ?? null,
+                                    CostChargeUomSid: this.toNullableNumber(cargoItem.costUnit ?? cargoItem.CostChargeUomSid),
+                                    CostCurrencyMasterSid: this.toNullableNumber(cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid),
+                                    costUnit: (cargoItem.costUnit ?? cargoItem.CostChargeUomSid) ? String(cargoItem.costUnit ?? cargoItem.CostChargeUomSid) : null,
+                                    costCurrency: (cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid) ? String(cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid) : null,
+                                    costPerUnit: cargoItem.costPerUnit ?? cargoItem.CostRate ?? null,
+                                    CostRate: cargoItem.CostRate ?? cargoItem.costPerUnit ?? null,
+                                    CostAmount: cargoItem.costAmount ?? cargoItem.CostAmount ?? null,
+                                    CostLocalAmount: cargoItem.costLocalAmount ?? cargoItem.CostLocalAmount ?? null,
                                     updatedBy: user['userEmail'],
                                     updatedOn: new Date(),
                                 }
@@ -394,17 +548,23 @@ export class QuotationService {
                         } else {
                             createCargoData = await this._db.quoteCharge.create({
                                 data: {
-                                    ChargeUomSid: Number(cargoItem.ChargeUomSid) || null,
-                                    ChargeDisplayName: cargoItem.charge,
-                                    CurrencyMasterSid: Number(cargoItem.currency),
-                                    UOMMasterSid: Number(cargoItem.unit),
-                                    RevenueChargeUomSid: Number(cargoItem.unit) || null,
-                                    perUnit: cargoItem.perUnit,
-                                    CostChargeUomSid: Number(cargoItem.costUnit) || null,
-                                    CostCurrencyMasterSid: Number(cargoItem.costCurrency) || null,
-                                    costUnit: cargoItem.costUnit ? String(cargoItem.costUnit) : null,
-                                    costCurrency: cargoItem.costCurrency ? String(cargoItem.costCurrency) : null,
-                                    costPerUnit: cargoItem.costPerUnit,
+                                    ChargeUomSid: this.toNullableNumber(cargoItem.ChargeUomSid),
+                                    ChargeDisplayName: cargoItem.charge ?? cargoItem.ChargeDisplayName ?? '',
+                                    CurrencyMasterSid: this.toNullableNumber(cargoItem.currency ?? cargoItem.CurrencyMasterSid),
+                                    UOMMasterSid: this.toNullableNumber(cargoItem.unit ?? cargoItem.UOMMasterSid ?? cargoItem.RevenueChargeUomSid),
+                                    RevenueChargeUomSid: this.toNullableNumber(cargoItem.unit ?? cargoItem.RevenueChargeUomSid ?? cargoItem.UOMMasterSid),
+                                    perUnit: cargoItem.perUnit ?? cargoItem.RevenueRate ?? null,
+                                    RevenueRate: cargoItem.RevenueRate ?? cargoItem.perUnit ?? null,
+                                    RevenueAmount: cargoItem.revenueAmount ?? cargoItem.RevenueAmount ?? null,
+                                    RevenueLocalAmount: cargoItem.revenueLocalAmount ?? cargoItem.RevenueLocalAmount ?? null,
+                                    CostChargeUomSid: this.toNullableNumber(cargoItem.costUnit ?? cargoItem.CostChargeUomSid),
+                                    CostCurrencyMasterSid: this.toNullableNumber(cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid),
+                                    costUnit: (cargoItem.costUnit ?? cargoItem.CostChargeUomSid) ? String(cargoItem.costUnit ?? cargoItem.CostChargeUomSid) : null,
+                                    costCurrency: (cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid) ? String(cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid) : null,
+                                    costPerUnit: cargoItem.costPerUnit ?? cargoItem.CostRate ?? null,
+                                    CostRate: cargoItem.CostRate ?? cargoItem.costPerUnit ?? null,
+                                    CostAmount: cargoItem.costAmount ?? cargoItem.CostAmount ?? null,
+                                    CostLocalAmount: cargoItem.costLocalAmount ?? cargoItem.CostLocalAmount ?? null,
                                     QuoteHeaderSid: QuoteHeaderSid,
                                     QuoteRouteSid: routeData.QuoteRouteSid, // Link to the correct route
                                     createdBy: user['userEmail'],
@@ -420,13 +580,31 @@ export class QuotationService {
                 }
             }
 
+            const updatedQuotation = await this._db.quoteHeader.findUnique({
+                where: { QuoteHeaderSid: QuoteHeaderSid },
+                include: {
+                    quoteRoute: {
+                        where: { status: 'A' },
+                        include: {
+                            quoteCargo: {
+                                where: { Status: 'A' }
+                            },
+                            quoteCharge: {
+                                where: { status: 'A' }
+                            }
+                        }
+                    }
+                }
+            });
+
             return {
                 status: true,
                 message: 'Quotation updated successfully',
                 data: {
                     updatedQuoteHeader: updatedQuoteHeader,
                     finalRouteData: finalRouteData, // Now an array
-                    finalCargoData: finalCargoData  // Now an array
+                    finalCargoData: finalCargoData,  // Now an array
+                    updatedQuotation
                 }
             };
         } catch (error) {

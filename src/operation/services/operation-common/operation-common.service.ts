@@ -97,6 +97,26 @@ export class OperationCommonService {
                             CustomerMasterSid : true,
                             CustomerName : true
                         }
+                    },
+                    voucherDetail : {
+                        where : {
+                            Status : 'A',
+                             VoucherHeader:{
+                                Status:"A"
+                            }
+                        },
+                        select : {
+                            VoucherHeader : { 
+                                select : {
+                                    voucherTypeMaster : 
+                                    { 
+                                    select : {
+                                        DocumentTypeCode : true
+                                         }
+                                        }
+                                    }},
+                            LocalAmount : true
+                        }
                     }
                 },
                 orderBy: {
@@ -358,7 +378,27 @@ export class OperationCommonService {
                             DocumentTypeCode: true,
                             VoucherTypeMasterSid: true
                         }
-                    }
+                    },
+                        VoucherDetail : {
+                                            where : {
+                                                Status : 'A',
+                                                 VoucherHeader:{
+                                                    Status:"A"
+                                                }
+                                            },
+                                            select : {
+                                                VoucherHeader : { 
+                                                    select : {
+                                                        voucherTypeMaster : 
+                                                        { 
+                                                        select : {
+                                                            DocumentTypeCode : true
+                                                             }
+                                                            }
+                                                        }},
+                                                LocalAmount : true
+                                            }
+                                        }
                 },
                 orderBy : {
                     SerialNumber : 'asc'

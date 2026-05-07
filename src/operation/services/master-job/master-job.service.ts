@@ -1732,6 +1732,26 @@ export class MasterJobService {
                                 select: { GroupName: true }
                             }
                         }
+                    },
+                         voucherDetail : {
+                        where : {
+                            Status : 'A',
+                            VoucherHeader:{
+                                Status:"A"
+                            }
+                        },
+                        select : {
+                            VoucherHeader : {
+                                select : {
+                                    voucherTypeMaster : 
+                                    { 
+                                    select : {
+                                        DocumentTypeCode : true
+                                         }
+                                        }
+                                    }},
+                                  LocalAmount : true
+                        }
                     }
                 },
                 orderBy: {
