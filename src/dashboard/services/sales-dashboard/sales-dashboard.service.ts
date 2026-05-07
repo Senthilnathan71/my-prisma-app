@@ -184,6 +184,7 @@ export class SalesDashboardService {
         WHERE
           pcmm."status" = 'A'
           AND pcmm."meetingDate" IS NOT NULL
+          AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
           AND pcmm."CompanyMasterSid" = $1
           AND pcmm."BranchMasterSid" = $2
           AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
@@ -520,6 +521,11 @@ export class SalesDashboardService {
       FROM "PreCustomerMaster" pcm
       LEFT JOIN "PreCustomerMeeting" pcmm
         ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
+      AND NOT EXISTS (
+        SELECT 1 FROM "CustomerMaster" cm
+        WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+        AND cm."status" = 'A'
+      )
       LEFT JOIN "UserMaster" um
         ON pcm."leadAssignTo" = um."UserMasterSid"
       WHERE
@@ -530,6 +536,11 @@ export class SalesDashboardService {
         AND ($3::timestamptz IS NULL OR pcm."createdOn" >= $3::timestamptz)
         AND ($4::timestamptz IS NULL OR pcm."createdOn" <= $4::timestamptz)
         AND ($5::text IS NULL OR pcm."createdBy" = $5)
+        AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+          AND cm."status" = 'A'
+        )
         ${search.clause}
       ORDER BY pcm."createdOn" DESC`;
 
@@ -548,6 +559,11 @@ export class SalesDashboardService {
         AND ($3::timestamptz IS NULL OR pcm."createdOn" >= $3::timestamptz)
         AND ($4::timestamptz IS NULL OR pcm."createdOn" <= $4::timestamptz)
         AND ($5::text IS NULL OR pcm."createdBy" = $5)
+        AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+          AND cm."status" = 'A'
+        )
         ${search.clause}`;
 
     return this.executePagedQuery<any>(
@@ -591,6 +607,8 @@ export class SalesDashboardService {
       params.companyMasterSid,
       params.branchMasterSid,
       params.salespersonId,
+      params.naiveDateFrom,
+      params.naiveDateTo,
     ];
     const search = this.buildSearchClause(
       params.search,
@@ -632,9 +650,12 @@ export class SalesDashboardService {
       WHERE
         pcmm."status" = 'A'
         AND pcmm."meetingDate" IS NOT NULL
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+        AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)
         AND ${bucketClause}
         ${search.clause}
       ORDER BY pcmm."meetingDate" ${orderDir}`;
@@ -651,9 +672,12 @@ export class SalesDashboardService {
       WHERE
         pcmm."status" = 'A'
         AND pcmm."meetingDate" IS NOT NULL
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
+        AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)
         AND ${bucketClause}
         ${search.clause}`;
 

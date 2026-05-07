@@ -294,6 +294,11 @@ export class UserBranchMasterDto {
     branchMaster?: BranchMasterDto;
 }
 
+export class FetchReportingUsersDto {
+    @IsInt({ message: 'CompanyMasterSid must be a number' })
+    @IsNotEmpty({ message: 'CompanyMasterSid is required' })
+    CompanyMasterSid: number;
+}
 
 export class UserRoleMasterDto {
 

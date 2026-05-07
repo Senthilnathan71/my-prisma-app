@@ -3181,6 +3181,14 @@ export class VoucherService {
                     throw new BadRequestException('Voucher is already deleted.');
                 }
 
+                await prisma.voucherDetail.updateMany({
+                    where: { VoucherHeaderSid: VoucherHeaderSid },
+                    data: {
+                        BookingRatesSid: null,
+                        CostRevenueChargesSid : null,
+                    }
+                });
+
                 const deletedVoucherHeader = await prisma.voucherHeader.update({
                     where: { VoucherHeaderSid: VoucherHeaderSid },
                     data: { Status: 'S', UpdatedBy: UserEmail, UpdatedOn: new Date() },
