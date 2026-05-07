@@ -1,4 +1,4 @@
-import { IsOptional, IsNumber, IsDateString, IsString, IsIn, Min } from 'class-validator';
+import { IsEmail, IsOptional, IsNumber, IsDateString, IsString, IsIn, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -76,4 +76,15 @@ export class SalesManagerQueryDto {
   @IsOptional()
   @IsIn(['today', 'week', 'month', 'lastMonth', 'fy'])
   preset?: 'today' | 'week' | 'month' | 'lastMonth' | 'fy';
+}
+
+export class SalesManagerAlertDrillDownDto extends SalesManagerQueryDto {
+  @ApiProperty({ required: true, enum: ['idle_leads', 'overdue_meetings', 'stale_followups', 'unconverted_hightouch'] })
+  @IsIn(['idle_leads', 'overdue_meetings', 'stale_followups', 'unconverted_hightouch'])
+  alertType: 'idle_leads' | 'overdue_meetings' | 'stale_followups' | 'unconverted_hightouch';
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsEmail()
+  salespersonEmail?: string;
 }

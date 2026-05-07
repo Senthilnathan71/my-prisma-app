@@ -2,7 +2,7 @@ import { Body, Controller, Get, Patch, Post, Query, ParseIntPipe, UsePipes, Vali
 import { ApiTags } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SalesManagerDashboardService } from '../../services/sales-manager-dashboard/sales-manager-dashboard.service';
-import { SalesManagerQueryDto } from '../../DTO/sales-manager-dashboard.dto';
+import { SalesManagerAlertDrillDownDto, SalesManagerQueryDto } from '../../DTO/sales-manager-dashboard.dto';
 import {
   ReassignLeadDto,
   CreateMeetingOnBehalfDto,
@@ -94,6 +94,18 @@ export class SalesManagerDashboardController {
     } catch (error) {
       resp.status = false;
       resp.message = error.message || 'Failed to fetch alerts';
+    }
+    return resp;
+  }
+
+  @Get('alert-drill-down')
+  async getAlertDrillDown(@Query() query: SalesManagerAlertDrillDownDto) {
+    const resp = new ResponseData();
+    try {
+      resp.data = await this.service.getAlertDrillDown(query);
+    } catch (error) {
+      resp.status = false;
+      resp.message = error.message || 'Failed to fetch alert drill-down';
     }
     return resp;
   }

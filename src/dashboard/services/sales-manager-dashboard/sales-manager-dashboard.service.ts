@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { EmailService } from 'src/email/email.service';
-import { SalesManagerQueryDto } from '../../DTO/sales-manager-dashboard.dto';
+import {
+  SalesManagerAlertDrillDownDto,
+  SalesManagerQueryDto,
+} from '../../DTO/sales-manager-dashboard.dto';
 import {
   ReassignLeadDto,
   CreateMeetingOnBehalfDto,
@@ -34,6 +37,10 @@ interface PagedResult<T> {
   pageSize: number;
   totalCount: number;
   hasMore: boolean;
+}
+
+interface AlertDrillDownParams extends NormalizedParams {
+  alertType: 'idle_leads' | 'overdue_meetings' | 'stale_followups' | 'unconverted_hightouch';
 }
 
 @Injectable()
@@ -1092,7 +1099,7 @@ export class SalesManagerDashboardService {
     const [idleLeads, overdueMeetings, staleFollowups, unconvertedHighTouch] =
       await Promise.all([
         this.db.$queryRawUnsafe(
-          `SELECT pcm."createdBy" AS "salespersonEmail", um."userName",
+          `SELECT pcm."createdBy" AS "salespersonEmail", um."UserMasterSid" AS "salespersonId", um."userName",
             COUNT(*) AS "total",
             COUNT(*) FILTER (WHERE pcm."createdOn" < NOW() - INTERVAL '14 days') AS "critical"
           FROM "PreCustomerMaster" pcm
@@ -1115,7 +1122,7 @@ export class SalesManagerDashboardService {
               SELECT 1 FROM "CustomerMaster" cm
               WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid" AND cm."status" = 'A'
             )
-          GROUP BY pcm."createdBy", um."userName"
+          GROUP BY pcm."createdBy", um."UserMasterSid", um."userName"
           HAVING COUNT(*) > 0`,
           companyMasterSid,
           branchMasterSid,
@@ -1211,6 +1218,8 @@ export class SalesManagerDashboardService {
         alertType: 'idle_leads',
         severity,
         salesperson: r.userName || r.salespersonEmail,
+        salespersonId: r.salespersonId ? Number(r.salespersonId) : null,
+        salespersonEmail: r.salespersonEmail,
         count: Number(r.total),
         description: `${Number(r.total)} leads with no meeting${Number(r.critical) > 0 ? ` (${Number(r.critical)} aging >14 days)` : ''}`,
       });
@@ -1236,6 +1245,7 @@ export class SalesManagerDashboardService {
         alertType: 'stale_followups',
         severity: 'warning',
         salesperson: r.userName,
+        salespersonId: r.leadAssignTo ? Number(r.leadAssignTo) : null,
         count: Number(r.total),
         description: `${Number(r.total)} stale follow-ups (oldest: ${Number(r.oldestDays)} days)`,
       });
@@ -1247,6 +1257,7 @@ export class SalesManagerDashboardService {
           alertType: 'unconverted_hightouch',
           severity: 'warning',
           salesperson: r.userName,
+          salespersonId: r.leadAssignTo ? Number(r.leadAssignTo) : null,
           count: Number(r.total),
           description: `${Number(r.total)} leads met but not converted (${Number(r.highTouch)} with 3+ meetings each)`,
         });
@@ -1259,6 +1270,450 @@ export class SalesManagerDashboardService {
     });
 
     return alerts;
+  }
+
+  async getAlertDrillDown(query: SalesManagerAlertDrillDownDto) {
+    const params = this.normalizeAlertDrillDownParams(query);
+
+    switch (params.alertType) {
+      case 'idle_leads':
+        return this.getIdleLeadsAlertDrillDown(params);
+      case 'overdue_meetings':
+        return this.getOverdueMeetingsAlertDrillDown(params);
+      case 'stale_followups':
+        return this.getStaleFollowupsAlertDrillDown(params);
+      case 'unconverted_hightouch':
+        return this.getUnconvertedHighTouchAlertDrillDown(params);
+      default:
+        throw new BadRequestException('Unsupported alert type');
+    }
+  }
+
+  private async getIdleLeadsAlertDrillDown(
+    params: AlertDrillDownParams,
+  ): Promise<PagedResult<any>> {
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.userId,
+      params.salespersonEmail,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `pcm."preCustomerName"`,
+        `pcm."contactPerson"`,
+        `pcm."phone"`,
+        `pcm."email"`,
+        `pcm."leadStatus"`,
+        `pcm."leadReferredBy"`,
+      ],
+      baseParams.length + 1,
+    );
+
+    const dataSql = `
+      SELECT
+        pcm."PreCustomerMasterSid",
+        pcm."preCustomerName",
+        pcm."contactPerson",
+        pcm."phone",
+        pcm."email",
+        pcm."leadStatus",
+        pcm."leadReferredBy" AS "leadFrom",
+        pcm."customerType",
+        pcm."leadAssignTo",
+        pcm."createdOn",
+        um."userName" AS "salespersonName"
+      FROM "PreCustomerMaster" pcm
+      LEFT JOIN "UserMaster" um
+        ON pcm."createdBy" = um."userEmail"
+      WHERE
+        pcm."status" = 'A'
+        AND pcm."CompanyMasterSid" = $1
+        AND pcm."BranchMasterSid" = $2
+        AND pcm."createdBy" = $4
+        AND pcm."createdOn" < NOW() - INTERVAL '7 days'
+        AND EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."userEmail" = pcm."createdBy"
+            AND scoped_um."DeptHead" = $3
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "PreCustomerMeeting" m
+          WHERE m."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND m."status" = 'A'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND cm."status" = 'A'
+        )
+        ${search.clause}
+      ORDER BY pcm."createdOn" ASC`;
+
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "PreCustomerMaster" pcm
+      WHERE
+        pcm."status" = 'A'
+        AND pcm."CompanyMasterSid" = $1
+        AND pcm."BranchMasterSid" = $2
+        AND pcm."createdBy" = $4
+        AND pcm."createdOn" < NOW() - INTERVAL '7 days'
+        AND EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."userEmail" = pcm."createdBy"
+            AND scoped_um."DeptHead" = $3
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "PreCustomerMeeting" m
+          WHERE m."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND m."status" = 'A'
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND cm."status" = 'A'
+        )
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+    );
+  }
+
+  private async getOverdueMeetingsAlertDrillDown(
+    params: AlertDrillDownParams,
+  ): Promise<PagedResult<any>> {
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.userId,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `pcm."preCustomerName"`,
+        `cm."CustomerName"`,
+        `pcmm."meetingType"`,
+        `um."userName"`,
+      ],
+      baseParams.length + 1,
+    );
+
+    const dataSql = `
+      SELECT
+        pcmm."PreCustomerMeetingSid",
+        pcmm."meetingDate",
+        pcmm."meetingType",
+        pcmm."meetingStatus",
+        pcmm."meetingNote",
+        pcmm."leadAssignTo",
+        pcmm."LeadOrCustomer",
+        CASE
+          WHEN pcmm."LeadOrCustomer" = 'L' THEN pcm."preCustomerName"
+          ELSE cm."CustomerName"
+        END AS "name",
+        pcm."PreCustomerMasterSid",
+        cm."CustomerMasterSid",
+        um."userName" AS "salespersonName"
+      FROM "PreCustomerMeeting" pcmm
+      LEFT JOIN "PreCustomerMaster" pcm
+        ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+      LEFT JOIN "CustomerMaster" cm
+        ON pcmm."CustomerMasterSid" = cm."CustomerMasterSid"
+      LEFT JOIN "UserMaster" um
+        ON pcmm."leadAssignTo" = um."UserMasterSid"
+      WHERE
+        pcmm."status" = 'A'
+        AND pcmm."meetingDate" IS NOT NULL
+        AND pcmm."CompanyMasterSid" = $1
+        AND pcmm."BranchMasterSid" = $2
+        AND pcmm."meetingDate"::date < CURRENT_DATE
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+        AND EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+            AND scoped_um."DeptHead" = $3
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        )
+        ${search.clause}
+      ORDER BY pcmm."meetingDate" ASC`;
+
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "PreCustomerMeeting" pcmm
+      LEFT JOIN "PreCustomerMaster" pcm
+        ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+      LEFT JOIN "CustomerMaster" cm
+        ON pcmm."CustomerMasterSid" = cm."CustomerMasterSid"
+      LEFT JOIN "UserMaster" um
+        ON pcmm."leadAssignTo" = um."UserMasterSid"
+      WHERE
+        pcmm."status" = 'A'
+        AND pcmm."meetingDate" IS NOT NULL
+        AND pcmm."CompanyMasterSid" = $1
+        AND pcmm."BranchMasterSid" = $2
+        AND pcmm."meetingDate"::date < CURRENT_DATE
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+        AND EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+            AND scoped_um."DeptHead" = $3
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        )
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+    );
+  }
+
+  private async getStaleFollowupsAlertDrillDown(
+    params: AlertDrillDownParams,
+  ): Promise<PagedResult<any>> {
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.userId,
+      params.salespersonId,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `pcm."preCustomerName"`,
+        `cm."CustomerName"`,
+        `pcmm."meetingType"`,
+        `pcmm."followUpNote"`,
+      ],
+      baseParams.length + 1,
+    );
+
+    const dataSql = `
+      SELECT
+        pcmm."PreCustomerMeetingSid",
+        pcmm."meetingDate",
+        pcmm."meetingType",
+        pcmm."meetingStatus",
+        pcmm."meetingNote",
+        pcmm."followUpDate",
+        pcmm."followUpNote",
+        pcmm."leadAssignTo",
+        pcmm."LeadOrCustomer",
+        pcm."PreCustomerMasterSid",
+        pcm."preCustomerName",
+        pcm."contactPerson",
+        cm."CustomerMasterSid",
+        cm."CustomerName",
+        um."userName" AS "salespersonName",
+        CASE
+          WHEN pcmm."followUpDate"::date < CURRENT_DATE THEN 'Overdue'
+          WHEN pcmm."followUpDate"::date = CURRENT_DATE THEN 'Due Today'
+          ELSE 'Upcoming'
+        END AS "followUpStatus"
+      FROM "PreCustomerMeeting" pcmm
+      LEFT JOIN "PreCustomerMaster" pcm
+        ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+      LEFT JOIN "CustomerMaster" cm
+        ON pcmm."CustomerMasterSid" = cm."CustomerMasterSid"
+      LEFT JOIN "UserMaster" um
+        ON pcmm."leadAssignTo" = um."UserMasterSid"
+      WHERE
+        pcmm."status" = 'A'
+        AND pcmm."CompanyMasterSid" = $1
+        AND pcmm."BranchMasterSid" = $2
+        AND pcmm."leadAssignTo" = $4
+        AND pcmm."followUpDate" IS NOT NULL
+        AND pcmm."followUpDate"::date < CURRENT_DATE
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+        AND EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+            AND scoped_um."DeptHead" = $3
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        )
+        ${search.clause}
+      ORDER BY pcmm."followUpDate" ASC`;
+
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "PreCustomerMeeting" pcmm
+      LEFT JOIN "PreCustomerMaster" pcm
+        ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+      LEFT JOIN "CustomerMaster" cm
+        ON pcmm."CustomerMasterSid" = cm."CustomerMasterSid"
+      WHERE
+        pcmm."status" = 'A'
+        AND pcmm."CompanyMasterSid" = $1
+        AND pcmm."BranchMasterSid" = $2
+        AND pcmm."leadAssignTo" = $4
+        AND pcmm."followUpDate" IS NOT NULL
+        AND pcmm."followUpDate"::date < CURRENT_DATE
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+        AND EXISTS (
+          SELECT 1 FROM "UserMaster" scoped_um
+          WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+            AND scoped_um."DeptHead" = $3
+            AND scoped_um."isSalesperson" = '1'
+            AND scoped_um."status" = 'A'
+        )
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+    );
+  }
+
+  private async getUnconvertedHighTouchAlertDrillDown(
+    params: AlertDrillDownParams,
+  ): Promise<PagedResult<any>> {
+    const baseParams: any[] = [
+      params.companyMasterSid,
+      params.branchMasterSid,
+      params.userId,
+      params.salespersonId,
+    ];
+    const search = this.buildSearchClause(
+      params.search,
+      [
+        `pcm."preCustomerName"`,
+        `pcm."contactPerson"`,
+        `pcm."phone"`,
+        `pcm."email"`,
+        `pcm."leadStatus"`,
+      ],
+      baseParams.length + 1,
+    );
+
+    const dataSql = `
+      SELECT
+        pcm."PreCustomerMasterSid",
+        pcm."preCustomerName",
+        pcm."contactPerson",
+        pcm."phone",
+        pcm."email",
+        pcm."leadStatus",
+        (
+          SELECT COUNT(*)
+          FROM "PreCustomerMeeting" pcmm5
+          WHERE pcmm5."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm5."meetingStatus" IN ('Completed', 'Confirmed')
+        ) AS "meetingCount",
+        (
+          SELECT MAX(pcmm6."meetingDate")
+          FROM "PreCustomerMeeting" pcmm6
+          WHERE pcmm6."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm6."meetingStatus" IN ('Completed', 'Confirmed')
+        ) AS "lastMeetingDate"
+      FROM "PreCustomerMaster" pcm
+      WHERE
+        pcm."status" = 'A'
+        AND pcm."CompanyMasterSid" = $1
+        AND pcm."BranchMasterSid" = $2
+        AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND cm."status" = 'A'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM "PreCustomerMeeting" pcmm
+          WHERE pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm."leadAssignTo" = $4
+            AND EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+                AND scoped_um."DeptHead" = $3
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
+        )
+        AND EXISTS (
+          SELECT 1 FROM "PreCustomerMeeting" pcmm3
+          WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm3."meetingStatus" IN ('Completed')
+        )
+        AND (
+          SELECT COUNT(*)
+          FROM "PreCustomerMeeting" pcmm5
+          WHERE pcmm5."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm5."meetingStatus" IN ('Completed', 'Confirmed')
+        ) >= 3
+        ${search.clause}
+      ORDER BY "lastMeetingDate" DESC NULLS LAST`;
+
+    const countSql = `
+      SELECT COUNT(*) AS "count"
+      FROM "PreCustomerMaster" pcm
+      WHERE
+        pcm."status" = 'A'
+        AND pcm."CompanyMasterSid" = $1
+        AND pcm."BranchMasterSid" = $2
+        AND NOT EXISTS (
+          SELECT 1 FROM "CustomerMaster" cm
+          WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND cm."status" = 'A'
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM "PreCustomerMeeting" pcmm
+          WHERE pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm."leadAssignTo" = $4
+            AND EXISTS (
+              SELECT 1 FROM "UserMaster" scoped_um
+              WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
+                AND scoped_um."DeptHead" = $3
+                AND scoped_um."isSalesperson" = '1'
+                AND scoped_um."status" = 'A'
+            )
+        )
+        AND EXISTS (
+          SELECT 1 FROM "PreCustomerMeeting" pcmm3
+          WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm3."meetingStatus" IN ('Completed')
+        )
+        AND (
+          SELECT COUNT(*)
+          FROM "PreCustomerMeeting" pcmm5
+          WHERE pcmm5."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+            AND pcmm5."meetingStatus" IN ('Completed', 'Confirmed')
+        ) >= 3
+        ${search.clause}`;
+
+    return this.executePagedQuery<any>(
+      dataSql,
+      countSql,
+      [...baseParams, ...search.params],
+      [...baseParams, ...search.params],
+      params.page,
+      params.pageSize,
+      (row) => ({
+        ...row,
+        meetingCount: Number(row.meetingCount),
+      }),
+    );
   }
 
 
@@ -1480,6 +1935,37 @@ export class SalesManagerDashboardService {
       pageSize: Math.min(Math.max(pageSize, 1), this.maxPageSize),
       search: query.search ? this.sanitizeSearchText(query.search) : null,
       bucket: query.bucket || null,
+    };
+  }
+
+  private normalizeAlertDrillDownParams(
+    query: SalesManagerAlertDrillDownDto,
+  ): AlertDrillDownParams {
+    const params = this.normalizeParams(query);
+    const alertType = query.alertType;
+
+    if (
+      ['idle_leads', 'stale_followups', 'unconverted_hightouch'].includes(alertType) &&
+      !params.salespersonId &&
+      !params.salespersonEmail
+    ) {
+      throw new BadRequestException('Salesperson scope is required for this alert type');
+    }
+
+    if (alertType === 'idle_leads' && !params.salespersonEmail) {
+      throw new BadRequestException('salespersonEmail is required for idle leads alerts');
+    }
+
+    if (
+      ['stale_followups', 'unconverted_hightouch'].includes(alertType) &&
+      !params.salespersonId
+    ) {
+      throw new BadRequestException('salespersonId is required for this alert type');
+    }
+
+    return {
+      ...params,
+      alertType,
     };
   }
 

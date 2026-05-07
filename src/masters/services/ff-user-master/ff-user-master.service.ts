@@ -43,6 +43,7 @@ export class FfUserMasterService {
                 CountryMasterSid: payload.CountryMasterSid,
                 status: payload.status,
                 userTypeId: payload.userTypeId,
+                isLoginUser : payload.isLoginUser
             };
 
             return await this._db.$transaction(async (prisma) => {
