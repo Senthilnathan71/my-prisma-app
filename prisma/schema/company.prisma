@@ -265,6 +265,7 @@ model UserMaster {
   Principal                          Int?
   isLoginUser                        String?                      @db.Char(1)
   userTypeId                         Int?
+  AttemptDateTime                    DateTime?                    @db.Timestamptz(6)
   department                         String[]                     @db.VarChar(500)
   bookingActivityResourceAllocation  ActivityResourceAllocation[] @relation("BOOKUSER")
   enquiryActivityResourceAllocation  ActivityResourceAllocation[] @relation("ENQUSER")
@@ -3722,7 +3723,7 @@ model HouseJobBOE {
   BOEDate          DateTime?     @db.Date
   BOEValue         Decimal?      @db.Decimal(12, 3)
   BOEInvoiceValue  Decimal?      @db.Decimal(12, 3)
-  TransactionType  String        @db.VarChar(20)
+  TransactionType  String        @db.VarChar(200)
   Amount           Decimal?      @db.Decimal(12, 3)
   ProcessDate      DateTime?     @db.Date
   ReceivedDate     DateTime?     @db.Date
