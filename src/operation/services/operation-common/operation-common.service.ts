@@ -98,26 +98,31 @@ export class OperationCommonService {
                             CustomerName : true
                         }
                     },
-                    voucherDetail : {
-                        where : {
-                            Status : 'A',
-                             VoucherHeader:{
-                                Status:"A"
-                            }
-                        },
-                        select : {
-                            VoucherHeader : { 
-                                select : {
-                                    voucherTypeMaster : 
-                                    { 
-                                    select : {
-                                        DocumentTypeCode : true
-                                         }
+                   voucherDetail: {
+                                            where : {
+                                                Status : 'A',
+                                                 VoucherHeader:{
+                                                    Status:"A",
+                                                }
+                                            },
+                                            select : {
+                                                VoucherHeader:{
+                                                    select:{
+                                                        voucherTypeMaster:{
+                                                            select:{
+                                                                DocumentTypeCode:true
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                VoucherHeaderSid:true,
+                                                VoucherDetailSid:true,
+                                                DrCr : true,
+                                                CostRevenue : true,
+                                                LocalAmount : true,
+
+                                            }
                                         }
-                                    }},
-                            LocalAmount : true
-                        }
-                    }
                 },
                 orderBy: {
                     SerialNumber: 'asc'
@@ -379,24 +384,29 @@ export class OperationCommonService {
                             VoucherTypeMasterSid: true
                         }
                     },
-                        VoucherDetail : {
+                        VoucherDetail: {
                                             where : {
                                                 Status : 'A',
                                                  VoucherHeader:{
-                                                    Status:"A"
+                                                    Status:"A",
                                                 }
                                             },
                                             select : {
-                                                VoucherHeader : { 
-                                                    select : {
-                                                        voucherTypeMaster : 
-                                                        { 
-                                                        select : {
-                                                            DocumentTypeCode : true
-                                                             }
+                                                VoucherHeader:{
+                                                    select:{
+                                                        voucherTypeMaster:{
+                                                            select:{
+                                                                DocumentTypeCode:true
                                                             }
-                                                        }},
-                                                LocalAmount : true
+                                                        }
+                                                    }
+                                                },
+                                                VoucherHeaderSid:true,
+                                                VoucherDetailSid:true,
+                                                DrCr : true,
+                                                CostRevenue : true,
+                                                LocalAmount : true,
+
                                             }
                                         }
                 },

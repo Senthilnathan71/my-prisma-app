@@ -2103,6 +2103,9 @@ export class OperationReportsService {
           CustomerType: true,
         },
       });
+      const chargeMaster = await this._db.chargeMaster.findMany({
+        select: { ChargeMasterSid: true, chargeName: true },
+      });
 
       const customerMap = new Map<number, string>(
         customerMaster.map((c) => [c.CustomerMasterSid, c.CustomerName]),
@@ -2224,6 +2227,35 @@ export class OperationReportsService {
           data: [],
         };
       }
+
+      const houseJobMenu = await this._db.menuMaster.findFirst({
+        where: {
+          MenuName: { equals: 'House Job', mode: 'insensitive' },
+          status: 'A',
+        },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!houseJobMenu) {
+        throw new BadRequestException('House Job not found in MenuMaster');
+      }
+
+      const houseJobIds = houseJobData.map((h) => h.HouseJobSid);
+      const allHouseCR = await this._db.costRevenueCharges.findMany({
+        where: {
+          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          TransactionSid: { in: houseJobIds },
+          status: 'A',
+        },
+      });
+
+      const houseRateMap = new Map<number, any[]>();
+      allHouseCR.forEach((cr) => {
+        if (!houseRateMap.has(cr.TransactionSid!)) {
+          houseRateMap.set(cr.TransactionSid!, []);
+        }
+        houseRateMap.get(cr.TransactionSid!)!.push(cr);
+      });
 
       const portCodes = new Set<string>();
 
@@ -2455,6 +2487,11 @@ export class OperationReportsService {
         const exportJobNo = houseDepartment?.toLowerCase().includes('export')
           ? masterJob?.MasterJobNumber || ''
           : '';
+        const costRevenues = (houseRateMap.get(mj.HouseJobSid) || []).filter(
+          (cr) =>
+            cr.CostVoucherHeaderSid === null ||
+            cr.RevenueVoucherHeaderSid === null,
+        );
 
         return {
           MBL: mj.masterJob?.MBLNo,
@@ -2613,6 +2650,19 @@ export class OperationReportsService {
           DoDate: mj.Others?.[0]?.DODate,
           SOBDate: mj.masterJob?.others?.[0]?.SOBDate,
           shippingBillNo: mj.Products?.[0]?.ShippingBillNo,
+          costRevenueDetails: costRevenues.map((cr) => ({
+            Charge: chargeMaster.find(
+              (c) => c.ChargeMasterSid === cr.ChargeMasterSid,
+            )?.chargeName,
+            CostAmt: Number(cr.CostAmount || 0),
+            RevenueAmt: Number(cr.RevenueAmount || 0),
+            CostLocalAmt: Number(cr.CostLocalAmount || 0),
+            RevenueLocalAmt: Number(cr.RevenueLocalAmount || 0),
+            CostDrCr: cr.CostDrCr,
+            RevenueDrCr: cr.RevenueDrCr,
+            CostVoucherHeaderSid: cr.CostVoucherHeaderSid,
+            RevenueVoucherHeaderSid: cr.RevenueVoucherHeaderSid,
+          })),
           localShipment:
             houseJobData?.filter(
               (job) => job.JobType === 'Import' || job.JobType === 'Export',

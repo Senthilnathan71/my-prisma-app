@@ -1733,26 +1733,31 @@ export class MasterJobService {
                             }
                         }
                     },
-                         voucherDetail : {
-                        where : {
-                            Status : 'A',
-                            VoucherHeader:{
-                                Status:"A"
-                            }
-                        },
-                        select : {
-                            VoucherHeader : {
-                                select : {
-                                    voucherTypeMaster : 
-                                    { 
-                                    select : {
-                                        DocumentTypeCode : true
-                                         }
+                        voucherDetail: {
+                                            where : {
+                                                Status : 'A',
+                                                 VoucherHeader:{
+                                                    Status:"A",
+                                                }
+                                            },
+                                            select : {
+                                                VoucherHeader:{
+                                                    select:{
+                                                        voucherTypeMaster:{
+                                                            select:{
+                                                                DocumentTypeCode:true
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                VoucherHeaderSid:true,
+                                                VoucherDetailSid:true,
+                                                DrCr : true,
+                                                CostRevenue : true,
+                                                LocalAmount : true,
+
+                                            }
                                         }
-                                    }},
-                                  LocalAmount : true
-                        }
-                    }
                 },
                 orderBy: {
                     SerialNumber: 'asc'
