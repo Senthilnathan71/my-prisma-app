@@ -14,6 +14,37 @@ class CompanyIdDto {
 export class FfUserMasterController {
     constructor(private ffUserMasterService: FfUserMasterService, private logger: Logger) { }
 
+    @ApiOperation({ summary: 'Get Users by its UserType' })
+    @ApiCreatedResponse({
+        description: 'Get Users by its UserType',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('fetch-by-usertype')
+    @UsePipes(new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+    }))
+    async getUsersByUserType(@Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.ffUserMasterService.getFFUsersByType(payload);
+            this.logger.log(`All Users Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All Users are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get All Users Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
 
     @ApiOperation({ summary: 'Create new User' })
     @ApiCreatedResponse({

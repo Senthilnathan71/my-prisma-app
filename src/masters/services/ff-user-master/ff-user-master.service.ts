@@ -4,7 +4,7 @@ import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { CreateUserMasterDto, UpdateUserMasterDto, UserBranchMasterDto, UserCompanyMasterDto, UserRoleMasterDto } from 'src/masters/DTO/user.dto';
+import { CreateUserMasterDto, FetchUsersByUserTypeDto, UpdateUserMasterDto, UserBranchMasterDto, UserCompanyMasterDto, UserRoleMasterDto } from 'src/masters/DTO/user.dto';
 
 @Injectable()
 export class FfUserMasterService {
@@ -152,6 +152,32 @@ export class FfUserMasterService {
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
+        }
+    }
+
+    async getFFUsersByType(payload : FetchUsersByUserTypeDto){
+        const { CompanyMasterSid, UserType } = payload;
+        try {
+            const users = await this._db.userMaster.findMany({
+                where: {
+                    userType: { code: UserType as any },
+                    status: 'A',
+                    userCompanyMaster: {
+                        some: {
+                            CompanyMasterSid: CompanyMasterSid,
+                            GiveAccess: 'Y',
+                            status: 'A'
+                        }
+                    }
+                },
+                select : {
+                    UserMasterSid : true,
+                    userName : true
+                }
+            });
+            return users;
+        } catch (error) {
+            throw error;
         }
     }
 

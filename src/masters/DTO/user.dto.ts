@@ -7,6 +7,7 @@ import {
     IsArray,
     IsNotEmpty,
     ValidateNested,
+    IsIn,
 } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
@@ -294,6 +295,20 @@ export class UserBranchMasterDto {
     branchMaster?: BranchMasterDto;
 }
 
+export class FetchUsersByUserTypeDto {
+    @IsInt({ message: 'CompanyMasterSid must be a number' })
+    @IsNotEmpty({ message: 'CompanyMasterSid is required' })
+    CompanyMasterSid: number;
+
+    @IsIn([
+        'admin','manager','teamLead','user',
+        'salesman','salesManager','csPerson','csManager',
+        'opsPerson','opsManager','docPerson','docPerson',
+        'docManager','accounts','accountsManager','management'
+    ])
+    @IsNotEmpty({ message: 'UserType is required' })
+    UserType: string;
+}
 
 export class UserRoleMasterDto {
 

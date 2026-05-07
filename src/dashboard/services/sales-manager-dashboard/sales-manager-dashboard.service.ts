@@ -1112,6 +1112,10 @@ export class SalesManagerDashboardService {
               SELECT 1 FROM "PreCustomerMeeting" m
               WHERE m."PreCustomerMasterSid" = pcm."PreCustomerMasterSid" AND m."status" = 'A'
             )
+            AND NOT EXISTS (
+              SELECT 1 FROM "CustomerMaster" cm
+              WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid" AND cm."status" = 'A'
+            )
           GROUP BY pcm."createdBy", um."userName"
           HAVING COUNT(*) > 0`,
           companyMasterSid,
@@ -1186,7 +1190,7 @@ export class SalesManagerDashboardService {
             AND EXISTS (
               SELECT 1 FROM "PreCustomerMeeting" pcmm3
               WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-              AND pcmm3."meetingStatus" IN ('Completed', 'Confirmed')
+              AND pcmm3."meetingStatus" IN ('Completed')
             )
             AND NOT EXISTS (
               SELECT 1 FROM "CustomerMaster" cm
