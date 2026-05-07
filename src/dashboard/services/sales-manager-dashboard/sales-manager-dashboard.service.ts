@@ -166,6 +166,7 @@ export class SalesManagerDashboardService {
         WHERE
           pcmm."status" = 'A'
           AND pcmm."meetingDate" IS NOT NULL
+          AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
           AND pcmm."CompanyMasterSid" = $1
           AND pcmm."BranchMasterSid" = $2
           AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
@@ -1863,6 +1864,7 @@ export class SalesManagerDashboardService {
       LEFT JOIN "CustomerMaster" cm ON pcmm."CustomerMasterSid" = cm."CustomerMasterSid"
       LEFT JOIN "UserMaster" um ON pcmm."leadAssignTo" = um."UserMasterSid"
       WHERE pcmm."status" = 'A' AND pcmm."meetingDate" IS NOT NULL
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
         AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
         AND EXISTS (
@@ -1883,6 +1885,7 @@ export class SalesManagerDashboardService {
       LEFT JOIN "CustomerMaster" cm ON pcmm."CustomerMasterSid" = cm."CustomerMasterSid"
       LEFT JOIN "UserMaster" um ON pcmm."leadAssignTo" = um."UserMasterSid"
       WHERE pcmm."status" = 'A' AND pcmm."meetingDate" IS NOT NULL
+        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
         AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
         AND EXISTS (
