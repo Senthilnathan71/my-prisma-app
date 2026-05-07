@@ -1,10 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { EmailService } from 'src/email/email.service';
 import { SalesManagerQueryDto } from '../../DTO/sales-manager-dashboard.dto';
 import {
   ReassignLeadDto,
-  BulkReassignDto,
   CreateMeetingOnBehalfDto,
   SendReminderDto,
 } from '../../DTO/sales-manager-actions.dto';
@@ -1278,48 +1277,57 @@ export class SalesManagerDashboardService {
   // ─── ACTION: REASSIGN LEAD ───────────────────────────────────────────
 
   async reassignLead(dto: ReassignLeadDto) {
+    const payload = this.sanitizeReassignLeadDto(dto);
+
+    await this.ensureMeetingInScope(
+      payload.PreCustomerMeetingSid,
+      payload.CompanyMasterSid,
+      payload.BranchMasterSid,
+    );
+    await this.ensureScopedSalesperson(
+      payload.newSalespersonId,
+      payload.CompanyMasterSid,
+      payload.BranchMasterSid,
+    );
+
     return this.db.preCustomerMeeting.update({
-      where: { PreCustomerMeetingSid: dto.PreCustomerMeetingSid },
+      where: { PreCustomerMeetingSid: payload.PreCustomerMeetingSid },
       data: {
-        leadAssignTo: dto.newSalespersonId,
-        updatedBy: dto.updatedBy,
+        leadAssignTo: payload.newSalespersonId,
+        updatedBy: payload.updatedBy,
         updatedOn: new Date(),
       },
     });
   }
 
-  // ─── ACTION: BULK REASSIGN ───────────────────────────────────────────
-
-  async bulkReassign(dto: BulkReassignDto) {
-    return this.db.$transaction(
-      dto.PreCustomerMeetingSids.map((sid) =>
-        this.db.preCustomerMeeting.update({
-          where: { PreCustomerMeetingSid: sid },
-          data: {
-            leadAssignTo: dto.newSalespersonId,
-            updatedBy: dto.updatedBy,
-            updatedOn: new Date(),
-          },
-        }),
-      ),
-    );
-  }
-
   // ─── ACTION: CREATE MEETING ON BEHALF ────────────────────────────────
 
   async createMeetingOnBehalf(dto: CreateMeetingOnBehalfDto) {
+    const payload = this.sanitizeCreateMeetingDto(dto);
+
+    await this.ensureLeadInScope(
+      payload.PreCustomerMasterSid,
+      payload.CompanyMasterSid,
+      payload.BranchMasterSid,
+    );
+    await this.ensureScopedSalesperson(
+      payload.leadAssignTo,
+      payload.CompanyMasterSid,
+      payload.BranchMasterSid,
+    );
+
     return this.db.preCustomerMeeting.create({
       data: {
-        PreCustomerMasterSid: dto.PreCustomerMasterSid,
-        leadAssignTo: dto.leadAssignTo,
-        meetingDate: new Date(dto.meetingDate),
-        meetingType: dto.meetingType,
-        meetingNote: dto.meetingNote || null,
+        PreCustomerMasterSid: payload.PreCustomerMasterSid,
+        leadAssignTo: payload.leadAssignTo,
+        meetingDate: new Date(payload.meetingDate),
+        meetingType: payload.meetingType,
+        meetingNote: payload.meetingNote || null,
         meetingStatus: 'Scheduled',
         LeadOrCustomer: 'L',
-        CompanyMasterSid: dto.CompanyMasterSid,
-        BranchMasterSid: dto.BranchMasterSid,
-        createdBy: dto.createdBy,
+        CompanyMasterSid: payload.CompanyMasterSid,
+        BranchMasterSid: payload.BranchMasterSid,
+        createdBy: payload.createdBy,
         createdOn: new Date(),
         status: 'A',
       },
@@ -1332,14 +1340,12 @@ export class SalesManagerDashboardService {
   // ─── ACTION: SEND REMINDER ───────────────────────────────────────────
 
   async sendReminder(dto: SendReminderDto) {
-    const user = await this.db.userMaster.findUnique({
-      where: { UserMasterSid: dto.salespersonId },
-      select: { userName: true, userEmail: true },
-    });
-
-    if (!user?.userEmail) {
-      throw new Error('Salesperson email not found');
-    }
+    const payload = this.sanitizeSendReminderDto(dto);
+    const user = await this.ensureScopedSalesperson(
+      payload.salespersonId,
+      payload.CompanyMasterSid,
+      payload.BranchMasterSid,
+    );
 
     const subjectMap = {
       'overdue-meetings': 'Reminder: You have overdue meetings',
@@ -1347,15 +1353,22 @@ export class SalesManagerDashboardService {
       'pending-followups': 'Reminder: Follow-ups pending action',
     };
 
+    const safeRecipientName = this.escapeHtml(this.sanitizeFreeText(user.userName || 'Salesperson', 120));
+    const safeSenderName = this.escapeHtml(payload.senderName);
+    const safeReminderType = this.escapeHtml(payload.reminderType.replace(/-/g, ' '));
+    const safeCustomMessage = payload.customMessage
+      ? this.escapeHtml(payload.customMessage).replace(/\r?\n/g, '<br />')
+      : '';
+
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #044a6c; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
           <h2 style="margin: 0;">Sales Activity Reminder</h2>
         </div>
         <div style="padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
-          <p>Hi ${user.userName},</p>
-          <p>This is a reminder from your sales manager <strong>${dto.senderName}</strong> regarding your <strong>${dto.reminderType.replace(/-/g, ' ')}</strong>.</p>
-          ${dto.customMessage ? `<div style="background: #f8fafc; padding: 12px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #044a6c;"><p style="margin: 0;">${dto.customMessage}</p></div>` : ''}
+          <p>Hi ${safeRecipientName},</p>
+          <p>This is a reminder from your sales manager <strong>${safeSenderName}</strong> regarding your <strong>${safeReminderType}</strong>.</p>
+          ${safeCustomMessage ? `<div style="background: #f8fafc; padding: 12px; border-radius: 6px; margin: 16px 0; border-left: 4px solid #044a6c;"><p style="margin: 0;">${safeCustomMessage}</p></div>` : ''}
           <p>Please log in to the CRM dashboard to review and take action.</p>
           <p style="color: #64748b; font-size: 12px; margin-top: 24px;">This is an automated message from the Sales Manager Dashboard.</p>
         </div>
@@ -1363,7 +1376,7 @@ export class SalesManagerDashboardService {
 
     await this.emailService.sendEmail({
       email: user.userEmail,
-      subject: subjectMap[dto.reminderType],
+      subject: subjectMap[payload.reminderType],
       html,
     });
 
@@ -1454,7 +1467,7 @@ export class SalesManagerDashboardService {
       companyMasterSid: Number(query.companyMasterSid),
       branchMasterSid: Number(query.branchMasterSid),
       salespersonId: query.salespersonId ? Number(query.salespersonId) : null,
-      salespersonEmail: query.salespersonEmail || null,
+      salespersonEmail: query.salespersonEmail ? this.sanitizeEmail(query.salespersonEmail) : null,
       dateFrom: query.dateFrom || null,
       dateTo: query.dateTo || null,
       compareDateFrom: compareDateFrom || null,
@@ -1465,7 +1478,7 @@ export class SalesManagerDashboardService {
       compareNaiveDateTo: compareNaiveDateTo || null,
       page: page > 0 ? page : 1,
       pageSize: Math.min(Math.max(pageSize, 1), this.maxPageSize),
-      search: query.search?.trim() || null,
+      search: query.search ? this.sanitizeSearchText(query.search) : null,
       bucket: query.bucket || null,
     };
   }
@@ -1666,18 +1679,25 @@ export class SalesManagerDashboardService {
 
   private buildKpiMetric(current: number, previous: number) {
     let percent = 0;
+    let direction: 'up' | 'down' | 'flat' = 'flat';
 
     if (previous === 0) {
       percent = current > 0 ? 100 : 0;
+      direction = current > 0 ? 'up' : 'flat';
     } else {
       percent = ((current - previous) / previous) * 100;
+      if (current > previous) {
+        direction = 'up';
+      } else if (current < previous) {
+        direction = 'down';
+      }
     }
 
     return {
       current,
       previous,
       percent: Number(percent.toFixed(1)),
-      direction: current >= previous ? 'up' : 'down',
+      direction,
     };
   }
 
@@ -1713,5 +1733,153 @@ export class SalesManagerDashboardService {
   private getAvatarColor(sid: number): string {
     const colors = ['#05608D', '#16a34a', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#f97316', '#0d9488', '#4f46e5'];
     return colors[(sid || 0) % colors.length];
+  }
+
+  private sanitizeReassignLeadDto(dto: ReassignLeadDto): ReassignLeadDto {
+    return {
+      ...dto,
+      updatedBy: this.sanitizeEmail(dto.updatedBy),
+    };
+  }
+
+  private sanitizeCreateMeetingDto(dto: CreateMeetingOnBehalfDto): CreateMeetingOnBehalfDto {
+    const meetingDate = new Date(dto.meetingDate);
+    if (Number.isNaN(meetingDate.getTime())) {
+      throw new BadRequestException('Invalid meetingDate');
+    }
+
+    return {
+      ...dto,
+      createdBy: this.sanitizeEmail(dto.createdBy),
+      meetingType: dto.meetingType,
+      meetingNote: dto.meetingNote ? this.sanitizeFreeText(dto.meetingNote, 1000) : undefined,
+    };
+  }
+
+  private sanitizeSendReminderDto(dto: SendReminderDto): SendReminderDto {
+    return {
+      ...dto,
+      senderName: this.sanitizeFreeText(dto.senderName, 120),
+      customMessage: dto.customMessage ? this.sanitizeFreeText(dto.customMessage, 2000, true) : undefined,
+    };
+  }
+
+  private sanitizeEmail(value: string): string {
+    const normalized = this.normalizeWhitespace(value).toLowerCase();
+    if (!normalized) {
+      throw new BadRequestException('Email value cannot be empty');
+    }
+    return normalized;
+  }
+
+  private sanitizeSearchText(value: string): string | null {
+    const sanitized = this.sanitizeFreeText(value, 100);
+    return sanitized || null;
+  }
+
+  private sanitizeFreeText(value: string, maxLength: number, preserveNewLines = false): string {
+    let sanitized = typeof value === 'string' ? value : '';
+    sanitized = sanitized.replace(/<[^>]*>/g, '');
+    sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+
+    if (!preserveNewLines) {
+      sanitized = this.normalizeWhitespace(sanitized);
+    } else {
+      sanitized = sanitized
+        .replace(/\r\n/g, '\n')
+        .split('\n')
+        .map((line) => this.normalizeWhitespace(line))
+        .join('\n')
+        .trim();
+    }
+
+    return sanitized.slice(0, maxLength);
+  }
+
+  private normalizeWhitespace(value: string): string {
+    return value.replace(/\s+/g, ' ').trim();
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  private async ensureMeetingInScope(
+    preCustomerMeetingSid: number,
+    companyMasterSid: number,
+    branchMasterSid: number,
+  ) {
+    const meeting = await this.db.preCustomerMeeting.findFirst({
+      where: {
+        PreCustomerMeetingSid: preCustomerMeetingSid,
+        CompanyMasterSid: companyMasterSid,
+        BranchMasterSid: branchMasterSid,
+        status: 'A',
+      },
+      select: { PreCustomerMeetingSid: true },
+    });
+
+    if (!meeting) {
+      throw new BadRequestException('Meeting not found for the provided company/branch scope');
+    }
+  }
+
+  private async ensureLeadInScope(
+    preCustomerMasterSid: number,
+    companyMasterSid: number,
+    branchMasterSid: number,
+  ) {
+    const lead = await this.db.preCustomerMaster.findFirst({
+      where: {
+        PreCustomerMasterSid: preCustomerMasterSid,
+        CompanyMasterSid: companyMasterSid,
+        BranchMasterSid: branchMasterSid,
+        status: 'A',
+      },
+      select: { PreCustomerMasterSid: true },
+    });
+
+    if (!lead) {
+      throw new BadRequestException('Lead not found for the provided company/branch scope');
+    }
+  }
+
+  private async ensureScopedSalesperson(
+    salespersonId: number,
+    companyMasterSid: number,
+    branchMasterSid: number,
+  ) {
+    const user = await this.db.userMaster.findFirst({
+      where: {
+        UserMasterSid: salespersonId,
+        isSalesperson: '1',
+        status: 'A',
+        userBranchMaster: {
+          some: {
+            CompanyMasterSid: companyMasterSid,
+            BranchMasterSid: branchMasterSid,
+            status: 'A',
+          },
+        },
+      },
+      select: {
+        userName: true,
+        userEmail: true,
+      },
+    });
+
+    if (!user?.userEmail) {
+      throw new BadRequestException('Salesperson not found for the provided company/branch scope');
+    }
+
+    return {
+      userName: user.userName,
+      userEmail: this.sanitizeEmail(user.userEmail),
+    };
   }
 }

@@ -1,101 +1,109 @@
-import { IsOptional, IsNumber, IsString, IsArray, IsIn } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsDateString,
+  IsEmail,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+
+const trimString = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
+
+const normalizeEmail = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim().toLowerCase() : value;
 
 export class ReassignLeadDto {
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   PreCustomerMeetingSid: number;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   newSalespersonId: number;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   CompanyMasterSid: number;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   BranchMasterSid: number;
 
   @ApiProperty()
-  @IsString()
-  updatedBy: string;
-}
-
-export class BulkReassignDto {
-  @ApiProperty({ type: [Number] })
-  @IsArray()
-  @Type(() => Number)
-  PreCustomerMeetingSids: number[];
-
-  @ApiProperty()
-  @IsNumber()
-  @Type(() => Number)
-  newSalespersonId: number;
-
-  @ApiProperty()
-  @IsNumber()
-  @Type(() => Number)
-  CompanyMasterSid: number;
-
-  @ApiProperty()
-  @IsNumber()
-  @Type(() => Number)
-  BranchMasterSid: number;
-
-  @ApiProperty()
-  @IsString()
+  @Transform(normalizeEmail)
+  @IsEmail()
+  @MaxLength(320)
   updatedBy: string;
 }
 
 export class CreateMeetingOnBehalfDto {
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   PreCustomerMasterSid: number;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   leadAssignTo: number;
 
   @ApiProperty()
-  @IsString()
+  @IsDateString()
   meetingDate: string;
 
-  @ApiProperty()
-  @IsString()
-  meetingType: string;
+  @ApiProperty({ enum: ['Call', 'Visit', 'eMeeting'] })
+  @Transform(trimString)
+  @IsIn(['Call', 'Visit', 'eMeeting'])
+  meetingType: 'Call' | 'Visit' | 'eMeeting';
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @Transform(trimString)
   @IsString()
+  @MinLength(1)
+  @MaxLength(1000)
   meetingNote?: string;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   CompanyMasterSid: number;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   BranchMasterSid: number;
 
   @ApiProperty()
-  @IsString()
+  @Transform(normalizeEmail)
+  @IsEmail()
+  @MaxLength(320)
   createdBy: string;
 }
 
 export class SendReminderDto {
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   salespersonId: number;
 
@@ -104,21 +112,29 @@ export class SendReminderDto {
   reminderType: 'overdue-meetings' | 'idle-leads' | 'pending-followups';
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   CompanyMasterSid: number;
 
   @ApiProperty()
-  @IsNumber()
+  @IsInt()
+  @Min(1)
   @Type(() => Number)
   BranchMasterSid: number;
 
   @ApiProperty()
+  @Transform(trimString)
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
   senderName: string;
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @Transform(trimString)
   @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
   customMessage?: string;
 }

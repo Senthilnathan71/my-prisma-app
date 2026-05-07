@@ -4,7 +4,7 @@ import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { CreateUserMasterDto, FetchUsersByUserTypeDto, UpdateUserMasterDto, UserBranchMasterDto, UserCompanyMasterDto, UserRoleMasterDto } from 'src/masters/DTO/user.dto';
+import { CreateUserMasterDto, FetchReportingUsersDto, UpdateUserMasterDto, UserBranchMasterDto, UserCompanyMasterDto, UserRoleMasterDto } from 'src/masters/DTO/user.dto';
 
 @Injectable()
 export class FfUserMasterService {
@@ -155,12 +155,30 @@ export class FfUserMasterService {
         }
     }
 
-    async getFFUsersByType(payload : FetchUsersByUserTypeDto){
-        const { CompanyMasterSid, UserType } = payload;
+    async getReportingUsers(payload: FetchReportingUsersDto) {
+        const { CompanyMasterSid } = payload;
+        const reportingUserTypes: UserTypeCode[] = [
+            UserTypeCode.manager,
+            UserTypeCode.salesManager,
+            UserTypeCode.csManager,
+            UserTypeCode.opsManager,
+            UserTypeCode.docManager,
+            UserTypeCode.accountsManager,
+            UserTypeCode.management,
+            UserTypeCode.branchManager,
+            UserTypeCode.generalManager,
+            UserTypeCode.MD,
+            UserTypeCode.CEO,
+        ];
+
         try {
             const users = await this._db.userMaster.findMany({
                 where: {
-                    userType: { code: UserType as any },
+                    userType: {
+                        code: {
+                            in: reportingUserTypes,
+                        },
+                    },
                     status: 'A',
                     userCompanyMaster: {
                         some: {
@@ -170,10 +188,20 @@ export class FfUserMasterService {
                         }
                     }
                 },
-                select : {
-                    UserMasterSid : true,
-                    userName : true
-                }
+                select: {
+                    UserMasterSid: true,
+                    userName: true,
+                    userEmail: true,
+                    userType: {
+                        select: {
+                            code: true,
+                            name: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    userName: 'asc',
+                },
             });
             return users;
         } catch (error) {

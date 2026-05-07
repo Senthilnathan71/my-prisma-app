@@ -4,7 +4,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { CreateUserMasterDto, UpdateUserMasterDto } from 'src/masters/DTO/user.dto';
+import { CreateUserMasterDto, FetchReportingUsersDto, UpdateUserMasterDto } from 'src/masters/DTO/user.dto';
 import { FfUserMasterService } from 'src/masters/services/ff-user-master/ff-user-master.service';
 class CompanyIdDto {
     CompanyMasterSid: number;
@@ -14,9 +14,9 @@ class CompanyIdDto {
 export class FfUserMasterController {
     constructor(private ffUserMasterService: FfUserMasterService, private logger: Logger) { }
 
-    @ApiOperation({ summary: 'Get Users by its UserType' })
+    @ApiOperation({ summary: 'Get Reporting Users for a Company' })
     @ApiCreatedResponse({
-        description: 'Get Users by its UserType',
+        description: 'Get Reporting Users for a Company',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
@@ -26,10 +26,10 @@ export class FfUserMasterController {
         forbidNonWhitelisted: true,
         transform: true,
     }))
-    async getUsersByUserType(@Body() payload: any) {
+    async getUsersByUserType(@Body() payload: FetchReportingUsersDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.ffUserMasterService.getFFUsersByType(payload);
+            let res = await this.ffUserMasterService.getReportingUsers(payload);
             this.logger.log(`All Users Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Users are successfully fetched";

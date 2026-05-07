@@ -1,11 +1,10 @@
-import { Controller, Get, Patch, Post, Query, Body, ParseIntPipe } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Query, ParseIntPipe, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { SalesManagerDashboardService } from '../../services/sales-manager-dashboard/sales-manager-dashboard.service';
 import { SalesManagerQueryDto } from '../../DTO/sales-manager-dashboard.dto';
 import {
   ReassignLeadDto,
-  BulkReassignDto,
   CreateMeetingOnBehalfDto,
   SendReminderDto,
 } from '../../DTO/sales-manager-actions.dto';
@@ -14,6 +13,11 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 @ApiTags('Dashboard - Sales Manager')
 @Controller('dashboard/sales-manager')
 @Auth()
+@UsePipes(new ValidationPipe({
+  transform: true,
+  whitelist: true,
+  forbidNonWhitelisted: true,
+}))
 export class SalesManagerDashboardController {
   constructor(private readonly service: SalesManagerDashboardService) {}
 
@@ -115,19 +119,6 @@ export class SalesManagerDashboardController {
     } catch (error) {
       resp.status = false;
       resp.message = error.message || 'Failed to reassign lead';
-    }
-    return resp;
-  }
-
-  @Patch('bulk-reassign')
-  async bulkReassign(@Body() dto: BulkReassignDto) {
-    const resp = new ResponseData();
-    try {
-      resp.data = await this.service.bulkReassign(dto);
-      resp.message = `${dto.PreCustomerMeetingSids.length} leads reassigned successfully`;
-    } catch (error) {
-      resp.status = false;
-      resp.message = error.message || 'Failed to bulk reassign';
     }
     return resp;
   }
