@@ -260,4 +260,8 @@ enum UserTypeCode {
   accounts
   accountsManager
   management
+  branchManager
+  generalManager
+  MD
+  CEO
 }
