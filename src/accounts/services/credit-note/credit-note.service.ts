@@ -7,6 +7,7 @@ import { VoucherPeriodService } from 'src/accounts/services/voucher-period/vouch
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
 @Injectable()
 export class CreditNoteService {
@@ -15,6 +16,7 @@ export class CreditNoteService {
     private logger: Logger,
     private voucherService: VoucherService,
     private voucherPeriodService: VoucherPeriodService,
+    private companyConfigService: CompanyConfigService,
   ) { }
 
   // Helper method to get CurrencyMasterSid by CurrencyCode
@@ -402,6 +404,130 @@ export class CreditNoteService {
           }
         }
 
+        // Reduce CostRevenueCharges / BookingRates amounts by credit note amounts
+        const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
+          payload.CompanyMasterSid, 'DisableRateUpdateBack', prisma
+        );
+        // Clear RevenueVoucherHeaderSid/TypeSid when charge is fully reversed (always, regardless of DisableRateUpdateBack).
+        // Uses RevenueVoucherHeaderSid on the charge to identify the original invoice detail (reliable, no nested
+        // relation filter). Non-invoice details with opposite DrCr count as reversals; same DrCr reduce net reversal.
+        // This correctly handles multi-CN partial reversals (e.g. CN1=1500 + CN2=500 on a 2000 charge).
+        if (payload.PostStatus !== 'P') {
+          for (const detail of (payload.VoucherDetail || [])) {
+            if (detail.CostRevenueChargesSid) {
+              const chargeRef = await prisma.costRevenueCharges.findUnique({
+                where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                select: { RevenueVoucherHeaderSid: true },
+              });
+              if (chargeRef?.RevenueVoucherHeaderSid) {
+                const invDetail = await prisma.voucherDetail.findFirst({
+                  where: {
+                    VoucherHeaderSid: chargeRef.RevenueVoucherHeaderSid,
+                    CostRevenueChargesSid: Number(detail.CostRevenueChargesSid),
+                    Status: 'A',
+                  },
+                  select: { Rate: true, DrCr: true },
+                });
+                if (invDetail) {
+                  const cnDetails = await prisma.voucherDetail.findMany({
+                    where: {
+                      CostRevenueChargesSid: Number(detail.CostRevenueChargesSid),
+                      Status: 'A',
+                      VoucherHeaderSid: { not: chargeRef.RevenueVoucherHeaderSid },
+                    },
+                    select: { Rate: true, DrCr: true },
+                  });
+                  const netReversal = cnDetails.reduce((sum, d) =>
+                    sum + (d.DrCr !== invDetail.DrCr ? toNumber(d.Rate) : -toNumber(d.Rate)), 0);
+                  if (netReversal >= toNumber(invDetail.Rate)) {
+                    await prisma.costRevenueCharges.update({
+                      where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                      data: { RevenueVoucherHeaderSid: null, RevenueVoucherTypeMasterSid: null, updatedOn: new Date(), updatedBy: payload.CreatedBy },
+                    });
+                  }
+                }
+              }
+            }
+            const bookingRatesSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : null;
+            if (bookingRatesSid) {
+              const rateRef = await prisma.bookingRates.findUnique({
+                where: { BookingRatesSid: bookingRatesSid },
+                select: { RevenueVoucherHeaderSid: true },
+              });
+              if (rateRef?.RevenueVoucherHeaderSid) {
+                const invDetail = await prisma.voucherDetail.findFirst({
+                  where: {
+                    VoucherHeaderSid: rateRef.RevenueVoucherHeaderSid,
+                    BookingRatesSid: bookingRatesSid,
+                    Status: 'A',
+                  },
+                  select: { Rate: true, DrCr: true },
+                });
+                if (invDetail) {
+                  const cnDetails = await prisma.voucherDetail.findMany({
+                    where: {
+                      BookingRatesSid: bookingRatesSid,
+                      Status: 'A',
+                      VoucherHeaderSid: { not: rateRef.RevenueVoucherHeaderSid },
+                    },
+                    select: { Rate: true, DrCr: true },
+                  });
+                  const netReversal = cnDetails.reduce((sum, d) =>
+                    sum + (d.DrCr !== invDetail.DrCr ? toNumber(d.Rate) : -toNumber(d.Rate)), 0);
+                  if (netReversal >= toNumber(invDetail.Rate)) {
+                    await prisma.bookingRates.update({
+                      where: { BookingRatesSid: bookingRatesSid },
+                      data: { RevenueVoucherHeaderSid: null, RevenueVoucherTypeMasterSid: null, UpdatedOn: new Date(), UpdatedBy: payload.CreatedBy },
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        if (disableRateUpdateBack !== 'Y' && payload.PostStatus !== 'P') {
+          for (const detail of (payload.VoucherDetail || [])) {
+            if (detail.CostRevenueChargesSid) {
+              const existingCharge = await prisma.costRevenueCharges.findUnique({
+                where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                select: { RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true }
+              });
+              if (existingCharge) {
+                await prisma.costRevenueCharges.update({
+                  where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                  data: {
+                    RevenueRate: toNumber(existingCharge.RevenueRate) - toNumber(detail.Rate),
+                    RevenueAmount: toNumber(existingCharge.RevenueAmount) - toNumber(detail.Amount),
+                    RevenueLocalAmount: toNumber(existingCharge.RevenueLocalAmount) - toNumber(detail.LocalAmount),
+                    updatedOn: new Date(),
+                    updatedBy: payload.CreatedBy,
+                  }
+                });
+              }
+            }
+            const bookingRatesSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : null;
+            if (bookingRatesSid) {
+              const existingRate = await prisma.bookingRates.findUnique({
+                where: { BookingRatesSid: bookingRatesSid },
+                select: { RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true }
+              });
+              if (existingRate) {
+                await prisma.bookingRates.update({
+                  where: { BookingRatesSid: bookingRatesSid },
+                  data: {
+                    RevenueRate: toNumber(existingRate.RevenueRate) - toNumber(detail.Rate),
+                    RevenueAmount: toNumber(existingRate.RevenueAmount) - toNumber(detail.Amount),
+                    RevenueLocalAmount: toNumber(existingRate.RevenueLocalAmount) - toNumber(detail.LocalAmount),
+                    UpdatedOn: new Date(),
+                    UpdatedBy: payload.CreatedBy,
+                  }
+                });
+              }
+            }
+          }
+        }
+
         // Create VoucherOthers if provided
         if (payload.VoucherOthers) {
           await prisma.voucherOthers.create({
@@ -570,20 +696,193 @@ export class CreditNoteService {
             })
           );
 
-          // 🔥 MAIN CHANGE HERE (update or create)
+          // Get DisableRateUpdateBack config before loop
+          const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
+            existingVoucher.CompanyMasterSid, 'DisableRateUpdateBack', prisma
+          );
+
+          const costRevenueSubtractMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+          const bookingRateSubtractMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+
           for (const detail of voucherDetailsPayload) {
             if (detail.VoucherDetailSid) {
-              // UPDATE existing
+              // UPDATE existing — read old amounts first to compute delta
+              const oldDetail = await prisma.voucherDetail.findUnique({
+                where: { VoucherDetailSid: detail.VoucherDetailSid },
+                select: { Rate: true, Amount: true, LocalAmount: true }
+              });
+
               const { VoucherDetailSid, ...rest } = detail;
               await prisma.voucherDetail.update({
                 where: { VoucherDetailSid: detail.VoucherDetailSid },
                 data: rest
               });
+
+              if (oldDetail) {
+                const deltaRate = toNumber(detail.Rate) - toNumber(oldDetail.Rate);
+                const deltaAmount = toNumber(detail.Amount) - toNumber(oldDetail.Amount);
+                const deltaLocalAmount = toNumber(detail.LocalAmount) - toNumber(oldDetail.LocalAmount);
+
+                const crcSid = detail.CostRevenueChargesSid ? Number(detail.CostRevenueChargesSid) : null;
+                if (crcSid) {
+                  const prev = costRevenueSubtractMap.get(crcSid) ?? { Rate: 0, Amount: 0, LocalAmount: 0 };
+                  costRevenueSubtractMap.set(crcSid, {
+                    Rate: prev.Rate + deltaRate,
+                    Amount: prev.Amount + deltaAmount,
+                    LocalAmount: prev.LocalAmount + deltaLocalAmount,
+                  });
+                }
+                const brSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : null;
+                if (brSid) {
+                  const prev = bookingRateSubtractMap.get(brSid) ?? { Rate: 0, Amount: 0, LocalAmount: 0 };
+                  bookingRateSubtractMap.set(brSid, {
+                    Rate: prev.Rate + deltaRate,
+                    Amount: prev.Amount + deltaAmount,
+                    LocalAmount: prev.LocalAmount + deltaLocalAmount,
+                  });
+                }
+              }
             } else {
               // CREATE new
               await prisma.voucherDetail.create({
                 data: detail,
               });
+
+              const crcSid = detail.CostRevenueChargesSid ? Number(detail.CostRevenueChargesSid) : null;
+              if (crcSid) {
+                const prev = costRevenueSubtractMap.get(crcSid) ?? { Rate: 0, Amount: 0, LocalAmount: 0 };
+                costRevenueSubtractMap.set(crcSid, {
+                  Rate: prev.Rate + toNumber(detail.Rate),
+                  Amount: prev.Amount + toNumber(detail.Amount),
+                  LocalAmount: prev.LocalAmount + toNumber(detail.LocalAmount),
+                });
+              }
+              const brSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : null;
+              if (brSid) {
+                const prev = bookingRateSubtractMap.get(brSid) ?? { Rate: 0, Amount: 0, LocalAmount: 0 };
+                bookingRateSubtractMap.set(brSid, {
+                  Rate: prev.Rate + toNumber(detail.Rate),
+                  Amount: prev.Amount + toNumber(detail.Amount),
+                  LocalAmount: prev.LocalAmount + toNumber(detail.LocalAmount),
+                });
+              }
+            }
+          }
+
+          // Clear RevenueVoucherHeaderSid/TypeSid when charge is fully reversed (always, regardless of DisableRateUpdateBack).
+          // Same DrCr-aware, RevenueVoucherHeaderSid-based logic as the CREATE path above.
+          if (payload.PostStatus !== 'P') {
+            for (const [crcSid, sub] of costRevenueSubtractMap) {
+              if (sub.Amount <= 0) continue;
+              const chargeRef = await prisma.costRevenueCharges.findUnique({
+                where: { CostRevenueChargesSid: crcSid },
+                select: { RevenueVoucherHeaderSid: true },
+              });
+              if (chargeRef?.RevenueVoucherHeaderSid) {
+                const invDetail = await prisma.voucherDetail.findFirst({
+                  where: {
+                    VoucherHeaderSid: chargeRef.RevenueVoucherHeaderSid,
+                    CostRevenueChargesSid: crcSid,
+                    Status: 'A',
+                  },
+                  select: { Rate: true, DrCr: true },
+                });
+                if (invDetail) {
+                  const cnDetails = await prisma.voucherDetail.findMany({
+                    where: {
+                      CostRevenueChargesSid: crcSid,
+                      Status: 'A',
+                      VoucherHeaderSid: { not: chargeRef.RevenueVoucherHeaderSid },
+                    },
+                    select: { Rate: true, DrCr: true },
+                  });
+                  const netReversal = cnDetails.reduce((sum, d) =>
+                    sum + (d.DrCr !== invDetail.DrCr ? toNumber(d.Rate) : -toNumber(d.Rate)), 0);
+                  if (netReversal >= toNumber(invDetail.Rate)) {
+                    await prisma.costRevenueCharges.update({
+                      where: { CostRevenueChargesSid: crcSid },
+                      data: { RevenueVoucherHeaderSid: null, RevenueVoucherTypeMasterSid: null, updatedOn: new Date(), updatedBy: payload.UpdatedBy },
+                    });
+                  }
+                }
+              }
+            }
+            for (const [brSid, sub] of bookingRateSubtractMap) {
+              if (sub.Amount <= 0) continue;
+              const rateRef = await prisma.bookingRates.findUnique({
+                where: { BookingRatesSid: brSid },
+                select: { RevenueVoucherHeaderSid: true },
+              });
+              if (rateRef?.RevenueVoucherHeaderSid) {
+                const invDetail = await prisma.voucherDetail.findFirst({
+                  where: {
+                    VoucherHeaderSid: rateRef.RevenueVoucherHeaderSid,
+                    BookingRatesSid: brSid,
+                    Status: 'A',
+                  },
+                  select: { Rate: true, DrCr: true },
+                });
+                if (invDetail) {
+                  const cnDetails = await prisma.voucherDetail.findMany({
+                    where: {
+                      BookingRatesSid: brSid,
+                      Status: 'A',
+                      VoucherHeaderSid: { not: rateRef.RevenueVoucherHeaderSid },
+                    },
+                    select: { Rate: true, DrCr: true },
+                  });
+                  const netReversal = cnDetails.reduce((sum, d) =>
+                    sum + (d.DrCr !== invDetail.DrCr ? toNumber(d.Rate) : -toNumber(d.Rate)), 0);
+                  if (netReversal >= toNumber(invDetail.Rate)) {
+                    await prisma.bookingRates.update({
+                      where: { BookingRatesSid: brSid },
+                      data: { RevenueVoucherHeaderSid: null, RevenueVoucherTypeMasterSid: null, UpdatedOn: new Date(), UpdatedBy: payload.UpdatedBy },
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          // Apply CostRevenueCharges / BookingRates revenue reduction
+          if (disableRateUpdateBack !== 'Y' && payload.PostStatus !== 'P') {
+            for (const [crcSid, sub] of costRevenueSubtractMap) {
+              if (sub.Rate === 0 && sub.Amount === 0 && sub.LocalAmount === 0) continue;
+              const existingCharge = await prisma.costRevenueCharges.findUnique({
+                where: { CostRevenueChargesSid: crcSid },
+                select: { RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true }
+              });
+              if (existingCharge) {
+                await prisma.costRevenueCharges.update({
+                  where: { CostRevenueChargesSid: crcSid },
+                  data: {
+                    RevenueRate: toNumber(existingCharge.RevenueRate) - sub.Rate,
+                    RevenueAmount: toNumber(existingCharge.RevenueAmount) - sub.Amount,
+                    RevenueLocalAmount: toNumber(existingCharge.RevenueLocalAmount) - sub.LocalAmount,
+                    updatedOn: new Date(),
+                    updatedBy: payload.UpdatedBy,
+                  }
+                });
+              }
+            }
+            for (const [brSid, sub] of bookingRateSubtractMap) {
+              if (sub.Rate === 0 && sub.Amount === 0 && sub.LocalAmount === 0) continue;
+              const existingRate = await prisma.bookingRates.findUnique({
+                where: { BookingRatesSid: brSid },
+                select: { RevenueRate: true, RevenueAmount: true, RevenueLocalAmount: true }
+              });
+              if (existingRate) {
+                await prisma.bookingRates.update({
+                  where: { BookingRatesSid: brSid },
+                  data: {
+                    RevenueRate: toNumber(existingRate.RevenueRate) - sub.Rate,
+                    RevenueAmount: toNumber(existingRate.RevenueAmount) - sub.Amount,
+                    RevenueLocalAmount: toNumber(existingRate.RevenueLocalAmount) - sub.LocalAmount,
+                    UpdatedOn: new Date(),
+                    UpdatedBy: payload.UpdatedBy,
+                  }
+                });
+              }
             }
           }
         }

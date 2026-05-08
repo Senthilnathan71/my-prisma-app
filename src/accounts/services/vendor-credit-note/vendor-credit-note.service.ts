@@ -6,6 +6,7 @@ import { VoucherPeriodService } from 'src/accounts/services/voucher-period/vouch
 import { PullVoucherDTO, VoucherHeaderDto } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
+import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
 @Injectable()
 export class VendorCreditNoteService {
@@ -15,6 +16,7 @@ export class VendorCreditNoteService {
         private readonly _db: DatabaseService,
         private readonly voucherService: VoucherService,
         private readonly voucherPeriodService: VoucherPeriodService,
+        private readonly companyConfigService: CompanyConfigService,
     ) { }
 
     async createVendorCreditNote(payload: any): Promise<any> {
@@ -163,6 +165,129 @@ export class VendorCreditNoteService {
                         });
                         finalDetails.push(newDetail);
                         totalTaxableAmount += Number(detail.TaxableAmount || detail.Amount || 0);
+                    }
+                }
+
+                // Reduce CostRevenueCharges / BookingRates amounts by vendor credit note amounts
+                const disableRateUpdateBackCreate = await this.companyConfigService.getConfigurationValue(
+                    payload.CompanyMasterSid, 'DisableRateUpdateBack', tx
+                );
+                // Clear CostVoucherHeaderSid/TypeSid when charge is fully reversed (always, regardless of DisableRateUpdateBack).
+                // Uses CostVoucherHeaderSid on the charge to identify the original vendor invoice detail.
+                // Non-invoice details with opposite DrCr count as reversals; same DrCr reduce net reversal.
+                if (payload.PostStatus !== 'P') {
+                    for (const detail of (payload.VoucherDetail || [])) {
+                        if (detail.CostRevenueChargesSid) {
+                            const chargeRef = await tx.costRevenueCharges.findUnique({
+                                where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                                select: { CostVoucherHeaderSid: true },
+                            });
+                            if (chargeRef?.CostVoucherHeaderSid) {
+                                const vinDetail = await tx.voucherDetail.findFirst({
+                                    where: {
+                                        VoucherHeaderSid: chargeRef.CostVoucherHeaderSid,
+                                        CostRevenueChargesSid: Number(detail.CostRevenueChargesSid),
+                                        Status: 'A',
+                                    },
+                                    select: { Rate: true, DrCr: true },
+                                });
+                                if (vinDetail) {
+                                    const vcnDetails = await tx.voucherDetail.findMany({
+                                        where: {
+                                            CostRevenueChargesSid: Number(detail.CostRevenueChargesSid),
+                                            Status: 'A',
+                                            VoucherHeaderSid: { not: chargeRef.CostVoucherHeaderSid },
+                                        },
+                                        select: { Rate: true, DrCr: true },
+                                    });
+                                    const netReversal = vcnDetails.reduce((sum, d) =>
+                                        sum + (d.DrCr !== vinDetail.DrCr ? toNumber(d.Rate) : -toNumber(d.Rate)), 0);
+                                    if (netReversal >= toNumber(vinDetail.Rate)) {
+                                        await tx.costRevenueCharges.update({
+                                            where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                                            data: { CostVoucherHeaderSid: null, CostVoucherTypeMasterSid: null, updatedOn: new Date(), updatedBy: payload.CreatedBy },
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        const bookingRatesSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : null;
+                        if (bookingRatesSid) {
+                            const rateRef = await tx.bookingRates.findUnique({
+                                where: { BookingRatesSid: bookingRatesSid },
+                                select: { CostVoucherHeaderSid: true },
+                            });
+                            if (rateRef?.CostVoucherHeaderSid) {
+                                const vinDetail = await tx.voucherDetail.findFirst({
+                                    where: {
+                                        VoucherHeaderSid: rateRef.CostVoucherHeaderSid,
+                                        BookingRatesSid: bookingRatesSid,
+                                        Status: 'A',
+                                    },
+                                    select: { Rate: true, DrCr: true },
+                                });
+                                if (vinDetail) {
+                                    const vcnDetails = await tx.voucherDetail.findMany({
+                                        where: {
+                                            BookingRatesSid: bookingRatesSid,
+                                            Status: 'A',
+                                            VoucherHeaderSid: { not: rateRef.CostVoucherHeaderSid },
+                                        },
+                                        select: { Rate: true, DrCr: true },
+                                    });
+                                    const netReversal = vcnDetails.reduce((sum, d) =>
+                                        sum + (d.DrCr !== vinDetail.DrCr ? toNumber(d.Rate) : -toNumber(d.Rate)), 0);
+                                    if (netReversal >= toNumber(vinDetail.Rate)) {
+                                        await tx.bookingRates.update({
+                                            where: { BookingRatesSid: bookingRatesSid },
+                                            data: { CostVoucherHeaderSid: null, CostVoucherTypeMasterSid: null, UpdatedOn: new Date(), UpdatedBy: payload.CreatedBy },
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (disableRateUpdateBackCreate !== 'Y' && payload.PostStatus !== 'P') {
+                    for (const detail of (payload.VoucherDetail || [])) {
+                        if (detail.CostRevenueChargesSid) {
+                            const existingCharge = await tx.costRevenueCharges.findUnique({
+                                where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                                select: { CostRate: true, CostAmount: true, CostLocalAmount: true }
+                            });
+                            if (existingCharge) {
+                                await tx.costRevenueCharges.update({
+                                    where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                                    data: {
+                                        CostRate: toNumber(existingCharge.CostRate) - toNumber(detail.Rate),
+                                        CostAmount: toNumber(existingCharge.CostAmount) - toNumber(detail.Amount),
+                                        CostLocalAmount: toNumber(existingCharge.CostLocalAmount) - toNumber(detail.LocalAmount),
+                                        updatedOn: new Date(),
+                                        updatedBy: payload.CreatedBy,
+                                    }
+                                });
+                            }
+                        }
+                        const bookingRatesSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : null;
+                        if (bookingRatesSid) {
+                            const existingRate = await tx.bookingRates.findUnique({
+                                where: { BookingRatesSid: bookingRatesSid },
+                                select: { CostRate: true, CostAmount: true, CostLocalAmount: true }
+                            });
+                            if (existingRate) {
+                                await tx.bookingRates.update({
+                                    where: { BookingRatesSid: bookingRatesSid },
+                                    data: {
+                                        CostRate: toNumber(existingRate.CostRate) - toNumber(detail.Rate),
+                                        CostAmount: toNumber(existingRate.CostAmount) - toNumber(detail.Amount),
+                                        CostLocalAmount: toNumber(existingRate.CostLocalAmount) - toNumber(detail.LocalAmount),
+                                        UpdatedOn: new Date(),
+                                        UpdatedBy: payload.CreatedBy,
+                                    }
+                                });
+                            }
+                        }
                     }
                 }
 
@@ -472,6 +597,13 @@ export class VendorCreditNoteService {
                         data: { Status: 'D' }
                     });
 
+                    const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
+                        existing.CompanyMasterSid, 'DisableRateUpdateBack', tx
+                    );
+
+                    const costRevenueSubtractMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+                    const bookingRateSubtractMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+
                     let sno = 1;
 
                     for (const detail of payload.VoucherDetail) {
@@ -479,6 +611,11 @@ export class VendorCreditNoteService {
                             // -------------------------------
                             // UPDATE EXISTING ROW
                             // -------------------------------
+                            const oldDetail = await tx.voucherDetail.findUnique({
+                                where: { VoucherDetailSid: detail.VoucherDetailSid },
+                                select: { Rate: true, Amount: true, LocalAmount: true }
+                            });
+
                             await tx.voucherDetail.update({
                                 where: { VoucherDetailSid: detail.VoucherDetailSid },
                                 data: {
@@ -516,6 +653,32 @@ export class VendorCreditNoteService {
                                     Status: 'A'
                                 }
                             });
+
+                            if (oldDetail) {
+                                const deltaRate = toNumber(detail.Rate) - toNumber(oldDetail.Rate);
+                                const deltaAmount = toNumber(detail.Amount) - toNumber(oldDetail.Amount);
+                                const deltaLocalAmount = toNumber(detail.LocalAmount) - toNumber(oldDetail.LocalAmount);
+
+                                const crcSid = (detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid) != null
+                                    ? Number(detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid) : null;
+                                if (crcSid) {
+                                    const prev = costRevenueSubtractMap.get(crcSid) ?? { Rate: 0, Amount: 0, LocalAmount: 0 };
+                                    costRevenueSubtractMap.set(crcSid, {
+                                        Rate: prev.Rate + deltaRate,
+                                        Amount: prev.Amount + deltaAmount,
+                                        LocalAmount: prev.LocalAmount + deltaLocalAmount,
+                                    });
+                                }
+                                const brSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : null;
+                                if (brSid) {
+                                    const prev = bookingRateSubtractMap.get(brSid) ?? { Rate: 0, Amount: 0, LocalAmount: 0 };
+                                    bookingRateSubtractMap.set(brSid, {
+                                        Rate: prev.Rate + deltaRate,
+                                        Amount: prev.Amount + deltaAmount,
+                                        LocalAmount: prev.LocalAmount + deltaLocalAmount,
+                                    });
+                                }
+                            }
 
                         } else {
                             // -------------------------------
@@ -560,6 +723,143 @@ export class VendorCreditNoteService {
                                     Status: 'A'
                                 }
                             });
+
+                            const crcSid = (detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid) != null
+                                ? Number(detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid) : null;
+                            if (crcSid) {
+                                const prev = costRevenueSubtractMap.get(crcSid) ?? { Rate: 0, Amount: 0, LocalAmount: 0 };
+                                costRevenueSubtractMap.set(crcSid, {
+                                    Rate: prev.Rate + toNumber(detail.Rate),
+                                    Amount: prev.Amount + toNumber(detail.Amount),
+                                    LocalAmount: prev.LocalAmount + toNumber(detail.LocalAmount),
+                                });
+                            }
+                            const brSid = detail.BookingRatesSid ? Number(detail.BookingRatesSid) : null;
+                            if (brSid) {
+                                const prev = bookingRateSubtractMap.get(brSid) ?? { Rate: 0, Amount: 0, LocalAmount: 0 };
+                                bookingRateSubtractMap.set(brSid, {
+                                    Rate: prev.Rate + toNumber(detail.Rate),
+                                    Amount: prev.Amount + toNumber(detail.Amount),
+                                    LocalAmount: prev.LocalAmount + toNumber(detail.LocalAmount),
+                                });
+                            }
+                        }
+                    }
+
+                    // Clear CostVoucherHeaderSid/TypeSid when charge is fully reversed (always, regardless of DisableRateUpdateBack).
+                    // Same CostVoucherHeaderSid-based, DrCr-aware logic as the CREATE path above.
+                    if (payload.PostStatus !== 'P') {
+                        for (const [crcSid, sub] of costRevenueSubtractMap) {
+                            if (sub.Amount <= 0) continue;
+                            const chargeRef = await tx.costRevenueCharges.findUnique({
+                                where: { CostRevenueChargesSid: crcSid },
+                                select: { CostVoucherHeaderSid: true },
+                            });
+                            if (chargeRef?.CostVoucherHeaderSid) {
+                                const vinDetail = await tx.voucherDetail.findFirst({
+                                    where: {
+                                        VoucherHeaderSid: chargeRef.CostVoucherHeaderSid,
+                                        CostRevenueChargesSid: crcSid,
+                                        Status: 'A',
+                                    },
+                                    select: { Rate: true, DrCr: true },
+                                });
+                                if (vinDetail) {
+                                    const vcnDetails = await tx.voucherDetail.findMany({
+                                        where: {
+                                            CostRevenueChargesSid: crcSid,
+                                            Status: 'A',
+                                            VoucherHeaderSid: { not: chargeRef.CostVoucherHeaderSid },
+                                        },
+                                        select: { Rate: true, DrCr: true },
+                                    });
+                                    const netReversal = vcnDetails.reduce((sum, d) =>
+                                        sum + (d.DrCr !== vinDetail.DrCr ? toNumber(d.Rate) : -toNumber(d.Rate)), 0);
+                                    if (netReversal >= toNumber(vinDetail.Rate)) {
+                                        await tx.costRevenueCharges.update({
+                                            where: { CostRevenueChargesSid: crcSid },
+                                            data: { CostVoucherHeaderSid: null, CostVoucherTypeMasterSid: null, updatedOn: new Date(), updatedBy: payload.UpdatedBy },
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        for (const [brSid, sub] of bookingRateSubtractMap) {
+                            if (sub.Amount <= 0) continue;
+                            const rateRef = await tx.bookingRates.findUnique({
+                                where: { BookingRatesSid: brSid },
+                                select: { CostVoucherHeaderSid: true },
+                            });
+                            if (rateRef?.CostVoucherHeaderSid) {
+                                const vinDetail = await tx.voucherDetail.findFirst({
+                                    where: {
+                                        VoucherHeaderSid: rateRef.CostVoucherHeaderSid,
+                                        BookingRatesSid: brSid,
+                                        Status: 'A',
+                                    },
+                                    select: { Rate: true, DrCr: true },
+                                });
+                                if (vinDetail) {
+                                    const vcnDetails = await tx.voucherDetail.findMany({
+                                        where: {
+                                            BookingRatesSid: brSid,
+                                            Status: 'A',
+                                            VoucherHeaderSid: { not: rateRef.CostVoucherHeaderSid },
+                                        },
+                                        select: { Rate: true, DrCr: true },
+                                    });
+                                    const netReversal = vcnDetails.reduce((sum, d) =>
+                                        sum + (d.DrCr !== vinDetail.DrCr ? toNumber(d.Rate) : -toNumber(d.Rate)), 0);
+                                    if (netReversal >= toNumber(vinDetail.Rate)) {
+                                        await tx.bookingRates.update({
+                                            where: { BookingRatesSid: brSid },
+                                            data: { CostVoucherHeaderSid: null, CostVoucherTypeMasterSid: null, UpdatedOn: new Date(), UpdatedBy: payload.UpdatedBy },
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Apply CostRevenueCharges / BookingRates cost reduction
+                    if (disableRateUpdateBack !== 'Y' && payload.PostStatus !== 'P') {
+                        for (const [crcSid, sub] of costRevenueSubtractMap) {
+                            if (sub.Rate === 0 && sub.Amount === 0 && sub.LocalAmount === 0) continue;
+                            const existingCharge = await tx.costRevenueCharges.findUnique({
+                                where: { CostRevenueChargesSid: crcSid },
+                                select: { CostRate: true, CostAmount: true, CostLocalAmount: true }
+                            });
+                            if (existingCharge) {
+                                await tx.costRevenueCharges.update({
+                                    where: { CostRevenueChargesSid: crcSid },
+                                    data: {
+                                        CostRate: toNumber(existingCharge.CostRate) - sub.Rate,
+                                        CostAmount: toNumber(existingCharge.CostAmount) - sub.Amount,
+                                        CostLocalAmount: toNumber(existingCharge.CostLocalAmount) - sub.LocalAmount,
+                                        updatedOn: new Date(),
+                                        updatedBy: payload.UpdatedBy,
+                                    }
+                                });
+                            }
+                        }
+                        for (const [brSid, sub] of bookingRateSubtractMap) {
+                            if (sub.Rate === 0 && sub.Amount === 0 && sub.LocalAmount === 0) continue;
+                            const existingRate = await tx.bookingRates.findUnique({
+                                where: { BookingRatesSid: brSid },
+                                select: { CostRate: true, CostAmount: true, CostLocalAmount: true }
+                            });
+                            if (existingRate) {
+                                await tx.bookingRates.update({
+                                    where: { BookingRatesSid: brSid },
+                                    data: {
+                                        CostRate: toNumber(existingRate.CostRate) - sub.Rate,
+                                        CostAmount: toNumber(existingRate.CostAmount) - sub.Amount,
+                                        CostLocalAmount: toNumber(existingRate.CostLocalAmount) - sub.LocalAmount,
+                                        UpdatedOn: new Date(),
+                                        UpdatedBy: payload.UpdatedBy,
+                                    }
+                                });
+                            }
                         }
                     }
                 }
