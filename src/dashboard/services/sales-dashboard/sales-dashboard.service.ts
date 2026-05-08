@@ -18,6 +18,7 @@ interface NormalizedParams {
   pageSize: number;
   search: string | null;
   bucket: SectionBucket | null;
+  meetingDateFilter: 'none' | 'range';
 }
 
 interface PagedResult<T> {
@@ -428,6 +429,7 @@ export class SalesDashboardService {
       pageSize: Math.min(Math.max(pageSize, 1), this.maxPageSize),
       search: query.search?.trim() || null,
       bucket: query.bucket || null,
+      meetingDateFilter: query.meetingDateFilter === 'range' ? 'range' : 'none',
     };
   }
 
@@ -607,9 +609,17 @@ export class SalesDashboardService {
       params.companyMasterSid,
       params.branchMasterSid,
       params.salespersonId,
-      params.naiveDateFrom,
-      params.naiveDateTo,
     ];
+    const meetingDateClause =
+      params.meetingDateFilter === 'range'
+        ? `AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)`
+        : '';
+
+    if (params.meetingDateFilter === 'range') {
+      baseParams.push(params.naiveDateFrom, params.naiveDateTo);
+    }
+
     const search = this.buildSearchClause(
       params.search,
       [
@@ -654,8 +664,7 @@ export class SalesDashboardService {
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-        AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
-        AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)
+        ${meetingDateClause}
         AND ${bucketClause}
         ${search.clause}
       ORDER BY pcmm."meetingDate" ${orderDir}`;
@@ -676,8 +685,7 @@ export class SalesDashboardService {
         AND pcmm."CompanyMasterSid" = $1
         AND pcmm."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-        AND ($4::timestamp IS NULL OR pcmm."meetingDate" >= $4::timestamp)
-        AND ($5::timestamp IS NULL OR pcmm."meetingDate" <= $5::timestamp)
+        ${meetingDateClause}
         AND ${bucketClause}
         ${search.clause}`;
 

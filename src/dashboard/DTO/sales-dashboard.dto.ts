@@ -65,4 +65,13 @@ export class SalesDashboardQueryDto {
   @IsOptional()
   @IsIn(['overdue', 'today', 'future'])
   bucket?: 'overdue' | 'today' | 'future';
+
+  @ApiProperty({
+    required: false,
+    enum: ['none', 'range'],
+    description: 'Controls whether scheduled meetings use naiveDateFrom/naiveDateTo. Default none keeps Sales Dashboard meetings unfiltered by selected date range.',
+  })
+  @IsOptional()
+  @IsIn(['none', 'range'])
+  meetingDateFilter?: 'none' | 'range';
 }

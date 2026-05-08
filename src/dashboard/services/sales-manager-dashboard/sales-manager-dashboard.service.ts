@@ -698,9 +698,10 @@ export class SalesManagerDashboardService {
         SELECT pcmm."leadAssignTo" AS uid, COUNT(*) AS cnt
         FROM "PreCustomerMeeting" pcmm
         WHERE pcmm."status" = 'A' AND pcmm."meetingDate" IS NOT NULL
+          AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
           AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
-          AND ($5::timestamptz IS NULL OR pcmm."meetingDate" >= $5::timestamptz)
-          AND ($6::timestamptz IS NULL OR pcmm."meetingDate" <= $6::timestamptz)
+          AND ($5::timestamp IS NULL OR pcmm."meetingDate" >= $5::timestamp)
+          AND ($6::timestamp IS NULL OR pcmm."meetingDate" <= $6::timestamp)
           AND EXISTS (
             SELECT 1 FROM "UserMaster" scoped_um
             WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
@@ -716,8 +717,8 @@ export class SalesManagerDashboardService {
         WHERE pcmm."followUpDate" IS NOT NULL AND pcmm."status" = 'A'
           AND pcmm."CompanyMasterSid" = $1 AND pcmm."BranchMasterSid" = $2
           AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
-          AND ($5::timestamp IS NULL OR pcmm."followUpDate" >= $5::timestamptz)
-          AND ($6::timestamp IS NULL OR pcmm."followUpDate" <= $6::timestamptz)
+          AND ($5::timestamp IS NULL OR pcmm."followUpDate" >= $5::timestamp)
+          AND ($6::timestamp IS NULL OR pcmm."followUpDate" <= $6::timestamp)
           AND EXISTS (
             SELECT 1 FROM "UserMaster" scoped_um
             WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
@@ -728,49 +729,64 @@ export class SalesManagerDashboardService {
         GROUP BY pcmm."leadAssignTo"
       ),
       s4 AS (
-        SELECT pcmm."leadAssignTo" AS uid, COUNT(DISTINCT pcm."PreCustomerMasterSid") AS cnt
-        FROM "PreCustomerMaster" pcm
-        INNER JOIN "PreCustomerMeeting" pcmm ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
-        WHERE pcm."status" = 'A' AND pcm."CompanyMasterSid" = $1 AND pcm."BranchMasterSid" = $2
-          AND EXISTS (
-            SELECT 1 FROM "UserMaster" scoped_um
-            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
-              AND scoped_um."DeptHead" = $7
-              AND scoped_um."isSalesperson" = '1'
-              AND scoped_um."status" = 'A'
-          )
-          AND EXISTS (
-            SELECT 1 FROM "PreCustomerMeeting" pcmm3
-            WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-            AND pcmm3."meetingStatus" IN ('Completed', 'Confirmed')
-          )
-          AND NOT EXISTS (
-            SELECT 1 FROM "CustomerMaster" cm
-            WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid" AND cm."status" = 'A'
-          )
-          AND ($5::timestamp IS NULL OR pcmm."meetingDate" >= $5::timestamp)
-          AND ($6::timestamp IS NULL OR pcmm."meetingDate" <= $6::timestamp)
-        GROUP BY pcmm."leadAssignTo"
+        SELECT sp."UserMasterSid" AS uid, COUNT(*) AS cnt
+        FROM salespersons sp
+        INNER JOIN LATERAL (
+          SELECT pcm."PreCustomerMasterSid"
+          FROM "PreCustomerMaster" pcm
+          INNER JOIN "PreCustomerMeeting" pcmm
+            ON pcm."PreCustomerMasterSid" = pcmm."PreCustomerMasterSid"
+          WHERE
+            pcm."status" = 'A'
+            AND pcm."CompanyMasterSid" = $1
+            AND pcm."BranchMasterSid" = $2
+            AND EXISTS (
+              SELECT 1 FROM "PreCustomerMeeting" pcmm3
+              WHERE pcmm3."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+              AND pcmm3."meetingStatus" IN ('Completed', 'Confirmed')
+            )
+            AND NOT EXISTS (
+              SELECT 1 FROM "CustomerMaster" cm
+              WHERE cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+              AND cm."status" = 'A'
+            )
+            AND (
+              pcm."createdBy" = sp."userEmail"
+              OR EXISTS (
+                SELECT 1 FROM "PreCustomerMeeting" pcmm4
+                WHERE pcmm4."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+                AND pcmm4."leadAssignTo" = sp."UserMasterSid"
+              )
+            )
+            AND ($5::timestamp IS NULL OR pcmm."meetingDate" >= $5::timestamp)
+            AND ($6::timestamp IS NULL OR pcmm."meetingDate" <= $6::timestamp)
+          GROUP BY pcm."PreCustomerMasterSid"
+        ) matched ON true
+        GROUP BY sp."UserMasterSid"
       ),
       s5 AS (
-        SELECT pcmm."leadAssignTo" AS uid, COUNT(DISTINCT cm."CustomerMasterSid") AS cnt
-        FROM "CustomerMaster" cm
-        INNER JOIN "PreCustomerMaster" pcm ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-        INNER JOIN "PreCustomerMeeting" pcmm ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
-        WHERE cm."status" = 'A' AND cm."CompanyMasterSid" = $1
-          AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
-          AND EXISTS (
-            SELECT 1 FROM "UserMaster" scoped_um
-            WHERE scoped_um."UserMasterSid" = pcmm."leadAssignTo"
-              AND scoped_um."DeptHead" = $7
-              AND scoped_um."isSalesperson" = '1'
-              AND scoped_um."status" = 'A'
-          )
-          AND NOT EXISTS (SELECT 1 FROM "QuoteHeader" qh WHERE qh."CustomerMasterSid" = cm."CustomerMasterSid")
-          AND NOT EXISTS (SELECT 1 FROM "BookingHeader" bh WHERE bh."CustomerMasterSid" = cm."CustomerMasterSid")
-          AND ($3::timestamptz IS NULL OR cm."createdOn" >= $3::timestamptz)
-          AND ($4::timestamptz IS NULL OR cm."createdOn" <= $4::timestamptz)
-        GROUP BY pcmm."leadAssignTo"
+        SELECT sp."UserMasterSid" AS uid, COUNT(*) AS cnt
+        FROM salespersons sp
+        INNER JOIN LATERAL (
+          SELECT cm."CustomerMasterSid"
+          FROM "CustomerMaster" cm
+          INNER JOIN "PreCustomerMaster" pcm ON cm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+          WHERE cm."status" = 'A' AND cm."CompanyMasterSid" = $1
+            AND ($2::int IS NULL OR pcm."BranchMasterSid" = $2)
+            AND NOT EXISTS (SELECT 1 FROM "QuoteHeader" qh WHERE qh."CustomerMasterSid" = cm."CustomerMasterSid")
+            AND NOT EXISTS (SELECT 1 FROM "BookingHeader" bh WHERE bh."CustomerMasterSid" = cm."CustomerMasterSid")
+            AND (
+              pcm."createdBy" = sp."userEmail"
+              OR EXISTS (
+                SELECT 1 FROM "PreCustomerMeeting" pcmm
+                WHERE pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
+                AND pcmm."leadAssignTo" = sp."UserMasterSid"
+              )
+            )
+            AND ($3::timestamptz IS NULL OR cm."createdOn" >= $3::timestamptz)
+            AND ($4::timestamptz IS NULL OR cm."createdOn" <= $4::timestamptz)
+        ) matched ON true
+        GROUP BY sp."UserMasterSid"
       ),
       s6 AS (
         SELECT eh."UserMasterSid" AS uid, COUNT(*) AS cnt
