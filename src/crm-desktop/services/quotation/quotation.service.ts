@@ -296,7 +296,9 @@ export class QuotationService {
                             where: {
                                 PreCustomerMasterSid: payload.PreCustomerMasterSid
                             }, data: {
-                                leadStatus: LeadStatus.QuotationCreated
+                                leadStatus: LeadStatus.QuotationCreated,
+                                updatedBy: payload.createdBy,
+                                updatedOn: new Date()
                             }
                         })
                     }
@@ -814,7 +816,9 @@ export class QuotationService {
                     where: {
                         PreCustomerMasterSid: updatedQuoteHeader.PreCustomerMasterSid!
                     }, data: {
-                        leadStatus: LeadStatus.QuotationConfirmed
+                        leadStatus: LeadStatus.QuotationConfirmed,
+                        updatedBy: payload.updatedBy,
+                        updatedOn: new Date()
                     }
                 })
             }
