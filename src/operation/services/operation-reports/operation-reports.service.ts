@@ -21,6 +21,7 @@ import {
 } from 'src/operation/DTO/operation-reports.dto';
 import { ProRateService } from 'src/operation/services/pro-rate/pro-rate.service';
 import { toNumber } from 'src/common/helper';
+import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
 
 @Injectable()
 export class OperationReportsService {
@@ -28,6 +29,7 @@ export class OperationReportsService {
     private _db: DatabaseService,
     private logger: Logger,
     private readonly proRateService: ProRateService,
+    private readonly voucherService: VoucherService,
   ) {}
 
   async getAvailableReports(companyId: number) {
@@ -1033,48 +1035,35 @@ export class OperationReportsService {
           const totalCostWithHouse = totalCost + totalHouseCost;
           const totalRevenueWithHouse = totalRevenue + totalHouseRevenue;
           const GP = totalRevenueWithHouse - totalCostWithHouse;
-          const masterVouchers = relatedCR.filter(
-            (cr) => cr.CostVoucherHeaderSid,
+          const getActualForCharges = async (charges: any[]) => {
+            const actuals = await Promise.all(
+              charges.map((charge) =>
+                this.voucherService.getActualAmountForCostRevenue(
+                  charge.CostRevenueChargesSid,
+                ),
+              ),
+            );
+
+            return actuals.reduce(
+              (sum, item) => {
+                sum.ActualCost += item.ActualCost;
+                sum.ActualRevenue += item.ActualRevenue;
+                return sum;
+              },
+              { ActualCost: 0, ActualRevenue: 0 },
+            );
+          };
+
+          const masterActuals = await getActualForCharges(relatedCR);
+          const houseCharges = houseJobs.flatMap(
+            (house) => houseRateMap.get(house.HouseJobSid) || [],
           );
-          const actualCostMaster = masterVouchers.reduce((sum, cr) => {
-            return cr.CostDrCr === 'D'
-              ? Number(sum) + Number(cr.CostLocalAmount ?? 0)
-              : Number(sum) - Number(cr.CostLocalAmount ?? 0);
-          }, 0);
+          const houseActuals = await getActualForCharges(houseCharges);
 
-          const masterV = relatedCR.filter((cr) => cr.RevenueVoucherHeaderSid);
-          const actualRevenueMaster = masterV.reduce((sum, cr) => {
-            return cr.RevenueDrCr === 'C'
-              ? Number(sum) + Number(cr.RevenueLocalAmount ?? 0)
-              : Number(sum) - Number(cr.RevenueLocalAmount ?? 0);
-          }, 0);
-
-          let actualCostHouse = 0;
-          let actualRevenueHouse = 0;
-
-          houseJobsData.forEach((house) => {
-            const voucherCRs = (
-              houseRateMap.get(house.HouseJobSid) || []
-            ).filter((cr) => cr.CostVoucherHeaderSid);
-
-            const cost = voucherCRs.reduce((sum, cr) => {
-              return cr.CostDrCr === 'D'
-                ? Number(sum) + Number(cr.CostLocalAmount ?? 0)
-                : Number(sum) - Number(cr.CostLocalAmount ?? 0);
-            }, 0);
-
-            const voucherrevensid = (
-              houseRateMap.get(house.HouseJobSid) || []
-            ).filter((cr) => cr.RevenueVoucherHeaderSid);
-            const revenue = voucherrevensid.reduce((sum, cr) => {
-              return cr.RevenueDrCr === 'C'
-                ? Number(sum) + Number(cr.RevenueLocalAmount ?? 0)
-                : Number(sum) - Number(cr.RevenueLocalAmount ?? 0);
-            }, 0);
-
-            actualCostHouse += cost;
-            actualRevenueHouse += revenue;
-          });
+          const actualCostMaster = masterActuals.ActualCost;
+          const actualRevenueMaster = masterActuals.ActualRevenue;
+          const actualCostHouse = houseActuals.ActualCost;
+          const actualRevenueHouse = houseActuals.ActualRevenue;
 
           const actualCost = actualCostMaster + actualCostHouse;
           const actualRevenue = actualRevenueMaster + actualRevenueHouse;
@@ -4093,7 +4082,26 @@ export class OperationReportsService {
         departments.find((d) => d.DepartmentMasterSid === deptId)
           ?.departmentName || '';
 
-  
+      const getActualsFromCharges = async (charges: any[]) => {
+        const actuals = await Promise.all(
+          charges
+            .filter((cr) => cr.CostRevenueChargesSid)
+            .map((cr) =>
+              this.voucherService.getActualAmountForCostRevenue(
+                cr.CostRevenueChargesSid,
+              ),
+            ),
+        );
+
+        return actuals.reduce(
+          (sum, item) => {
+            sum.aSale += Number(item.ActualRevenue || 0);
+            sum.aCost += Number(item.ActualCost || 0);
+            return sum;
+          },
+          { aSale: 0, aCost: 0 },
+        );
+      };
 
       /* ===================== FINAL DATA ===================== */
 
@@ -4114,8 +4122,9 @@ export class OperationReportsService {
 
           const pSale = calc(masterCR, 'R');
           const pCost = calc(masterCR, 'C');
-          const aSale = calc(linkedRev, 'R');
-          const aCost = calc(linkedCost, 'C');
+          const masterActuals = await getActualsFromCharges(masterCR);
+          const aSale = masterActuals.aSale;
+          const aCost = masterActuals.aCost;
 
           const houseWithCR = await Promise.all(
             mj.houseJob.map(async (hj) => {
@@ -4135,8 +4144,9 @@ export class OperationReportsService {
 
               const hpSale = calc(houseCR, 'R') + houseProrate.totalRevenue;
               const hpCost = calc(houseCR, 'C') + houseProrate.totalCost;
-              const haSale = calc(linkedRevH, 'R');
-              const haCost = calc(linkedCostH, 'C');
+              const houseActuals = await getActualsFromCharges(houseCR);
+              const haSale = houseActuals.aSale;
+              const haCost = houseActuals.aCost;
 
               return {
                 HouseJobSid: hj.HouseJobSid,

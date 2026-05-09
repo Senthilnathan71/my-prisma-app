@@ -118,7 +118,7 @@ import { SettingsModule } from 'src/settings/settings.module';
         VoucherMatchingService,
         VoucherPeriodService
     ],
-    exports: [AccountsReportsService, VoucherPeriodService]
+    exports: [AccountsReportsService, VoucherPeriodService, VoucherService]
 })
 export class AccountsModule { }
 
