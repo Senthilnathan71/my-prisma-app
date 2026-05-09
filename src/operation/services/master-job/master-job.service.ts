@@ -5585,16 +5585,44 @@ if (houseConnections.length === 0 && (houseJob.POL || houseJob.POD || houseJob.V
 }
 async getMasterJobARAPData(MasterJobSid: number): Promise<any> {
   try {
+        const linkedHouses = await this._db.houseJob.findMany({
+            where: {
+                MasterJobSid: MasterJobSid,
+                status: 'A'
+            },
+            select: {
+                HouseJobSid: true,
+                BookingHeaderSid: true
+            }
+        });
+
+    const houseJobSids = linkedHouses
+      .map((house: any) => Number(house.HouseJobSid))
+      .filter((sid: number) => Number.isFinite(sid));
+
+    const bookingHeaderSids = linkedHouses
+      .map((house: any) => Number(house.BookingHeaderSid))
+      .filter((sid: number) => Number.isFinite(sid));
+
     const arapData = await this._db.voucherHeader.findMany({
       where: {
-        MasterJobSid: MasterJobSid
+        Status: 'A',
+        OR: [
+          { MasterJobSid: MasterJobSid },
+          ...(houseJobSids.length ? [{ HouseJobSid: { in: houseJobSids } }] : []),
+          ...(bookingHeaderSids.length ? [{ BookingHeaderSid: { in: bookingHeaderSids } }] : [])
+        ]
       },
       select: {
         CompanyMasterSid: true,
         BranchMasterSid: true,
+        BookingHeaderSid: true,
+        MasterJobSid: true,
+        HouseJobSid: true,
         VoucherHeaderSid: true,
         VoucherNumber: true,
         VoucherDate: true,
+        HouseNumber: true,
         MasterNumber: true,
         CurrencyCode: true,
         Amount: true,
@@ -5612,11 +5640,21 @@ async getMasterJobARAPData(MasterJobSid: number): Promise<any> {
     });
 
     return arapData.map((item: any) => ({
-      ...item,
+      CompanyMasterSid: item.CompanyMasterSid,
+      BranchMasterSid: item.BranchMasterSid,
+      BookingHeaderSid: item.BookingHeaderSid,
+      MasterJobSid: item.MasterJobSid,
+      HouseJobSid: item.HouseJobSid,
+      VoucherHeaderSid: item.VoucherHeaderSid,
+      VoucherNumber: item.VoucherNumber,
+      VoucherDate: item.VoucherDate,
+      HBLNo: item.HouseNumber || '-',
       MBLNo: item.MasterNumber || '-',
       DocumentTypeCode: item.voucherTypeMaster?.DocumentTypeCode || '',
+      CurrencyCode: item.CurrencyCode,
       Amount: Number(item.Amount) || 0,
-      LocalAmount: Number(item.LocalAmount) || 0
+      LocalAmount: Number(item.LocalAmount) || 0,
+      PostStatus: item.PostStatus || 'U'
     }));
   } catch (error) {
     this.logger.error(`Error fetching AR/AP data: ${error.message}`);
@@ -7615,6 +7653,9 @@ console.log('Created product:', createdProduct);
         });
     }
 }
+
+
+
 
 
 
