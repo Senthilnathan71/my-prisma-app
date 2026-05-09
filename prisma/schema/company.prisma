@@ -2421,45 +2421,46 @@ model TaxMaster {
 }
 
 model COAMaster {
-  COAMasterSid            Int                  @id @default(autoincrement()) @map("COAMasterSid")
-  GroupName               String?              @db.VarChar(50)
-  SubGroupName            String?              @db.VarChar(50)
-  LedgerName              String?              @db.VarChar(50)
-  SubledgerName           String?              @db.VarChar(100)
-  LedgerCode              String?              @db.VarChar(12)
-  LedgerType              String?              @db.VarChar(20)
-  Ledgername2             String?              @db.VarChar(50)
+  COAMasterSid            Int                    @id @default(autoincrement()) @map("COAMasterSid")
+  GroupName               String?                @db.VarChar(50)
+  SubGroupName            String?                @db.VarChar(50)
+  LedgerName              String?                @db.VarChar(50)
+  SubledgerName           String?                @db.VarChar(100)
+  LedgerCode              String?                @db.VarChar(12)
+  LedgerType              String?                @db.VarChar(20)
+  Ledgername2             String?                @db.VarChar(50)
   LedgerCurrency          Int?
-  JobNoRequire            String?              @default("N") @db.Char(1)
-  HSNRequire              String?              @default("N") @db.Char(1)
-  ProfitandLoss           String?              @default("N") @db.Char(1)
-  BalanceSheet            String?              @default("N") @db.Char(1)
-  Remarks                 String?              @db.VarChar(100)
-  CreatedOn               DateTime             @default(now())
-  CreatedBy               String               @db.VarChar(100)
-  UpdatedOn               DateTime             @default(now())
-  UpdatedBy               String?              @db.VarChar(100)
+  JobNoRequire            String?                @default("N") @db.Char(1)
+  HSNRequire              String?                @default("N") @db.Char(1)
+  ProfitandLoss           String?                @default("N") @db.Char(1)
+  BalanceSheet            String?                @default("N") @db.Char(1)
+  Remarks                 String?                @db.VarChar(100)
+  CreatedOn               DateTime               @default(now())
+  CreatedBy               String                 @db.VarChar(100)
+  UpdatedOn               DateTime               @default(now())
+  UpdatedBy               String?                @db.VarChar(100)
   CompanyMasterSid        Int
-  Status                  String?              @default("A") @db.Char(1)
-  Category                String?              @db.VarChar(100)
-  ReportType              String?              @db.VarChar(100)
+  Status                  String?                @default("A") @db.Char(1)
+  Category                String?                @db.VarChar(100)
+  ReportType              String?                @db.VarChar(100)
   deletedAt               DateTime?
   LedgerLocation          Json?
-  LedgerCategory          String?              @db.VarChar(10)
-  CompanyMaster           CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  CurrencyMaster          CurrencyMaster?      @relation(fields: [LedgerCurrency], references: [CurrencyMasterSid])
-  BookingRatesParty       BookingRates[]       @relation("PartyLedger")
-  BookingRatesVendor      BookingRates[]       @relation("VendorLedger")
-  BookingRatesCharge      BookingRates[]       @relation("ChargeLedger")
-  CostRevenueParty        CostRevenueCharges[] @relation("PartyLedger")
-  CostRevenueVendor       CostRevenueCharges[] @relation("VendorLedger")
-  CostRevenueCharge       CostRevenueCharges[] @relation("ChargeLedger")
-  departmentMasterCost    DepartmentMaster[]   @relation("COST")
-  departmentMasterRevenue DepartmentMaster[]   @relation("REVENUE")
-  SubledgerMasterAcc      SubledgerMaster[]    @relation("Accrual")
+  LedgerCategory          String?                @db.VarChar(10)
+  CompanyMaster           CompanyMaster          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  CurrencyMaster          CurrencyMaster?        @relation(fields: [LedgerCurrency], references: [CurrencyMasterSid])
+  BookingRatesParty       BookingRates[]         @relation("PartyLedger")
+  BookingRatesVendor      BookingRates[]         @relation("VendorLedger")
+  BookingRatesCharge      BookingRates[]         @relation("ChargeLedger")
+  CostRevenueParty        CostRevenueCharges[]   @relation("PartyLedger")
+  CostRevenueVendor       CostRevenueCharges[]   @relation("VendorLedger")
+  CostRevenueCharge       CostRevenueCharges[]   @relation("ChargeLedger")
+  departmentMasterCost    DepartmentMaster[]     @relation("COST")
+  departmentMasterRevenue DepartmentMaster[]     @relation("REVENUE")
+  PaymentRequestDetail    PaymentRequestDetail[]
+  SubledgerMasterAcc      SubledgerMaster[]      @relation("Accrual")
   subledgerMaster         SubledgerMaster[]
-  SubledgerMasterCr       SubledgerMaster[]    @relation("Creditor")
-  SubledgerMasterDb       SubledgerMaster[]    @relation("Debtor")
+  SubledgerMasterCr       SubledgerMaster[]      @relation("Creditor")
+  SubledgerMasterDb       SubledgerMaster[]      @relation("Debtor")
   VoucherDetail           VoucherDetail[]
   VoucherHeader           VoucherHeader[]
   voucherMatchings        VoucherMatching[]
@@ -2467,44 +2468,45 @@ model COAMaster {
 }
 
 model SubledgerMaster {
-  SubledgerMasterSid  Int                  @id @default(autoincrement()) @map("SubledgerMasterSid")
-  SubledgerName       String               @db.VarChar(1000)
-  SubledgerType       String               @default("Customer") @db.VarChar(20)
-  SubledgerMappingSid Int?
-  COAMasterSid        Int?
-  CreatedOn           DateTime             @default(now())
-  CreatedBy           String               @db.VarChar(100)
-  UpdatedOn           DateTime             @default(now())
-  UpdatedBy           String?              @db.VarChar(100)
-  deletedAt           DateTime?
-  Remarks             String?              @db.VarChar(100)
-  Status              String               @default("A") @db.VarChar(10)
-  AccrualCOAMasterSid Int?
-  CrCOAMasterSid      Int?
-  DrCOAMasterSid      Int?
-  DepartmentMasterSid Int?
-  CompanyMasterSid    Int?
-  TaxCode             String?              @db.VarChar(10)
-  TaxGroup            Int?
-  TaxType             String?              @db.VarChar(6)
-  CoaMasterAcc        COAMaster?           @relation("Accrual", fields: [AccrualCOAMasterSid], references: [COAMasterSid])
-  CoaMaster           COAMaster?           @relation(fields: [COAMasterSid], references: [COAMasterSid])
-  companyMaster       CompanyMaster?       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  CoaMasterCr         COAMaster?           @relation("Creditor", fields: [CrCOAMasterSid], references: [COAMasterSid])
-  departmentMaster    DepartmentMaster?    @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-  CoaMasterDb         COAMaster?           @relation("Debtor", fields: [DrCOAMasterSid], references: [COAMasterSid])
-  taxGroup            TaxGroup?            @relation(fields: [TaxGroup], references: [TaxGroupSid])
-  BookingRatesParty   BookingRates[]       @relation("PartySubledger")
-  BookingRatesVendor  BookingRates[]       @relation("VendorSubledger")
-  BookingRatesCharge  BookingRates[]       @relation("ChargeSubledger")
-  CostRevenueParty    CostRevenueCharges[] @relation("PartySubledger")
-  CostRevenueVendor   CostRevenueCharges[] @relation("VendorSubledger")
-  CostRevenueCharge   CostRevenueCharges[] @relation("ChargeSubledger")
-  VoucherDetail       VoucherDetail[]
-  VoucherHeader       VoucherHeader[]
-  voucherMatching     VoucherMatching[]
-  VoucherTransaction  VoucherTransaction[]
-  reportSchedules     ReportSchedule[]
+  SubledgerMasterSid   Int                    @id @default(autoincrement()) @map("SubledgerMasterSid")
+  SubledgerName        String                 @db.VarChar(1000)
+  SubledgerType        String                 @default("Customer") @db.VarChar(20)
+  SubledgerMappingSid  Int?
+  COAMasterSid         Int?
+  CreatedOn            DateTime               @default(now())
+  CreatedBy            String                 @db.VarChar(100)
+  UpdatedOn            DateTime               @default(now())
+  UpdatedBy            String?                @db.VarChar(100)
+  deletedAt            DateTime?
+  Remarks              String?                @db.VarChar(100)
+  Status               String                 @default("A") @db.VarChar(10)
+  AccrualCOAMasterSid  Int?
+  CrCOAMasterSid       Int?
+  DrCOAMasterSid       Int?
+  DepartmentMasterSid  Int?
+  CompanyMasterSid     Int?
+  TaxCode              String?                @db.VarChar(10)
+  TaxGroup             Int?
+  TaxType              String?                @db.VarChar(6)
+  CoaMasterAcc         COAMaster?             @relation("Accrual", fields: [AccrualCOAMasterSid], references: [COAMasterSid])
+  CoaMaster            COAMaster?             @relation(fields: [COAMasterSid], references: [COAMasterSid])
+  companyMaster        CompanyMaster?         @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  CoaMasterCr          COAMaster?             @relation("Creditor", fields: [CrCOAMasterSid], references: [COAMasterSid])
+  departmentMaster     DepartmentMaster?      @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+  CoaMasterDb          COAMaster?             @relation("Debtor", fields: [DrCOAMasterSid], references: [COAMasterSid])
+  taxGroup             TaxGroup?              @relation(fields: [TaxGroup], references: [TaxGroupSid])
+  BookingRatesParty    BookingRates[]         @relation("PartySubledger")
+  BookingRatesVendor   BookingRates[]         @relation("VendorSubledger")
+  BookingRatesCharge   BookingRates[]         @relation("ChargeSubledger")
+  CostRevenueParty     CostRevenueCharges[]   @relation("PartySubledger")
+  CostRevenueVendor    CostRevenueCharges[]   @relation("VendorSubledger")
+  CostRevenueCharge    CostRevenueCharges[]   @relation("ChargeSubledger")
+  PaymentRequestDetail PaymentRequestDetail[]
+  VoucherDetail        VoucherDetail[]
+  VoucherHeader        VoucherHeader[]
+  voucherMatching      VoucherMatching[]
+  VoucherTransaction   VoucherTransaction[]
+  reportSchedules      ReportSchedule[]
 
   @@index([CompanyMasterSid, SubledgerMappingSid, SubledgerType, CrCOAMasterSid, Status], map: "idx_subledger_cr_coa")
   @@index([CompanyMasterSid, SubledgerMappingSid, SubledgerType, DrCOAMasterSid, Status], map: "idx_subledger_dr_coa")
@@ -3590,35 +3592,39 @@ model PaymentRequest {
 }
 
 model PaymentRequestDetail {
-  PaymentRequestDtlSid  Int             @id @default(autoincrement()) @map("PaymentRequestDtlSid")
+  PaymentRequestDtlSid  Int              @id @default(autoincrement()) @map("PaymentRequestDtlSid")
   PaymentRequestSid     Int
-  CreatedOn             DateTime        @default(now()) @db.Timestamptz(6)
-  CreatedBy             String          @db.VarChar(100)
-  UpdatedOn             DateTime?       @updatedAt @db.Timestamptz(6)
-  UpdatedBy             String?         @db.VarChar(100)
+  CreatedOn             DateTime         @default(now()) @db.Timestamptz(6)
+  CreatedBy             String           @db.VarChar(100)
+  UpdatedOn             DateTime?        @updatedAt @db.Timestamptz(6)
+  UpdatedBy             String?          @db.VarChar(100)
   CompanyMasterSid      Int
   BranchMasterSid       Int
-  SerialNumber          Decimal?        @db.Decimal(3, 0)
+  SerialNumber          Decimal?         @db.Decimal(3, 0)
   ChargeMasterSid       Int?
-  ChargeDescription     String?         @db.VarChar(100)
+  ChargeDescription     String?          @db.VarChar(100)
   CostChargeUomSid      Int?
   CostCurrencyMasterSid Int?
-  CostExchangeRate      Decimal?        @db.Decimal(9, 3)
-  CostRate              Decimal?        @db.Decimal(15, 3)
-  CostNumberOfUnit      Decimal?        @db.Decimal(9, 3)
-  CostDrCr              String?         @db.Char(1)
-  CostAmount            Decimal?        @db.Decimal(15, 3)
-  CostLocalAmount       Decimal?        @db.Decimal(15, 3)
+  CostExchangeRate      Decimal?         @db.Decimal(9, 3)
+  CostRate              Decimal?         @db.Decimal(15, 3)
+  CostNumberOfUnit      Decimal?         @db.Decimal(9, 3)
+  CostDrCr              String?          @db.Char(1)
+  CostAmount            Decimal?         @db.Decimal(15, 3)
+  CostLocalAmount       Decimal?         @db.Decimal(15, 3)
   CostAgentMasterSid    Int?
   CostAgentBranchSid    Int?
-  Branch                BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  Charge                ChargeMaster?   @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
-  Company               CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  agentBranch           CustomerBranch? @relation(fields: [CostAgentBranchSid], references: [CustomerBranchSid])
-  agent                 CustomerMaster? @relation(fields: [CostAgentMasterSid], references: [CustomerMasterSid])
-  uomMaster             UOMMaster?      @relation(fields: [CostChargeUomSid], references: [UOMMasterSid])
-  currency              CurrencyMaster? @relation(fields: [CostCurrencyMasterSid], references: [CurrencyMasterSid])
-  PaymentRequestHeader  PaymentRequest  @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
+  COAMasterSid          Int?
+  LedgerMasterSid       Int?
+  Branch                BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  Charge                ChargeMaster?    @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
+  Company               CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  agentBranch           CustomerBranch?  @relation(fields: [CostAgentBranchSid], references: [CustomerBranchSid])
+  agent                 CustomerMaster?  @relation(fields: [CostAgentMasterSid], references: [CustomerMasterSid])
+  uomMaster             UOMMaster?       @relation(fields: [CostChargeUomSid], references: [UOMMasterSid])
+  currency              CurrencyMaster?  @relation(fields: [CostCurrencyMasterSid], references: [CurrencyMasterSid])
+  PaymentRequestHeader  PaymentRequest   @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
+  coaMaster             COAMaster?       @relation(fields: [COAMasterSid], references: [COAMasterSid])
+  subledgerMaster       SubledgerMaster? @relation(fields: [LedgerMasterSid], references: [SubledgerMasterSid])
 }
 
 model CustomerCreditRequest {
