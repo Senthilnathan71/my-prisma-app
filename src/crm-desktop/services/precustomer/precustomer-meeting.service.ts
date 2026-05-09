@@ -133,7 +133,7 @@ export class PreCustomerMeetingService {
                 customerProfile: params.customerProfile,
                 meetingNote: params.meetingNote || '',
                 followUpNote: params.followUpNote,
-                createdBy: params.createdBy,
+                createdBy: params.userEmail,
                 status: params.status || "A",
                 remarks: params.remarks,
                 companyMaster: {
@@ -157,7 +157,7 @@ export class PreCustomerMeetingService {
                     throw new BadRequestException('Meeting not found');
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
-                payload.updatedBy = params.createdBy
+                payload.updatedBy = params.userEmail
                 payload.followUpDate = params.followUpDate || null,
                     payload.meetingDate = params.meetingDate
 
@@ -174,7 +174,9 @@ export class PreCustomerMeetingService {
                         where: {
                             PreCustomerMasterSid: updatePreCustomer.preCustomerMaster?.PreCustomerMasterSid
                         }, data: {
-                            leadStatus: LeadStatus.MeetingCompleted
+                            leadStatus: LeadStatus.MeetingCompleted,
+                            updatedBy: params.userEmail,
+                            updatedOn: new Date()
                         }
                     })
                 }
@@ -184,7 +186,7 @@ export class PreCustomerMeetingService {
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
                 const payloadData = {
-                    createdBy: params.userEmail || '',
+                    createdBy: params.userEmail,
                     meetingDate: params.meetingDate,
                     meetingType: params.meetingType,
                     meetingStatus: params.meetingStatus ? params.meetingStatus : 'Scheduled',
@@ -227,7 +229,7 @@ export class PreCustomerMeetingService {
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
-                            createdBy: user['userEmail'],
+                            createdBy: params.userEmail,
 
                         }
                     })
@@ -247,8 +249,8 @@ export class PreCustomerMeetingService {
                             FollowupNote: params.followUpNote,
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
-                            createdBy: user['userEmail'],
-                            updatedBy: user['userEmail']
+                            createdBy: params.userEmail,
+                            updatedBy: params.userEmail
                         }
                     })
                 }
@@ -262,7 +264,9 @@ export class PreCustomerMeetingService {
                             PreCustomerMasterSid: Number(params.PreCustomerMasterSid)
                         },
                         data: {
-                            leadStatus: LeadStatus.MeetingScheduled
+                            leadStatus: LeadStatus.MeetingScheduled,
+                            updatedBy: params.userEmail,
+                            updatedOn: new Date()
                         }
                     });
                 }
@@ -333,7 +337,9 @@ export class PreCustomerMeetingService {
                             PreCustomerMasterSid: leadData.PreCustomerMasterSid
                         },
                         data: {
-                            leadStatus: LeadStatus.CustomerCreated
+                            leadStatus: LeadStatus.CustomerCreated,
+                            updatedBy: params.userEmail,
+                            updatedOn: new Date()
                         }
                     });
 
