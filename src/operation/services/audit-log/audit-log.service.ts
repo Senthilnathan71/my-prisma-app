@@ -60,6 +60,16 @@ export class AuditLogService {
                     return this.getdoctypeLogs(recordId);
                 case 'NumberSeriesConfig':
                     return this.getnumberseriesLogs(recordId);
+                case 'PaymentRequest':
+                    return this.getPaymentRequestLogs(recordId);
+                case 'ChartOfAccounts':
+                    return this.getChartOfAccountsLogs(recordId);
+                case 'CurrencyExchange':
+                    return this.getCurrencyExchangeLogs(recordId);
+                case 'SubledgerMapping':
+                    return this.getSubledgerMappingLogs(recordId);
+                case 'SupplierTdsMapping':
+                    return this.getSupplierTdsMappingLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -146,7 +156,7 @@ export class AuditLogService {
                     rowLabelMaps.connectionMap.get(recordId) ||
                     `Connection [${newVal.VesselName || oldVal.VesselName || recordId}]`
                 );
-            
+
             case 'BookingCargo':
                 return (
                     rowLabelMaps.cargoMap.get(recordId) ||
@@ -191,7 +201,7 @@ export class AuditLogService {
             ] = await Promise.all([
                 this._db.bookingCargo.findMany({
                     where: { BookingHeaderSid: bookingHeaderSid },
-                    select: { 
+                    select: {
                         BookingCargoSid: true,
                         CargoType: true
                     }
@@ -375,9 +385,9 @@ export class AuditLogService {
 
             const productMap = new Map<string, string>(
                 productRows.map((p) => {
-                    const cargoLabel = 
+                    const cargoLabel =
                         cargoMap.get(String(p.BookingCargoSid)) || `[${p.BookingCargoSid}]`;
-                    const productLabel = 
+                    const productLabel =
                         p.ProductName?.toString().trim() || `[${p.BookingProductSid}]`;
                     return [
                         String(p.BookingProductSid),
@@ -580,7 +590,7 @@ export class AuditLogService {
                 );
             case 'HouseJobCargo':
                 return (
-                    rowLabelMaps.cargoMap.get(recordId) || 
+                    rowLabelMaps.cargoMap.get(recordId) ||
                     `Cargo [${newVal.CargoType || oldVal.CargoType || recordId}]`
                 );
             default:
@@ -628,7 +638,7 @@ export class AuditLogService {
             ] = await Promise.all([
                 this._db.houseJobCargo.findMany({
                     where: { HouseJobSid: houseJobSid },
-                    select: { 
+                    select: {
                         HouseJobCargoSid: true,
                         CargoType: true
                     }
@@ -839,9 +849,9 @@ export class AuditLogService {
 
             const productMap = new Map<string, string>(
                 productRows.map((p) => {
-                    const cargoLabel = 
+                    const cargoLabel =
                         cargoMap.get(String(p.HouseJobCargoSid)) || `[${p.HouseJobCargoSid}]`;
-                    const productLabel = 
+                    const productLabel =
                         p.ProductName?.toString().trim() || `[${p.HouseJobProductSid}]`;
                     return [
                         String(p.HouseJobProductSid),
@@ -2165,7 +2175,7 @@ export class AuditLogService {
                     }
                 }),
                 this._db.quoteProduct.findMany({
-                    where: { QuoteHeaderSid: quoteHeaderSid},
+                    where: { QuoteHeaderSid: quoteHeaderSid },
                     select: {
                         QuoteProductSid: true,
                         QuoteCargoSid: true,
@@ -2223,7 +2233,7 @@ export class AuditLogService {
                         tableName: 'QuoteProduct',
                         recordId: { in: productRows.map(x => String(x.QuoteProductSid)) }
                     }]
-                    :[]),
+                    : []),
             ];
 
             const logs = await this._db.auditLog.findMany({
@@ -2346,10 +2356,10 @@ export class AuditLogService {
 
             const productMap = new Map<string, string>(
                 productRows.map((p) => {
-                    const cargoLabel = 
+                    const cargoLabel =
                         cargoMap.get(String(p.QuoteCargoSid)) ||
                         `[${p.QuoteCargoSid}]`;
-                    const productLabel = 
+                    const productLabel =
                         p.ProductName?.toString().trim() || `[${p.QuoteProductSid}]`;
                     return [
                         String(p.QuoteProductSid),
@@ -2808,7 +2818,7 @@ export class AuditLogService {
             const voucherMatchingHeaderSid = Number(recordId);
 
             const [
-                header, 
+                header,
                 details
             ] = await Promise.all([
                 this._db.voucherMatchingHeader.findUnique({
@@ -3018,7 +3028,7 @@ export class AuditLogService {
     }
 
     private async getdoctypeLogs(recordId?: string) {
-        try{
+        try {
             let conditions: any[] = [];
 
             conditions = [
@@ -3032,7 +3042,7 @@ export class AuditLogService {
                 where: {
                     OR: conditions
                 },
-                orderBy:{
+                orderBy: {
                     changedAt: 'desc'
                 }
             });
@@ -3052,9 +3062,9 @@ export class AuditLogService {
                 D: 'Deleted'
             };
 
-            const formattedLogs = logs.map((log:any) => {
-                const oldVal = { ...(log.oldVal || {})};
-                const newVal = { ...(log.newVal || {})};
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
 
                 this.replaceValueFromMap(oldVal, 'BranchFlag', yesNoMap);
                 this.replaceValueFromMap(newVal, 'BranchFlag', yesNoMap);
@@ -3094,7 +3104,7 @@ export class AuditLogService {
     }
 
     private async getnumberseriesLogs(recordId?: string) {
-        try{
+        try {
             let conditions: any[] = [];
 
             conditions = [
@@ -3108,7 +3118,7 @@ export class AuditLogService {
                 where: {
                     OR: conditions
                 },
-                orderBy:{
+                orderBy: {
                     changedAt: 'desc'
                 }
             });
@@ -3128,9 +3138,9 @@ export class AuditLogService {
                 D: 'Deleted'
             };
 
-            const formattedLogs = logs.map((log:any) => {
-                const oldVal = { ...(log.oldVal || {})};
-                const newVal = { ...(log.newVal || {})};
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
 
                 this.replaceValueFromMap(oldVal, 'CompanyFlagRequired', yesNoMap);
                 this.replaceValueFromMap(newVal, 'CompanyFlagRequired', yesNoMap);
@@ -3195,5 +3205,474 @@ export class AuditLogService {
             throw error;
         }
     }
+
+    private getPaymentRequestRowLabel(
+        log: any,
+        rowLabelMaps: {
+            detailMap: Map<string, string>;
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
+        switch (log.tableName) {
+            case 'PaymentRequestDetail':
+                return (
+                    rowLabelMaps.detailMap.get(recordId) ||
+                    `Detail [${newVal.SerialNumber || oldVal.SerialNumber || recordId} - ${newVal.Charge || oldVal.Charge || ''}]`
+                );
+            default:
+                return null;
+        }
+    }
+
+    private getPaymentRequestLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            PaymentRequest: 'Payment Request',
+            PaymentRequestDetail: 'Charge',
+        };
+        return sectionMap[tableName] || tableName;
+    }
+
+    private async getPaymentRequestLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let detailRows: any[] = [];
+
+            const paymentRequestSid = Number(recordId);
+
+            if (!paymentRequestSid) {
+                throw new BadRequestException('valid recordId is required');
+            }
+
+            const [
+                fetchedDetails
+            ] = await Promise.all([
+                this._db.paymentRequestDetail.findMany({
+                    where: { PaymentRequestSid: paymentRequestSid },
+                    select: {
+                        PaymentRequestDtlSid: true,
+                        SerialNumber: true,
+                        ChargeMasterSid: true
+                    }
+                }),
+            ]);
+            detailRows = fetchedDetails;
+
+            conditions = [
+                {
+                    tableName: 'PaymentRequest',
+                    recordId: recordId
+                },
+                ...(detailRows.length
+                    ? [{
+                        tableName: 'PaymentRequestDetail',
+                        recordId: { in: detailRows.map(x => String(x.PaymentRequestDtlSid)) }
+                    }]
+                    : []),
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [charge, customers, uoms, currencies] = await Promise.all([
+                this._db.chargeMaster.findMany({
+                    select: {
+                        ChargeMasterSid: true,
+                        chargeCode: true
+                    }
+                }),
+                this._db.customerMaster.findMany({
+                    select: {
+                        CustomerMasterSid: true,
+                        CustomerName: true
+                    }
+                }),
+                this._db.uOMMaster.findMany({
+                    select: {
+                        UOMMasterSid: true,
+                        UOMCode: true
+                    }
+                }),
+                this._db.currencyMaster.findMany({
+                    select: {
+                        CurrencyMasterSid: true,
+                        currencyCode: true
+                    }
+                }),
+            ])
+
+            const chargeMap = new Map<string, string>(
+                charge.map(c => [String(c.ChargeMasterSid), c.chargeCode])
+            );
+
+            const customerMap = new Map<string, string>(
+                customers.map(c => [String(c.CustomerMasterSid), c.CustomerName])
+            );
+
+            const uomMap = new Map<string, string>(
+                uoms.map(c => [String(c.UOMMasterSid), c.UOMCode])
+            );
+
+            const currencyMap = new Map<string, string>(
+                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
+            );
+
+            const detailMap = new Map<string, string>(
+                detailRows.map((d) => {
+                    const serial = d.SerialNumber?.toString().trim() || d.ChargeMasterSid;
+                    const charge = chargeMap.get(String(d.ChargeMasterSid)) || d.ChargeMasterSid || '';
+                    const label = charge ? `Detail [${serial} - ${charge}]` : `Detail [${serial}]`;
+                    return [
+                        String(d.PaymentRequestDtlSid),
+                        label
+                    ];
+                })
+            );
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const ignoredFields = [
+                'UpdatedBy', 'UpdatedOn', 'CreatedBy', 'CreatedOn'
+            ]
+
+            const rowLabelMaps = {
+                detailMap
+            }
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'ChargeMasterSid', 'Charge', chargeMap);
+                this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
+
+                this.replaceAndRename(oldVal, 'Party', 'Party', customerMap);
+                this.replaceAndRename(newVal, 'Party', 'Party', customerMap);
+
+                this.replaceAndRename(oldVal, 'CostChargeUomSid', 'Unit', uomMap);
+                this.replaceAndRename(newVal, 'CostChargeUomSid', 'Unit', uomMap);
+
+                this.replaceAndRename(oldVal, 'CostCurrencyMasterSid', 'Currency', currencyMap);
+                this.replaceAndRename(newVal, 'CostCurrencyMasterSid', 'Currency', currencyMap);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    sectionLabel: this.getPaymentRequestLabel(log.tableName),
+                    rowLabel: this.getPaymentRequestRowLabel(log, rowLabelMaps, oldVal, newVal),
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getPaymentRequestLogsError: ${error}`);
+            throw new Error(`Error fetching payment request audit logs: ${error.message}`);
+        }
+    }
+
+    private async getChartOfAccountsLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+
+            conditions = [
+                {
+                    tableName: 'COAMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [currencies] = await Promise.all([
+                this._db.currencyMaster.findMany({
+                    select: {
+                        CurrencyMasterSid: true,
+                        currencyCode: true
+                    }
+                })
+            ]);
+
+            const currencyMap = new Map<string, string>(
+                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
+            );
+
+            const ignoredFields = [
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
+            ];
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'LedgerCurrency', 'Currency', currencyMap);
+                this.replaceAndRename(newVal, 'LedgerCurrency', 'Currency', currencyMap);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'SubledgerName', yesNoMap);
+                this.replaceValueFromMap(newVal, 'SubledgerName', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'JobNoRequire', yesNoMap);
+                this.replaceValueFromMap(newVal, 'JobNoRequire', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'HSNRequire', yesNoMap);
+                this.replaceValueFromMap(newVal, 'HSNRequire', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'ProfitandLoss', yesNoMap);
+                this.replaceValueFromMap(newVal, 'ProfitandLoss', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'BalanceSheet', yesNoMap);
+                this.replaceValueFromMap(newVal, 'BalanceSheet', yesNoMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getChartOfAccountsLogsError: ${error}`);
+            throw new Error(`Error fetching chart of accounts audit logs: ${error.message}`);
+        }
+    }
+
+    private async getCurrencyExchangeLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+
+            conditions = [
+                {
+                    tableName: 'CurrencyExchange',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getCurrencyExchangeLogsError: ${error}`);
+            throw new Error(`Error fetching currency exchange audit logs: ${error.message}`);
+        }
+    }
+
+    private async getSubledgerMappingLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+
+            conditions = [
+                {
+                    tableName: 'SubledgerMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [coa, subledgers] = await Promise.all([
+                this._db.cOAMaster.findMany({
+                    select: {
+                        COAMasterSid: true,
+                        LedgerName: true
+                    }
+                }),
+                this._db.subledgerMaster.findMany({
+                    select: {
+                        SubledgerMasterSid: true,
+                        SubledgerName: true
+                    }
+                })
+            ]);
+
+            const coaMap = new Map<string, string>(
+                coa.map(c => [
+                    String(c.COAMasterSid),
+                    c.LedgerName ?? ''
+                ])
+            );
+            const subledgerMap = new Map<string, string>(
+                subledgers.map(s => [
+                    String(s.SubledgerMasterSid),
+                    s.SubledgerName ?? ''
+                ])
+            );
+
+            const ignoredFields = [
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'AccrualCOAMasterSid', 'COA', coaMap);
+                this.replaceAndRename(newVal, 'AccrualCOAMasterSid', 'COA', coaMap);
+
+                this.replaceAndRename(oldVal, 'CrCOAMasterSid', 'COA', coaMap);
+                this.replaceAndRename(newVal, 'CrCOAMasterSid', 'COA', coaMap);
+
+                this.replaceAndRename(oldVal, 'DrCOAMasterSid', 'COA', coaMap);
+                this.replaceAndRename(newVal, 'DrCOAMasterSid', 'COA', coaMap);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    tableName: subledgerMap.get(String(log.recordId)) || log.tableName,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getSubledgerMappingLogsError: ${error}`);
+            throw new Error(`Error fetching subledger mapping audit logs: ${error.message}`);
+        }
+    }
+
+    private async getSupplierTdsMappingLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+
+            conditions = [
+                {
+                    tableName: 'SupplierTdsMapping',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const ignoredFields = [
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getSupplierTdsMappingLogsError: ${error}`);
+            throw new Error(`Error fetching Supplier Tds Mapping audit logs: ${error.message}`);
+        }
+    }
+
+
 }
 

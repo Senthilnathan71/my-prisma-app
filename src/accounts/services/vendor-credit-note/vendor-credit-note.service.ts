@@ -148,6 +148,7 @@ export class VendorCreditNoteService {
                                 LedgerMasterSid: detail.LedgerMasterSid,
                                 COAMasterSid: detail.COAMasterSid,
                                 PartyAmount: detail.PartyAmount,
+                                CostRevenue: detail.CostRevenue || ((detail.DrCr || 'D') === 'D' ? 'Revenue' : 'Cost'),
                                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                 DepartmentMasterSid: detail.DepartmentMasterSid || payload.DepartmentMasterSid,
@@ -156,7 +157,7 @@ export class VendorCreditNoteService {
                                 SourceDetailSid: detail.SourceDetailSid,
                                 Narration: detail.Narration,
                                 BookingRatesSid: detail.BookingRatesSid,
-                                CostRevenueChargesSid: detail.CostRevenueChargesSid,
+                                CostRevenueChargesSid: detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid ?? null,
                                 Status: 'A'
                             }
                         });
@@ -502,9 +503,15 @@ export class VendorCreditNoteService {
                                     LedgerMasterSid: detail.LedgerMasterSid,
                                     COAMasterSid: detail.COAMasterSid,
                                     PartyAmount: detail.PartyAmount,
+                                    CostRevenue: detail.CostRevenue || ((detail.DrCr || 'D') === 'D' ? 'Revenue' : 'Cost'),
                                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
-                                    SourceDetailSid: detail.SourceDetailSid || null,
+                                    DepartmentMasterSid: detail.DepartmentMasterSid || payload.DepartmentMasterSid,
+                                    YearMasterSid: detail.YearMasterSid || payload.YearMasterSid,
+                                    SourceDetailSid: detail.SourceDetailSid ?? null,
+                                    BookingRatesSid: detail.BookingRatesSid ?? null,
+                                    CostRevenueChargesSid: detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid ?? null,
+                                    Narration: detail.Narration,
                                     UpdatedBy: payload.UpdatedBy || 'System',
                                     Status: 'A'
                                 }
@@ -540,10 +547,15 @@ export class VendorCreditNoteService {
                                     LedgerMasterSid: detail.LedgerMasterSid,
                                     COAMasterSid: detail.COAMasterSid,
                                     PartyAmount: detail.PartyAmount,
+                                    CostRevenue: detail.CostRevenue || ((detail.DrCr || 'D') === 'D' ? 'Revenue' : 'Cost'),
                                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
+                                    DepartmentMasterSid: detail.DepartmentMasterSid || payload.DepartmentMasterSid,
                                     YearMasterSid: detail.YearMasterSid || payload.YearMasterSid,
-                                    SourceDetailSid: detail.SourceDetailSid || null,
+                                    SourceDetailSid: detail.SourceDetailSid ?? null,
+                                    BookingRatesSid: detail.BookingRatesSid ?? null,
+                                    CostRevenueChargesSid: detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid ?? null,
+                                    Narration: detail.Narration,
                                     CreatedBy: payload.UpdatedBy || 'System',
                                     Status: 'A'
                                 }

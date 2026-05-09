@@ -2229,16 +2229,39 @@ export class HouseJobService {
     async getHouseJobARAPData(HouseJobSid: number): Promise<any> {
         try {
             // Using Prisma view instead of raw query
-            const arapData = await this._db.vHouseARAP.findMany({
-                where: {
-                    HouseJobSid: HouseJobSid
-                },
-                orderBy: {
-                    VoucherDate: 'desc'
-                }
-            });
+             const arapData = await this._db.voucherHeader.findMany({
+      where: {
+        HouseJobSid: HouseJobSid
+      },
+      select: {
+        CompanyMasterSid: true,
+        BranchMasterSid: true,
+        VoucherHeaderSid: true,
+        VoucherNumber: true,
+        VoucherDate: true,
+        MasterNumber: true,
+        CurrencyCode: true,
+        Amount: true,
+        LocalAmount: true,
+        PostStatus: true,
+        voucherTypeMaster: {
+          select: {
+            DocumentTypeCode: true
+          }
+        }
+      },
+      orderBy: {
+        VoucherDate: 'desc'
+      }
+    });
 
-            return arapData;
+            return arapData.map((item: any) => ({
+                ...item,
+                HBLNo: item.HBLNo || '-',
+                DocumentTypeCode: item.voucherTypeMaster?.DocumentTypeCode || '',
+                Amount: Number(item.Amount) || 0,
+                LocalAmount: Number(item.LocalAmount) || 0
+            }));
         } catch (error) {
             this.logger.error(`Error fetching AR/AP data: ${error.message}`);
             throw error;

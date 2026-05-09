@@ -75,6 +75,9 @@ export class PaymentRequestService {
     this.validateHeader(payload);
     const existing = await this.db.paymentRequest.findUnique({
       where: { PaymentRequestSid: paymentRequestSid },
+      include: {
+        paymentRequestDetails: true,
+      },
     });
 
     if (!existing) {
@@ -117,26 +120,55 @@ export class PaymentRequestService {
         },
       });
 
-      await tx.paymentRequestDetail.deleteMany({
-        where: { PaymentRequestSid: paymentRequestSid },
-      });
+      const existingDetails = existing.paymentRequestDetails || [];
+      const existingDetailMap = new Map(
+        existingDetails.map((detail: any) => [detail.PaymentRequestDtlSid, detail]),
+      );
+      const incomingDetailIds = new Set<number>();
 
-      const paymentRequestDetails = detailRows.map((item: any, index: number) =>
-        this.mapPaymentRequestDetail(
+      for (let index = 0; index < detailRows.length; index++) {
+        const item = detailRows[index];
+        const detailData = this.mapPaymentRequestDetail(
           item,
           payload,
           index + 1,
           payload.UpdatedBy || existing.CreatedBy || 'System',
           payload.UpdatedBy || 'System',
-        ),
-      );
+        );
+        const detailSid = this.toNullableNumber(item?.PaymentRequestDtlSid);
 
-      await tx.paymentRequestDetail.createMany({
-        data: paymentRequestDetails.map((item: any) => ({
-          ...item,
-          PaymentRequestSid: paymentRequestSid,
-        })),
-      });
+        if (detailSid && existingDetailMap.has(detailSid)) {
+          incomingDetailIds.add(detailSid);
+          await tx.paymentRequestDetail.update({
+            where: { PaymentRequestDtlSid: detailSid },
+            data: detailData,
+          });
+          continue;
+        }
+
+        const createdDetail = await tx.paymentRequestDetail.create({
+          data: {
+            ...detailData,
+            PaymentRequestSid: paymentRequestSid,
+          },
+        });
+
+        if (createdDetail?.PaymentRequestDtlSid) {
+          incomingDetailIds.add(createdDetail.PaymentRequestDtlSid);
+        }
+      }
+
+      const detailIdsToDelete = existingDetails
+        .filter((detail: any) => !incomingDetailIds.has(detail.PaymentRequestDtlSid))
+        .map((detail: any) => detail.PaymentRequestDtlSid);
+
+      if (detailIdsToDelete.length) {
+        await tx.paymentRequestDetail.deleteMany({
+          where: {
+            PaymentRequestDtlSid: { in: detailIdsToDelete },
+          },
+        });
+      }
 
       await this.linkSourceCharges(
         detailRows,
@@ -154,21 +186,14 @@ export class PaymentRequestService {
     const header = await tx.paymentRequest.findUnique({
       where: { PaymentRequestSid: paymentRequestSid },
       include: {
-        company: true,
-        branch: true,
-        dept: true,
-        customer: true,
         bookingHeader: true,
         masterJob: true,
         houseJob: true,
         paymentRequestDetails: {
           orderBy: { PaymentRequestDtlSid: 'asc' },
           include: {
-            Charge: true,
-            currency: true,
-            uomMaster: true,
-            agent: true,
-            agentBranch: true,
+           
+          
           },
         },
       },

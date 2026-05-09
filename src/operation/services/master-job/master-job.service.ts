@@ -1733,26 +1733,31 @@ export class MasterJobService {
                             }
                         }
                     },
-                         voucherDetail : {
-                        where : {
-                            Status : 'A',
-                            VoucherHeader:{
-                                Status:"A"
-                            }
-                        },
-                        select : {
-                            VoucherHeader : {
-                                select : {
-                                    voucherTypeMaster : 
-                                    { 
-                                    select : {
-                                        DocumentTypeCode : true
-                                         }
+                        voucherDetail: {
+                                            where : {
+                                                Status : 'A',
+                                                 VoucherHeader:{
+                                                    Status:"A",
+                                                }
+                                            },
+                                            select : {
+                                                VoucherHeader:{
+                                                    select:{
+                                                        voucherTypeMaster:{
+                                                            select:{
+                                                                DocumentTypeCode:true
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                VoucherHeaderSid:true,
+                                                VoucherDetailSid:true,
+                                                DrCr : true,
+                                                CostRevenue : true,
+                                                LocalAmount : true,
+
+                                            }
                                         }
-                                    }},
-                                  LocalAmount : true
-                        }
-                    }
                 },
                 orderBy: {
                     SerialNumber: 'asc'
@@ -5378,6 +5383,9 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
                 CommodityDescription,
                 MarksAndNumber,
                 LandedMarksandNumber,
+                products,
+                bookingProducts,
+                bookingProduct,
                 ...cargoData
             } = c;
 
@@ -5577,17 +5585,39 @@ if (houseConnections.length === 0 && (houseJob.POL || houseJob.POD || houseJob.V
 }
 async getMasterJobARAPData(MasterJobSid: number): Promise<any> {
   try {
-    // Use Prisma view instead of raw query
-    const arapData = await this._db.vMasterARAP.findMany({
+    const arapData = await this._db.voucherHeader.findMany({
       where: {
         MasterJobSid: MasterJobSid
+      },
+      select: {
+        CompanyMasterSid: true,
+        BranchMasterSid: true,
+        VoucherHeaderSid: true,
+        VoucherNumber: true,
+        VoucherDate: true,
+        MasterNumber: true,
+        CurrencyCode: true,
+        Amount: true,
+        LocalAmount: true,
+        PostStatus: true,
+        voucherTypeMaster: {
+          select: {
+            DocumentTypeCode: true
+          }
+        }
       },
       orderBy: {
         VoucherDate: 'desc'
       }
     });
- 
-    return arapData;
+
+    return arapData.map((item: any) => ({
+      ...item,
+      MBLNo: item.MasterNumber || '-',
+      DocumentTypeCode: item.voucherTypeMaster?.DocumentTypeCode || '',
+      Amount: Number(item.Amount) || 0,
+      LocalAmount: Number(item.LocalAmount) || 0
+    }));
   } catch (error) {
     this.logger.error(`Error fetching AR/AP data: ${error.message}`);
     throw error;

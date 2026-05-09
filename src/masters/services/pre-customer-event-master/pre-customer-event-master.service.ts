@@ -212,11 +212,12 @@ export class PreCustomerEventMasterService {
         const userEmail = this.extractEmail(user).trim();
         const userMasterSid: number | undefined = user?.UserMasterSid;
 
-        // UTC-based "today/tomorrow" window — robust against server timezone drift.
-        // EventDate is stored as a DATE (no time/zone), Prisma returns it as 00:00:00Z.
+        // Sliding 24h window from now. EventDate is stored as DATE (Prisma returns 00:00:00Z).
+        // Lower bound = today (UTC midnight) → excludes any EventDate < today (past events hidden).
+        // Upper bound = now + 24h → "events in the next 24 hours".
         const now = new Date();
         const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-        const tomorrowEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 23, 59, 59, 999));
+        const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
         const orClauses: Prisma.PreCustomerEventWhereInput[] = [];
         if (userEmail) orClauses.push({ createdBy: { equals: userEmail, mode: 'insensitive' } });
@@ -225,13 +226,13 @@ export class PreCustomerEventMasterService {
 
         this.logger.log(
             `getNotificationsForUser: userEmail="${userEmail}", UserMasterSid=${userMasterSid}, ` +
-            `windowUTC=[${todayStart.toISOString()}, ${tomorrowEnd.toISOString()}]`,
+            `window=[${todayStart.toISOString()}, ${next24h.toISOString()}]`,
         );
 
         const events = await this._db.preCustomerEvent.findMany({
             where: {
                 status: 'A',
-                EventDate: { gte: todayStart, lte: tomorrowEnd },
+                EventDate: { gte: todayStart, lte: next24h },
                 OR: orClauses,
             },
             include: {

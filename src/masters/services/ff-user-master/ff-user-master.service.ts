@@ -4,7 +4,7 @@ import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
-import { CreateUserMasterDto, UpdateUserMasterDto, UserBranchMasterDto, UserCompanyMasterDto, UserRoleMasterDto } from 'src/masters/DTO/user.dto';
+import { CreateUserMasterDto, FetchReportingUsersDto, UpdateUserMasterDto, UserBranchMasterDto, UserCompanyMasterDto, UserRoleMasterDto } from 'src/masters/DTO/user.dto';
 
 @Injectable()
 export class FfUserMasterService {
@@ -43,6 +43,7 @@ export class FfUserMasterService {
                 CountryMasterSid: payload.CountryMasterSid,
                 status: payload.status,
                 userTypeId: payload.userTypeId,
+                isLoginUser : payload.isLoginUser
             };
 
             return await this._db.$transaction(async (prisma) => {
@@ -152,6 +153,60 @@ export class FfUserMasterService {
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
             }
+        }
+    }
+
+    async getReportingUsers(payload: FetchReportingUsersDto) {
+        const { CompanyMasterSid } = payload;
+        const reportingUserTypes: UserTypeCode[] = [
+            UserTypeCode.manager,
+            UserTypeCode.salesManager,
+            UserTypeCode.csManager,
+            UserTypeCode.opsManager,
+            UserTypeCode.docManager,
+            UserTypeCode.accountsManager,
+            UserTypeCode.management,
+            UserTypeCode.branchManager,
+            UserTypeCode.generalManager,
+            UserTypeCode.MD,
+            UserTypeCode.CEO,
+        ];
+
+        try {
+            const users = await this._db.userMaster.findMany({
+                where: {
+                    userType: {
+                        code: {
+                            in: reportingUserTypes,
+                        },
+                    },
+                    status: 'A',
+                    userCompanyMaster: {
+                        some: {
+                            CompanyMasterSid: CompanyMasterSid,
+                            GiveAccess: 'Y',
+                            status: 'A'
+                        }
+                    }
+                },
+                select: {
+                    UserMasterSid: true,
+                    userName: true,
+                    userEmail: true,
+                    userType: {
+                        select: {
+                            code: true,
+                            name: true,
+                        },
+                    },
+                },
+                orderBy: {
+                    userName: 'asc',
+                },
+            });
+            return users;
+        } catch (error) {
+            throw error;
         }
     }
 

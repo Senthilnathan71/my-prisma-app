@@ -384,6 +384,7 @@ export class CreditNoteService {
                 LedgerMasterSid: detail.LedgerMasterSid,
                 COAMasterSid: detail.COAMasterSid,
                 PartyAmount: detail.PartyAmount,
+                CostRevenue: detail.CostRevenue || ((detail.DrCr || 'D') === 'D' ? 'Revenue' : 'Cost'),
                 MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                 HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                 YearMasterSid: detail.YearMasterSid || payload.YearMasterSid,
@@ -392,7 +393,7 @@ export class CreditNoteService {
                 DepartmentMasterSid: detail.DepartmentMasterSid,
                 BookingRatesSid: detail.BookingRatesSid,
                 Narration: detail.Narration,
-                CostRevenueChargesSid: detail.CostRevenueChargesSid,
+                CostRevenueChargesSid: detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid ?? null,
                 Status: 'A'
               }
             });
@@ -539,7 +540,7 @@ export class CreditNoteService {
                 DepartmentMasterSid: detail.DepartmentMasterSid ? Number(detail.DepartmentMasterSid) : null,
                 HouseJobSid: detail.HouseJobSid ? Number(detail.HouseJobSid) : null,
                 MasterJobSid: detail.MasterJobSid ? Number(detail.MasterJobSid) : null,
-                CostRevenue: detail.CostRevenue,
+                CostRevenue: detail.CostRevenue || ((detail.DrCr || 'D') === 'D' ? 'Revenue' : 'Cost'),
                 ChargeUOMSid: detail.ChargeUOMSid ? Number(detail.ChargeUOMSid) : null,
                 CurrencyMasterSid: currencyMasterSid,
                 CurrencyCode: detail.CurrencyCode,
@@ -561,6 +562,10 @@ export class CreditNoteService {
                 ProfitCenter: detail.ProfitCenter ? Number(detail.ProfitCenter) : null,
                 Remarks: detail.Remarks,
                 CreditNoteReason: detail.CreditNoteReason,
+                YearMasterSid: detail.YearMasterSid || payload.YearMasterSid,
+                SourceDetailSid: detail.SourceDetailSid ?? null,
+                BookingRatesSid: detail.BookingRatesSid ?? null,
+                CostRevenueChargesSid: detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid ?? null,
               };
             })
           );
