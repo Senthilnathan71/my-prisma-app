@@ -78,6 +78,7 @@ model CostRevenueCharges {
   vendorCOAMaster             COAMaster?         @relation("VendorLedger", fields: [VendorCOAMasterSid], references: [COAMasterSid])
   vendorSubledgerMaster       SubledgerMaster?   @relation("VendorSubledger", fields: [VendorSubledgerMasterSid], references: [SubledgerMasterSid])
   voucherDetail               VoucherDetail[]
+  paymentRequestDetail        PaymentRequestDetail[]
 
   @@index([TransactionSid, MenuMasterSid, CompanyMasterSid, BranchMasterSid, status], map: "idx_crc_txn_menu_company_branch_status")
 }
