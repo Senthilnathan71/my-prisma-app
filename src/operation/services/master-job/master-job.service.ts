@@ -6413,13 +6413,18 @@ console.log('Created product:', createdProduct);
                 const categories: MilestoneCategory[] = ['documentation', 'operation', 'accounts', 'jobClose'];
                 const result = {} as Record<MilestoneCategory, MilestoneCode[]>;
                 for (const cat of categories) {
-                    if (Array.isArray(milestoneConfig[cat])) {
+                    // Job Close milestones are foundational policy gates — always use registry defaults
+                    // regardless of saved company config so JOB_TO_SUBJOB / ALL_PREVIOUS_CLOSED /
+                    // JOB_PROFIT_LOSS are never silently dropped.
+                    if (cat === 'jobClose') {
+                        result[cat] = getDefaultMilestoneCodes(cat, exportImport);
+                    } else if (Array.isArray(milestoneConfig[cat])) {
                         // Validate codes against registry, ignore unrecognized ones
                         result[cat] = (milestoneConfig[cat] as string[]).filter(
                             code => getMilestoneByCode(code) != null
                         ) as MilestoneCode[];
                     } else {
-                        // Category not in config � fall back to defaults
+                        // Category not in config — fall back to defaults
                         result[cat] = getDefaultMilestoneCodes(cat, exportImport);
                     }
                 }

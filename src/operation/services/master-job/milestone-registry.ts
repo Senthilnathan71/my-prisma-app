@@ -57,7 +57,7 @@ export const MILESTONE_REGISTRY: MilestoneDefinition[] = [
     // Job Close - Both
     { code: 'JOB_TO_SUBJOB', label: 'Job to SubJob done', failedLabel: 'Job to SubJob not done', category: 'jobClose', applicableTo: 'both' },
     { code: 'ALL_PREVIOUS_CLOSED', label: 'All previous closers done', failedLabel: 'All previous closers not done', category: 'jobClose', applicableTo: 'both' },
-    { code: 'JOB_PROFIT_LOSS', label: 'Job Profit or Loss', failedLabel: 'Job Profit or Loss', category: 'jobClose', applicableTo: 'both', nonBlocking: true },
+    { code: 'JOB_PROFIT_LOSS', label: 'Job Profit or Loss', failedLabel: 'Job Profit or Loss', category: 'jobClose', applicableTo: 'both' },
 ];
 
 /**
