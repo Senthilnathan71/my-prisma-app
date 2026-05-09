@@ -10,6 +10,7 @@ import { ProfitSummaryReportQueryDto } from 'src/operation/DTO/operation-reports
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { error } from 'console';
 import { ProRateService } from 'src/operation/services/pro-rate/pro-rate.service';
+import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
 // -------------------------
 // Helper types (local)
 // -------------------------
@@ -47,6 +48,7 @@ export class AccountsReportsService {
     private _db: DatabaseService,
     private logger: Logger,
     private readonly proRateService: ProRateService,
+    private readonly voucherService: VoucherService,
   ) {}
 
   async getAvailableReports(companyId: number) {
@@ -162,6 +164,8 @@ export class AccountsReportsService {
           return await this.generateGSTR(parameters);
         case 'cash-flow':
           return await this.gernerateCashFlow(parameters);
+           case 'subledger-outstanding':
+        return await this.gernerateSubledgerOutstanding(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -638,6 +642,102 @@ export class AccountsReportsService {
     }
   }
 
+  private async gernerateSubledgerOutstanding(params: any) {
+    const {
+      ToDate,
+      Subledger,
+      Branch: branchId,
+      companyId: CompanyMasterSid,
+    } = params;
+
+    const branches =
+      branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+            where: { BranchMasterSid: { in: branchId } },
+            select: { BranchMasterSid: true, branchName: true },
+          })
+        : await this._db.branchMaster.findMany({
+            where: { CompanyMasterSid },
+            select: { BranchMasterSid: true, branchName: true },
+          });
+
+    const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+    const resolvedBranchNames = branches.map((b) => b.branchName);
+    const branchInvolved =
+      branchId && branchId.length > 0
+        ? resolvedBranchNames.join(', ')
+        : 'All Branches';
+
+    const subledgerMaster = await this._db.subledgerMaster.findUnique({
+      where: { SubledgerMasterSid: Subledger },
+      select: { SubledgerName: true },
+    });
+
+    const ledgerRows = await this._db.voucherTransaction.findMany({
+      where: {
+        CompanyMasterSid,
+        LedgerMasterSid: Subledger,
+        BranchMasterSid: { in: resolvedBranchIds },
+        Status: 'A',
+      },
+      select: {
+        COAMasterSid: true,
+      },
+      distinct: ['COAMasterSid'],
+    });
+
+    const ledgerIds = ledgerRows
+      .map((r) => r.COAMasterSid)
+      .filter((id): id is number => !!id);
+
+    if (!ledgerIds.length) {
+      throw new BadRequestException(
+        'No ledgers found for the selected subledger',
+      );
+    }
+
+    const reports: any[] = await Promise.all(
+      ledgerIds.map((ledgerId) =>
+        this.generateOutstandingReport({
+          ...params,
+          Ledger: ledgerId,
+        }),
+      ),
+    );
+
+    const ledgerWiseData = reports.map((r) => ({
+      ledgerMasterSid: r?.ledgerMasterSid ?? null,
+      ledgerName: r?.ledgerName ?? null,
+      totalOutstandingCurrency: roundAmount(
+        toNumber(r?.totalOutstandingCurrency || 0),
+        2,
+      ),
+      totalOutstandingLocal: roundAmount(
+        toNumber(r?.totalOutstandingLocal || 0),
+        2,
+      ),
+      voucherCount: r?.voucherCount ?? 0,
+      transactions: r?.transactions || [],
+      ageingSummary: r?.ageingSummary || null,
+      currencyWiseSummary: r?.currencyWiseSummary || [],
+    }));
+
+    return {
+      companyMasterSid: CompanyMasterSid,
+      subledgerMasterSid: Subledger,
+      subledgerName: subledgerMaster?.SubledgerName || null,
+      branchInvolved,
+      branchNames: resolvedBranchNames.join(', '),
+      totalLedgers: ledgerWiseData.length,
+      ledgerWiseData,
+      params: {
+        ...params,
+        Ledger: null,
+      },
+      ledgerIds,
+    };
+  }
+
   async generateOutstandingReport(params: OutstandingReportQueryDto) {
     const {
       ToDate,
@@ -838,13 +938,13 @@ export class AccountsReportsService {
         const signedOriginalLocal = sign * originalLocalAmount;
         const signedOutstandingCurrency = sign * outstandingCurrencyAmount;
         const signedOutstandingLocal = sign * outstandingLocalAmount;
-        let oscurramt = outstandingCurrencyAmount;
+        let oscurramt = originalLocalAmount;
         if (ledger?.LedgerType?.trim() === 'Sy Cr') {
-          if (drCr === 'C') oscurramt = +outstandingCurrencyAmount;
-          if (drCr === 'D') oscurramt = -outstandingCurrencyAmount;
+          if (drCr === 'C') oscurramt = +signedOriginalLocal;
+          if (drCr === 'D') oscurramt = -originalLocalAmount;
         } else if (ledger?.LedgerType?.trim() === 'Sy Dr') {
-          if (drCr === 'D') oscurramt = +outstandingCurrencyAmount;
-          if (drCr === 'C') oscurramt = -outstandingCurrencyAmount;
+          if (drCr === 'D') oscurramt = +originalLocalAmount;
+          if (drCr === 'C') oscurramt = -originalLocalAmount;
         }
 
         oscurrenecyAmt += oscurramt;
@@ -3506,7 +3606,26 @@ export class AccountsReportsService {
         departments.find((d) => d.DepartmentMasterSid === deptId)
           ?.departmentName || '';
 
-  
+      const getActualsFromCharges = async (charges: any[]) => {
+        const actuals = await Promise.all(
+          charges
+            .filter((cr) => cr.CostRevenueChargesSid)
+            .map((cr) =>
+              this.voucherService.getActualAmountForCostRevenue(
+                cr.CostRevenueChargesSid,
+              ),
+            ),
+        );
+
+        return actuals.reduce(
+          (sum, item) => {
+            sum.aSale += Number(item.ActualRevenue || 0);
+            sum.aCost += Number(item.ActualCost || 0);
+            return sum;
+          },
+          { aSale: 0, aCost: 0 },
+        );
+      };
 
       /* ===================== FINAL DATA ===================== */
 
@@ -3531,8 +3650,9 @@ export class AccountsReportsService {
 
           const pSale = calc(masterCR, 'R');
           const pCost = calc(masterCR, 'C');
-          const aSale = calc(linkedRev, 'R');
-          const aCost = calc(linkedCost, 'C');
+          const masterActuals = await getActualsFromCharges(masterCR);
+          const aSale = masterActuals.aSale;
+          const aCost = masterActuals.aCost;
 
           const houseWithCR = await Promise.all(
             mj.houseJob.map(async (hj) => {
@@ -3552,8 +3672,9 @@ export class AccountsReportsService {
 
               const hpSale = calc(houseCR, 'R') + houseProrate.totalRevenue;
               const hpCost = calc(houseCR, 'C') + houseProrate.totalCost;
-              const haSale = calc(linkedRevH, 'R');
-              const haCost = calc(linkedCostH, 'C');
+              const houseActuals = await getActualsFromCharges(houseCR);
+              const haSale = houseActuals.aSale;
+              const haCost = houseActuals.aCost;
 
               return {
                 HouseJobSid: hj.HouseJobSid,
