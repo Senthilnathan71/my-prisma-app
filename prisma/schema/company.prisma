@@ -3592,39 +3592,43 @@ model PaymentRequest {
 }
 
 model PaymentRequestDetail {
-  PaymentRequestDtlSid  Int              @id @default(autoincrement()) @map("PaymentRequestDtlSid")
+  PaymentRequestDtlSid  Int                 @id @default(autoincrement()) @map("PaymentRequestDtlSid")
   PaymentRequestSid     Int
-  CreatedOn             DateTime         @default(now()) @db.Timestamptz(6)
-  CreatedBy             String           @db.VarChar(100)
-  UpdatedOn             DateTime?        @updatedAt @db.Timestamptz(6)
-  UpdatedBy             String?          @db.VarChar(100)
+  CreatedOn             DateTime            @default(now()) @db.Timestamptz(6)
+  CreatedBy             String              @db.VarChar(100)
+  UpdatedOn             DateTime?           @updatedAt @db.Timestamptz(6)
+  UpdatedBy             String?             @db.VarChar(100)
   CompanyMasterSid      Int
   BranchMasterSid       Int
-  SerialNumber          Decimal?         @db.Decimal(3, 0)
+  SerialNumber          Decimal?            @db.Decimal(3, 0)
   ChargeMasterSid       Int?
-  ChargeDescription     String?          @db.VarChar(100)
+  ChargeDescription     String?             @db.VarChar(100)
   CostChargeUomSid      Int?
   CostCurrencyMasterSid Int?
-  CostExchangeRate      Decimal?         @db.Decimal(9, 3)
-  CostRate              Decimal?         @db.Decimal(15, 3)
-  CostNumberOfUnit      Decimal?         @db.Decimal(9, 3)
-  CostDrCr              String?          @db.Char(1)
-  CostAmount            Decimal?         @db.Decimal(15, 3)
-  CostLocalAmount       Decimal?         @db.Decimal(15, 3)
+  CostExchangeRate      Decimal?            @db.Decimal(9, 3)
+  CostRate              Decimal?            @db.Decimal(15, 3)
+  CostNumberOfUnit      Decimal?            @db.Decimal(9, 3)
+  CostDrCr              String?             @db.Char(1)
+  CostAmount            Decimal?            @db.Decimal(15, 3)
+  CostLocalAmount       Decimal?            @db.Decimal(15, 3)
   CostAgentMasterSid    Int?
   CostAgentBranchSid    Int?
   COAMasterSid          Int?
   LedgerMasterSid       Int?
-  Branch                BranchMaster     @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  Charge                ChargeMaster?    @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
-  Company               CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  agentBranch           CustomerBranch?  @relation(fields: [CostAgentBranchSid], references: [CustomerBranchSid])
-  agent                 CustomerMaster?  @relation(fields: [CostAgentMasterSid], references: [CustomerMasterSid])
-  uomMaster             UOMMaster?       @relation(fields: [CostChargeUomSid], references: [UOMMasterSid])
-  currency              CurrencyMaster?  @relation(fields: [CostCurrencyMasterSid], references: [CurrencyMasterSid])
-  PaymentRequestHeader  PaymentRequest   @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
-  coaMaster             COAMaster?       @relation(fields: [COAMasterSid], references: [COAMasterSid])
-  subledgerMaster       SubledgerMaster? @relation(fields: [LedgerMasterSid], references: [SubledgerMasterSid])
+  CostRevenueChargesSid Int?
+  BookingRatesSid       Int?
+  bookingRates          BookingRates?       @relation(fields: [BookingRatesSid], references: [BookingRatesSid])
+  Branch                BranchMaster        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  costRevenueCharges    CostRevenueCharges? @relation(fields: [CostRevenueChargesSid], references: [CostRevenueChargesSid])
+  Charge                ChargeMaster?       @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
+  Company               CompanyMaster       @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  agentBranch           CustomerBranch?     @relation(fields: [CostAgentBranchSid], references: [CustomerBranchSid])
+  agent                 CustomerMaster?     @relation(fields: [CostAgentMasterSid], references: [CustomerMasterSid])
+  uomMaster             UOMMaster?          @relation(fields: [CostChargeUomSid], references: [UOMMasterSid])
+  currency              CurrencyMaster?     @relation(fields: [CostCurrencyMasterSid], references: [CurrencyMasterSid])
+  PaymentRequestHeader  PaymentRequest      @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
+  coaMaster             COAMaster?          @relation(fields: [COAMasterSid], references: [COAMasterSid])
+  subledgerMaster       SubledgerMaster?    @relation(fields: [LedgerMasterSid], references: [SubledgerMasterSid])
 }
 
 model CustomerCreditRequest {
