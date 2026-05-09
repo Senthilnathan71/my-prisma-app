@@ -471,7 +471,7 @@ export class MasterJobService {
                     ChargeableWeight: Number(payload.ChargeableWeight),
                     Volume: Number(payload.Volume),
                     Haz: payload.Haz,
-                    JobStatus: payload.JobStatus,
+                    JobStatus: payload.JobStatus || undefined,
                     DGBookingDate: payload.DGBookingDate ? new Date(payload.DGBookingDate) : null,
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
                     SiCutoffDate: payload.SiCutoffDate ? new Date(payload.SiCutoffDate) : null,
@@ -1984,7 +1984,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     Volume: parseFloat(totalVolume.toFixed(3)),
                     Haz: payload.Haz,
                     Status: payload.Status,
-                    JobStatus: payload.JobStatus,
+                    JobStatus: payload.JobStatus || undefined,
                     DGBookingDate: payload.DGBookingDate ? new Date(payload.DGBookingDate) : null,
                     DGApprovedDate: payload.DGApprovedDate ? new Date(payload.DGApprovedDate) : null,
                     SiCutoffDate: payload.SiCutoffDate ? new Date(payload.SiCutoffDate) : null,
@@ -4294,7 +4294,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
                     ChargeableWeight: parseNumeric(masterJobData.ChargeableWeight),
                     Volume: parseNumeric(masterJobData.Volume),
                     Haz: masterJobData.Haz,
-                    JobStatus: masterJobData.JobStatus,
+                    JobStatus: masterJobData.JobStatus || undefined,
                     DGBookingDate: parseDate(masterJobData.DGBookingDate),
                     DGApprovedDate: parseDate(masterJobData.DGApprovedDate),
                     SiCutoffDate: parseDate(masterJobData.SiCutoffDate),
@@ -6721,26 +6721,33 @@ console.log('Created product:', createdProduct);
         });
 
         checkRunners.set('JOB_PROFIT_LOSS', async () => {
-            // If JOB_PROFITABLE was already run, reuse result; otherwise compute it
-            if (!jobProfitable && hasHouses) {
-                const shipmentNos = (await this._db.houseJob.findMany({
-                    where: { HouseJobSid: { in: houseJobSids } },
-                    select: { ShipmentNo: true }
-                })).map(h => h.ShipmentNo).filter(Boolean);
-                if (shipmentNos.length > 0) {
-                    const profitCheck = await this._db.$queryRawUnsafe(`
-                        SELECT
-                            COALESCE(SUM("RevenueLocalAmount"), 0) AS "TotalRevenue",
-                            COALESCE(SUM("CostLocalAmount"), 0) AS "TotalCost"
-                        FROM "CostRevenueCharges"
-                        WHERE "ShipmentNo" = ANY($1::varchar[])
-                        AND status = 'A'
-                    `, shipmentNos) as any[];
-                    if (profitCheck.length > 0) {
-                        jobProfitable = Number(profitCheck[0].TotalRevenue) >= Number(profitCheck[0].TotalCost);
-                    }
-                }
+            // Mirrors the Master/House Job Rate → Profit tab Total row:
+            // sum CostRevenueCharges scoped to this master (master-level + house-level
+            // direct rows) using DrCr sign flips on local amounts, then assert
+            // total revenue >= total cost.
+            const charges = await this._db.costRevenueCharges.findMany({
+                where: {
+                    MasterJobNo: masterJobNumber,
+                    status: 'A',
+                },
+                select: {
+                    CostLocalAmount: true,
+                    CostDrCr: true,
+                    RevenueLocalAmount: true,
+                    RevenueDrCr: true,
+                },
+            });
+
+            let totalRevenue = 0;
+            let totalCost = 0;
+            for (const c of charges) {
+                const costAmt = Number(c.CostLocalAmount ?? 0);
+                const revAmt = Number(c.RevenueLocalAmount ?? 0);
+                totalCost += c.CostDrCr === 'D' ? costAmt : -costAmt;
+                totalRevenue += c.RevenueDrCr === 'C' ? revAmt : -revAmt;
             }
+
+            jobProfitable = totalRevenue >= totalCost;
             return jobProfitable;
         });
 
