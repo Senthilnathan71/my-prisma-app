@@ -8,7 +8,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 'src/accounts/dto/voucher.dto';
-import { roundAmount } from 'src/common/helper';
+import { roundAmount, toNumber } from 'src/common/helper';
 
 interface InvoiceHeaderDTO {
     currencyMasterSid?: number;
@@ -3503,6 +3503,51 @@ export class VoucherService {
                     Math.abs(outstandingAmount) < 0.01 &&
                     Math.abs(outstandingLocalAmount) < 0.01,
             };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getActualAmountForCostRevenue(
+        CostRevenueChargesSid : number,
+        tx ?: Prisma.TransactionClient
+    ) : Promise<{ ActualRevenue : number, ActualCost : number }>{
+        try {
+            const txn = tx || this._db;
+            const voucherDetails = await txn.voucherDetail.findMany({
+                where : {
+                    CostRevenueChargesSid : CostRevenueChargesSid,
+                    Status : 'A',
+                    VoucherHeader : {
+                        Status : 'A'
+                    }
+                },
+                select : {
+                    DrCr : true,
+                    LocalAmount : true,
+                    CostRevenue : true
+                }
+            })
+
+            let result = {
+                ActualRevenue : 0,
+                ActualCost : 0
+            }
+
+            if(!voucherDetails || voucherDetails.length === 0){
+                return result;
+            }
+
+            for(const detail of voucherDetails){
+                if(detail.CostRevenue === 'Revenue') {
+                    result.ActualRevenue += detail.DrCr === 'C' ? toNumber(detail.LocalAmount) : -toNumber(detail.LocalAmount);
+                } else {
+                    result.ActualCost += detail.DrCr === 'D' ? toNumber(detail.LocalAmount) : -toNumber(detail.LocalAmount);
+                }
+            }
+
+            return result;
+
         } catch (error) {
             throw error;
         }

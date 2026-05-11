@@ -163,7 +163,9 @@ export class EnquiryHeaderService {
                         where: {
                             PreCustomerMasterSid: payload.PreCustomerMasterSid
                         }, data: {
-                            leadStatus: LeadStatus.EnquiryGenerated
+                            leadStatus: LeadStatus.EnquiryGenerated,
+                            updatedBy: payload.createdBy,
+                            updatedOn: new Date()
                         }
                     })
                 }

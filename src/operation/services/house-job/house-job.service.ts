@@ -2228,39 +2228,65 @@ export class HouseJobService {
 
     async getHouseJobARAPData(HouseJobSid: number): Promise<any> {
         try {
-            // Using Prisma view instead of raw query
-             const arapData = await this._db.voucherHeader.findMany({
-      where: {
-        HouseJobSid: HouseJobSid
-      },
-      select: {
-        CompanyMasterSid: true,
-        BranchMasterSid: true,
-        VoucherHeaderSid: true,
-        VoucherNumber: true,
-        VoucherDate: true,
-        MasterNumber: true,
-        CurrencyCode: true,
-        Amount: true,
-        LocalAmount: true,
-        PostStatus: true,
-        voucherTypeMaster: {
-          select: {
-            DocumentTypeCode: true
-          }
-        }
-      },
-      orderBy: {
-        VoucherDate: 'desc'
-      }
-    });
+            const houseJob = await this._db.houseJob.findUnique({
+                where: {
+                    HouseJobSid: HouseJobSid
+                },
+                select: {
+                    BookingHeaderSid: true
+                }
+            });
+
+            const arapData = await this._db.voucherHeader.findMany({
+                where: {
+                    Status: 'A',
+                    OR: [
+                        { HouseJobSid: HouseJobSid },
+                        ...(houseJob?.BookingHeaderSid ? [{ BookingHeaderSid: houseJob.BookingHeaderSid }] : [])
+                    ]
+                },
+                select: {
+                    CompanyMasterSid: true,
+                    BranchMasterSid: true,
+                    BookingHeaderSid: true,
+                    MasterJobSid: true,
+                    HouseJobSid: true,
+                    VoucherHeaderSid: true,
+                    VoucherNumber: true,
+                    VoucherDate: true,
+                    HouseNumber: true,
+                    MasterNumber: true,
+                    CurrencyCode: true,
+                    Amount: true,
+                    LocalAmount: true,
+                    PostStatus: true,
+                    voucherTypeMaster: {
+                        select: {
+                            DocumentTypeCode: true
+                        }
+                    }
+                },
+                orderBy: {
+                    VoucherDate: 'desc'
+                }
+            });
 
             return arapData.map((item: any) => ({
-                ...item,
-                HBLNo: item.HBLNo || '-',
+                CompanyMasterSid: item.CompanyMasterSid,
+                BranchMasterSid: item.BranchMasterSid,
+                BookingHeaderSid: item.BookingHeaderSid,
+                MasterJobSid: item.MasterJobSid,
+                HouseJobSid: item.HouseJobSid,
+                VoucherHeaderSid: item.VoucherHeaderSid,
+                VoucherNumber: item.VoucherNumber,
+                VoucherDate: item.VoucherDate,
+                HBLNo: item.HouseNumber || '-',
+                MBLNo: item.MasterNumber || '-',
                 DocumentTypeCode: item.voucherTypeMaster?.DocumentTypeCode || '',
+                CurrencyCode: item.CurrencyCode,
                 Amount: Number(item.Amount) || 0,
-                LocalAmount: Number(item.LocalAmount) || 0
+                LocalAmount: Number(item.LocalAmount) || 0,
+                PostStatus: item.PostStatus || 'U'
             }));
         } catch (error) {
             this.logger.error(`Error fetching AR/AP data: ${error.message}`);
@@ -2546,6 +2572,7 @@ private async recalculateMasterJobTotals(
 }
 
 }
+
 
 
 

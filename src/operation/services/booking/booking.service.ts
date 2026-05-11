@@ -2737,20 +2737,50 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
   }
 }
 
-
  async getBookingARAPData(BookingHeaderSid: number) {
     try {
-        // Direct query using the vBookingARAP view
-        const arapData = await this._db.vBookingARAP.findMany({
+        const arapData = await this._db.voucherHeader.findMany({
             where: {
-                BookingHeaderSid: BookingHeaderSid
+                BookingHeaderSid: BookingHeaderSid,
+                Status: 'A'
+            },
+            select: {
+                CompanyMasterSid: true,
+                BookingHeaderSid: true,
+                VoucherHeaderSid: true,
+                VoucherNumber: true,
+                VoucherDate: true,
+                HouseNumber: true,
+                MasterNumber: true,
+                CurrencyCode: true,
+                Amount: true,
+                LocalAmount: true,
+                PostStatus: true,
+                voucherTypeMaster: {
+                    select: {
+                        DocumentTypeCode: true
+                    }
+                }
             },
             orderBy: {
                 VoucherDate: 'desc'
             }
         });
- 
-        return arapData;
+
+        return arapData.map((item: any) => ({
+            CompanyMasterSid: item.CompanyMasterSid,
+            BookingHeaderSid: item.BookingHeaderSid,
+            VoucherHeaderSid: item.VoucherHeaderSid,
+            VoucherNumber: item.VoucherNumber,
+            VoucherDate: item.VoucherDate,
+            HBLNo: item.HouseNumber || '-',
+            MBLNo: item.MasterNumber || '-',
+            DocumentTypeCode: item.voucherTypeMaster?.DocumentTypeCode || '',
+            CurrencyCode: item.CurrencyCode,
+            Amount: Number(item.Amount) || 0,
+            LocalAmount: Number(item.LocalAmount) || 0,
+            PostStatus: item.PostStatus || 'U'
+        }));
     } catch (error) {
         this.logger.error(`Error fetching AR/AP data: ${error.message}`);
         throw new InternalServerErrorException('Failed to fetch AR/AP data');
@@ -2761,6 +2791,7 @@ async getTariffByBookingDetails(payload:TariffBookingPayload) {
 
 
 }
+
 
 
 

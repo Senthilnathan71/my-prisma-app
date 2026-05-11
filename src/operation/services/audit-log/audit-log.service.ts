@@ -70,6 +70,12 @@ export class AuditLogService {
                     return this.getSubledgerMappingLogs(recordId);
                 case 'SupplierTdsMapping':
                     return this.getSupplierTdsMappingLogs(recordId);
+                case 'Lead':
+                    return this.getLeadLogs(recordId);
+                case 'Meeting':
+                    return this.getMeetingLogs(recordId);
+                // case 'Company':
+                //     return this.getCompanyLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -2410,7 +2416,7 @@ export class AuditLogService {
             const ignoredFields = [
                 'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
                 'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
-                'CostAgentBranchSid', 'RevenueCustomerBranchSid'
+                'CostAgentBranchSid', 'RevenueCustomerBranchSid', 'BookingHeaderSid'
             ];
 
             const rowLabelMaps = {
@@ -2708,7 +2714,7 @@ export class AuditLogService {
 
 
             const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'QuoteHeaderSid',
                 'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
             ];
 
@@ -3673,6 +3679,248 @@ export class AuditLogService {
         }
     }
 
+    private async getLeadLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+
+            conditions = [
+                {
+                    tableName: 'PreCustomerMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [country,state,city] = await Promise.all([
+                this._db.countryMaster.findMany({
+                    select: {
+                        CountryMasterSid: true,
+                        countryName: true
+                    }
+                }),
+                this._db.stateMaster.findMany({
+                    select: {
+                        StateMasterSid: true,
+                        stateName: true
+                    }
+                }),
+                this._db.cityMaster.findMany({
+                    select: {
+                        CityMasterSid: true,
+                        cityName: true
+                    }
+                })
+            ]);
+
+            const countryMap = new Map<string, string>(
+                country.map(c => [String(c.CountryMasterSid), c.countryName])
+            );
+
+            const stateMap = new Map<string, string>(
+                state.map(c => [String(c.StateMasterSid), c.stateName])
+            );
+
+            const cityMap = new Map<string, string>(
+                city.map(c => [String(c.CityMasterSid), c.cityName])
+            );
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
+                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
+
+                this.replaceAndRename(oldVal, 'StateMasterSid', 'State', stateMap);
+                this.replaceAndRename(newVal, 'StateMasterSid', 'State', stateMap);
+
+                this.replaceAndRename(oldVal, 'CityMasterSid', 'City', cityMap);
+                this.replaceAndRename(newVal, 'CityMasterSid', 'City', cityMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'isQualify', yesNoMap);
+                this.replaceValueFromMap(newVal, 'isQualify', yesNoMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {            
+            this.logger.warn(`getLeadLogsError: ${error}`);
+            throw new Error(`Error fetching lead audit logs: ${error.message}`);
+        }
+    }
+
+    private async getMeetingLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            conditions = [
+                {
+                    tableName: 'PreCustomerMeeting',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const LeadOrCustomer = {
+                L: 'Lead',
+                C: 'Customer'
+            }
+
+            const ignoredFields = [
+                'createdOn', 'updatedOn', 'createdBy', 'updatedBy' , 'CustomerMasterSid'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'LeadOrCustomer', LeadOrCustomer);
+                this.replaceValueFromMap(newVal, 'LeadOrCustomer', LeadOrCustomer);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getMeetingLogsError: ${error}`);
+            throw new Error(`Error fetching meeting audit logs: ${error.message}`);
+        }
+    }
+
+    // private getCompanyRowLabel(
+    //     log: any,
+    //     rowLabelMaps: {
+    //         branchMap: Map<string, string>;
+    //         bankMap: Map<string,string>;
+    //     },
+    //     oldVal: Record<string, any>,
+    //     newVal: Record<string, any>
+    // ): string | null {
+    //     const recordId = String(log.recordId ?? '');
+
+    //     switch (log.tableName) {
+    //         case 'BranchMaster':
+    //             return (
+    //                 rowLabelMaps.branchMap.get(recordId) || 
+    //                 `Branch [${newVal.BranchName || oldVal.BranchName || recordId}]`
+    //             );
+            
+    //         case 'BranchBank': 
+    //             return (
+    //                 rowLabelMaps.bankMap.get(recordId) || 
+    //                 `Bank [${newVal.BankName || oldVal.BankName || recordId}]`
+    //             );
+    //         default: 
+    //             return null;
+    //     }
+    // }
+
+    // private getCompanyLabel(tableName: string): string {
+    //     const sectionMap: Record<string,string> = {
+    //         BranchBank: 'Bank',
+    //         BranchMaster: 'Branch',
+    //         CompanyMaster: 'Company',
+    //     };
+    //     return sectionMap[tableName] || tableName;
+    // }
+
+    // private async getCompanyLogs(recordId?: string) {
+    //     try {
+    //         let conditions: any[] = [];
+    //         let branchRows: any[] = [];
+    //         let bankRows: any[] = [];
+
+    //         const companyMasterSid = Number(recordId);
+
+    //         const [
+    //             branch
+    //         ] = await Promise.all([
+    //             this._db.branchMaster.findMany({
+    //                 where: {CompanyMasterSid: companyMasterSid},
+    //                 select: {
+    //                     BranchMasterSid: true,
+    //                     branchName: true
+    //                 }
+    //             }),
+    //         ]);
+    //         branchRows = branch;
+    //         bankRows = branchRows.length ? await this._db.branchBank.findMany({
+    //             where: {
+    //                 BranchMasterSid: { in: branchRows.map(b => b.BranchMasterSid)},
+    //             },
+    //             select: {
+    //                 BranchBankSid: true,
+    //                 BankName: true,
+    //                 BranchMasterSid: true,
+    //             },
+    //         })
+    //         : [];
+    //         conditions = [
+    //             {
+    //                 tableName: 'CompanyMaster',
+    //                 recordId: recordId,
+    //             },
+    //             ...(branchRows.lengt)
+    //         ]
+    //     } catch (error) {
+
+    //     }
+    // }
 
 }
 
