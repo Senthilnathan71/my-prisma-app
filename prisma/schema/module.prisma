@@ -74,6 +74,7 @@ model MenuMaster {
   numberSeriesConfig      NumberSeriesConfig[]
   numberSeriesCounter     NumberSeriesCounter[]
   PrintMaster             PrintMaster[]
+  publicAccessToken       PublicAccessToken[]
 }
 
 model MenuPermission {

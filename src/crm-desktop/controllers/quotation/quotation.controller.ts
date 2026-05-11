@@ -7,6 +7,11 @@ import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { QuotationService } from "src/crm-desktop/services/quotation/quotation.service";
 import { Auth } from "src/common/decorators/auth.decorator";
+import { PUBLIC_RESOURCE_MENU_CODES, PublicAccessTokenService } from "src/common/public-access-token/public-access-token.service";
+
+const APPROVAL_TOKEN_PLACEHOLDER = '{{APPROVAL_TOKEN}}';
+const PUBLIC_QUOTATION_TOKEN_TTL_HOURS = Number(process.env.PUBLIC_QUOTATION_TOKEN_TTL_HOURS ?? 72);
+
 class CompanyIdDto {
     CompanyMasterSid: number;
     BranchMasterSid: number;
@@ -14,7 +19,12 @@ class CompanyIdDto {
 @Auth()
 @Controller('ff-quotation')
 export class QuotationController {
-    constructor(private quotationService: QuotationService, private logger: Logger, private emailService: EmailService) { }
+    constructor(
+        private quotationService: QuotationService,
+        private logger: Logger,
+        private emailService: EmailService,
+        private publicAccessTokens: PublicAccessTokenService,
+    ) { }
 
     @ApiOperation({ summary: 'Quotation' })
     @ApiCreatedResponse({
@@ -365,16 +375,34 @@ export class QuotationController {
         @Body() body: any) {
         let output = new ResponseData();
         try {
+            const quoteHeaderSid = Number(body?.QuoteHeaderSid || body?.DocumentSid || 0);
+            let html: string = body.Mailbody ?? '';
+
+            if (html.includes(APPROVAL_TOKEN_PLACEHOLDER)) {
+                if (quoteHeaderSid <= 0) {
+                    throw new BadRequestException(
+                        `Approval link placeholder present but QuoteHeaderSid is missing. Cannot issue public access token.`,
+                    );
+                }
+                const recipient = Array.isArray(body?.EmailTo) ? body.EmailTo[0] : body?.EmailTo;
+                const issued = await this.publicAccessTokens.issue({
+                    menuCode: PUBLIC_RESOURCE_MENU_CODES.QUOTATION,
+                    resourceSid: quoteHeaderSid,
+                    ttlHours: PUBLIC_QUOTATION_TOKEN_TTL_HOURS,
+                    sentToEmail: typeof recipient === 'string' ? recipient : undefined,
+                    createdBy: body?.CreatedBy,
+                });
+                html = html.split(APPROVAL_TOKEN_PLACEHOLDER).join(issued.token);
+            }
+
             const reportPayload = {
                 email: body.EmailTo,
                 cc: body.EmailCC,
                 subject: body.Subject,
-                html: body.Mailbody,
+                html,
                 file, // this is the PDF file from FormData
             };
-            console.log(reportPayload);
             let res = await this.emailService.sendEmailWithFileAttachment(reportPayload);
-            const quoteHeaderSid = Number(body?.QuoteHeaderSid || body?.DocumentSid || 0);
             if (quoteHeaderSid > 0) {
                 await this.quotationService.moveOpenApprovalToWaitingForApproval(
                     quoteHeaderSid,

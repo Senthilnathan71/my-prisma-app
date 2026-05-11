@@ -17,6 +17,8 @@ import { SettingsModule } from './settings/settings.module';
 import { OcrModule } from './ocr/ocr.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { CrmDesktopModule } from './crm-desktop/crm-desktop.module';
+import { PublicAccessTokenModule } from './common/public-access-token/public-access-token.module';
+import { PublicQuotationModule } from './public-quotation/public-quotation.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { CrmDesktopModule } from './crm-desktop/crm-desktop.module';
     OcrModule,
     DashboardModule,
     CrmDesktopModule,
+    PublicAccessTokenModule,
+    PublicQuotationModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],

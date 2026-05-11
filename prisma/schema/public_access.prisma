@@ -1,0 +1,20 @@
+model PublicAccessToken {
+  PublicAccessTokenSid Int       @id @default(autoincrement()) @map("PublicAccessTokenSid")
+  Token                String    @unique @db.VarChar(80)
+  MenuMasterSid        Int
+  ResourceSid          Int
+  ExpiresAt            DateTime  @db.Timestamptz(6)
+  UsedAt               DateTime? @db.Timestamptz(6)
+  SentToEmail          String?   @db.VarChar(200)
+  createdOn            DateTime  @default(now()) @db.Timestamptz(6)
+  updatedOn            DateTime? @updatedAt @db.Timestamptz(6)
+  deletedAt            DateTime?
+  createdBy            String?   @db.VarChar(100)
+  updatedBy            String?   @db.VarChar(100)
+  status               String?   @default("A") @db.Char(1)
+
+  menuMaster           MenuMaster @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+
+  @@index([MenuMasterSid, ResourceSid])
+  @@index([ExpiresAt])
+}
