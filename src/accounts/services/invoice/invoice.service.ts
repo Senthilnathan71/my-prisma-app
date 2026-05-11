@@ -660,7 +660,6 @@ export class InvoiceService {
                   Status: 'A'
                 }
               });
-              Debug.log('DEBUG - VoucherDetail created successfully');
             } else {
               // -------------------------------
               // CREATE NEW RECORD
