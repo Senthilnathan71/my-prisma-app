@@ -86,8 +86,8 @@ export class ChargeService {
                 const chargeTdsPayload = payload.chargeTds.map(chargeTds => ({
                     ChargeMasterSid: charge.ChargeMasterSid,
                     TDSSet: chargeTds.TDSSet || null,
-                    EffectiveFrom: chargeTds.EffectiveFrom ? new Date(chargeTds.EffectiveFrom): null,
-                    createdBy: payload.createdBy, 
+                    EffectiveFrom: chargeTds.EffectiveFrom ? new Date(chargeTds.EffectiveFrom) : null,
+                    createdBy: payload.createdBy,
                     updatedBy: payload.createdBy, // Add updatedBy
 
                 }));
@@ -220,58 +220,97 @@ export class ChargeService {
             // 2. Handle ChargeTaxMaster updates
             const updatedChargeTaxes: any[] = [];
             if (chargeTaxMaster && chargeTaxMaster.length > 0) {
-                // Delete existing tax records
-                await prisma.chargeTaxMaster.deleteMany({
-                    where: { chargeTaxMasterSid: ChargeMasterSid }
+
+                const incomingIds = chargeTaxMaster
+                    .filter(t => t.ChargeTaxMasterSid)
+                    .map(t => t.ChargeTaxMasterSid);
+
+                await prisma.chargeTaxMaster.updateMany({
+                    where: {
+                        chargeTaxMasterSid: ChargeMasterSid,
+                        ...(incomingIds.length > 0 && {
+                            ChargeTaxMasterSid: { notIn: incomingIds }
+                        }),
+                    },
+                    data: { Status: 'D' },
                 });
 
-                // Create new tax records
-                const chargeTaxPayload = chargeTaxMaster.map(chargeTax => ({
-                    HSNCode: chargeTax.HSNCode,
-                    HSSACMasterSid: chargeTax.HSSACMasterSid,
-                    description: chargeTax.description,
-                    TaxGroup: chargeTax.TaxGroup,
-                    TaxGroupSid: chargeTax.TaxGroupSid,
-                    TaxRate: chargeTax.TaxRate,
-                    CreatedBy: payload.updatedBy,
-                    UpdatedBy: payload.updatedBy,
-                    Status: chargeTax.Status,
-                    CompanyMasterSid: payload.CompanyMasterSid,
-                    chargeTaxMasterSid: ChargeMasterSid,
-                }));
-                const newlyCreated = await prisma.chargeTaxMaster.createManyAndReturn({
-                    data: chargeTaxPayload,
-                });
-                updatedChargeTaxes.push(...newlyCreated);
+                for (const chargeTax of chargeTaxMaster) {
+                    const commonData = {
+                        HSNCode: chargeTax.HSNCode,
+                        HSSACMasterSid: chargeTax.HSSACMasterSid,
+                        description: chargeTax.description,
+                        TaxGroup: chargeTax.TaxGroup,
+                        TaxGroupSid: chargeTax.TaxGroupSid,
+                        TaxRate: chargeTax.TaxRate,
+                        UpdatedBy: payload.updatedBy,
+                        Status: chargeTax.Status,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        chargeTaxMasterSid: ChargeMasterSid,
+                    };
+
+                    if (chargeTax.ChargeTaxMasterSid) {
+                        // Update existing record
+                        const updated = await prisma.chargeTaxMaster.update({
+                            where: { ChargeTaxMasterSid: chargeTax.ChargeTaxMasterSid },
+                            data: commonData,
+                        });
+                        updatedChargeTaxes.push(updated);
+                    } else {
+                        // Insert new record
+                        const created = await prisma.chargeTaxMaster.create({
+                            data: { ...commonData, CreatedBy: payload.updatedBy },
+                        });
+                        updatedChargeTaxes.push(created);
+                    }
+                }
             }
 
-            // 3. Handle ChargeTds updates
+            // 3. Handle ChargeTds — upsert existing, delete removed
             const updatedChargeTds: any[] = [];
             if (chargeTds && chargeTds.length > 0) {
-                // Delete existing TDS records
-                await prisma.chargeTds.deleteMany({
-                    where: { ChargeMasterSid: ChargeMasterSid }
+
+                const incomingTdsIds = chargeTds
+                    .filter(t => t.ChargeTdsSid)
+                    .map(t => t.ChargeTdsSid);
+
+                await prisma.chargeTds.updateMany({
+                    where: {
+                        ChargeMasterSid: ChargeMasterSid,
+                        ...(incomingTdsIds.length > 0 && {
+                            ChargeTdsSid: { notIn: incomingTdsIds }
+                        }),
+                    },
+                    data: { status: 'D' },
                 });
 
-                // Create new TDS records
-                const chargeTdsPayload = chargeTds.map(chargeTds => ({
-                    ChargeMasterSid: ChargeMasterSid,
-                    TDSSet: chargeTds.TDSSet || null,
-                   EffectiveFrom: chargeTds.EffectiveFrom ? new Date(chargeTds.EffectiveFrom): null,
-                    createdBy: payload.updatedBy,
-                    updatedBy: payload.updatedBy,
-                }));
-                const newlyCreated = await prisma.chargeTds.createManyAndReturn({
-                    data: chargeTdsPayload,
-                });
-                updatedChargeTds.push(...newlyCreated);
+                for (const tds of chargeTds) {
+                    const commonData = {
+                        ChargeMasterSid: ChargeMasterSid,
+                        TDSSet: tds.TDSSet || null,
+                        EffectiveFrom: tds.EffectiveFrom ? new Date(tds.EffectiveFrom) : null,
+                        updatedBy: payload.updatedBy,
+                        status: tds.Status,
+                    };
+
+                    if (tds.ChargeTdsSid) {
+                        // Update existing record
+                        const updated = await prisma.chargeTds.update({
+                            where: { ChargeTdsSid: tds.ChargeTdsSid },
+                            data: commonData,
+                        });
+                        updatedChargeTds.push(updated);
+                    } else {
+                        // Insert new record
+                        const created = await prisma.chargeTds.create({
+                            data: { ...commonData, createdBy: payload.updatedBy },
+                        });
+                        updatedChargeTds.push(created);
+                    }
+                }
             }
 
-            return {
-                charge,
-                chargeTaxMaster: updatedChargeTaxes,
-                chargeTds: updatedChargeTds,
-            };
+            return { charge, chargeTaxMaster: updatedChargeTaxes, chargeTds: updatedChargeTds };
         });
     }
 
@@ -304,7 +343,7 @@ export class ChargeService {
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.ChargeMasterWhereInput = {
-            Status: statusWhereClause, 
+            Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
         };
 
@@ -392,13 +431,13 @@ export class ChargeService {
         try {
             const chargeTaxes = await this._db.chargeTaxMaster.findMany({
                 where: { chargeTaxMasterSid: chargeId },
-                include : { 
-                    hssacMaster : true
+                include: {
+                    hssacMaster: true
                 }
-            }); 
+            });
             if (!chargeTaxes) throw new Error('Charge Tax not found For Charge Id');
 
-            const hssacSet : Set<any> = new Set();
+            const hssacSet: Set<any> = new Set();
 
             chargeTaxes.forEach(ct => {
                 hssacSet.add(ct.hssacMaster);
