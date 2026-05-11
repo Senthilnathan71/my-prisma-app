@@ -3627,6 +3627,21 @@ export class AccountsReportsService {
         );
       };
 
+      const calculateProfitMetrics = (totalSales: number, totalCost: number) => {
+        let profit = 0;
+        let profitPercent = 0;
+
+        if (totalSales > totalCost) {
+          profit = totalSales - totalCost;
+          profitPercent = totalSales !== 0 ? (profit / totalSales) * 100 : 0;
+        } else {
+          profit = -(totalCost - totalSales);
+          profitPercent = totalCost !== 0 ? (profit / totalCost) * 100 : 0;
+        }
+
+        return { profit, profitPercent };
+      };
+
       /* ===================== FINAL DATA ===================== */
 
       const data = await Promise.all(
@@ -3675,6 +3690,8 @@ export class AccountsReportsService {
               const houseActuals = await getActualsFromCharges(houseCR);
               const haSale = houseActuals.aSale;
               const haCost = houseActuals.aCost;
+              const housePlannedProfit = calculateProfitMetrics(hpSale, hpCost);
+              const houseActualProfit = calculateProfitMetrics(haSale, haCost);
 
               return {
                 HouseJobSid: hj.HouseJobSid,
@@ -3710,15 +3727,20 @@ export class AccountsReportsService {
                   houseCrSummary: {
                     pSale: hpSale,
                     pCost: hpCost,
-                    pGp: hpSale - hpCost,
+                    pGp: housePlannedProfit.profit,
+                    pGpPercent: housePlannedProfit.profitPercent,
                     aSale: haSale,
                     aCost: haCost,
-                    aGp: haSale - haCost,
+                    aGp: houseActualProfit.profit,
+                    aGpPercent: houseActualProfit.profitPercent,
                   },
                 },
               };
             }),
           );
+
+          const masterPlannedProfit = calculateProfitMetrics(pSale, pCost);
+          const masterActualProfit = calculateProfitMetrics(aSale, aCost);
 
           return {
             JobNo: mj.MasterJobNumber,
@@ -3765,10 +3787,12 @@ export class AccountsReportsService {
               masterCrSummary: {
                 pSale,
                 pCost,
-                pGp: pSale - pCost,
+                pGp: masterPlannedProfit.profit,
+                pGpPercent: masterPlannedProfit.profitPercent,
                 aSale,
                 aCost,
-                aGp: aSale - aCost,
+                aGp: masterActualProfit.profit,
+                aGpPercent: masterActualProfit.profitPercent,
               },
             },
             houseWithCR,
@@ -6982,21 +7006,17 @@ export class AccountsReportsService {
         }
       }
 
-      // Validate and sanitize the query
+      // Validate the query
       this.validateQuery(parameter.ParameterQuery);
 
-      // Substitute context variables in the query
-      let query = parameter.ParameterQuery;
-
-      // Standard substitutions
-      if (context.companyId) {
-        query = query.replace(/\{companyId\}/g, context.companyId.toString());
+      // Build a parameterized Prisma SQL query from {placeholders}
+      const contextValues: Record<string, any> = {};
+      if (context.companyId !== undefined && context.companyId !== null) {
+        contextValues.companyId = context.companyId;
       }
-      if (context.branchId) {
-        query = query.replace(/\{branchId\}/g, context.branchId.toString());
+      if (context.branchId !== undefined && context.branchId !== null) {
+        contextValues.branchId = context.branchId;
       }
-
-      // Dynamic parent parameter substitutions (e.g., {Ledger}, {Subledger})
       for (const [key, value] of Object.entries(context)) {
         if (
           key !== 'companyId' &&
@@ -7004,40 +7024,67 @@ export class AccountsReportsService {
           value !== undefined &&
           value !== null
         ) {
-          const placeholder = new RegExp(`\\{${key}\\}`, 'g');
-          query = query.replace(placeholder, this.sanitizeValue(value));
+          contextValues[key] = value;
         }
       }
 
+      const buildParameterizedSql = (
+        template: string,
+        valuesMap: Record<string, any>,
+      ): Prisma.Sql => {
+        const tokenRegex = /\{([^}]+)\}/g;
+        let lastIndex = 0;
+        let match: RegExpExecArray | null;
+        let sql = Prisma.sql``;
+
+        while ((match = tokenRegex.exec(template)) !== null) {
+          const rawChunk = template.slice(lastIndex, match.index);
+          if (rawChunk) {
+            sql = Prisma.sql`${sql}${Prisma.raw(rawChunk)}`;
+          }
+
+          const key = match[1];
+          if (!(key in valuesMap)) {
+            sql = Prisma.sql`${sql}${Prisma.raw(match[0])}`;
+          } else {
+            const value = valuesMap[key];
+            if (Array.isArray(value)) {
+              sql =
+                value.length > 0
+                  ? Prisma.sql`${sql}${Prisma.join(value)}`
+                  : Prisma.sql`${sql}NULL`;
+            } else {
+              sql = Prisma.sql`${sql}${value}`;
+            }
+          }
+
+          lastIndex = tokenRegex.lastIndex;
+        }
+
+        const tailChunk = template.slice(lastIndex);
+        if (tailChunk) {
+          sql = Prisma.sql`${sql}${Prisma.raw(tailChunk)}`;
+        }
+
+        return sql;
+      };
+
+      const sqlQuery = buildParameterizedSql(
+        parameter.ParameterQuery,
+        contextValues,
+      );
+
       // Execute the query
-      this.logger.log(`Executing parameter query: ${query}`);
-      const results =
-        await this._db.$queryRawUnsafe<Array<{ value: any; label: string }>>(
-          query,
-        );
+      this.logger.log(`Executing parameter query for parameterId: ${parameterId}`);
+      const results = await this._db.$queryRaw<Array<{ value: any; label: string }>>(
+        sqlQuery,
+      );
 
       return results;
     } catch (error) {
       this.logger.error(`executeParameterQueryError: ${error}`);
       throw error;
     }
-  }
-
-  /**
-   * Sanitize value for SQL query substitution to prevent SQL injection
-   */
-  private sanitizeValue(value: any): string {
-    if (typeof value === 'number') {
-      return value.toString();
-    }
-    if (typeof value === 'string') {
-      // Escape single quotes to prevent SQL injection
-      return value.replace(/'/g, "''");
-    }
-    if (Array.isArray(value)) {
-      return value.map((v) => this.sanitizeValue(v)).join(',');
-    }
-    return String(value);
   }
 
   /**
