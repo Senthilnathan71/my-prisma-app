@@ -6931,6 +6931,78 @@ console.log('Created product:', createdProduct);
         }
     }
 
+    async reopenJobClose(payload: {
+        MasterJobSid: number;
+        ReopenBy: string;
+        ReopenReason?: string;
+    }) {
+        try {
+            const { MasterJobSid, ReopenBy, ReopenReason } = payload;
+            if (!MasterJobSid) {
+                throw new BadRequestException('MasterJobSid is required');
+            }
+            if (!ReopenBy) {
+                throw new BadRequestException('ReopenBy is required');
+            }
+
+            const masterJob = await this._db.masterJob.findUnique({
+                where: { MasterJobSid },
+                select: { MasterJobSid: true, MasterJobNumber: true, JobStatus: true }
+            });
+            if (!masterJob) {
+                throw new NotFoundException('Master Job not found');
+            }
+
+            const masterJobOthers = await this._db.masterJobOthers.findFirst({
+                where: { MasterJobSid, Status: 'A' },
+                select: { MasterJobOthersSid: true }
+            });
+
+            if (masterJobOthers) {
+                await this._db.masterJobOthers.update({
+                    where: { MasterJobOthersSid: masterJobOthers.MasterJobOthersSid },
+                    data: {
+                        DocCloseStatus: 'Open', DocClosedDate: null, DocClosedBy: null,
+                        OpsCloseStatus: 'Open', OpsClosedDate: null, OpsClosedBy: null,
+                        AccCloseStatus: 'Open', AccClosedDate: null, AccClosedBy: null,
+                        JobCloseStatus: 'Open', JobClosedDate: null, JobClosedBy: null,
+                        UpdatedBy: ReopenBy,
+                        UpdatedOn: new Date(),
+                    }
+                });
+            }
+
+            const updatedJob = await this._db.masterJob.update({
+                where: { MasterJobSid },
+                data: {
+                    JobStatus: 'Job Generated',
+                    UpdatedBy: ReopenBy,
+                    UpdatedOn: new Date(),
+                }
+            });
+
+            await this._db.auditLog.create({
+                data: {
+                    tableName: 'MasterJob',
+                    recordId: String(MasterJobSid),
+                    operation: 'REOPEN',
+                    changedBy: ReopenBy,
+                    changes: {
+                        action: 'Job Close Reopened',
+                        reason: ReopenReason ?? null,
+                        previousJobStatus: masterJob.JobStatus,
+                        newJobStatus: 'Job Generated',
+                    },
+                },
+            });
+
+            return updatedJob;
+        } catch (error) {
+            this.logger.warn(`reopenJobClose error: ${error}`);
+            throw error;
+        }
+    }
+
     async pullMasterJobToImportBranch(payload: {
         MasterJobSid: number;
         DestinationBranchMasterSid: number;
