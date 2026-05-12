@@ -210,9 +210,17 @@ export class PaymentRequestService {
       })),
     );
 
+    const voucherNumber = header.VoucherSid
+      ? (await tx.voucherHeader.findUnique({
+          where: { VoucherHeaderSid: header.VoucherSid },
+          select: { VoucherNumber: true },
+        }))?.VoucherNumber ?? null
+      : null;
+
     return {
       ...header,
       paymentRequestDetails: detailsWithSource,
+      VoucherNumber: voucherNumber,
     };
   }
 
@@ -310,6 +318,26 @@ export class PaymentRequestService {
         },
       orderBy: { PaymentRequestDate: 'desc' },
     });
+  }
+
+  async suspendCharges(paymentRequestSid: number, chargeIds: number[]) {
+    if (!chargeIds.length) return;
+    await this.db.$transaction([
+      this.db.bookingRates.updateMany({
+        where: {
+          BookingRatesSid: { in: chargeIds },
+          PaymentRequestSid: paymentRequestSid,
+        },
+        data: { PaymentRequestSid: null },
+      }),
+      this.db.costRevenueCharges.updateMany({
+        where: {
+          CostRevenueChargesSid: { in: chargeIds },
+          PaymentRequestSid: paymentRequestSid,
+        },
+        data: { PaymentRequestSid: null },
+      }),
+    ]);
   }
 
   async linkVoucher(paymentRequestSid: number, voucherSid: number, updatedBy?: string) {

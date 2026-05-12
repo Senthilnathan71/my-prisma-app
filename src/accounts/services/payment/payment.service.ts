@@ -244,6 +244,21 @@ export class PaymentService {
                     },
                     orderBy : {
                         Sno : 'asc'
+                    },
+                    include: {
+                        masterJob: {
+                            select: {
+                                MasterJobSid: true,
+                                MasterJobNumber: true,
+                                MBLNo: true,
+                            }
+                        },
+                        houseJob: {
+                            select: {
+                                HouseJobSid: true,
+                                HBLNo: true,
+                            }
+                        }
                     }
                 },
                 SourceMatchingDetail : {
@@ -464,6 +479,7 @@ export class PaymentService {
                         MasterNumber: payload.MasterNumber || "",
                         HouseJobSid: payload.HouseJobSid ?? null,
                         MasterJobSid: payload.MasterJobSid ?? null,
+                        BookingHeaderSid: payload.BookingHeaderSid ?? null,
                         CurrencyMasterSid: payload.CurrencyMasterSid ?? null,
                         CurrencyCode: payload.CurrencyCode || "",
                         ExchangeRate: payload.ExchangeRate ?? 1,
@@ -525,6 +541,8 @@ export class PaymentService {
                     ChargeUOMSid: item.ChargeUOMSid ?? null,
                     YearMasterSid: currentYear?.YearMasterSid ?? null,
                     PartyAmount: item.PartyAmount ?? 0,
+                    CostRevenueChargesSid: item.CostRevenueChargesSid ?? null,
+                    SourceDetailSid: item.SourceDetailSid ?? null,
                 }));
 
                 // 6. Create VoucherDetail for Payment
@@ -532,7 +550,33 @@ export class PaymentService {
                     data: allDetailPayload,
                 });
 
-                // Sync cost amounts to CostRevenueCharges / BookingRates when creating from payment request
+                // Set CostVoucherHeaderSid / CostVoucherTypeMasterSid on every charge row that has a charge ref
+                for (const item of detailItems) {
+                    if (item.CostRevenueChargesSid) {
+                        await prisma.costRevenueCharges.update({
+                            where: { CostRevenueChargesSid: Number(item.CostRevenueChargesSid) },
+                            data: {
+                                CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                                CostVoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
+                                updatedOn: new Date(),
+                                updatedBy: payload.CreatedBy,
+                            },
+                        });
+                    }
+                    if (item.BookingRatesSid) {
+                        await prisma.bookingRates.update({
+                            where: { BookingRatesSid: Number(item.BookingRatesSid) },
+                            data: {
+                                CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                                CostVoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
+                                UpdatedOn: new Date(),
+                                UpdatedBy: payload.CreatedBy,
+                            },
+                        });
+                    }
+                }
+
+                // Sync cost amounts back to charge rows (PR-only, respects DisableRateUpdateBack)
                 if (payload.PaymentRequestSid) {
                     const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
                         payload.CompanyMasterSid, 'DisableRateUpdateBack', prisma
@@ -548,7 +592,7 @@ export class PaymentService {
                                         CostLocalAmount: toNumber(item.LocalAmount),
                                         updatedOn: new Date(),
                                         updatedBy: payload.CreatedBy,
-                                    }
+                                    },
                                 });
                             }
                             if (item.BookingRatesSid) {
@@ -560,7 +604,7 @@ export class PaymentService {
                                         CostLocalAmount: toNumber(item.LocalAmount),
                                         UpdatedOn: new Date(),
                                         UpdatedBy: payload.CreatedBy,
-                                    }
+                                    },
                                 });
                             }
                         }
@@ -751,6 +795,7 @@ export class PaymentService {
                         MasterNumber: payload.MasterNumber || "",
                         HouseJobSid: payload.HouseJobSid ?? null,
                         MasterJobSid: payload.MasterJobSid ?? null,
+                        BookingHeaderSid: payload.BookingHeaderSid ?? null,
                         CurrencyMasterSid: payload.CurrencyMasterSid ?? null,
                         CurrencyCode: payload.CurrencyCode || "",
                         ExchangeRate: payload.ExchangeRate ?? 1,
@@ -805,6 +850,7 @@ export class PaymentService {
                         ProfitCenter: item.ProfitCenter ?? null,
                         Remarks: item.Remarks || "",
                         ChargeUOMSid: item.ChargeUOMSid ?? null,
+                        CostRevenueChargesSid: item.CostRevenueChargesSid ?? null,
                         YearMasterSid: currentYear?.YearMasterSid ?? null,
                         PartyAmount: item.PartyAmount ?? 0,
                         UpdatedBy: updatedBy,

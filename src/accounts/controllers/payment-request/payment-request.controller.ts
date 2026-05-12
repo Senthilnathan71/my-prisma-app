@@ -130,6 +130,25 @@ export class PaymentRequestController {
     return resp;
   }
 
+  @ApiOperation({ summary: 'Clear PaymentRequestSid from source charges on PR suspension' })
+  @Post('suspend-charges')
+  @HttpCode(HttpStatus.OK)
+  async suspendCharges(@Body() payload: { PaymentRequestSid: number; chargeIds: number[] }) {
+    const resp = new ResponseData();
+    try {
+      await this.paymentRequestService.suspendCharges(payload.PaymentRequestSid, payload.chargeIds);
+      resp.message = 'Payment request charges cleared successfully';
+    } catch (error) {
+      this.logger.warn(`Payment request suspend charges error: ${JSON.stringify(error)}`);
+      resp.status = false;
+      resp.message =
+        error instanceof BadRequestException || error instanceof UnauthorizedException
+          ? error.message
+          : 'Internal Server Error';
+    }
+    return resp;
+  }
+
   @ApiOperation({ summary: 'Link created payment voucher to payment request' })
   @Patch('link-voucher/:paymentRequestSid')
   @HttpCode(HttpStatus.OK)
