@@ -455,6 +455,10 @@ export class VoucherDetailDto {
     @IsInt()
     BookingRatesSid : number;
 
+    @IsOptional()
+    @IsInt()
+    SourceDetailSid : number;
+
 }
 
 

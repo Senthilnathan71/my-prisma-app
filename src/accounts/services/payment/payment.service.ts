@@ -244,6 +244,21 @@ export class PaymentService {
                     },
                     orderBy : {
                         Sno : 'asc'
+                    },
+                    include: {
+                        masterJob: {
+                            select: {
+                                MasterJobSid: true,
+                                MasterJobNumber: true,
+                                MBLNo: true,
+                            }
+                        },
+                        houseJob: {
+                            select: {
+                                HouseJobSid: true,
+                                HBLNo: true,
+                            }
+                        }
                     }
                 },
                 SourceMatchingDetail : {
@@ -464,6 +479,7 @@ export class PaymentService {
                         MasterNumber: payload.MasterNumber || "",
                         HouseJobSid: payload.HouseJobSid ?? null,
                         MasterJobSid: payload.MasterJobSid ?? null,
+                        BookingHeaderSid: payload.BookingHeaderSid ?? null,
                         CurrencyMasterSid: payload.CurrencyMasterSid ?? null,
                         CurrencyCode: payload.CurrencyCode || "",
                         ExchangeRate: payload.ExchangeRate ?? 1,
@@ -525,6 +541,8 @@ export class PaymentService {
                     ChargeUOMSid: item.ChargeUOMSid ?? null,
                     YearMasterSid: currentYear?.YearMasterSid ?? null,
                     PartyAmount: item.PartyAmount ?? 0,
+                    CostRevenueChargesSid: item.CostRevenueChargesSid ?? null,
+                    SourceDetailSid: item.SourceDetailSid ?? null,
                 }));
 
                 // 6. Create VoucherDetail for Payment
@@ -532,35 +550,83 @@ export class PaymentService {
                     data: allDetailPayload,
                 });
 
-                // Sync cost amounts to CostRevenueCharges / BookingRates when creating from payment request
+                // Stamp CostVoucherHeaderSid / CostVoucherTypeMasterSid on charge rows linked at creation
+                const newCostChargeIds = detailItems
+                    .filter((i: any) => i.CostRevenueChargesSid)
+                    .map((i: any) => Number(i.CostRevenueChargesSid));
+                if (newCostChargeIds.length > 0) {
+                    await prisma.costRevenueCharges.updateMany({
+                        where: { CostRevenueChargesSid: { in: newCostChargeIds } },
+                        data: {
+                            CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                            CostVoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
+                            updatedOn: new Date(),
+                            updatedBy: payload.CreatedBy,
+                        },
+                    });
+                }
+                const newBookingRateIds = detailItems
+                    .filter((i: any) => i.BookingRatesSid)
+                    .map((i: any) => Number(i.BookingRatesSid));
+                if (newBookingRateIds.length > 0) {
+                    await prisma.bookingRates.updateMany({
+                        where: { BookingRatesSid: { in: newBookingRateIds } },
+                        data: {
+                            CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                            CostVoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
+                            UpdatedOn: new Date(),
+                            UpdatedBy: payload.CreatedBy,
+                        },
+                    });
+                }
+
+                // Build currency decimal map for rate rounding
+                const rateItems = detailItems.filter((i: any) => i.CostRevenueChargesSid || i.BookingRatesSid);
+                const rateCurrencyCodes = [...new Set(
+                    rateItems.map((i: any) => (i.CurrencyCode || payload.CurrencyCode || '').trim())
+                )].filter(Boolean) as string[];
+                const rateCurrencyMasters = rateCurrencyCodes.length > 0
+                    ? await prisma.currencyMaster.findMany({
+                        where: { currencyCode: { in: rateCurrencyCodes } },
+                        select: { currencyCode: true, amountDecimal: true },
+                      })
+                    : [];
+                const rateCurrencyDecimalMap = new Map(rateCurrencyMasters.map(c => [c.currencyCode, c.amountDecimal]));
+
+                // Sync cost amounts back to charge rows (PR-only, respects DisableRateUpdateBack)
                 if (payload.PaymentRequestSid) {
                     const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
                         payload.CompanyMasterSid, 'DisableRateUpdateBack', prisma
                     );
                     if (disableRateUpdateBack !== 'Y') {
                         for (const item of detailItems) {
+                            const itemCurrencyCode = (item.CurrencyCode || payload.CurrencyCode || '').trim();
+                            const itemDecimals = rateCurrencyDecimalMap.get(itemCurrencyCode) ?? 2;
+                            const computedRate = toNumber(item.NumberOfUnit) !== 0
+                                ? roundAmount(toNumber(item.Amount) / toNumber(item.NumberOfUnit), itemDecimals)
+                                : roundAmount(toNumber(item.Amount), itemDecimals);
                             if (item.CostRevenueChargesSid) {
                                 await prisma.costRevenueCharges.update({
                                     where: { CostRevenueChargesSid: Number(item.CostRevenueChargesSid) },
                                     data: {
-                                        CostRate: toNumber(item.Rate),
+                                        CostRate: computedRate,
                                         CostAmount: toNumber(item.Amount),
                                         CostLocalAmount: toNumber(item.LocalAmount),
                                         updatedOn: new Date(),
                                         updatedBy: payload.CreatedBy,
-                                    }
+                                    },
                                 });
                             }
                             if (item.BookingRatesSid) {
                                 await prisma.bookingRates.update({
                                     where: { BookingRatesSid: Number(item.BookingRatesSid) },
                                     data: {
-                                        CostRate: toNumber(item.Rate),
+                                        CostRate: computedRate,
                                         CostAmount: toNumber(item.Amount),
                                         CostLocalAmount: toNumber(item.LocalAmount),
                                         UpdatedOn: new Date(),
                                         UpdatedBy: payload.CreatedBy,
-                                    }
+                                    },
                                 });
                             }
                         }
@@ -751,6 +817,7 @@ export class PaymentService {
                         MasterNumber: payload.MasterNumber || "",
                         HouseJobSid: payload.HouseJobSid ?? null,
                         MasterJobSid: payload.MasterJobSid ?? null,
+                        BookingHeaderSid: payload.BookingHeaderSid ?? null,
                         CurrencyMasterSid: payload.CurrencyMasterSid ?? null,
                         CurrencyCode: payload.CurrencyCode || "",
                         ExchangeRate: payload.ExchangeRate ?? 1,
@@ -805,6 +872,7 @@ export class PaymentService {
                         ProfitCenter: item.ProfitCenter ?? null,
                         Remarks: item.Remarks || "",
                         ChargeUOMSid: item.ChargeUOMSid ?? null,
+                        CostRevenueChargesSid: item.CostRevenueChargesSid ?? null,
                         YearMasterSid: currentYear?.YearMasterSid ?? null,
                         PartyAmount: item.PartyAmount ?? 0,
                         UpdatedBy: updatedBy,
@@ -863,6 +931,133 @@ export class PaymentService {
                         UpdatedOn: new Date(),
                     },
                 });
+
+                // Stamp CostVoucherHeaderSid / CostVoucherTypeMasterSid only for newly created detail rows
+                const newlyCreatedItems = (detailItems || []).filter((i: any) => !i.VoucherDetailSid);
+                const newCostChargeIds2 = newlyCreatedItems
+                    .filter((i: any) => i.CostRevenueChargesSid)
+                    .map((i: any) => Number(i.CostRevenueChargesSid));
+                if (newCostChargeIds2.length > 0) {
+                    await prisma.costRevenueCharges.updateMany({
+                        where: { CostRevenueChargesSid: { in: newCostChargeIds2 } },
+                        data: {
+                            CostVoucherHeaderSid: VoucherHeaderSid,
+                            CostVoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
+                            updatedOn: new Date(),
+                            updatedBy: updatedBy,
+                        },
+                    });
+                }
+                const newBookingRateIds2 = newlyCreatedItems
+                    .filter((i: any) => i.BookingRatesSid)
+                    .map((i: any) => Number(i.BookingRatesSid));
+                if (newBookingRateIds2.length > 0) {
+                    await prisma.bookingRates.updateMany({
+                        where: { BookingRatesSid: { in: newBookingRateIds2 } },
+                        data: {
+                            CostVoucherHeaderSid: VoucherHeaderSid,
+                            CostVoucherTypeMasterSid: voucherType.VoucherTypeMasterSid,
+                            UpdatedOn: new Date(),
+                            UpdatedBy: updatedBy,
+                        },
+                    });
+                }
+
+                // Sync cost amounts back to charge rows (only if changed, respects DisableRateUpdateBack)
+                const costRevenueRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+                const bookingRateMap = new Map<number, { Rate: number; Amount: number; LocalAmount: number }>();
+
+                // Build currency decimal map for rate rounding
+                const rateItems2 = detailItems.filter((i: any) => i.CostRevenueChargesSid || i.BookingRatesSid);
+                const rateCurrencyCodes2 = [...new Set(
+                    rateItems2.map((i: any) => (i.CurrencyCode || payload.CurrencyCode || '').trim())
+                )].filter(Boolean) as string[];
+                const rateCurrencyMasters2 = rateCurrencyCodes2.length > 0
+                    ? await prisma.currencyMaster.findMany({
+                        where: { currencyCode: { in: rateCurrencyCodes2 } },
+                        select: { currencyCode: true, amountDecimal: true },
+                      })
+                    : [];
+                const rateCurrencyDecimalMap2 = new Map(rateCurrencyMasters2.map(c => [c.currencyCode, c.amountDecimal]));
+
+                for (const item of detailItems) {
+                    const itemCurrencyCode2 = (item.CurrencyCode || payload.CurrencyCode || '').trim();
+                    const itemDecimals2 = rateCurrencyDecimalMap2.get(itemCurrencyCode2) ?? 2;
+                    const computedRate2 = toNumber(item.NumberOfUnit) !== 0
+                        ? roundAmount(toNumber(item.Amount) / toNumber(item.NumberOfUnit), itemDecimals2)
+                        : roundAmount(toNumber(item.Amount), itemDecimals2);
+                    if (item.CostRevenueChargesSid) {
+                        costRevenueRateMap.set(Number(item.CostRevenueChargesSid), {
+                            Rate: computedRate2,
+                            Amount: toNumber(item.Amount),
+                            LocalAmount: toNumber(item.LocalAmount),
+                        });
+                    }
+                    if (item.BookingRatesSid) {
+                        bookingRateMap.set(Number(item.BookingRatesSid), {
+                            Rate: computedRate2,
+                            Amount: toNumber(item.Amount),
+                            LocalAmount: toNumber(item.LocalAmount),
+                        });
+                    }
+                }
+
+                const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
+                    CompanyMasterSid, 'DisableRateUpdateBack', prisma
+                );
+                if (disableRateUpdateBack !== 'Y') {
+                    if (costRevenueRateMap.size > 0) {
+                        const existingCharges = await prisma.costRevenueCharges.findMany({
+                            where: { CostRevenueChargesSid: { in: [...costRevenueRateMap.keys()] } },
+                            select: { CostRevenueChargesSid: true, CostRate: true, CostAmount: true, CostLocalAmount: true },
+                        });
+                        for (const cur of existingCharges) {
+                            const inc = costRevenueRateMap.get(cur.CostRevenueChargesSid)!;
+                            const changed =
+                                toNumber(cur.CostRate) !== inc.Rate ||
+                                toNumber(cur.CostAmount) !== inc.Amount ||
+                                toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
+                            if (changed) {
+                                await prisma.costRevenueCharges.update({
+                                    where: { CostRevenueChargesSid: cur.CostRevenueChargesSid },
+                                    data: {
+                                        CostRate: inc.Rate,
+                                        CostAmount: inc.Amount,
+                                        CostLocalAmount: inc.LocalAmount,
+                                        updatedOn: new Date(),
+                                        updatedBy: updatedBy,
+                                    },
+                                });
+                            }
+                        }
+                    }
+
+                    if (bookingRateMap.size > 0) {
+                        const existingRates = await prisma.bookingRates.findMany({
+                            where: { BookingRatesSid: { in: [...bookingRateMap.keys()] } },
+                            select: { BookingRatesSid: true, CostRate: true, CostAmount: true, CostLocalAmount: true },
+                        });
+                        for (const cur of existingRates) {
+                            const inc = bookingRateMap.get(cur.BookingRatesSid)!;
+                            const changed =
+                                toNumber(cur.CostRate) !== inc.Rate ||
+                                toNumber(cur.CostAmount) !== inc.Amount ||
+                                toNumber(cur.CostLocalAmount) !== inc.LocalAmount;
+                            if (changed) {
+                                await prisma.bookingRates.update({
+                                    where: { BookingRatesSid: cur.BookingRatesSid },
+                                    data: {
+                                        CostRate: inc.Rate,
+                                        CostAmount: inc.Amount,
+                                        CostLocalAmount: inc.LocalAmount,
+                                        UpdatedOn: new Date(),
+                                        UpdatedBy: updatedBy,
+                                    },
+                                });
+                            }
+                        }
+                    }
+                }
 
                 // ========================================
                 // 6. Handle MatchingDetail: Update if ID exists, Create if not

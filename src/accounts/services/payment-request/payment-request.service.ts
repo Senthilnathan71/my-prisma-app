@@ -11,64 +11,69 @@ export class PaymentRequestService {
   ) {}
 
   async createPaymentRequest(payload: any) {
-    this.validateHeader(payload);
-    const detailRows = this.getSelectedDetails(payload.detailItems || payload.paymentRequestDetails || []);
+    try {
+      this.validateHeader(payload);
+      const detailRows = this.getSelectedDetails(payload.detailItems || payload.paymentRequestDetails || []);
 
-    if (!detailRows.length) {
-      throw new BadRequestException('Please select at least one prepaid cost row');
+      if (!detailRows.length) {
+        throw new BadRequestException('Please select at least one prepaid cost row');
+      }
+
+      return await this.db.$transaction(async (tx) => {
+        await this.validateSourceChargesForPaymentRequest(detailRows, payload, tx);
+
+        const paymentRequestNumber = await this.generatePaymentRequestNumber(
+          payload.CompanyMasterSid,
+          payload.BranchMasterSid,
+          new Date(payload.PaymentRequestDate || payload.RequestDate || new Date()),
+          tx,
+        );
+
+        const header = await tx.paymentRequest.create({
+          data: {
+            PaymentRequestNumber: paymentRequestNumber,
+            PaymentRequestDate: new Date(payload.PaymentRequestDate || payload.RequestDate || new Date()),
+            CompanyMasterSid: Number(payload.CompanyMasterSid),
+            BranchMasterSid: Number(payload.BranchMasterSid),
+            CashBank: payload.CashBank || 'Bank',
+            DepartmentMasterSid: Number(payload.DepartmentMasterSid),
+            PaymentRequestStatus: payload.PaymentRequestStatus || ApprovalStatus.Pending,
+            Party: Number(payload.Party),
+            PayableTo: payload.PayableTo || payload.PartyName || '',
+            BookingSid: this.toNullableNumber(payload.BookingSid),
+            MasterJobSid: this.toNullableNumber(payload.MasterJobSid),
+            HouseJobSid: this.toNullableNumber(payload.HouseJobSid),
+            Remarks: payload.Remarks || '',
+            Status: payload.Status || 'A',
+            CreatedBy: payload.CreatedBy || 'System',
+          },
+        });
+
+        const paymentRequestDetails = detailRows.map((item: any, index: number) =>
+          this.mapPaymentRequestDetail(item, payload, index + 1, payload.CreatedBy || 'System'),
+        );
+
+        await tx.paymentRequestDetail.createMany({
+          data: paymentRequestDetails.map((item: any) => ({
+            ...item,
+            PaymentRequestSid: header.PaymentRequestSid,
+          })),
+        });
+
+        await this.linkSourceCharges(
+          detailRows,
+          header.PaymentRequestSid,
+          payload.UpdatedBy || payload.CreatedBy,
+          tx,
+          payload,
+        );
+
+        return this.getPaymentRequestById(header.PaymentRequestSid, tx);
+      });
+    } catch (error) {
+      this.logger.error(`createPaymentRequest failed: ${error?.message || error}`);
+      throw error;
     }
-
-    return this.db.$transaction(async (tx) => {
-      await this.validateSourceChargesForPaymentRequest(detailRows, payload, tx);
-
-      const paymentRequestNumber = await this.generatePaymentRequestNumber(
-        payload.CompanyMasterSid,
-        payload.BranchMasterSid,
-        new Date(payload.PaymentRequestDate || payload.RequestDate || new Date()),
-        tx,
-      );
-
-      const header = await tx.paymentRequest.create({
-        data: {
-          PaymentRequestNumber: paymentRequestNumber,
-          PaymentRequestDate: new Date(payload.PaymentRequestDate || payload.RequestDate || new Date()),
-          CompanyMasterSid: Number(payload.CompanyMasterSid),
-          BranchMasterSid: Number(payload.BranchMasterSid),
-          CashBank: payload.CashBank || 'Bank',
-          DepartmentMasterSid: Number(payload.DepartmentMasterSid),
-          PaymentRequestStatus: payload.PaymentRequestStatus || ApprovalStatus.Pending,
-          Party: Number(payload.Party),
-          PayableTo: payload.PayableTo || payload.PartyName || '',
-          BookingSid: this.toNullableNumber(payload.BookingSid),
-          MasterJobSid: this.toNullableNumber(payload.MasterJobSid),
-          HouseJobSid: this.toNullableNumber(payload.HouseJobSid),
-          Remarks: payload.Remarks || '',
-          Status: payload.Status || 'A',
-          CreatedBy: payload.CreatedBy || 'System',
-        },
-      });
-
-      const paymentRequestDetails = detailRows.map((item: any, index: number) =>
-        this.mapPaymentRequestDetail(item, payload, index + 1, payload.CreatedBy || 'System'),
-      );
-
-      await tx.paymentRequestDetail.createMany({
-        data: paymentRequestDetails.map((item: any) => ({
-          ...item,
-          PaymentRequestSid: header.PaymentRequestSid,
-        })),
-      });
-
-      await this.linkSourceCharges(
-        detailRows,
-        header.PaymentRequestSid,
-        payload.UpdatedBy || payload.CreatedBy,
-        tx,
-        payload,
-      );
-
-      return this.getPaymentRequestById(header.PaymentRequestSid, tx);
-    });
   }
 
   async updatePaymentRequest(paymentRequestSid: number, payload: any) {
@@ -210,9 +215,17 @@ export class PaymentRequestService {
       })),
     );
 
+    const voucherNumber = header.VoucherSid
+      ? (await tx.voucherHeader.findUnique({
+          where: { VoucherHeaderSid: header.VoucherSid },
+          select: { VoucherNumber: true },
+        }))?.VoucherNumber ?? null
+      : null;
+
     return {
       ...header,
       paymentRequestDetails: detailsWithSource,
+      VoucherNumber: voucherNumber,
     };
   }
 
@@ -310,6 +323,26 @@ export class PaymentRequestService {
         },
       orderBy: { PaymentRequestDate: 'desc' },
     });
+  }
+
+  async suspendCharges(paymentRequestSid: number, chargeIds: number[]) {
+    if (!chargeIds.length) return;
+    await this.db.$transaction([
+      this.db.bookingRates.updateMany({
+        where: {
+          BookingRatesSid: { in: chargeIds },
+          PaymentRequestSid: paymentRequestSid,
+        },
+        data: { PaymentRequestSid: null },
+      }),
+      this.db.costRevenueCharges.updateMany({
+        where: {
+          CostRevenueChargesSid: { in: chargeIds },
+          PaymentRequestSid: paymentRequestSid,
+        },
+        data: { PaymentRequestSid: null },
+      }),
+    ]);
   }
 
   async linkVoucher(paymentRequestSid: number, voucherSid: number, updatedBy?: string) {
