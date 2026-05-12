@@ -503,6 +503,21 @@ export class HouseJobService {
         }
     }
 
+    private async resolveHouseJobMenuSid(
+        departmentType: string | null | undefined,
+        jobType?: string | null,
+    ): Promise<number> {
+        if (String(jobType || '').toLowerCase() === 'agent') {
+            return await this.getAgentMasterAirWaybillMenuSid();
+        }
+
+        return await this.menuService.getMenuSidByName(
+            String(departmentType || '').toUpperCase() === 'AIR'
+                ? 'House Air Waybill'
+                : 'House Job'
+        );
+    }
+
     async createHouseJob(payload: any) {
         try {
             if (!payload.DepartmentMasterSid) {
@@ -520,13 +535,7 @@ export class HouseJobService {
             }
 
             const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
-            const menuId = isAgentMasterAirWaybill
-                ? await this.getAgentMasterAirWaybillMenuSid()
-                : await this.menuService.getMenuSidByName(
-                    department.departmentType?.toUpperCase() === 'AIR'
-                        ? "House Air Waybill"
-                        : "House Job"
-                );
+            const menuId = await this.resolveHouseJobMenuSid(department.departmentType, payload.JobType);
             // ================= RESOLVE JOB DATE FIRST =================
             let resolvedJobDate: Date = payload.HBLDate
                 ? new Date(payload.HBLDate)
@@ -548,21 +557,7 @@ export class HouseJobService {
                     }
                 }
             }
-            // Get MenuMasterSid for House Job (look up by code or use provided value)
-            let numberSeriesMenuId = payload.NumberSeriesMenuMasterSid;
-            if (!numberSeriesMenuId) {
-                const houseJobMenu = await this._db.menuMaster.findFirst({
-                    where: {
-                        OR: [
-                            { MenuCode: 'HJB' },
-                            { MenuCode: 'HJ' },
-                            { MenuName: { contains: 'house job', mode: 'insensitive' } }
-                        ],
-                        status: 'A'
-                    }
-                });
-                numberSeriesMenuId = houseJobMenu?.MenuMasterSid;
-            }
+            const numberSeriesMenuId = menuId;
 
             const departmentExportImport = department?.ExportImport ?? null;
 
@@ -1165,14 +1160,10 @@ export class HouseJobService {
                 throw new BadRequestException('Error fetching house job record.');
             }
 
-            const isAgentMasterAirWaybill = String(ourHouseJob.JobType || '').toLowerCase() === 'agent';
-            const menuId = isAgentMasterAirWaybill
-                ? await this.getAgentMasterAirWaybillMenuSid()
-                : await this.menuService.getMenuSidByName(
-                    ourHouseJob.departmentMaster?.departmentType?.toUpperCase() === 'AIR'
-                        ? "House Air Waybill"
-                        : "House Job"
-                );
+            const menuId = await this.resolveHouseJobMenuSid(
+                ourHouseJob.departmentMaster?.departmentType,
+                ourHouseJob.JobType,
+            );
 
             const costRevenuePayload = {
                 TransactionSid: ourHouseJob.HouseJobSid,
@@ -1265,14 +1256,8 @@ export class HouseJobService {
                 }
             }
 
-           const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
-            const menuId = isAgentMasterAirWaybill
-                ? await this.getAgentMasterAirWaybillMenuSid()
-                : await this.menuService.getMenuSidByName(
-                    department.departmentType?.toUpperCase() === 'AIR'
-                        ? "House Air Waybill"
-                        : "House Job"
-                );
+            const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
+            const menuId = await this.resolveHouseJobMenuSid(department.departmentType, payload.JobType);
 
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
 
