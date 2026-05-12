@@ -42,26 +42,35 @@ export class CompanyConfigService {
             .trim();
     }
 
+    private unwrapConfigurationValue(value: any): any {
+        if (value && typeof value === 'object' && !Array.isArray(value) && 'value' in value) {
+            return value.value;
+        }
+        return value;
+    }
+
     private serializeConfigurationValue(value: any, configType: ConfigType): string {
+        const rawValue = this.unwrapConfigurationValue(value);
+
         switch (configType) {
             case 'boolean':
-                if (value === true || value === 1) return 'Y';
-                if (value === false || value === 0 || value === null || value === undefined) return 'N';
-                return ['Y', 'YES', 'TRUE'].includes(String(value).trim().toUpperCase()) ? 'Y' : 'N';
+                if (rawValue === true || rawValue === 1) return 'Y';
+                if (rawValue === false || rawValue === 0 || rawValue === null || rawValue === undefined) return 'N';
+                return ['Y', 'YES', 'TRUE'].includes(String(rawValue).trim().toUpperCase()) ? 'Y' : 'N';
             case 'number':
-                if (value === null || value === undefined || value === '') return '';
-                return Number(value).toString();
+                if (rawValue === null || rawValue === undefined || rawValue === '') return '';
+                return Number(rawValue).toString();
             case 'email-array':
-                if (Array.isArray(value)) {
-                    return value.map(item => String(item).trim()).filter(Boolean).join(', ');
+                if (Array.isArray(rawValue)) {
+                    return rawValue.map(item => String(item).trim()).filter(Boolean).join(', ');
                 }
-                return String(value || '')
+                return String(rawValue || '')
                     .split(',')
                     .map(item => item.trim())
                     .filter(Boolean)
                     .join(', ');
             default:
-                return value === null || value === undefined ? '' : String(value);
+                return rawValue === null || rawValue === undefined ? '' : String(rawValue);
         }
     }
 
@@ -90,7 +99,7 @@ export class CompanyConfigService {
         const configurationName = String(payload.ConfigurationName || '').trim();
         const displayName = this.resolveDisplayName(configurationName, payload.DisplayName);
         const configurationValue = this.serializeConfigurationValue(
-            payload.ConfigurationValue ?? payload.ConfigurationValue?.value,
+            payload.ConfigurationValue,
             configType
         );
 
@@ -305,7 +314,7 @@ export class CompanyConfigService {
                     DisplayName: this.resolveDisplayName(nextName || existing.ConfigurationName, updateData.DisplayName ?? existing.DisplayName),
                     ConfigType: configType,
                     ConfigurationValue: this.serializeConfigurationValue(
-                        updateData.ConfigurationValue ?? updateData.ConfigurationValue?.value ?? existing.ConfigurationValue,
+                        updateData.ConfigurationValue ?? existing.ConfigurationValue,
                         configType
                     ),
                     UpdatedBy: user.userEmail,
