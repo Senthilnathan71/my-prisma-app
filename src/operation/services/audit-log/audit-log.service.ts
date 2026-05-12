@@ -74,8 +74,20 @@ export class AuditLogService {
                     return this.getLeadLogs(recordId);
                 case 'Meeting':
                     return this.getMeetingLogs(recordId);
-                // case 'Company':
-                //     return this.getCompanyLogs(recordId);
+                case 'Company':
+                    return this.getCompanyLogs(recordId);
+                case 'CostCenter':
+                    return this.getCostCenterLogs(recordId);
+                case 'ProfitCenter':
+                    return this.getProfitCenterLogs(recordId);
+                case 'TDSSet':
+                    return this.getTDSSetLogs(recordId);
+                case 'Year':
+                    return this.getYearLogs(recordId);
+                case 'BLClause':
+                    return this.getBlClauseLogs(recordId);
+                case 'Charge':
+                    return this.getChargeLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -3053,6 +3065,19 @@ export class AuditLogService {
                 }
             });
 
+            const [coa] = await Promise.all([
+                this._db.cOAMaster.findMany({
+                    select: {
+                        COAMasterSid: true,
+                        LedgerName: true
+                    }
+                })
+            ])
+
+            const coaMap = new Map<string, string>(
+                coa.map(c => [String(c.COAMasterSid), c.LedgerName ?? ''])
+            );
+
             const ignoredFields = [
                 'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
             ];
@@ -3071,6 +3096,9 @@ export class AuditLogService {
             const formattedLogs = logs.map((log: any) => {
                 const oldVal = { ...(log.oldVal || {}) };
                 const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'COALedger', 'COALedger', coaMap);
+                this.replaceAndRename(newVal, 'COALedger', 'COALedger', coaMap);
 
                 this.replaceValueFromMap(oldVal, 'BranchFlag', yesNoMap);
                 this.replaceValueFromMap(newVal, 'BranchFlag', yesNoMap);
@@ -3699,7 +3727,7 @@ export class AuditLogService {
                 }
             });
 
-            const [country,state,city] = await Promise.all([
+            const [country, state, city] = await Promise.all([
                 this._db.countryMaster.findMany({
                     select: {
                         CountryMasterSid: true,
@@ -3776,7 +3804,7 @@ export class AuditLogService {
                 };
             });
             return formattedLogs;
-        } catch (error) {            
+        } catch (error) {
             this.logger.warn(`getLeadLogsError: ${error}`);
             throw new Error(`Error fetching lead audit logs: ${error.message}`);
         }
@@ -3807,7 +3835,7 @@ export class AuditLogService {
             }
 
             const ignoredFields = [
-                'createdOn', 'updatedOn', 'createdBy', 'updatedBy' , 'CustomerMasterSid'
+                'createdOn', 'updatedOn', 'createdBy', 'updatedBy', 'CustomerMasterSid'
             ];
 
             const statusMap = {
@@ -3842,85 +3870,886 @@ export class AuditLogService {
         }
     }
 
-    // private getCompanyRowLabel(
-    //     log: any,
-    //     rowLabelMaps: {
-    //         branchMap: Map<string, string>;
-    //         bankMap: Map<string,string>;
-    //     },
-    //     oldVal: Record<string, any>,
-    //     newVal: Record<string, any>
-    // ): string | null {
-    //     const recordId = String(log.recordId ?? '');
+    private getCompanyRowLabel(
+        log: any,
+        rowLabelMaps: {
+            branchMap: Map<string, string>;
+            bankMap: Map<string, string>;
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
 
-    //     switch (log.tableName) {
-    //         case 'BranchMaster':
-    //             return (
-    //                 rowLabelMaps.branchMap.get(recordId) || 
-    //                 `Branch [${newVal.BranchName || oldVal.BranchName || recordId}]`
-    //             );
-            
-    //         case 'BranchBank': 
-    //             return (
-    //                 rowLabelMaps.bankMap.get(recordId) || 
-    //                 `Bank [${newVal.BankName || oldVal.BankName || recordId}]`
-    //             );
-    //         default: 
-    //             return null;
-    //     }
-    // }
+        switch (log.tableName) {
+            case 'BranchMaster':
+                return (
+                    rowLabelMaps.branchMap.get(recordId) ||
+                    `Branch [${newVal.BranchName || oldVal.BranchName || recordId}]`
+                );
 
-    // private getCompanyLabel(tableName: string): string {
-    //     const sectionMap: Record<string,string> = {
-    //         BranchBank: 'Bank',
-    //         BranchMaster: 'Branch',
-    //         CompanyMaster: 'Company',
-    //     };
-    //     return sectionMap[tableName] || tableName;
-    // }
+            case 'BranchBank':
+                return (
+                    rowLabelMaps.bankMap.get(recordId) ||
+                    `Bank [${newVal.BankName || oldVal.BankName || recordId}]`
+                );
+            default:
+                return null;
+        }
+    }
 
-    // private async getCompanyLogs(recordId?: string) {
-    //     try {
-    //         let conditions: any[] = [];
-    //         let branchRows: any[] = [];
-    //         let bankRows: any[] = [];
+    private getCompanyLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            BranchBank: 'Bank',
+            BranchMaster: 'Branch',
+            CompanyMaster: 'Company',
+        };
+        return sectionMap[tableName] || tableName;
+    }
 
-    //         const companyMasterSid = Number(recordId);
+    private async getCompanyLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let branchRows: any[] = [];
+            let bankRows: any[] = [];
 
-    //         const [
-    //             branch
-    //         ] = await Promise.all([
-    //             this._db.branchMaster.findMany({
-    //                 where: {CompanyMasterSid: companyMasterSid},
-    //                 select: {
-    //                     BranchMasterSid: true,
-    //                     branchName: true
-    //                 }
-    //             }),
-    //         ]);
-    //         branchRows = branch;
-    //         bankRows = branchRows.length ? await this._db.branchBank.findMany({
-    //             where: {
-    //                 BranchMasterSid: { in: branchRows.map(b => b.BranchMasterSid)},
-    //             },
-    //             select: {
-    //                 BranchBankSid: true,
-    //                 BankName: true,
-    //                 BranchMasterSid: true,
-    //             },
-    //         })
-    //         : [];
-    //         conditions = [
-    //             {
-    //                 tableName: 'CompanyMaster',
-    //                 recordId: recordId,
-    //             },
-    //             ...(branchRows.lengt)
-    //         ]
-    //     } catch (error) {
+            const companyMasterSid = Number(recordId);
 
-    //     }
-    // }
+            const [
+                branch
+            ] = await Promise.all([
+                this._db.branchMaster.findMany({
+                    where: { CompanyMasterSid: companyMasterSid },
+                    select: {
+                        BranchMasterSid: true,
+                        branchName: true
+                    }
+                }),
+            ]);
+            branchRows = branch;
+            bankRows = branchRows.length ? await this._db.branchBank.findMany({
+                where: {
+                    BranchMasterSid: { in: branchRows.map(b => b.BranchMasterSid) },
+                },
+                select: {
+                    BranchBankSid: true,
+                    BankName: true,
+                    BranchMasterSid: true,
+                },
+            })
+                : [];
+            conditions = [
+                {
+                    tableName: 'CompanyMaster',
+                    recordId: recordId,
+                },
+                ...(branchRows.length
+                    ? [{
+                        tableName: 'BranchMaster',
+                        recordId: { in: bankRows.map(x => String(x.BranchMasterSid)) },
+                    }]
+                    : []),
+                ...(bankRows.length
+                    ? [{
+                        tableName: 'BranchBank',
+                        recordId: { in: bankRows.map(x => String(x.BranchBankSid)) },
+                    }]
+                    : []),
+            ];
 
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [country, currency, city, state] = await Promise.all([
+                this._db.countryMaster.findMany({
+                    select: {
+                        CountryMasterSid: true,
+                        countryName: true
+                    }
+                }),
+                this._db.currencyMaster.findMany({
+                    select: {
+                        CurrencyMasterSid: true,
+                        currencyCode: true,
+                    }
+                }),
+                this._db.cityMaster.findMany({
+                    select: {
+                        CityMasterSid: true,
+                        cityName: true
+                    }
+                }),
+                this._db.stateMaster.findMany({
+                    select: {
+                        StateMasterSid: true,
+                        stateName: true
+                    }
+                })
+            ])
+
+            const countryMap = new Map<string, string>(
+                country.map(c => [String(c.CountryMasterSid), c.countryName])
+            );
+
+            const currencyMap = new Map<string, string>(
+                currency.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
+            );
+
+            const cityMap = new Map<string, string>(
+                city.map(c => [String(c.CityMasterSid), c.cityName])
+            );
+
+            const stateMap = new Map<string, string>(
+                state.map(c => [String(c.StateMasterSid), c.stateName])
+            );
+
+            const branchMap = new Map<string, string>(
+                branchRows.map((b) => [String(b.BranchMasterSid), `Branch [${b.branchName}]`])
+            );
+
+            const bankMap = new Map<string, string>(
+                bankRows.map((b) => {
+                    const branchLabel = branchMap.get(String(b.BranchMasterSid)) ||
+                        `Branch [${b.BranchMasterSid}]`;
+                    return [
+                        String(b.BranchBankSid),
+                        `Bank [${branchLabel} - ${b.BankName}]`,
+                    ];
+                })
+            );
+
+            const ignoredFields = [
+                'createdBy', 'createdOn', 'updatedOn', 'updatedBy',
+                'companyLogo', 'reportLogo'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const rowLabelMaps = {
+                branchMap,
+                bankMap
+            };
+
+            const formattedLogs = logs.map((logs: any) => {
+                const oldVal = { ...(logs.oldVal || {}) };
+                const newVal = { ...(logs.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
+                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
+
+                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);
+                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
+
+                this.replaceAndRename(oldVal, 'CityMasterSid', 'City', cityMap);
+                this.replaceAndRename(newVal, 'CityMasterSid', 'City', cityMap);
+
+                this.replaceAndRename(oldVal, 'StateMasterSid', 'State', stateMap);
+                this.replaceAndRename(newVal, 'StateMasterSid', 'State', stateMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'isHo', yesNoMap);
+                this.replaceValueFromMap(newVal, 'isHo', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'PrintOnInvoice', yesNoMap);
+                this.replaceValueFromMap(newVal, 'PrintOnInvoice', yesNoMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...logs,
+                    sectionLabel: this.getCompanyLabel(logs.tableName),
+                    rowLabel: this.getCompanyRowLabel(logs, rowLabelMaps, oldVal, newVal),
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getCompanyLogsError: ${error}`);
+            throw new Error(`Error fetching company audit logs: ${error.message}`);
+        }
+    }
+
+    private async getCostCenterLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            conditions = [
+                {
+                    tableName: 'CostCenterMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const ignoredFields = [
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getMeetingLogsError: ${error}`);
+            throw new Error(`Error fetching meeting audit logs: ${error.message}`);
+        }
+    }
+
+    private async getProfitCenterLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            conditions = [
+                {
+                    tableName: 'ProfitCenterMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const ignoredFields = [
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getMeetingLogsError: ${error}`);
+            throw new Error(`Error fetching meeting audit logs: ${error.message}`);
+        }
+    }
+
+    getTDSSetRowLabel(
+        log: any,
+        rowLabelMaps: {
+            detailMap: Map<string, string>;
+            exceptionMap: Map<string, string>;
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
+        switch (log.tableName) {
+            case 'TDSSetRate':
+                return (
+                    rowLabelMaps.detailMap.get(recordId) ||
+                    `TDS Detail [${newVal.ITSectionCode || oldVal.ITSectionCode || recordId} - ${newVal.CompanyType || oldVal.CompanyType || ''}]`
+                );
+            case 'TDSExemption':
+                return (
+                    rowLabelMaps.exceptionMap.get(recordId) ||
+                    `TDS Exemption [${newVal.Vessel || oldVal.Vessel || ''}-${newVal.Carrier || oldVal.Carrier || recordId}]`
+                );
+            default:
+                return null;
+        }
+    }
+
+    private getTDSSetLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            TDSSetHeader: 'TDSSet Header',
+            TDSSetRate: 'TDS Deatil',
+            TDSExemption: 'Exemption Detail',
+        };
+        return sectionMap[tableName] || tableName;
+    }
+
+    private async getTDSSetLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let detailRows: any[] = [];
+            let exemptionRows: any[] = [];
+
+            const tdsSetHeaderSid = Number(recordId);
+
+            const [
+                fetchedDetails,
+                fetchedExemptions
+            ] = await Promise.all([
+                this._db.tDSSetRate.findMany({
+                    where: { TDSSetHeaderSid: tdsSetHeaderSid },
+                    select: {
+                        TDSSetRateSid: true,
+                        ITSectionCode: true,
+                        CompanyType: true
+                    }
+                }),
+                this._db.tDSExemption.findMany({
+                    where: { TDSSetHeaderSid: tdsSetHeaderSid },
+                    select: {
+                        TDSExemptionSid: true,
+                        Vessel: true,
+                        Carrier: true
+                    }
+                })
+            ]);
+
+            detailRows = fetchedDetails;
+            exemptionRows = fetchedExemptions;
+
+            conditions = [
+                {
+                    tableName: 'TDSSetHeader',
+                    recordId: recordId
+                },
+                ...(detailRows.length
+                    ? [{
+                        tableName: 'TDSSetRate',
+                        recordId: { in: detailRows.map(x => String(x.TDSSetRateSid)) }
+                    }]
+                    : []),
+                ...(exemptionRows.length
+                    ? [{
+                        tableName: 'TDSExemption',
+                        recordId: { in: exemptionRows.map(x => String(x.TDSExemptionSid)) }
+                    }]
+                    : []),
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [country, vessel, customer] = await Promise.all([
+                this._db.countryMaster.findMany({
+                    select: {
+                        CountryMasterSid: true,
+                        countryName: true
+                    }
+                }),
+                this._db.vesselMaster.findMany({
+                    select: {
+                        VesselMasterSid: true,
+                        VesselName: true
+                    }
+                }),
+                this._db.customerMaster.findMany({
+                    select: {
+                        CustomerMasterSid: true,
+                        CustomerName: true
+                    }
+                })
+            ])
+
+            const countryMap = new Map<string, string>(
+                country.map(c => [String(c.CountryMasterSid), c.countryName])
+            );
+
+            const vesselMap = new Map<string, string>(
+                vessel.map(c => [String(c.VesselMasterSid), c.VesselName])
+            );
+
+            const customerMap = new Map<string, string>(
+                customer.map(c => [String(c.CustomerMasterSid), c.CustomerName])
+            )
+
+            const detailMap = new Map<string, string>(
+                detailRows.map((d) => {
+                    const label = `Detail [${d.ITSectionCode} - ${d.CompanyType}]`;
+                    return [String(d.TDSSetRateSid), label];
+                })
+            );
+            const exceptionMap = new Map<string, string>(
+                exemptionRows.map((e) => {
+                    const label = `Exemption [${e.Vessel} - ${e.Carrier}]`;
+                    return [String(e.TDSExemptionSid), label];
+                })
+            );
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const ignoredFields = [
+                'updatedBy', 'updatedOn', 'createdBy', 'createdOn', 'CompanyMasterSid'
+            ];
+
+            const rowLabelMaps = {
+                detailMap,
+                exceptionMap
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
+                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
+
+                this.replaceAndRename(oldVal, 'Vessel', 'Vessel', vesselMap);
+                this.replaceAndRename(newVal, 'Vessel', 'Vessel', vesselMap);
+
+                this.replaceAndRename(oldVal, 'Carrier', 'Carrier', customerMap);
+                this.replaceAndRename(newVal, 'Carrier', 'Carrier', customerMap);
+
+                this.replaceAndRename(oldVal, 'Transporter', 'Transporter', customerMap);
+                this.replaceAndRename(newVal, 'Transporter', 'Transporter', customerMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    sectionLabel: this.getTDSSetLabel(log.tableName),
+                    rowLabel: this.getTDSSetRowLabel(log, rowLabelMaps, oldVal, newVal),
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getTDSSetLogsError: ${error}`);
+            throw new Error(`Error fetching TDSSet audit logs: ${error.message}`);
+        }
+    }
+
+    private async getYearLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            conditions = [
+                {
+                    tableName: 'YearMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [company] = await Promise.all([
+                this._db.companyMaster.findMany({
+                    select: {
+                        CompanyMasterSid: true,
+                        companyName: true
+                    }
+                })
+            ])
+
+            const companyMap = new Map<string, string>(
+                company.map(c => [String(c.CompanyMasterSid), c.companyName])
+            )
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'CompanyMasterSid', 'Company', companyMap);
+                this.replaceAndRename(newVal, 'CompanyMasterSid', 'Company', companyMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'CurrentYear', yesNoMap);
+                this.replaceValueFromMap(newVal, 'CurrentYear', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'YearEndCompleted', yesNoMap);
+                this.replaceValueFromMap(newVal, 'YearEndCompleted', yesNoMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getMeetingLogsError: ${error}`);
+            throw new Error(`Error fetching meeting audit logs: ${error.message}`);
+        }
+    }
+
+    private async getBlClauseLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            conditions = [
+                {
+                    tableName: 'BLClauseMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [department] = await Promise.all([
+                this._db.departmentMaster.findMany({
+                    select: {
+                        DepartmentMasterSid: true,
+                        departmentName: true
+                    }
+                })
+            ])
+
+            const departmentMap = new Map<string, string>(
+                department.map(c => [String(c.DepartmentMasterSid), c.departmentName])
+            );
+
+            const ignoredFields = [
+                'createdBy', 'createdOn', 'updatedOn', 'updatedBy'
+            ];
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
+                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'DefaultClause', yesNoMap);
+                this.replaceValueFromMap(newVal, 'DefaultClause', yesNoMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getMeetingLogsError: ${error}`);
+            throw new Error(`Error fetching meeting audit logs: ${error.message}`);
+        }
+    }
+
+    private getChargeRowLabel(
+        log: any,
+        rowLabelMaps: {
+            taxMap: Map<string, string>;
+            tdsMap: Map<string, string>;
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
+        switch (log.tableName) {
+            case 'ChargeTaxMaster':
+                return (
+                    rowLabelMaps.taxMap.get(recordId) ||
+                    `Tax [${newVal.description || oldVal.description || recordId}]`
+                );
+
+            case 'ChargeTds':
+                return (
+                    rowLabelMaps.tdsMap.get(recordId) ||
+                    `TDS [${newVal.TDSSet || oldVal.TDSSet || recordId}]`
+                );
+            default:
+                return null;
+        }
+    }
+
+    private getChargeLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            ChargeMaster: 'Charge',
+            ChargeTaxMaster: 'Tax',
+            ChargeTds: 'TDS',
+        };
+        return sectionMap[tableName] || tableName;
+    }
+
+    private async getChargeLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let taxRows: any[] = [];
+            let tdsRows: any[] = [];
+
+            const chargeMasterSid = Number(recordId);
+
+            const [
+                tax,
+                tds
+            ] = await Promise.all([
+                this._db.chargeTaxMaster.findMany({
+                    where: { chargeTaxMasterSid: chargeMasterSid },
+                    select: {
+                        ChargeTaxMasterSid: true,
+                        description: true
+                    }
+                }),
+                this._db.chargeTds.findMany({
+                    where: { ChargeMasterSid: chargeMasterSid },
+                    select: {
+                        ChargeTdsSid: true,
+                        TDSSet: true
+                    }
+                })
+            ]);
+
+            taxRows = tax;
+            tdsRows = tds;
+
+            conditions = [
+                {
+                    tableName: 'ChargeMaster',
+                    recordId: recordId
+                },
+                ...(taxRows.length
+                    ? [{
+                        tableName: 'ChargeTaxMaster',
+                        recordId: { in: taxRows.map(x => String(x.ChargeTaxMasterSid)) }
+                    }]
+                    : []),
+                ...(tdsRows.length
+                    ? [{
+                        tableName: 'ChargeTds',
+                        recordId: { in: tdsRows.map(x => String(x.ChargeTdsSid)) }
+                    }]
+                    : []),
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [uom, currency, chargegroup, tdsset] = await Promise.all([
+                this._db.uOMMaster.findMany({
+                    select: {
+                        UOMMasterSid: true,
+                        UOMCode: true
+                    }
+                }),
+                this._db.currencyMaster.findMany({
+                    select: {
+                        CurrencyMasterSid: true,
+                        currencyCode: true
+                    }
+                }),
+                this._db.chargeGroup.findMany({
+                    select: {
+                        ChargeGroupSid: true,
+                        GroupName: true
+                    }
+                }),
+                this._db.tDSSetHeader.findMany({
+                    select: {
+                        TDSSetHeaderSid: true,
+                        TDSSetName: true
+                    }
+                })
+            ])
+
+            const uomMap = new Map<string, string>(
+                uom.map(c => [String(c.UOMMasterSid), c.UOMCode])
+            );
+
+            const currencyMap = new Map<string, string>(
+                currency.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
+            );
+
+            const chargeGroupMap = new Map<string, string>(
+                chargegroup.map(c => [String(c.ChargeGroupSid), c.GroupName])
+            );
+
+            const tdsSetMap = new Map<string, string>(
+                tdsset.map(c => [String(c.TDSSetHeaderSid), c.TDSSetName])
+            );
+
+            const chargeTaxMap = new Map<string, string>(
+                taxRows.map((t) => {
+                    const label = `Tax [${t.description}]`;
+                    return [String(t.ChargeTaxMasterSid), label]
+                })
+            );
+
+            const chargeTdsMap = new Map<string, string>(
+                tdsRows.map((t) => {
+                    const tdsName =
+                        tdsSetMap.get(String(t.TDSSet)) || t.TDSSet;
+
+                    const label = `TDS [${tdsName}]`;
+
+                    return [String(t.ChargeTdsSid), label];
+                })
+            );
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const ignoredFields = [
+                'updatedBy', 'updatedOn', 'createdBy', 'createdOn', 'CompanyMasterSid', 'HSSACMasterSid'
+            ];
+
+            const rowLabelMaps = {
+                taxMap: chargeTaxMap,
+                tdsMap: chargeTdsMap
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'UOM', 'UOM', uomMap);
+                this.replaceAndRename(newVal, 'UOM', 'UOM', uomMap);
+
+                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);
+                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
+
+                this.replaceAndRename(oldVal, 'ChargeGroupSid', 'ChargeGroup', chargeGroupMap);
+                this.replaceAndRename(newVal, 'ChargeGroupSid', 'ChargeGroup', chargeGroupMap);
+
+                this.replaceAndRename(oldVal, 'TDSSet', 'TDSSet', tdsSetMap);
+                this.replaceAndRename(newVal, 'TDSSet', 'TDSSet', tdsSetMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    sectionLabel: this.getChargeLabel(log.tableName),
+                    rowLabel: this.getChargeRowLabel(log, rowLabelMaps, oldVal, newVal),
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getChargeLogsError: ${error}`);
+            throw new Error(`Error fetching charge audit logs: ${error.message}`);
+        }
+    }
 }
 

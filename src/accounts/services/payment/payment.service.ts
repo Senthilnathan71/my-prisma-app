@@ -532,6 +532,40 @@ export class PaymentService {
                     data: allDetailPayload,
                 });
 
+                // Sync cost amounts to CostRevenueCharges / BookingRates when creating from payment request
+                if (payload.PaymentRequestSid) {
+                    const disableRateUpdateBack = await this.companyConfigService.getConfigurationValue(
+                        payload.CompanyMasterSid, 'DisableRateUpdateBack', prisma
+                    );
+                    if (disableRateUpdateBack !== 'Y') {
+                        for (const item of detailItems) {
+                            if (item.CostRevenueChargesSid) {
+                                await prisma.costRevenueCharges.update({
+                                    where: { CostRevenueChargesSid: Number(item.CostRevenueChargesSid) },
+                                    data: {
+                                        CostRate: toNumber(item.Rate),
+                                        CostAmount: toNumber(item.Amount),
+                                        CostLocalAmount: toNumber(item.LocalAmount),
+                                        updatedOn: new Date(),
+                                        updatedBy: payload.CreatedBy,
+                                    }
+                                });
+                            }
+                            if (item.BookingRatesSid) {
+                                await prisma.bookingRates.update({
+                                    where: { BookingRatesSid: Number(item.BookingRatesSid) },
+                                    data: {
+                                        CostRate: toNumber(item.Rate),
+                                        CostAmount: toNumber(item.Amount),
+                                        CostLocalAmount: toNumber(item.LocalAmount),
+                                        UpdatedOn: new Date(),
+                                        UpdatedBy: payload.CreatedBy,
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
 
                 const allMatchings = payload.voucherMatching || [];
                 const matchingDetails = allMatchings.map((matching, index) => {

@@ -501,30 +501,70 @@ export class CompanyService {
                             updatedBranchIds.push(branchOperation.BranchMasterSid);
                         }
 
-                        // Process banks without destructuring
+                        // Process banks in-place: update existing records and create only new ones.
                         if (branchData.branchBank && branchData.branchBank.length > 0) {
-                            await prisma.branchBank.deleteMany({
-                                where: { BranchMasterSid: branchOperation.BranchMasterSid }
+                            const existingBanks = await prisma.branchBank.findMany({
+                                where: {
+                                    BranchMasterSid: branchOperation.BranchMasterSid,
+                                    status: 'A'
+                                },
+                                select: { BranchBankSid: true }
                             });
 
-                            const bankCreateData = branchData.branchBank.map(bank => ({
-                                BankName: bank.BankName,
-                                BankCode: bank.BankCode,
-                                BeneficiaryName:bank.BeneficiaryName || null,
-                                BankAddress: bank.BankAddress || null,
-                                IFSCCode: bank.IFSCCode,
-                                BankAccountNo: bank.BankAccountNo,
-                                status: bank.status,
-                                Remarks: bank.Remarks || null,
-                                PrintOnInvoice : bank.PrintOnInvoice || 'N',
-                                CurrencyMasterSid : bank.CurrencyMasterSid || null,
-                                BranchMasterSid: branchOperation.BranchMasterSid,
-                                createdBy: user.userEmail
-                            }));
+                            const incomingBankIds = branchData.branchBank
+                                .map(bank => Number(bank.BranchBankSid))
+                                .filter(id => Number.isFinite(id) && id > 0);
 
-                            await prisma.branchBank.createMany({
-                                data: bankCreateData
-                            });
+                            const existingBankIds = existingBanks.map(bank => bank.BranchBankSid);
+                            const bankIdsToSoftDelete = existingBankIds.filter(
+                                id => !incomingBankIds.includes(id)
+                            );
+
+                            for (const bank of branchData.branchBank) {
+                                const bankPayload = {
+                                    BankName: bank.BankName,
+                                    BankCode: bank.BankCode,
+                                    BeneficiaryName: bank.BeneficiaryName || null,
+                                    BankAddress: bank.BankAddress || null,
+                                    IFSCCode: bank.IFSCCode,
+                                    BankAccountNo: bank.BankAccountNo,
+                                    status: bank.status,
+                                    Remarks: bank.Remarks || null,
+                                    PrintOnInvoice: bank.PrintOnInvoice || 'N',
+                                    CurrencyMasterSid: bank.CurrencyMasterSid || null,
+                                    BranchMasterSid: branchOperation.BranchMasterSid
+                                };
+
+                                const incomingBankId = Number(bank.BranchBankSid);
+                                const isExistingForBranch = Number.isFinite(incomingBankId) && existingBankIds.includes(incomingBankId);
+
+                                if (isExistingForBranch) {
+                                    await prisma.branchBank.update({
+                                        where: { BranchBankSid: incomingBankId },
+                                        data: {
+                                            ...bankPayload,
+                                            updatedBy: user.userEmail
+                                        }
+                                    });
+                                } else {
+                                    await prisma.branchBank.create({
+                                        data: {
+                                            ...bankPayload,
+                                            createdBy: user.userEmail
+                                        }
+                                    });
+                                }
+                            }
+
+                            if (bankIdsToSoftDelete.length > 0) {
+                                await prisma.branchBank.updateMany({
+                                    where: { BranchBankSid: { in: bankIdsToSoftDelete } },
+                                    data: {
+                                        status: 'D',
+                                        updatedBy: user.userEmail
+                                    }
+                                });
+                            }
                         }
 
                         updatedBranches.push({

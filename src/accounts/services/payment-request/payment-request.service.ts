@@ -522,6 +522,8 @@ private async generatePaymentRequestNumberFromConfig(
 
   private async findSourceCharge(header: any, detail: any, tx: any) {
     const directSourceId =
+      this.toNullableNumber(detail?.BookingRatesSid) ||
+      this.toNullableNumber(detail?.CostRevenueChargesSid) ||
       this.toNullableNumber(detail?.SourceCostRevenueChargeSid) ||
       this.toNullableNumber(detail?.sourceCostRevenueCharge?.CostRevenueChargesSid) ||
       this.toNullableNumber(detail?.sourceCostRevenueCharge?.BookingRatesSid) ||
@@ -767,10 +769,11 @@ private async generatePaymentRequestNumberFromConfig(
         (detailRows || [])
           .map((item: any) =>
             this.toNullableNumber(
+              item?.BookingRatesSid ||
+              item?.CostRevenueChargesSid ||
               item?.SourceCostRevenueChargeSid ||
               item?.sourceCostRevenueCharge?.CostRevenueChargesSid ||
-              item?.sourceCostRevenueCharge?.BookingRatesSid ||
-              item?.CostRevenueChargesSid,
+              item?.sourceCostRevenueCharge?.BookingRatesSid,
             ),
           )
           .filter((value: number | null): value is number => value !== null),
@@ -783,10 +786,11 @@ private async generatePaymentRequestNumberFromConfig(
       .map((item: any) => ({
         ...item,
         sourceChargeId: this.toNullableNumber(
+          item?.BookingRatesSid ||
+          item?.CostRevenueChargesSid ||
           item?.SourceCostRevenueChargeSid ||
           item?.sourceCostRevenueCharge?.CostRevenueChargesSid ||
-          item?.sourceCostRevenueCharge?.BookingRatesSid ||
-          item?.CostRevenueChargesSid,
+          item?.sourceCostRevenueCharge?.BookingRatesSid,
         ),
       }))
       .filter((item: any) => item.sourceChargeId);
@@ -821,6 +825,10 @@ private async generatePaymentRequestNumberFromConfig(
       CostLocalAmount: this.toNullableDecimal(item.CostLocalAmount),
       CostAgentMasterSid: this.toNullableNumber(item.CostAgentMasterSid),
       CostAgentBranchSid: this.toNullableNumber(item.CostAgentBranchSid),
+      COAMasterSid:          this.toNullableNumber(item.COAMasterSid),
+      LedgerMasterSid:       this.toNullableNumber(item.LedgerMasterSid),
+      BookingRatesSid:       this.toNullableNumber(item.BookingRatesSid),
+      CostRevenueChargesSid: this.toNullableNumber(item.CostRevenueChargesSid),
       CreatedBy: createdBy,
       ...(updatedBy ? { UpdatedBy: updatedBy } : {}),
     };

@@ -211,7 +211,6 @@ export class CurrencyExchangeService {
             })
 
             if(!exchangeRate){
-                console.error('Exchange rate not found');
                 return null;
             }
 
