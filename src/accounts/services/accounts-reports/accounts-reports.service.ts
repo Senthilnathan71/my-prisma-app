@@ -2820,6 +2820,7 @@ export class AccountsReportsService {
               GroupName: true,
               SubGroupName: true,
               LedgerName: true,
+              LedgerType: true,
             },
           },
           yearMaster: true,
@@ -2828,27 +2829,102 @@ export class AccountsReportsService {
 
       let totalIncome = 0;
       let totalExpense = 0;
+      let totalOtherRevenue = 0;
+      let totalOtherCost = 0;
 
       const groupedMap = new Map<string, any>();
       const data: any[] = [];
 
-      voucherData.forEach((v) => {
-        if (!v.coaMaster || !v.yearMaster) return;
+      const normalizeText = (value?: string | null) =>
+        String(value || '').trim().toLowerCase();
 
-        const amount = v.LocalAmount.toNumber();
+      const hasDirectKeyword = (value?: string | null) =>
+        /\bdirect\b/.test(normalizeText(value));
 
-        const signedAmount =
-          v.DrCr === 'C' ? amount : v.DrCr === 'D' ? amount * -1 : 0;
+      const resolveProfitSection = (
+        category?: string | null,
+        groupName?: string | null,
+        subGroupName?: string | null,
+        ledgerName?: string | null,
+        ledgerType?: string | null,
+      ) => {
+        const normalizedLedgerType = normalizeText(ledgerType);
 
-        const category = v.coaMaster.Category;
+        if (
+          category === 'Income' &&
+          (hasDirectKeyword(subGroupName) || hasDirectKeyword(ledgerName))
+        ) {
+          return 'DirectIncome';
+        }
+
+        if (
+          category === 'Expense' &&
+          (hasDirectKeyword(subGroupName) || hasDirectKeyword(ledgerName))
+        ) {
+          return 'DirectExpense';
+        }
+
+        if (normalizedLedgerType.includes('other revenue')) {
+          return 'OtherRevenue';
+        }
+
+        if (
+          normalizedLedgerType.includes('other cost') ||
+          normalizedLedgerType.includes('expense')
+        ) {
+          return 'OtherCost';
+        }
 
         if (category === 'Income') {
-          totalIncome += signedAmount;
+          return 'OtherRevenue';
+        }
+
+        if (category === 'Expense') {
+          return 'OtherCost';
+        }
+
+        return 'Unknown';
+      };
+
+      voucherData.forEach((v) => {
+        if (!v.coaMaster) return;
+
+        const amount = v.LocalAmount.toNumber();
+        const drCr = v.DrCr?.trim().toUpperCase();
+
+        const category = v.coaMaster.Category;
+        const profitSection = resolveProfitSection(
+          category,
+          v.coaMaster.GroupName,
+          v.coaMaster.SubGroupName,
+          v.coaMaster.LedgerName,
+          v.coaMaster.LedgerType,
+        ); 
+
+        let signedAmount = amount;
+        if (category === 'Income') {
+          signedAmount = drCr === 'C' ? amount : -amount;
+        } else if (category === 'Expense') {
+          signedAmount = drCr === 'D' ? amount : -amount;
+        } else {
+          signedAmount = drCr === 'C' ? amount : drCr === 'D' ? amount * -1 : 0;
+        }
+
+        if (category === 'Income') {
+          if (profitSection === 'OtherRevenue') {
+            totalOtherRevenue += signedAmount;
+          } else {
+            totalIncome += signedAmount;
+          }
           return;
         }
 
         if (category === 'Expense') {
-          totalExpense += signedAmount;
+          if (profitSection === 'OtherCost') {
+            totalOtherCost += signedAmount;
+          } else {
+            totalExpense += signedAmount;
+          }
           return;
         }
 
@@ -2876,9 +2952,23 @@ export class AccountsReportsService {
 
       data.push(...groupedMap.values());
 
+      const incomeTotal = roundAmount(totalIncome, 2);
+      const expenseTotal = roundAmount(totalExpense, 2);
+      const otherRevenueTotal = roundAmount(totalOtherRevenue, 2);
+      const otherCostTotal = roundAmount(totalOtherCost, 2);
+      const grossProfit = roundAmount(incomeTotal - expenseTotal, 2);
+      const netProfit = roundAmount(
+        grossProfit + otherRevenueTotal - otherCostTotal,
+        2,
+      );
+
       return {
-        incomeTotal: Math.abs(totalIncome),
-        expenseTotal: Math.abs(totalExpense),
+        incomeTotal,
+        expenseTotal,
+        grossProfit,
+        otherRevenueTotal,
+        otherCostTotal,
+        retained: netProfit,
         data,
         CompanyMasterSid,
         BranchMasterSid: branchId,
