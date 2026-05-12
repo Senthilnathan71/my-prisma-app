@@ -81,7 +81,7 @@ export class CustomerLoginService {
 
 
 
-    async deleteCustomerLogin(CustomerLoginSid: number) {
+    async deleteCustomerLogin(CustomerLoginSid: number, updatedBy: string) {
         try {
             const existing = await this._db.customerLogin.findUnique({
                 where: {
@@ -98,7 +98,9 @@ export class CustomerLoginService {
                 where: {
                     CustomerLoginSid: CustomerLoginSid
                 }, data: {
-                    status : 'D'
+                    status : 'D',
+                    updatedBy : updatedBy,
+                    updatedOn : new Date()
                 }
             })
             return deletedData;

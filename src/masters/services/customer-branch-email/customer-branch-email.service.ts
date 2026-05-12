@@ -74,7 +74,7 @@ export class CustomerBranchEmailService {
     }
 
 
-    async deleteCustomerBrEmailById(CustomerBrEmailSid: number) {
+    async deleteCustomerBrEmailById(CustomerBrEmailSid: number, updatedBy: string) {
         try {
             const existing = await this._db.customerBrEmail.findUnique({
                 where: {
@@ -91,7 +91,9 @@ export class CustomerBranchEmailService {
                 where: {
                     CustomerBrEmailSid: CustomerBrEmailSid
                 }, data: {
-                    status : 'D'
+                    status : 'D',
+                    updatedBy : updatedBy,
+                    updatedOn : new Date()
                 }
             })
             return updatedCustomerBrEmail;

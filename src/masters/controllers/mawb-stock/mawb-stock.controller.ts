@@ -215,7 +215,8 @@ export class MawbStockController {
         stockIds: number[],
         customerId: number,
         companyId: number,
-        branchId: number
+        branchId: number,
+        useremail: string,
     }) {
 
         const resp = new ResponseData();
@@ -247,6 +248,7 @@ export class MawbStockController {
         companyId: number,
         branchId: number,
         customerId: number,
+        useremail: string,
         stocks: {
             MawbStockSid: number,
             StockStatus: string

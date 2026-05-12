@@ -940,32 +940,32 @@ export class CustomerService {
             if (branchIdsToDelete.length > 0) {
                 await tx.customerBranch.updateMany({
                     where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                    data: { status: 'D' }
+                    data: { status: 'D' ,updatedBy: userEmail}
                 });
 
                 await tx.cusBranchContact.updateMany({
                     where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                    data: { status: 'D' }
+                    data: { status: 'D' ,updatedBy: userEmail}
                 });
 
                 await tx.customerBrEmail.updateMany({
                     where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                    data: { status: 'D' }
+                    data: { status: 'D' ,updatedBy: userEmail}
                 });
 
                 await tx.customerLogin.updateMany({
                     where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                    data: { status: 'D' }
+                    data: { status: 'D' ,updatedBy: userEmail}
                 });
 
                 await tx.customerSalesTeam.updateMany({
                     where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                    data: { status: 'D' }
+                    data: { status: 'D' ,updatedBy: userEmail}
                 });
 
                 await tx.customerMilestone.updateMany({
                     where: { CustomerBranchSid: { in: branchIdsToDelete } },
-                    data: { Status: 'D' }
+                    data: { Status: 'D' ,UpdatedBy: userEmail}
                 });
             }
 
@@ -1041,7 +1041,7 @@ export class CustomerService {
                     if (contactIdsToDelete.length > 0) {
                         await tx.cusBranchContact.updateMany({
                             where: { CusBranchContactSid: { in: contactIdsToDelete } },
-                            data: { status: 'D' }
+                            data: { status: 'D' ,updatedBy: userEmail}
                         });
                     }
 
@@ -1079,7 +1079,7 @@ export class CustomerService {
                     // Delete all existing contacts if none provided
                     await tx.cusBranchContact.updateMany({
                         where: { CustomerBranchSid: branchId, status: 'A' },
-                        data: { status: 'D' }
+                        data: { status: 'D' ,updatedBy: userEmail}
                     });
                 }
 
@@ -1101,7 +1101,7 @@ export class CustomerService {
                     if (emailIdsToDelete.length > 0) {
                         await tx.customerBrEmail.updateMany({
                             where: { CustomerBrEmailSid: { in: emailIdsToDelete } },
-                            data: { status: 'D' }
+                            data: { status: 'D' ,updatedBy: userEmail}
                         });
                     }
 
@@ -1160,7 +1160,7 @@ export class CustomerService {
                     if (loginIdsToDelete.length > 0) {
                         await tx.customerLogin.updateMany({
                             where: { CustomerLoginSid: { in: loginIdsToDelete } },
-                            data: { status: 'D' }
+                            data: { status: 'D' ,updatedBy: userEmail}
                         });
                     }
 
@@ -1217,7 +1217,7 @@ export class CustomerService {
                     if (salesIdsToDelete.length > 0) {
                         await tx.customerSalesTeam.updateMany({
                             where: { CustomerSalesSid: { in: salesIdsToDelete } },
-                            data: { status: 'D' }
+                            data: { status: 'D',updatedBy: userEmail }
                         });
                     }
 
@@ -1278,7 +1278,7 @@ export class CustomerService {
                     if (milestoneIdsToDelete.length > 0) {
                         await tx.customerMilestone.updateMany({
                             where: { CustomerMilestoneSid: { in: milestoneIdsToDelete } },
-                            data: { Status: 'D' }
+                            data: { Status: 'D' ,UpdatedBy: userEmail}
                         });
                     }
 
@@ -1368,7 +1368,7 @@ export class CustomerService {
                     status: 'A'
                 },
                 data: {
-                    status: 'S'
+                    status: 'S',
                 }
             })
 

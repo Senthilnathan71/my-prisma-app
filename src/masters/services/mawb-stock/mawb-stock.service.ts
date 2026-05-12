@@ -350,7 +350,8 @@ export class MawbStockService {
         stockIds: number[],
         customerId: number,
         companyId: number,
-        branchId: number
+        branchId: number,
+        useremail: string,
     }) {
 
         return await this._db.mawbStock.updateMany({
@@ -365,7 +366,8 @@ export class MawbStockService {
             },
             data: {
                 Customer: payload.customerId,
-                AvailableStatus: 'Allocated'
+                AvailableStatus: 'Allocated',
+                updatedBy: payload.useremail
             }
         });
     }
@@ -375,6 +377,7 @@ export class MawbStockService {
         companyId: number,
         branchId: number,
         customerId: number,
+        useremail: string,
         stocks: Array<{ MawbStockSid: number, StockStatus: string }>
     }) {
         if (!payload.stocks?.length) {
@@ -401,7 +404,8 @@ export class MawbStockService {
                     data: {
                         AvailableStatus: 'Available',
                         StockStatus: stock.StockStatus,
-                        updatedOn: new Date()
+                        updatedOn: new Date(),
+                        updatedBy: payload.useremail
                     }
                 });
                 updates.push(update);

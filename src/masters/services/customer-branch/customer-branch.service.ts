@@ -101,7 +101,7 @@ export class CustomerBranchService {
     }
 
 
-    async softDeleteCustomerBranch(CustomerBranchSid: number) {
+    async softDeleteCustomerBranch(CustomerBranchSid: number, updatedBy: string) {
         try {
             const existing = await this._db.customerBranch.findUnique({
                 where: {
@@ -117,30 +117,30 @@ export class CustomerBranchService {
                 // Suspend Customer Branch
                 await tx.customerBranch.update({
                     where: { CustomerBranchSid: CustomerBranchSid },
-                    data: { status: 'S' },
+                    data: { status: 'S' , updatedBy : updatedBy, updatedOn : new Date()},
                 });
 
                 // Suspend all related child tables
                 await Promise.all([
                     tx.cusBranchContact.updateMany({
                         where: { CustomerBranchSid: CustomerBranchSid },
-                        data: { status: 'S' },
+                        data: { status: 'S' ,updatedBy : updatedBy, updatedOn : new Date()},
                     }),
                     tx.customerBrEmail.updateMany({
                         where: { CustomerBranchSid: CustomerBranchSid },
-                        data: { status: 'S' },
+                        data: { status: 'S' ,updatedBy : updatedBy, updatedOn : new Date()},
                     }),
                     tx.customerLogin.updateMany({
                         where: { CustomerBranchSid: CustomerBranchSid },
-                        data: { status: 'S' },
+                        data: { status: 'S' ,updatedBy : updatedBy, updatedOn : new Date()},
                     }),
                     tx.customerSalesTeam.updateMany({
                         where: { CustomerBranchSid: CustomerBranchSid },
-                        data: { status: 'S' },
+                        data: { status: 'S' ,updatedBy : updatedBy, updatedOn : new Date()},
                     }),
                     tx.customerMilestone.updateMany({
                         where: { CustomerBranchSid: CustomerBranchSid },
-                        data: { Status: 'S' },
+                        data: { Status: 'S' ,UpdatedBy : updatedBy, UpdatedOn : new Date()},
                     }),
                 ]);
             });

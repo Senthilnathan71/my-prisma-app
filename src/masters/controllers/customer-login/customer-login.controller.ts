@@ -142,11 +142,11 @@ export class CustomerLoginController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:CustomerLoginSid')
-    async deleteCustomerLoginById(@Param('CustomerLoginSid', ParseIntPipe) CustomerLoginSid: number) {
+    async deleteCustomerLoginById(@Param('CustomerLoginSid', ParseIntPipe) CustomerLoginSid: number,@Body('updatedBy') updatedBy: string) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Deleting Customer Login with Id : ${CustomerLoginSid}`);
-            let res = await this.customerLoginServ.deleteCustomerLogin(CustomerLoginSid);
+            let res = await this.customerLoginServ.deleteCustomerLogin(CustomerLoginSid, updatedBy);
             this.logger.debug(`Deleted Customer Login : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Customer Login with id : ${CustomerLoginSid} is successfully deleted`

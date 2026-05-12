@@ -126,7 +126,7 @@ export class AgentMasterAirWaybillService {
       where: { MawbStockSid: availableMawb.MawbStockSid },
       data: {
         StockStatus: 'Utilised',
-        updatedBy: payload.createdBy,
+        updatedBy: payload.createdBy || payload.updatedBy,
         updatedOn: new Date()
       }
     });
@@ -249,7 +249,7 @@ export class AgentMasterAirWaybillService {
           },
           data: {
             StockStatus: 'Free',
-            updatedBy: payload.createdBy,
+            updatedBy: payload.createdBy || payload.updatedBy,
             updatedOn: new Date(),
           },
         });

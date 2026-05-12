@@ -74,7 +74,7 @@ export class CustomerBranchContactService {
     }
 
 
-    async deleteCustomerBrContactById(CusBranchContactSid: number) {
+    async deleteCustomerBrContactById(CusBranchContactSid: number, updatedBy: string) {
         try {
             const existing = await this._db.cusBranchContact.findUnique({
                 where: {
@@ -91,7 +91,9 @@ export class CustomerBranchContactService {
                 where: {
                     CusBranchContactSid: CusBranchContactSid
                 }, data: {
-                    status : 'D'
+                    status : 'D',
+                    updatedBy : updatedBy,
+                    updatedOn : new Date()
                 }
             })
             return deletedCustomerBrContact;

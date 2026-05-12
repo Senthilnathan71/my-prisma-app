@@ -1979,7 +1979,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         },
                         data: {
                             StockStatus: 'Utilised',
-                            updatedBy: payload.updatedBy,
+                            updatedBy: payload.updatedBy || payload.createdBy,
                             updatedOn: new Date()
                         }
                     });
