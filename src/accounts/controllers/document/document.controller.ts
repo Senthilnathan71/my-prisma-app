@@ -581,6 +581,8 @@ export class DocumentController {
         throw new BadRequestException('Uploaded file is empty');
       }
 
+      this.validatePdfFileSignature(file);
+
       console.log(`Processing file: ${file.originalname}, Size: ${file.size} bytes`);
 
       // Process the document
@@ -656,6 +658,31 @@ export class DocumentController {
         error: error.message || 'Failed to process document',
         processingTime,
       };
+    }
+  }
+
+  private validatePdfFileSignature(file: Express.Multer.File): void {
+    const buffer = file.buffer;
+
+    if (!buffer || buffer.length < 10) {
+      throw new BadRequestException('Invalid PDF file');
+    }
+
+    const header = buffer
+      .subarray(0, 5)
+      .toString('ascii');
+
+    if (header !== '%PDF-') {
+      throw new BadRequestException('Invalid PDF header');
+    }
+
+    const footerSearchLength = Math.min(buffer.length, 1024);
+    const footer = buffer
+      .subarray(buffer.length - footerSearchLength)
+      .toString('ascii');
+
+    if (!footer.includes('%%EOF')) {
+      throw new BadRequestException('Invalid PDF footer');
     }
   }
 

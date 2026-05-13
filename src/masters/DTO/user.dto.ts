@@ -7,6 +7,7 @@ import {
     IsArray,
     IsNotEmpty,
     ValidateNested,
+    IsDateString,
 } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
@@ -99,6 +100,10 @@ export class CreateUserMasterDto {
     status?: string;
 
     @IsOptional()
+    @IsDateString({}, { message: 'AttemptDateTime must be a valid date string' })
+    AttemptDateTime?: string | null;
+
+    @IsOptional()
     @ValidateNested({ each: true })
     @Type(() => UserCompanyMasterDto)
     userCompanyMaster: UserCompanyMasterDto[];
@@ -189,6 +194,10 @@ export class UpdateUserMasterDto extends PartialType(CreateUserMasterDto) {
     @ValidateNested({ each: true })
     @Type(() => UserCompanyMasterDto)
     userCompanyMaster?: UserCompanyMasterDto[];
+
+    @IsOptional()
+    @IsDateString({}, { message: 'AttemptDateTime must be a valid date string' })
+    AttemptDateTime?: string | null;
 }
 
 export class UserCompanyMasterDto {
