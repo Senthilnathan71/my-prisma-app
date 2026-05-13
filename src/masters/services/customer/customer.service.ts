@@ -378,6 +378,10 @@ export class CustomerService {
                     AirlineCode: true,
                     AirlineNumber: true,
                     status: true,
+                    createdBy: true,
+                    updatedBy: true,
+                    createdOn: true,
+                    updatedOn: true,
                     CustomerBranch: {
                         where: { status: statusWhereClause },
                         select: {
@@ -416,6 +420,10 @@ export class CustomerService {
                             GSTNo: true,
                             Registered: true,
                             status: true,
+                            createdBy: true,
+                            updatedBy: true,
+                            createdOn: true,
+                            updatedOn: true,
                             cusBranchContact: {
                                 where: { status: statusWhereClause },
                                 select: {
@@ -437,7 +445,11 @@ export class CustomerService {
                                     ContactName: true,
                                     MobileNo: true,
                                     Email: true,
-                                    status: true
+                                    status: true,
+                                    createdBy: true,
+                                    updatedBy: true,
+                                    createdOn: true,
+                                    updatedOn: true
                                 }
                             }
                         }
@@ -462,7 +474,11 @@ export class CustomerService {
                             Toemail: true,
                             CCemail: true,
                             DepartmentMasterSid: true,
-                            status: true
+                            status: true,
+                            createdBy: true,
+                            updatedBy: true,
+                            createdOn: true,
+                            updatedOn: true
                         }
                     },
                     CustomerLogin: {
@@ -484,7 +500,11 @@ export class CustomerService {
                             LoginName: true,
                             LoginEmail: true,
                             LoginPassword: true,
-                            status: true
+                            status: true,
+                            createdBy: true,
+                            updatedBy: true,
+                            createdOn: true,
+                            updatedOn: true
                         }
                     },
                     CustomerSalesTeam: {
@@ -512,6 +532,10 @@ export class CustomerService {
                             EffectiveFrom: true,
                             DepartmentMasterSid: true,
                             status: true,
+                            createdBy: true,
+                            updatedBy: true,
+                            createdOn: true,
+                            updatedOn: true,
                             salesManUser: {
                                 select: {
                                     UserMasterSid: true,
