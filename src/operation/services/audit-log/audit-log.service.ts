@@ -7382,7 +7382,6 @@ export class AuditLogService {
                     rowLabelMaps.branchMap.get(recordId) ||
                     `[${newVal.BranchName || oldVal.BranchName || recordId}]`
                 );
-            
             default:
                 return null;
         }
@@ -7408,7 +7407,7 @@ export class AuditLogService {
 
             const[
                 company,
-                branch
+                branch,
             ] = await Promise.all([
                 this._db.userCompanyMaster.findMany({
                     where: {
@@ -7425,9 +7424,10 @@ export class AuditLogService {
                     },
                     select: {
                         UserBranchMasterSid: true,
-                        BranchMasterSid: true
+                        BranchMasterSid: true,
+                        CompanyMasterSid: true,
                     }
-                })
+                }),
             ]);
 
             companyRows = company;
@@ -7514,14 +7514,14 @@ export class AuditLogService {
             const companyMap = new Map<string, string>(
                 companyRows.map(c => [
                     String(c.UserCompanyMasterSid),
-                    `Comapny ${companydataMap.get(String(c.CompanyMasterSid))}`
+                    `Company ${companydataMap.get(String(c.CompanyMasterSid))}`
                 ])
             );
 
             const branchMap = new Map<string, string>(
                 branchRows.map(b => [
                     String(b.UserBranchMasterSid),
-                    `Branch ${branchdataMap.get(String(b.BranchMasterSid))}`
+                    `Branch ${branchdataMap.get(String(b.BranchMasterSid))} - ${companydataMap.get(String(b.CompanyMasterSid))}`
                 ])
             );
 
