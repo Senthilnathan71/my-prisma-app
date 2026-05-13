@@ -15,6 +15,12 @@ interface CargoAgg {
   cbm: number;
   chargeableWeight: number;
   noOfContainers: number;
+  containerTypeCounts: {
+    '20ft': number;
+    '40ft': number;
+    '45ft': number;
+  };
+  containerNumbers: string[];
 }
 
 interface ProRateChargeRow {
@@ -238,6 +244,14 @@ export class ProRateService {
       },
       include: {
         Cargo: { where: { status: 'A' } },
+Products: {
+        where: { status: 'A' },
+        include: {
+          masterJobContainer: {
+            include: { containerType: true },
+          },
+        },
+      },
       },
     });
 
@@ -287,6 +301,8 @@ export class ProRateService {
         cbm: 0,
         chargeableWeight: 0,
         noOfContainers: 0,
+        containerTypeCounts: { '20ft': 0, '40ft': 0, '45ft': 0 },
+        containerNumbers: [],
       };
 
       for (const cargo of house.Cargo) {
@@ -296,6 +312,22 @@ export class ProRateService {
         aggregate.cbm += toNumber(cargo.Volume);
         aggregate.chargeableWeight += toNumber(cargo.ChargeableWeight);
         aggregate.noOfContainers += toNumber(cargo.NoofContainers);
+      }
+
+      const seenContainerNumbers = new Set<string>();
+      for (const product of house.Products) {
+        const containerNo = product.ContainerNo;
+        if (!containerNo || seenContainerNumbers.has(containerNo)) continue;
+        seenContainerNumbers.add(containerNo);
+        aggregate.containerNumbers.push(containerNo);
+
+        const containerType = product.masterJobContainer?.containerType;
+        if (!containerType) continue;
+
+        const size = containerType.ContainerSize?.toLowerCase() ?? '';
+        if (size.includes('20')) aggregate.containerTypeCounts['20ft']++;
+        else if (size.includes('40')) aggregate.containerTypeCounts['40ft']++;
+        else if (size.includes('45')) aggregate.containerTypeCounts['45ft']++;
       }
 
       houseCargoMap.set(house.HouseJobSid, aggregate);
@@ -414,6 +446,8 @@ export class ProRateService {
       cbm: 0,
       chargeableWeight: 0,
       noOfContainers: 0,
+      containerTypeCounts: { '20ft': 0, '40ft': 0, '45ft': 0 },
+      containerNumbers: [],
     };
 
     for (const masterCharge of masterCharges) {
@@ -452,6 +486,11 @@ export class ProRateService {
 
       for (let index = 0; index < basisValues.length; index++) {
         const { house, basis } = basisValues[index];
+
+        if (basis === 0) {
+          continue;
+        }
+
         const isLast = index === basisValues.length - 1;
 
         let costAmount: number;
@@ -556,6 +595,12 @@ export class ProRateService {
         return cargoAgg.grossWeight;
       case 'Per Cont':
         return cargoAgg.noOfContainers;
+      case 'Per 20ft Cont':
+        return cargoAgg.containerTypeCounts['20ft'];
+      case 'Per 40ft Cont':
+        return cargoAgg.containerTypeCounts['40ft'];
+      case 'Per 45ft Cont':
+        return cargoAgg.containerTypeCounts['45ft'];
       case 'ChargeableWeight':
         return cargoAgg.chargeableWeight;
       default:
