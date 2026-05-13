@@ -23,7 +23,9 @@ import { ResponseData } from 'src/common/response-data';
 import { CreateUpdatePreCustomerEventDto } from 'src/masters/DTO/pre-customer-event.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { PreCustomerEventMasterService } from 'src/masters/services/pre-customer-event-master/pre-customer-event-master.service';
-
+class CompanyIdDto {
+    CompanyMasterSid: number;
+}
 
 @Auth()
 @Controller('pre-customer-event-master')
@@ -162,11 +164,11 @@ export class PreCustomerEventMasterController {
         summary: 'Bell-icon notifications: events for the logged-in user (creator or leader) with EventDate today or tomorrow',
     })
     @HttpCode(HttpStatus.OK)
-    @Get('notifications')
-    async getNotifications(@UserData() user: any) {
+    @Post('notifications')
+    async getNotifications(@Body() body: CompanyIdDto) {
         const output = new ResponseData();
         try {
-            output.data = await this.preCustomerEventService.getNotificationsForUser(user);
+            output.data = await this.preCustomerEventService.getNotificationsForUser(body.CompanyMasterSid);
             output.message = 'Notifications fetched successfully';
         } catch (error:any) {
             this.logger.warn(`getNotifications error: ${error}`);
@@ -176,3 +178,4 @@ export class PreCustomerEventMasterController {
         return output;
     }
 }
+

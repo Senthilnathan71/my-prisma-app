@@ -208,9 +208,7 @@ export class PreCustomerEventMasterService {
         return { items, totalCount };
     }
 
-    async getNotificationsForUser(user: any) {
-        const userEmail = this.extractEmail(user).trim();
-        const userMasterSid: number | undefined = user?.UserMasterSid;
+    async getNotificationsForUser(CompanyMasterSid: number) {
 
         // Sliding 24h window from now. EventDate is stored as DATE (Prisma returns 00:00:00Z).
         // Lower bound = today (UTC midnight) → excludes any EventDate < today (past events hidden).
@@ -219,21 +217,12 @@ export class PreCustomerEventMasterService {
         const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
         const next24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-        const orClauses: Prisma.PreCustomerEventWhereInput[] = [];
-        if (userEmail) orClauses.push({ createdBy: { equals: userEmail, mode: 'insensitive' } });
-        if (userMasterSid) orClauses.push({ EventLeader: userMasterSid });
-        if (orClauses.length === 0) return [];
-
-        this.logger.log(
-            `getNotificationsForUser: userEmail="${userEmail}", UserMasterSid=${userMasterSid}, ` +
-            `window=[${todayStart.toISOString()}, ${next24h.toISOString()}]`,
-        );
 
         const events = await this._db.preCustomerEvent.findMany({
             where: {
                 status: 'A',
                 EventDate: { gte: todayStart, lte: next24h },
-                OR: orClauses,
+                CompanyMasterSid: CompanyMasterSid,
             },
             include: {
                 eventLeaderUser: { select: { userName: true } },
@@ -263,3 +252,4 @@ export class PreCustomerEventMasterService {
         });
     }
 }
+
