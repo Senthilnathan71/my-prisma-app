@@ -138,6 +138,20 @@ export class AuditLogService {
                     return this.getStdChargeLogs(recordId);
                 case 'Terms':
                     return this.getTermsLogs(recordId);
+                case 'Print': 
+                    return this.getPrintLogs(recordId);
+                case 'Country':
+                    return this.getCountryLogs(recordId);
+                case 'State' :
+                    return this.getStateLogs(recordId);
+                case 'Inco':
+                    return this.getIncoLogs(recordId);
+                case 'Imco':
+                    return this.getImcoLogs(recordId);
+                case 'City':
+                    return this.getCityLogs(recordId);
+                case 'User':
+                    return this.getUserLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -7052,8 +7066,8 @@ export class AuditLogService {
                 this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);    
                 this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
                 
-                this.replaceAndRename(oldVal, 'ZoneMasterSid', 'Region', zoneMap);
-                this.replaceAndRename(newVal, 'ZoneMasterSid', 'Region', zoneMap);
+                this.replaceAndRename(oldVal, 'ZoneMasterSid', 'Zone', zoneMap);
+                this.replaceAndRename(newVal, 'ZoneMasterSid', 'Zone', zoneMap);
 
                 this.removeIgnoredFields(oldVal, ignoredFields);
                 this.removeIgnoredFields(newVal, ignoredFields);
@@ -7064,6 +7078,521 @@ export class AuditLogService {
                     newVal
                 };
             });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private async getStateLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            conditions = [
+                {
+                    tableName: 'StateMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [country,zone] = await Promise.all([
+                this._db.countryMaster.findMany({
+                    select: {
+                        CountryMasterSid: true,
+                        countryName: true
+                    }
+                }),
+                this._db.zoneMaster.findMany({
+                    select: {
+                        ZoneMasterSid: true,
+                        ZoneName: true
+                    }
+                })
+            ])
+
+            const countryMap = new Map<string, string>(
+                country.map(c => [String(c.CountryMasterSid), c.countryName])
+            );
+
+            const zoneMap = new Map<string, string>(
+                zone.map(c => [String(c.ZoneMasterSid), c.ZoneName])
+            );
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
+            ];
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            }
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);    
+                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
+                
+                this.replaceAndRename(oldVal, 'ZoneMasterSid', 'Zone', zoneMap);
+                this.replaceAndRename(newVal, 'ZoneMasterSid', 'Zone', zoneMap);
+
+                this.replaceValueFromMap(oldVal, 'IsUnionTerritory', yesNoMap);
+                this.replaceValueFromMap(newVal, 'IsUnionTerritory', yesNoMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private async getIncoLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            conditions = [
+                {
+                    tableName: 'IncoMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const ignoredFields = [
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private async getImcoLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            conditions = [
+                {
+                    tableName: 'ImcoMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private async getCityLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            conditions = [
+                {
+                    tableName: 'CityMaster',
+                    recordId: recordId
+                }
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [country,state] =await Promise.all([
+                this._db.countryMaster.findMany({
+                    select: {
+                        CountryMasterSid: true,
+                        countryName: true
+                    }
+                }),
+                this._db.stateMaster.findMany({
+                    select: {
+                        StateMasterSid: true,
+                        stateName: true
+                    }
+                }),
+            ])
+
+            const countryMap = new Map<string, string>(
+                country.map(c => [String(c.CountryMasterSid), c.countryName])
+            );
+
+            const stateMap = new Map<string, string>(
+                state.map(c => [String(c.StateMasterSid), c.stateName])
+            );
+
+            const ignoredFields = [
+                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
+                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
+
+                this.replaceAndRename(oldVal, 'StateMasterSid', 'State', stateMap);
+                this.replaceAndRename(newVal, 'StateMasterSid', 'State', stateMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal
+                };
+            });
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private getUserRowLabel(
+        log: any,
+        rowLabelMaps : {
+            companyMap: Map<string, string>,
+            branchMap: Map<string, string>,
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>,
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
+
+        switch (log.tableName) {
+            case 'UserCompanyMaster':
+                return (
+                    rowLabelMaps.companyMap.get(recordId) || 
+                    `Company [${newVal.companyName || oldVal.companyName || recordId}]`
+                );
+            
+            case 'UserBranchMaster':
+                return (
+                    rowLabelMaps.branchMap.get(recordId) ||
+                    `[${newVal.BranchName || oldVal.BranchName || recordId}]`
+                );
+            
+            default:
+                return null;
+        }
+    }
+
+    private getUserLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            UserMaster : 'User',
+            UserCompanyMaster : 'Company',
+            UserBranchMaster : 'Branch',
+        };
+
+        return sectionMap[tableName] || tableName;
+    }
+
+    private async getUserLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let companyRows: any[] = [];
+            let branchRows: any[] = [];
+
+            const userid = Number(recordId);
+
+            const[
+                company,
+                branch
+            ] = await Promise.all([
+                this._db.userCompanyMaster.findMany({
+                    where: {
+                        UserMasterSid: userid
+                    },
+                    select: {
+                        UserCompanyMasterSid: true,
+                        CompanyMasterSid: true
+                    }
+                }),
+                this._db.userBranchMaster.findMany({
+                    where: {
+                        UserMasterSid: userid
+                    },
+                    select: {
+                        UserBranchMasterSid: true,
+                        BranchMasterSid: true
+                    }
+                })
+            ]);
+
+            companyRows = company;
+            branchRows = branch;
+
+            conditions = [
+                {
+                    tableName: 'UserMaster',
+                    recordId: recordId
+                },
+                ...(companyRows.length
+                    ? [{
+                        tableName: 'UserCompanyMaster',
+                        recordId: { in: companyRows.map(c => String(c.UserCompanyMasterSid)) }
+                    }]
+                :[]),
+                ...(branchRows.length
+                    ? [{
+                        tableName: 'UserBranchMaster',
+                        recordId: { in: branchRows.map(b => String(b.UserBranchMasterSid)) }
+                    }]
+                : []),
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [companies,branches,userType,user,country] = await Promise.all([
+                this._db.companyMaster.findMany({
+                    select: {
+                        CompanyMasterSid: true,
+                        companyName: true
+                    }
+                }),
+                this._db.branchMaster.findMany({
+                    select: {
+                        CompanyMasterSid: true,
+                        BranchMasterSid: true,
+                        branchName: true
+                    }
+                }),
+                this._db.userType.findMany({
+                    select: {
+                        UserTypeSid: true,
+                        name: true
+                    }
+                }),
+                this._db.userMaster.findMany({
+                    select: {
+                        UserMasterSid: true,
+                        userName: true,
+                    }
+                }),
+                this._db.countryMaster.findMany({
+                    select: {
+                        CountryMasterSid: true,
+                        countryName: true
+                    }
+                }),
+            ]);
+
+            const companydataMap = new Map<string,string>(
+                companies.map(c => [String(c.CompanyMasterSid),c.companyName])
+            );
+            const branchdataMap = new Map<string,string>(
+                branches.map(b => [String(b.BranchMasterSid),b.branchName])
+            );
+            const userTypeMap = new Map<string,string>(
+                userType.map(u => [String(u.UserTypeSid),u.name])
+            );
+            const userMap = new Map<string,string>(
+                user.map(u => [String(u.UserMasterSid),u.userName])
+            );
+            const countryMap = new Map<string, string>(
+                country.map(c => [String(c.CountryMasterSid), c.countryName])
+            );
+
+            const companyMap = new Map<string, string>(
+                companyRows.map(c => [
+                    String(c.UserCompanyMasterSid),
+                    `Comapny ${companydataMap.get(String(c.CompanyMasterSid))}`
+                ])
+            );
+
+            const branchMap = new Map<string, string>(
+                branchRows.map(b => [
+                    String(b.UserBranchMasterSid),
+                    `Branch ${branchdataMap.get(String(b.BranchMasterSid))}`
+                ])
+            );
+
+            const yesNoMap = {
+                Y: 'Yes',
+                N: 'No'
+            };
+
+            const isMap = {
+                1: 'Yes',
+                0: 'No'
+            }
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const ignoredFields = [
+                'CreatedBy', 'CreatedOn', 'UpdatedBy', 'UpdatedOn', 'userPassword',
+                'createdBy', 'createdOn', 'updatedBy', 'updatedOn',
+            ]
+
+            const rowLabelMaps = {
+                companyMap,
+                branchMap
+            }
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceAndRename(oldVal, 'userTypeId', 'UserType' , userTypeMap);
+                this.replaceAndRename(newVal, 'userTypeId', 'UserType' , userTypeMap);
+
+                this.replaceAndRename(oldVal, 'DeptHead', 'ReportingTo' , userMap);
+                this.replaceAndRename(newVal, 'DeptHead', 'ReportingTo' , userMap);
+
+                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
+                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
+
+                this.replaceValueFromMap(oldVal, 'status', statusMap);
+                this.replaceValueFromMap(newVal, 'status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.replaceValueFromMap(oldVal, 'isSalesperson', isMap);
+                this.replaceValueFromMap(newVal, 'isSalesperson', isMap);
+
+                this.replaceValueFromMap(oldVal, 'isLoginUser', yesNoMap);
+                this.replaceValueFromMap(newVal, 'isLoginUser', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'GiveAccess', yesNoMap);
+                this.replaceValueFromMap(newVal, 'GiveAccess', yesNoMap);
+
+                this.replaceValueFromMap(oldVal, 'IsDefault', yesNoMap);
+                this.replaceValueFromMap(newVal, 'IsDefault', yesNoMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    oldVal,
+                    newVal,
+                    sectionLabel: this.getUserLabel(log.tableName),
+                    rowLabel: this.getUserRowLabel(log, rowLabelMaps,oldVal,newVal),
+                };
+            })
             return formattedLogs;
         } catch (error) {
             this.logger.warn(`getAuditLogsError: ${error}`);
