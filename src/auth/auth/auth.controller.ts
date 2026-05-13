@@ -17,6 +17,10 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 @Controller('auth')
 @ApiTags('Auth')
 export class AuthController {
+    private readonly maxLoginAttempts = 3;
+    private readonly loginLockMinutes = 10;
+    private readonly failedLoginAttempts = new Map<number, { count: number; lastFailedAt: number }>();
+    private readonly rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
     constructor(
         private authService: AuthService,
@@ -26,6 +30,43 @@ export class AuthController {
         private configService: ConfigService,
         private logger: Logger
     ) { }
+
+    private getRateLimitKey(prefix: string, identifier: string, req: any): string {
+        return `${prefix}:${identifier || 'unknown'}:${getClientIp(req)}`;
+    }
+
+    private enforceRateLimit(key: string, maxRequests: number, windowMs: number): void {
+        const now = Date.now();
+        const current = this.rateLimitStore.get(key);
+
+        if (!current || current.resetAt <= now) {
+            this.rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+            return;
+        }
+
+        if (current.count >= maxRequests) {
+            const retryAfterSeconds = Math.ceil((current.resetAt - now) / 1000);
+            throw new HttpException(
+                `Too many requests. Please try again after ${retryAfterSeconds} seconds.`,
+                HttpStatus.TOO_MANY_REQUESTS
+            );
+        }
+
+        current.count += 1;
+    }
+
+    private normalizeForgotPasswordEmail(loginData: any): string {
+        const rawEmail = typeof loginData?.email === 'object'
+            ? loginData.email?.email
+            : loginData?.email;
+
+        return typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+    }
+
+    private getRemainingLockMinutes(attemptDateTime: Date): number {
+        const lockEndsAt = attemptDateTime.getTime() + this.loginLockMinutes * 60 * 1000;
+        return Math.max(0, Math.ceil((lockEndsAt - Date.now()) / 60000));
+    }
 
 
     @ApiOperation({ summary: 'Login' })
@@ -53,6 +94,19 @@ export class AuthController {
                 throw new UnauthorizedException('User does not exist.');
             }
 
+            const attemptDateTime = await this.authService.getAttemptDateTime(user.UserMasterSid);
+            if (attemptDateTime) {
+                const remainingMinutes = this.getRemainingLockMinutes(attemptDateTime);
+                if (remainingMinutes > 0) {
+                    throw new UnauthorizedException(
+                        `Account temporarily locked. Please try again after ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}.`
+                    );
+                }
+
+                await this.authService.updateAttemptDateTime(user.UserMasterSid, null);
+                this.failedLoginAttempts.delete(user.UserMasterSid);
+            }
+
             // Salesperson logic
             const isSalesperson = String(user.isSalesperson) === '1';
             // if (loginData.projectType === 'freight-forwarding' && isSalesperson) {
@@ -64,9 +118,28 @@ export class AuthController {
 
             const isPasswordMatching = checkPassword(loginData.password, user.userPassword);
             if (!isPasswordMatching) {
+                const currentAttempts = this.failedLoginAttempts.get(user.UserMasterSid)?.count ?? 0;
+                const nextAttempts = currentAttempts + 1;
+
+                if (nextAttempts >= this.maxLoginAttempts) {
+                    await this.authService.updateAttemptDateTime(user.UserMasterSid, new Date());
+                    this.failedLoginAttempts.delete(user.UserMasterSid);
+                    this.logger.warn(`Login locked after repeated incorrect passwords - ${loginData.email}`);
+                    throw new UnauthorizedException('Account temporarily locked. Please try again after 10 minutes.');
+                }
+
+                this.failedLoginAttempts.set(user.UserMasterSid, {
+                    count: nextAttempts,
+                    lastFailedAt: Date.now()
+                });
+
+                const remainingAttempts = this.maxLoginAttempts - nextAttempts;
                 this.logger.warn(`Login failed: Incorrect password - ${loginData.email}`);
-                throw new UnauthorizedException('Incorrect password.');
+                throw new UnauthorizedException(`Invalid password. ${remainingAttempts} attempts remaining.`);
             }
+
+            this.failedLoginAttempts.delete(user.UserMasterSid);
+            await this.authService.updateAttemptDateTime(user.UserMasterSid, null);
 
             // Session restriction: check if user is already logged in elsewhere
             const existingSession = await this.authService.getActiveSession(user.UserMasterSid);
@@ -133,18 +206,27 @@ export class AuthController {
         type: ResponseData
     })
     @Post('forgot-password')
-    async forgotPassword(@Body() loginData: any) {
+    async forgotPassword(@Body() loginData: any, @Req() req: any) {
         let output = new ResponseData();
         try {
-            if (!loginData.email) {
-                this.logger.warn(`forgotPassword failed: Email are required - ${loginData.email}`);
+            const email = this.normalizeForgotPasswordEmail(loginData);
+            this.enforceRateLimit(
+                this.getRateLimitKey('forgot-password', email, req),
+                3,
+                15 * 60 * 1000
+            );
+
+            if (!email) {
+                this.logger.warn(`forgotPassword failed: Email is required`);
                 throw new BadRequestException('Email are required.');
             }
 
-            const user: any = await this.userService.findUserById({ UserEmail: loginData.email.email });
+            const user: any = await this.userService.findUserById({ UserEmail: email });
             if (!user) {
-                this.logger.warn(`The email address provided is not registered. - ${loginData.email.email}`);
-                throw new BadRequestException('The email address provided is not registered.');
+                this.logger.warn(`Password reset requested for unregistered email - ${email}`);
+                output.status = true;
+                output.message = 'If the email is registered, a password reset link will be sent.';
+                return output;
             }
             const token = this.jwtService.sign(
                 { userId: user.UserMasterSid },
@@ -181,7 +263,7 @@ export class AuthController {
             }
 
             output.status = true;
-            output.message = 'Password reset email sent successful';
+            output.message = 'If the email is registered, a password reset link will be sent.';
             output.data = {
                 email: user.email,
                 resetLink: resetPasswordLink
@@ -204,11 +286,17 @@ export class AuthController {
         type: ResponseData
     })
     @Patch('reset-password')
-    async resetPassword(@Body() passwordData: any, @TokenPayload() tokenPayload) {
+    async resetPassword(@Body() passwordData: any, @TokenPayload() tokenPayload, @Req() req: any) {
         let output = new ResponseData();
         this.logger.log(`resetPassword: Token payload ${tokenPayload}`)
         try {
-            if (!tokenPayload) {
+            this.enforceRateLimit(
+                this.getRateLimitKey('reset-password', String(tokenPayload?.userId ?? 'no-token'), req),
+                5,
+                15 * 60 * 1000
+            );
+
+            if (!tokenPayload) {a
                 this.logger.warn(`resetPassword failed: No token provided - ${tokenPayload}`);
                 throw new UnauthorizedException('No token provided');
             }
@@ -233,6 +321,9 @@ export class AuthController {
             if (result instanceof HttpException) {
                 throw result
             }
+
+            await this.authService.updateAttemptDateTime(tokenPayload.userId, null);
+            this.failedLoginAttempts.delete(tokenPayload.userId);
 
             output.status = true;
             output.message = 'Password update Successfully';

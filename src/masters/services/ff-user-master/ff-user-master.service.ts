@@ -10,6 +10,15 @@ import { CreateUserMasterDto, FetchReportingUsersDto, UpdateUserMasterDto, UserB
 export class FfUserMasterService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
+    private parseAttemptDateTime(value?: string | Date | null): Date | null {
+        if (!value) {
+            return null;
+        }
+
+        const date = value instanceof Date ? value : new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
     async getAllFfUser() {
         try {
             const allFfUser = await this._db.userMaster.findMany({
@@ -79,6 +88,14 @@ export class FfUserMasterService {
                         userPassword: true,
                     },
                 });
+
+                if (payload.AttemptDateTime) {
+                    await prisma.$executeRaw`
+                        UPDATE "UserMaster"
+                        SET "AttemptDateTime" = ${this.parseAttemptDateTime(payload.AttemptDateTime)}
+                        WHERE "UserMasterSid" = ${ffUser.UserMasterSid}
+                    `;
+                }
 
                 // Step 2: Create User Companies in parallel
                 const companyPromises = payload.userCompanyMaster.map(async (company: UserCompanyMasterDto) => {
@@ -244,7 +261,18 @@ export class FfUserMasterService {
             if (!ourFfUser) {
                 throw new BadRequestException(`User with Id : ${UserMasterSid} not exists`);
             }
-            return ourFfUser;
+
+            const attemptRows = await this._db.$queryRaw<{ AttemptDateTime: Date | null }[]>`
+                SELECT "AttemptDateTime"
+                FROM "UserMaster"
+                WHERE "UserMasterSid" = ${UserMasterSid}
+                LIMIT 1
+            `;
+
+            return {
+                ...ourFfUser,
+                AttemptDateTime: attemptRows[0]?.AttemptDateTime ?? null,
+            };
         } catch (error) {
             throw error;
         }
@@ -253,7 +281,7 @@ export class FfUserMasterService {
 
     async updateFfUserById(UserMasterSid: number, payload: UpdateUserMasterDto) {
         try {
-            const { userCompanyMaster = [], ...userPayload } = payload;
+            const { userCompanyMaster = [], AttemptDateTime, ...userPayload } = payload;
             const { updatedBy } = payload;
 
             const existing = await this._db.userMaster.findFirst({
@@ -302,6 +330,12 @@ export class FfUserMasterService {
                         include: { userCompanyMaster: true },
                     }),
                 ]);
+
+                await prisma.$executeRaw`
+                    UPDATE "UserMaster"
+                    SET "AttemptDateTime" = ${this.parseAttemptDateTime(AttemptDateTime)}
+                    WHERE "UserMasterSid" = ${UserMasterSid}
+                `;
 
                 // Normalize previous roles with company info
                 const prevRoles = prevRolesRaw
