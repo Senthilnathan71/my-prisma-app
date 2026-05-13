@@ -296,7 +296,7 @@ export class AuthController {
                 15 * 60 * 1000
             );
 
-            if (!tokenPayload) {a
+            if (!tokenPayload) {
                 this.logger.warn(`resetPassword failed: No token provided - ${tokenPayload}`);
                 throw new UnauthorizedException('No token provided');
             }
