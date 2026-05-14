@@ -657,6 +657,7 @@ export class InvoiceService {
                   CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
                   Remarks: detail.Remarks,
                   UpdatedBy: payload.UpdatedBy,
+                  UpdatedOn: new Date(),
                   Status: 'A'
                 }
               });

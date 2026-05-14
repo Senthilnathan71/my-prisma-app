@@ -316,7 +316,7 @@ export class FfUserMasterService {
                 const [updatedUser, prevCompanies, prevBranches, prevRolesRaw] = await Promise.all([
                     prisma.userMaster.update({
                         where: { UserMasterSid },
-                        data: { ...userPayload, updatedBy },
+                        data: { ...userPayload, updatedBy, updatedOn: new Date() },
                         omit: { userPassword: true }
                     }),
                     prisma.userCompanyMaster.findMany({
@@ -373,11 +373,11 @@ export class FfUserMasterService {
                     companyOps.push(
                         prisma.userCompanyMaster.updateMany({
                             where: { UserCompanyMasterSid: { in: deleteUCompanySids } },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy, updatedOn: new Date() },
                         }),
                         prisma.userRoleMaster.updateMany({
                             where: { UserCompanyMasterSid: { in: deleteUCompanySids }, status: 'A' },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy, updatedOn: new Date() },
                         }),
                         prisma.userBranchMaster.updateMany({
                             where: {
@@ -385,7 +385,7 @@ export class FfUserMasterService {
                                 CompanyMasterSid: { in: deleteCompanyIds },
                                 status: 'A',
                             },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy, updatedOn: new Date() },
                         })
                     );
                 }
@@ -413,7 +413,7 @@ export class FfUserMasterService {
                         companyOps.push(
                             prisma.userCompanyMaster.update({
                                 where: { UserCompanyMasterSid: existing.UserCompanyMasterSid },
-                                data: { GiveAccess: c.GiveAccess, IsDefault: c.IsDefault, updatedBy },
+                                data: { GiveAccess: c.GiveAccess, IsDefault: c.IsDefault, updatedBy, updatedOn: new Date() },
                             })
                         );
                     }
@@ -463,7 +463,7 @@ export class FfUserMasterService {
                     roleOps.push(
                         prisma.userRoleMaster.updateMany({
                             where: { UserRoleMasterSid: { in: rolesToDelete.map((r) => r.UserRoleMasterSid) } },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy, updatedOn: new Date() },
                         })
                     );
                 }
@@ -518,6 +518,7 @@ export class FfUserMasterService {
                                     Remarks: r.Remarks,
                                     MenuMasterSid: r.MenuMasterSid,
                                     updatedBy,
+                                    updatedOn: new Date()
                                 },
                             })
                         );
@@ -557,7 +558,7 @@ export class FfUserMasterService {
                     branchOps.push(
                         prisma.userBranchMaster.updateMany({
                             where: { UserBranchMasterSid: { in: branchesToDelete.map((b) => b.UserBranchMasterSid) } },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy , updatedOn: new Date() },
                         })
                     );
                 }
@@ -588,7 +589,7 @@ export class FfUserMasterService {
                         branchOps.push(
                             prisma.userBranchMaster.update({
                                 where: { UserBranchMasterSid: existing.UserBranchMasterSid },
-                                data: { GiveAccess: b.GiveAccess, IsDefault: b.IsDefault, updatedBy },
+                                data: { GiveAccess: b.GiveAccess, IsDefault: b.IsDefault, updatedBy , updatedOn: new Date() },
                             })
                         );
                     }

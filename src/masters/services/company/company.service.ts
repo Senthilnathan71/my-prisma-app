@@ -421,7 +421,8 @@ export class CompanyService {
                 ...(companyLogoUpdate !== undefined && { companyLogo: companyLogoUpdate }),
                 ...(reportLogoUpdate !== undefined && { reportLogo: reportLogoUpdate }),
                 config: updateData.config,
-                updatedBy: user.userEmail
+                updatedBy: user.userEmail,
+                updatedOn: new Date(),
             };
 
             const result = await this._db.$transaction(async (prisma) => {
@@ -479,7 +480,8 @@ export class CompanyService {
                             enquiryNoLen: branchData.enquiryNoLen,
                             quotationPrefix: branchData.quotationPrefix,
                             quotationNoLen: branchData.quotationNoLen,
-                            updatedBy: user.userEmail
+                            updatedBy: user.userEmail,
+                            updatedOn: new Date(),
 
                         };
 
@@ -543,7 +545,8 @@ export class CompanyService {
                                         where: { BranchBankSid: incomingBankId },
                                         data: {
                                             ...bankPayload,
-                                            updatedBy: user.userEmail
+                                            updatedBy: user.userEmail,
+                                            updatedOn: new Date(),
                                         }
                                     });
                                 } else {
@@ -561,7 +564,8 @@ export class CompanyService {
                                     where: { BranchBankSid: { in: bankIdsToSoftDelete } },
                                     data: {
                                         status: 'D',
-                                        updatedBy: user.userEmail
+                                        updatedBy: user.userEmail,
+                                        updatedOn: new Date(),
                                     }
                                 });
                             }
@@ -584,7 +588,8 @@ export class CompanyService {
                         where: { BranchMasterSid: { in: branchesToDelete } },
                         data: {
                             status: 'A',
-                            updatedBy: user.userEmail
+                            updatedBy: user.userEmail,
+                            updatedOn: new Date(),
                         }
                     });
 
@@ -595,7 +600,8 @@ export class CompanyService {
                         },
                         data: {
                             updatedBy: user.userEmail,
-                            status: 'D'
+                            status: 'D',
+                            updatedOn: new Date(),
                         }
                     });
                 }
@@ -725,7 +731,8 @@ export class CompanyService {
                 where: { CompanyMasterSid: companyId },
                 data: {
                     config: configData,
-                    updatedBy: user.userEmail
+                    updatedBy: user.userEmail,
+                    updatedOn: new Date(),
                 }
             });
 
@@ -734,7 +741,8 @@ export class CompanyService {
                     where: { CompanyMasterSid: companyId },
                     data: {
                         CurrencyMasterSid: configData.systemSettings.currency.currencyMasterSid,
-                        updatedBy: user.userEmail
+                        updatedBy: user.userEmail,
+                        updatedOn: new Date(),
                     }
                 });
             }
@@ -829,7 +837,8 @@ export class CompanyService {
             where: { CompanyMasterSid: companyId },
             data: {
                 config: updatedConfig,
-                updatedBy: user.userEmail
+                updatedBy: user.userEmail,
+                updatedOn: new Date(),
             }
         });
 

@@ -40,6 +40,7 @@ export class CustomerMilestoneService {
                                 EffectiveFrom : milestone.EffectiveFrom,
                                 Status : milestone.Status,
                                 UpdatedBy : milestone.updatedBy,
+                                UpdatedOn: new Date()
                             }
                         })
                         finalMilestones.push(updatedMilestone);

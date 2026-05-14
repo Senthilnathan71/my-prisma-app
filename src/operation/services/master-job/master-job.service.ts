@@ -2155,6 +2155,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
                         UpdatedBy : payload.updatedBy,
+                        UpdatedOn : new Date(),
                         CreatedOn : new Date(),
                     }
                     finalOthers = await prisma.masterJobOthers.update({
@@ -2750,6 +2751,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                     ShipmentTerms: cargo.ShipmentTerms || '',
                                     createdBy: payload.createdBy || '',
                                     updatedBy: cargo.updatedBy || null,
+                                    updatedOn: new Date(),
                                     status: 'A',
                                     FreightTerms: cargo.FreightTerms || '',
                                     MovementType: cargo.MovementType || '',
@@ -3899,6 +3901,7 @@ if (houseJobsForBookingSync.length > 0) {
                                 ShipmentTerms: cargo.ShipmentTerms || '',
                                 createdBy: cargo.createdBy,
                                 updatedBy: cargo.updatedBy || null,
+                                updatedOn: new Date(),
                                 status: 'A',
                                 FreightTerms: cargo.FreightTerms || '',
                                 MovementType: cargo.MovementType || '',
@@ -3985,6 +3988,7 @@ if (houseJobsForBookingSync.length > 0) {
                             status: 'A',
                             createdBy: connection.createdBy,
                             updatedBy: connection.updatedBy || null,
+                            updatedOn: new Date(),
                         }))
                     }).catch(err => {
                         console.error('HouseJobConnection createMany error:', err);
@@ -6341,6 +6345,7 @@ if (product.UomMasterSid) {
                         data: {
                             IsHaz: 'Y',
                             UpdatedBy: createdBy || null,
+                            UpdatedOn: new Date(),
                         },
                     });
                 }

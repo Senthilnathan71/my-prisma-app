@@ -214,6 +214,7 @@ export class ChargeService {
                 data: {
                     ...chargeData,
                     updatedBy: payload.updatedBy,
+                    updatedOn: new Date(),
                 },
             });
 
@@ -244,6 +245,7 @@ export class ChargeService {
                         TaxGroupSid: chargeTax.TaxGroupSid,
                         TaxRate: chargeTax.TaxRate,
                         UpdatedBy: payload.updatedBy,
+                        UpdatedOn: new Date(),
                         Status: chargeTax.Status,
                         CompanyMasterSid: payload.CompanyMasterSid,
                         chargeTaxMasterSid: ChargeMasterSid,
@@ -290,6 +292,7 @@ export class ChargeService {
                         TDSSet: tds.TDSSet || null,
                         EffectiveFrom: tds.EffectiveFrom ? new Date(tds.EffectiveFrom) : null,
                         updatedBy: payload.updatedBy,
+                        updatedOn: new Date(),
                         status: tds.Status,
                     };
 

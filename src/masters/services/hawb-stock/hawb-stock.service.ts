@@ -80,6 +80,7 @@ export class HawbStockService {
                 Remarks: payload.Remarks || payload.Remarks || null,
                 createdBy: payload.createdBy,
                 updatedBy: payload.updatedBy,
+                updatedOn: new Date(),
                 status: payload.status || 'A',
               },
             //   include: {

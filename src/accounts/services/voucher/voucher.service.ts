@@ -1136,6 +1136,7 @@ export class VoucherService {
                                             RevenueVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
                                             RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
                                             UpdatedBy: updatedBy,
+                                            UpdatedOn: new Date(),
                                         },
                                     });
                                 } else {
@@ -1145,6 +1146,7 @@ export class VoucherService {
                                             CostVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
                                             CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
                                             UpdatedBy: updatedBy,
+                                            UpdatedOn: new Date(),
                                         },
                                     });
                                 }

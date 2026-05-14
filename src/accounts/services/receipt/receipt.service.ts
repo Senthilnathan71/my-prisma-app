@@ -1370,7 +1370,8 @@ export class ReceiptService {
             LocalAmount: finalLocalAmount,
             PostStatus : 'P',
             PostDate: now,
-            UpdatedBy: payload.postedBy
+            UpdatedBy: payload.postedBy,
+            UpdatedOn: new Date()
           }
         })
 

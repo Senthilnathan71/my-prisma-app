@@ -388,7 +388,8 @@ export class TermsAndConditionsService {
                         TypeValue: item?.TypeValue ?? null,
                         IsDefaut: item?.IsDefaut ?? 'A',
                         status: item?.status ?? 'A',
-                        updatedBy: payload?.updatedBy ?? null
+                        updatedBy: payload?.updatedBy ?? null,
+                        updatedOn: new Date()
                     }))
                     .filter((item: any) => String(item.TandC).trim().length > 0);
 
@@ -409,7 +410,8 @@ export class TermsAndConditionsService {
                                     TypeValue: item.TypeValue,
                                     IsDefaut: item.IsDefaut,
                                     status: item.status,
-                                    updatedBy: item.updatedBy
+                                    updatedBy: item.updatedBy,
+                                    updatedOn: new Date()
                                 }
                             });
 

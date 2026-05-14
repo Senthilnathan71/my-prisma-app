@@ -393,6 +393,7 @@ export class ReverseVoucherService {
                                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                     UpdatedBy: payload.UpdatedBy || 'System',
+                                    UpdatedOn: new Date(),
                                     CostCenter: detail.CostCenterMasterSid,
                                     ProfitCenter: detail.ProfitCenterMasterSid,
                                     Status: 'A'
@@ -1079,7 +1080,8 @@ export class ReverseVoucherService {
                     LocalAmount: partyDetail.LocalAmount,
                     PostStatus: 'P',
                     PostDate: now,
-                    UpdatedBy: payload.postedBy
+                    UpdatedBy: payload.postedBy,
+                    UpdatedOn: new Date()
                 }
             });
 

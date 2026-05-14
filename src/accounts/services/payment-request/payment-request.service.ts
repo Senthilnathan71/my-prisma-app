@@ -122,6 +122,7 @@ export class PaymentRequestService {
           Remarks: payload.Remarks || '',
           Status: payload.Status || existing.Status,
           UpdatedBy: payload.UpdatedBy || 'System',
+          UpdatedOn: new Date()
         },
       });
 
@@ -367,6 +368,7 @@ export class PaymentRequestService {
       data: {
         VoucherSid: voucherSid,
         UpdatedBy: updatedBy || 'System',
+        UpdatedOn: new Date()
       },
     });
   }
@@ -864,6 +866,7 @@ private async generatePaymentRequestNumberFromConfig(
       CostRevenueChargesSid: this.toNullableNumber(item.CostRevenueChargesSid),
       CreatedBy: createdBy,
       ...(updatedBy ? { UpdatedBy: updatedBy } : {}),
+      UpdatedOn: new Date()
     };
   }
 

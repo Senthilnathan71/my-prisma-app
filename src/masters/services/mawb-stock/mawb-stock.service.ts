@@ -151,6 +151,7 @@ export class MawbStockService {
                         createdBy: payload.createdBy,
                         updatedBy: payload.updatedBy,
                         status: payload.status || 'A',
+                        updatedOn: new Date(),
                     },
                     //   include: {
                     //     branchMaster: true,
@@ -367,7 +368,8 @@ export class MawbStockService {
             data: {
                 Customer: payload.customerId,
                 AvailableStatus: 'Allocated',
-                updatedBy: payload.useremail
+                updatedBy: payload.useremail,
+                updatedOn: new Date()
             }
         });
     }

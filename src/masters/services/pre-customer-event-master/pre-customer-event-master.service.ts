@@ -135,6 +135,7 @@ export class PreCustomerEventMasterService {
             Remarks: payload.Remarks ?? existing.Remarks,
             status: payload.status ?? existing.status,
             updatedBy: userEmail,
+            updatedOn: new Date(),
             ...(payload.EventLeader !== undefined && {
                 eventLeaderUser: { connect: { UserMasterSid: payload.EventLeader } },
             }),
@@ -165,7 +166,7 @@ export class PreCustomerEventMasterService {
         }
         return this._db.preCustomerEvent.update({
             where: { PreCustomerEventSid: id },
-            data: { status: 'D', updatedBy: userEmail, deletedAt: new Date() },
+            data: { status: 'D', updatedBy: userEmail, deletedAt: new Date() , updatedOn: new Date() },
         });
     }
 
