@@ -41,18 +41,11 @@ export class OutstandingController {
   ) {
     const resp = new ResponseData();
     try {
-      this.logger.log(
-        `GET /outstanding/voucher/${companySid}/${voucherTransactionSid} - Fetching voucher outstanding`,
-      );
 
       const result = await this.outstandingService.getVoucherOutstanding(companySid, voucherTransactionSid);
 
       resp.data = result;
       resp.message = 'Voucher outstanding retrieved successfully';
-
-      this.logger.log(
-        `Voucher ${voucherTransactionSid} outstanding: Currency=${result.outstandingCurrencyAmount}, Local=${result.outstandingLocalAmount}`,
-      );
 
       return resp;
     } catch (error) {
@@ -94,18 +87,11 @@ export class OutstandingController {
   ) {
     const resp = new ResponseData();
     try {
-      this.logger.log(
-        `GET /outstanding/customer/${companySid}/${ledgerMasterSid} - Fetching customer outstanding`,
-      );
 
       const result = await this.outstandingService.getCustomerOutstanding(companySid, ledgerMasterSid);
 
       resp.data = result;
       resp.message = `Retrieved ${result.voucherCount} outstanding voucher(s) for customer`;
-
-      this.logger.log(
-        `Customer ${ledgerMasterSid} outstanding: ${result.voucherCount} vouchers, Total=${result.totalOutstandingLocal}`,
-      );
 
       return resp;
     } catch (error) {
@@ -138,7 +124,6 @@ export class OutstandingController {
   async getOutstandingSummary(@Param('companySid', ParseIntPipe) companySid: number) {
     const resp = new ResponseData();
     try {
-      this.logger.log(`GET /outstanding/summary/${companySid} - Fetching outstanding summary`);
 
       // For now, return a simple implementation
       // Can be extended to provide company-wide outstanding statistics

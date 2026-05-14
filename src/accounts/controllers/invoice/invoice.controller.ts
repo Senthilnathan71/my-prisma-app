@@ -48,10 +48,10 @@ export class InvoiceController {
   @Post('create')
   async createInvoice(@Body() payload: any) {
     const output = new ResponseData();
-    this.logger.log(`createInvoice payload: ${JSON.stringify(payload)}`);
+
     try {
       const finalOutput = await this.invoiceService.createInvoice(payload);
-      this.logger.debug(`createInvoice result: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Invoice created successfully";
     } catch (error) {
@@ -79,7 +79,7 @@ export class InvoiceController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.invoiceService.findVoucherHeaderById(voucherHeaderSid);
-      this.logger.debug(`getVoucherHeaderById: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Invoice data fetched successfully by ID";
     } catch (error) {
@@ -109,7 +109,7 @@ export class InvoiceController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.invoiceService.updateVoucherHeaderById(voucherHeaderSid, payload);
-      this.logger.debug(`updateVoucherHeader: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Invoice updated successfully";
     } catch (error) {
@@ -135,7 +135,7 @@ export class InvoiceController {
     const resp = new ResponseData();
     try {
       const searchOutput = await this.invoiceService.searchVoucherHeader(payload);
-      this.logger.log(`Invoice Search Result : ${JSON.stringify(searchOutput)}`);
+
       resp.data = searchOutput;
       resp.message = "Invoice Search is successfully fetched";
     } catch (error) {
@@ -159,7 +159,7 @@ export class InvoiceController {
   @Post('send-email')
   async sendInvoiceEmail(@Body() payload: SendInvoiceEmailDto) {
     const output = new ResponseData();
-    this.logger.log(`sendInvoiceEmail to: ${payload.to}, companyId: ${payload.companyId}`);
+
     try {
       // Validate required fields
       if (!payload.companyId || !payload.to || !payload.subject || !payload.pdfBase64 || !payload.filename) {

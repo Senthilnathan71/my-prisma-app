@@ -22,7 +22,7 @@ export class SupplierTdsMappingController {
         let resp = new ResponseData();
         try {
             let res = await this.suppliertdsmappingService.getAllSupptdsMapping();
-            this.logger.log(`All Supplier TDS Mapping Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "All Supplier TDS Mapping are successfully fetched";
         } catch (error) {
@@ -49,7 +49,7 @@ export class SupplierTdsMappingController {
         let resp = new ResponseData();
         try {
             let res = await this.suppliertdsmappingService.createNewSupptdsMapping(newData);
-            this.logger.log(`New Supplier TDS Mapping Created : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "New Supplier TDS Mapping is successfully created"
         } catch (error) {
@@ -74,9 +74,9 @@ export class SupplierTdsMappingController {
     async getSuppliertdsMappingId(@Param('SupplierTdsMappingSid', ParseIntPipe) SupplierTdsMappingSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Supplier TDS Mapping with id : ${SupplierTdsMappingSid}`);
+
             let res = await this.suppliertdsmappingService.fetchSuppliertdsMappingById(SupplierTdsMappingSid);
-            this.logger.debug(`Fetched Supplier TDS Mapping : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `Supplier TDS Mapping with id : ${SupplierTdsMappingSid} is successfully fetched`;
         } catch (error) {
@@ -102,9 +102,9 @@ export class SupplierTdsMappingController {
     async updateSuppliertdsMappingById(@Param('SupplierTdsMappingSid', ParseIntPipe) SupplierTdsMappingSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Updating Supplier TDS Mapping with id : ${SupplierTdsMappingSid}`);
+
             let res = await this.suppliertdsmappingService.updateSuppliertdsMappingById(SupplierTdsMappingSid, payload);
-            this.logger.debug(`Updated Supplier TDS Mapping : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `Supplier TDS Mapping with id : ${SupplierTdsMappingSid} is successfully updated`;
         } catch (error) {
@@ -129,9 +129,9 @@ export class SupplierTdsMappingController {
     async deleteSuppliertdsMappingId(@Param('SupplierTdsMappingSid', ParseIntPipe) SupplierTdsMappingSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Deleting Supplier TDS Mapping with id : ${SupplierTdsMappingSid}`);
+
             let res = await this.suppliertdsmappingService.deleteSuppliertdsMapping(SupplierTdsMappingSid);
-            this.logger.debug(`Deleted Supplier TDS Mapping : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `
             Supplier TDS Mapping with id : ${SupplierTdsMappingSid} is successfully deleted`;
@@ -153,7 +153,7 @@ export class SupplierTdsMappingController {
         let resp = new ResponseData();
         try {
             let res = await this.suppliertdsmappingService.searchSuppliertdsMapping(searchData);
-            this.logger.log(`Supplier TDS Mapping Search Results :${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "Supplier TDS Mapping Search results are successfully fetched"
         } catch (error) {

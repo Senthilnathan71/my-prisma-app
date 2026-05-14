@@ -26,10 +26,10 @@ export class VendorCreditNoteController {
       @Post('create')
       async createVendorCreditNote(@Body() payload: any) {
         const output = new ResponseData();
-        this.logger.log(`createVendorCreditNote payload: ${JSON.stringify(payload)}`);
+
         try {
           const finalOutput = await this.vendorCreditNoteService.createVendorCreditNote(payload);
-          this.logger.debug(`createVendorCreditNote result: ${JSON.stringify(finalOutput)}`);
+
           output.data = finalOutput;
           output.message = "Vendor CreditNote created successfully";
         } catch (error) {
@@ -55,7 +55,7 @@ export class VendorCreditNoteController {
           const output = new ResponseData();
           try {
             const finalOutput = await this.vendorCreditNoteService.fetchVendorCreditNotes();
-            this.logger.debug(`getAllVendorCreditNotes: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+
             output.data = finalOutput;
             output.message = "All Vendor CreditNotes fetched successfully";
           } catch (error) {
@@ -81,7 +81,7 @@ export class VendorCreditNoteController {
             const output = new ResponseData();
             try {
               const finalOutput = await this.vendorCreditNoteService.fetchVendorCreditNoteById(VoucherHeaderSid);
-              this.logger.debug(`getVendorCreditNoteById: ${VoucherHeaderSid}`);
+
               output.data = finalOutput;
               output.message = "Vendor CreditNote data fetched successfully";
             } catch (error) {
@@ -108,10 +108,10 @@ export class VendorCreditNoteController {
               @Body() payload: any
             ) {
               const output = new ResponseData();
-              this.logger.log(`updateVendorCreditNote ID: ${VoucherHeaderSid}, payload: ${JSON.stringify(payload)}`);
+
               try {
                 const finalOutput = await this.vendorCreditNoteService.updateVendorCreditNote(VoucherHeaderSid, payload);
-                this.logger.debug(`updateVendorCreditNote result: ${JSON.stringify(finalOutput)}`);
+
                 output.data = finalOutput;
                 output.message = "Vendor CreditNote updated successfully";
               } catch (error) {
@@ -137,7 +137,7 @@ export class VendorCreditNoteController {
                 const output = new ResponseData();
                 try {
                   const finalOutput = await this.vendorCreditNoteService.deleteVendorCreditNote(VoucherHeaderSid);
-                  this.logger.debug(`deleteVendorCreditNote: ${VoucherHeaderSid}`);
+
                   output.data = finalOutput;
                   output.message = "Vendor CreditNote deleted successfully";
                 } catch (error) {
@@ -163,7 +163,7 @@ export class VendorCreditNoteController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.vendorCreditNoteService.searchVendorCreditNotes(payload);
-      this.logger.debug(`searchVendorCreditNotes: returned ${finalOutput?.items?.length || 0} items`);
+
       output.data = finalOutput;
       output.message = "Vendor CreditNotes search completed";
     } catch (error) {
@@ -189,7 +189,7 @@ export class VendorCreditNoteController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.vendorCreditNoteService.fetchVendorInvoices(body.CompanyMasterSid);
-      this.logger.debug(`getAllVendorInvoices: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+
       output.data = finalOutput;
       output.message = "All Vendor Invoices fetched successfully";
     } catch (error) {
@@ -220,7 +220,7 @@ export class VendorCreditNoteController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.vendorCreditNoteService.fetchVendorInvoice(payload);
-      this.logger.debug(`getting VendorInvoice: ${payload.VoucherNumber}`);
+
       output.data = finalOutput;
       output.message = "Vendor Invoice data fetched successfully";
     } catch (error) {

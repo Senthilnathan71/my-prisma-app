@@ -27,7 +27,7 @@ export class VoucherCorrectionController {
         const resp = new ResponseData();
         try {
             const res = await this.voucherCorrectionService.searchVoucher(searchParams);
-            this.logger.log(`Voucher Correction Search Data: ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = 'Voucher Correction Search is Successfully fetched';
         } catch (error) {
@@ -56,7 +56,7 @@ export class VoucherCorrectionController {
         let resp = new ResponseData();
 
         try {
-            this.logger.log(`Updating voucher ${payload}`);
+
             const voucher = await this.voucherCorrectionService.updateVoucher(VoucherHeaderSid, payload);
             resp.data = voucher;
             resp.message = "Voucher updated successfully";
@@ -81,7 +81,7 @@ export class VoucherCorrectionController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.voucherCorrectionService.findVoucherById(VoucherHeaderSid);
-      this.logger.debug(`getVoucherById: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Voucher data fetched successfully by ID";
     } catch (error) {

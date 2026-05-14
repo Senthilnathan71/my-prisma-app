@@ -164,9 +164,9 @@ export class VoucherController {
     async createVoucher(@Body() body: CreateVoucherPayload) {
         let response = new ResponseData();
         try {
-            this.logger.log(`createVoucher request body: ${JSON.stringify(body)}`);
+
             const result = await this.voucherService.createVoucher(body);
-            this.logger.debug(`createVoucher result: ${JSON.stringify(result)}`);
+
             response.data = result;
             response.message = "Voucher created successfully";
         } catch (error) {
@@ -190,7 +190,6 @@ export class VoucherController {
     @Post('post-voucher')
     async postVoucher(@Body() body: any) {
         let output = new ResponseData();
-        this.logger.log(`generateVoucherFromJobs request body: ${JSON.stringify(body)}`);
 
         try {
             if(!body.VoucherHeaderSid){
@@ -218,7 +217,7 @@ export class VoucherController {
                 postedBy : body.PostedBy,
                 taxDetails : body.TaxDetails
             });
-            this.logger.debug(`postVoucher result: ${JSON.stringify(result)}`);
+
             output.data = result;
             output.message = "Voucher posted successfully";
         } catch (error) {
@@ -249,10 +248,10 @@ export class VoucherController {
         @Body() payload: DeleteVoucherPayload
     ) {
         let output = new ResponseData();
-        this.logger.log(`deleteVoucher request body: ${JSON.stringify(payload)}`);
+
         try {
             const result = await this.voucherService.deleteVoucher(payload);
-            this.logger.debug(`deleteVoucher result: ${JSON.stringify(result)}`);
+
             output.data = result;
             output.message = "Voucher has been deleted successfully";
         } catch (error) {
@@ -277,13 +276,13 @@ export class VoucherController {
     @Delete('delete-detail/:id')
     async deleteVoucherDetail(@Param('id', ParseIntPipe) VoucherDetailSid: number) {
         let output = new ResponseData();
-        this.logger.log(`deleteVoucherDetail request body: ${JSON.stringify(VoucherDetailSid)}`);
+
         try {
             if(!VoucherDetailSid){
                 throw new BadRequestException('Voucher Detail SID is required');
             }
             const result = await this.voucherService.softDeleteVoucherDetail(VoucherDetailSid);
-            this.logger.debug(`deleteVoucherDetail result: ${JSON.stringify(result)}`);
+
             output.data = result;
             output.message = "Voucher Detail has been deleted successfully";
         } catch (error) {
@@ -312,10 +311,10 @@ export class VoucherController {
     @Post('check-auto-posting')
     async checkAutoPosting(@Body() payload: CheckAutoPostingDto) {
         let output = new ResponseData();
-        this.logger.log(`checkAutoPosting request body: ${JSON.stringify(payload)}`);
+
         try {
             const result = await this.voucherService.checkAutoPosting(payload);
-            this.logger.debug(`checkAutoPosting result: ${JSON.stringify(result)}`);
+
             output.data = result;
             output.message = `Posting mechanism for this voucher type : ${result ? 'Auto Posting' : 'Manual Posting'}`;
         } catch (error) {

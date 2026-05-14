@@ -67,10 +67,10 @@ export class PaymentController {
     @Body() payload: any,
   ) {
     let resp = new ResponseData();
-    this.logger.log(`Creating payment voucher for company ${payload.CompanyMasterSid}`);
+
     try {
       const payment = await this.paymentService.createNewPayment(payload);
-      this.logger.log(`Payment voucher created successfully: ${payment.voucherHeader?.VoucherNumber}`);
+
       resp.data = payment;
       resp.message = payment.isAutoPosted
         ? 'New payment is created and posted successfully'
@@ -96,7 +96,7 @@ export class PaymentController {
     let resp = new ResponseData();
 
     try {
-      this.logger.log(`Updating Payment ${payload}`);
+
       const receipt = await this.paymentService.updatePayment(VoucherHeaderSid, payload);
       resp.data = receipt;
       resp.message = "Payment updated successfully";
@@ -118,7 +118,7 @@ export class PaymentController {
     @Body() payload: any,
   ) {
     let resp = new ResponseData();
-    this.logger.log(`Posting payment voucher for company ${payload.CompanyMasterSid}`);
+
     try {
       const payment = await this.paymentService.postPayment({
         voucherHeaderSid: Number(payload.VoucherHeaderSid),
@@ -130,7 +130,7 @@ export class PaymentController {
         postedBy: payload.PostedBy,
         taxDetails: payload.TaxDetails
       });
-      this.logger.log(`Payment voucher posted successfully: ${payment?.VoucherNumber}`);
+
       resp.data = payment;
       resp.message = "Payment voucher posted successfully";
     } catch (error) {
@@ -163,12 +163,9 @@ export class PaymentController {
   async searchVendorOutstanding(
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })) searchDto: SearchOutstandingDto,
   ): Promise<OutstandingInvoiceDto[]> {
-    this.logger.log(`Searching vendor outstanding for company ${searchDto.CompanyMasterSid}`);
 
     try {
       const outstanding = await this.paymentService.searchOutstandingInvoices(searchDto);
-
-      this.logger.log(`Found ${outstanding.length} outstanding invoices`);
 
       return outstanding;
     } catch (error) {
@@ -187,12 +184,9 @@ export class PaymentController {
   @Post('fetch')
   @HttpCode(HttpStatus.OK)
   async getPaymentById(@Body() payload: any) {
-    this.logger.log(`Fetching payment voucher ${payload}`);
 
     try {
       const payment = await this.paymentService.getPaymentById(payload.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
-
-      this.logger.log(`Payment voucher ${payload} fetched successfully`);
 
       return {
         status: 'success',
@@ -214,9 +208,9 @@ export class PaymentController {
   async searchPayments(@Body() searchDto: filterDto){
     let resp = new ResponseData();
     try {
-      this.logger.log(`Searching payment vouchers with criteria: ${JSON.stringify(searchDto)}`);
+
       resp.data = await this.paymentService.searchPayments(searchDto);
-      this.logger.debug("Search Payment Result : " + JSON.stringify(resp.data));
+
       resp.message = 'Payment vouchers fetched successfully';
     } catch (error) {
       resp.status = false;
@@ -240,10 +234,10 @@ export class PaymentController {
     @Param('VoucherHeaderSid',ParseIntPipe) VoucherHeaderSid: number,
   ){
     let resp = new ResponseData();
-    this.logger.log(`Deleting payment voucher ${VoucherHeaderSid}`);
+
     try {
       const payment = await this.paymentService.deletePayment(VoucherHeaderSid);
-      this.logger.log(`Payment voucher deleted successfully: ${payment.VoucherHeaderSid}`);
+
       resp.data = payment;
       resp.message = "Payment voucher deleted successfully";
     } catch (error) {

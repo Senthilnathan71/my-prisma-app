@@ -22,10 +22,10 @@ export class VendorInvoiceController {
   @Post('create')
   async createVendorInvoice(@Body() payload: any) {
     const output = new ResponseData();
-    this.logger.log(`createVendorInvoice payload: ${JSON.stringify(payload)}`);
+
     try {
       const finalOutput = await this.vendorInvoiceService.createVendorInvoice(payload);
-      this.logger.debug(`createVendorInvoice result: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Vendor Invoice created successfully";
     } catch (error) {
@@ -51,7 +51,7 @@ export class VendorInvoiceController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.vendorInvoiceService.fetchVendorInvoices();
-      this.logger.debug(`getAllVendorInvoices: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+
       output.data = finalOutput;
       output.message = "All Vendor Invoices fetched successfully";
     } catch (error) {
@@ -77,7 +77,7 @@ export class VendorInvoiceController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.vendorInvoiceService.fetchVendorInvoiceById(VoucherHeaderSid);
-      this.logger.debug(`getVendorInvoiceById: ${VoucherHeaderSid}`);
+
       output.data = finalOutput;
       output.message = "Vendor Invoice data fetched successfully";
     } catch (error) {
@@ -104,10 +104,10 @@ export class VendorInvoiceController {
     @Body() payload: any
   ) {
     const output = new ResponseData();
-    this.logger.log(`updateVendorInvoice ID: ${VoucherHeaderSid}, payload: ${JSON.stringify(payload)}`);
+
     try {
       const finalOutput = await this.vendorInvoiceService.updateVendorInvoice(VoucherHeaderSid, payload);
-      this.logger.debug(`updateVendorInvoice result: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Vendor Invoice updated successfully";
     } catch (error) {
@@ -133,7 +133,7 @@ export class VendorInvoiceController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.vendorInvoiceService.deleteVendorInvoice(VoucherHeaderSid);
-      this.logger.debug(`deleteVendorInvoice: ${VoucherHeaderSid}`);
+
       output.data = finalOutput;
       output.message = "Vendor Invoice deleted successfully";
     } catch (error) {
@@ -159,7 +159,7 @@ export class VendorInvoiceController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.vendorInvoiceService.searchVendorInvoices(payload);
-      this.logger.debug(`searchVendorInvoices: returned ${finalOutput?.items?.length || 0} items`);
+
       output.data = finalOutput;
       output.message = "Vendor Invoices search completed";
     } catch (error) {
@@ -193,7 +193,7 @@ async searchPendingCosts(@Body() payload: {
   const output = new ResponseData();
   try {
     const finalOutput = await this.vendorInvoiceService.searchPendingCosts(payload);
-    this.logger.debug(`searchPendingCosts: returned ${finalOutput?.items?.length || 0} items`);
+
     output.data = finalOutput;
     output.message = finalOutput.message || "Pending costs search completed";
   } catch (error) {
@@ -219,7 +219,7 @@ async searchPendingCosts(@Body() payload: {
     const output = new ResponseData();
     try {
       const finalOutput = await this.vendorInvoiceService.getVendorTDSConfiguration(vendorId);
-      this.logger.debug(`getVendorTDSMapping for vendor: ${vendorId}`);
+
       output.data = finalOutput;
       output.message = "Vendor TDS configuration fetched successfully";
     } catch (error) {

@@ -80,7 +80,7 @@ export class ReceiptController {
     let resp = new ResponseData();
     
     try {
-      this.logger.log(`Creating receipt for customer ${payload.LedgerMasterSid}`);
+
       const receipt = await this.receiptService.createNewReceipt(payload);
       resp.data = receipt;
       resp.message = receipt.isAutoPosted
@@ -107,7 +107,7 @@ export class ReceiptController {
     let resp = new ResponseData();
     
     try {
-      this.logger.log(`Updating receipt ${payload}`);
+
       const receipt = await this.receiptService.updateReceipt(VoucherHeaderSid,payload);
       resp.data = receipt;
       resp.message = "Receipt updated successfully";
@@ -129,7 +129,7 @@ export class ReceiptController {
     let resp = new ResponseData();
     
     try {
-      this.logger.log(`Posting receipt ${JSON.stringify(payload)}`);
+
       const receipt = await this.receiptService.postReceipt({
         voucherHeaderSid: Number(payload.VoucherHeaderSid),
         companyMasterSid: Number(payload.CompanyMasterSid),
@@ -179,7 +179,6 @@ export class ReceiptController {
     message: string;
     data: OutstandingInvoiceDto[];
   }> {
-    this.logger.log(`Searching outstanding invoices with criteria: ${JSON.stringify(searchDto)}`);
 
     try {
       const invoices = await this.receiptService.searchOutstandingInvoices(searchDto);
@@ -207,7 +206,7 @@ export class ReceiptController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.receiptService.searchReceipts(payload);
-      this.logger.debug(`searchReceipts: returned ${finalOutput?.items?.length || 0} items`);
+
       output.data = finalOutput;
       output.message = "Receipts search completed";
     } catch (error) {
@@ -240,9 +239,9 @@ export class ReceiptController {
     let response = new ResponseData();
     
     try {
-      this.logger.log(`Getting receipt ${JSON.stringify(payload)}`);
+
       const receipt = await this.receiptService.getReceiptById(payload.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
-      this.logger.log(`Receipt fetched : ${JSON.stringify(receipt)}`);
+
       response.data = receipt;
       response.message = "Receipt is successfully fetched";
     } catch (error) {
@@ -271,7 +270,6 @@ export class ReceiptController {
     message: string;
     data: any[];
   }> {
-    this.logger.log(`Getting receipts with filters: ${JSON.stringify(filterDto)}`);
 
     try {
       const receipts = await this.receiptService.getReceipts(filterDto);
@@ -306,7 +304,6 @@ export class ReceiptController {
     message: string;
     data: OutstandingInvoiceDto[];
   }> {
-    this.logger.log(`Getting outstanding for customer ${customerSid}`);
 
     try {
       const searchDto: SearchOutstandingDto = {
@@ -352,7 +349,6 @@ export class ReceiptController {
     message: string;
     data: any;
   }> {
-    this.logger.log(`Updating receipt ${id}`);
 
     try {
       // Implementation would go here
@@ -395,7 +391,6 @@ export class ReceiptController {
     message: string;
     data: any;
   }> {
-    this.logger.log(`Reversing receipt ${id}`);
 
     try {
       // Implementation would go here
@@ -438,7 +433,6 @@ export class ReceiptController {
     message: string;
     data: any;
   }> {
-    this.logger.log(`Getting receipt summary for company ${companySid}`);
 
     try {
       // Implementation would calculate:
@@ -478,7 +472,6 @@ export class ReceiptController {
     message: string;
     data: any;
   }> {
-    this.logger.log(`Getting receipt by number ${voucherNumber}`);
 
     try {
       const filterDto: ReceiptFilterDto = {

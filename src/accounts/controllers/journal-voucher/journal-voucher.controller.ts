@@ -36,10 +36,10 @@ export class JournalVoucherController {
   @Post('create')
   async createJournalVoucher(@Body() payload: any) {
     const output = new ResponseData();
-    this.logger.log(`createJournalVoucher payload: ${JSON.stringify(payload)}`);
+
     try {
       const finalOutput = await this.journalVoucherService.createJournalVoucher(payload);
-      this.logger.debug(`createJournalVoucher result: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Journal Voucher created successfully";
     } catch (error) {
@@ -65,7 +65,7 @@ export class JournalVoucherController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.journalVoucherService.fetchJournalVouchers();
-      this.logger.debug(`getAllJournalVouchers: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+
       output.data = finalOutput;
       output.message = "All Journal Vouchers fetched successfully";
     } catch (error) {
@@ -91,7 +91,7 @@ export class JournalVoucherController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.journalVoucherService.fetchJournalVoucherById(VoucherHeaderSid);
-      this.logger.debug(`getJournalVoucherById: ${VoucherHeaderSid}`);
+
       output.data = finalOutput;
       output.message = "Journal Voucher data fetched successfully";
     } catch (error) {
@@ -118,10 +118,10 @@ export class JournalVoucherController {
     @Body() payload: any
   ) {
     const output = new ResponseData();
-    this.logger.log(`updateJournalVoucher ID: ${VoucherHeaderSid}, payload: ${JSON.stringify(payload)}`);
+
     try {
       const finalOutput = await this.journalVoucherService.updateJournalVoucher(VoucherHeaderSid, payload);
-      this.logger.debug(`updateJournalVoucher result: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Journal Voucher updated successfully";
     } catch (error) {
@@ -147,7 +147,7 @@ export class JournalVoucherController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.journalVoucherService.deleteJournalVoucher(VoucherHeaderSid);
-      this.logger.debug(`deleteJournalVoucher: ${VoucherHeaderSid}`);
+
       output.data = finalOutput;
       output.message = "Journal Voucher deleted successfully";
     } catch (error) {
@@ -173,7 +173,7 @@ export class JournalVoucherController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.journalVoucherService.searchJournalVouchers(payload);
-      this.logger.debug(`searchJournalVouchers: returned ${finalOutput?.items?.length || 0} items`);
+
       output.data = finalOutput;
       output.message = "Journal Vouchers search completed";
     } catch (error) {
@@ -197,7 +197,7 @@ export class JournalVoucherController {
   @Post('post-voucher')
   async postJournalVoucher(@Body() body: any) {
     const output = new ResponseData();
-    this.logger.log(`postVoucher request body: ${JSON.stringify(body)}`);
+
     try {
       if (!body.VoucherHeaderSid) {
         throw new BadRequestException('Voucher Header SID is required');
@@ -224,7 +224,7 @@ export class JournalVoucherController {
         postedBy: body.PostedBy,
         taxDetails: body.TaxDetails
       });
-      this.logger.debug(`postVoucher result: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Journal Voucher posted successfully";
     } catch (error) {
@@ -250,7 +250,7 @@ export class JournalVoucherController {
               const output = new ResponseData();
               try {
                 const finalOutput = await this.journalVoucherService.fetchjournalVouchers();
-                this.logger.debug(`getAlljournalVouchers: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+
                 output.data = finalOutput;
                 output.message = "All journal Vouchers fetched successfully";
               } catch (error) {
