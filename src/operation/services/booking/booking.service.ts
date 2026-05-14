@@ -152,7 +152,7 @@ export class BookingService {
             FreightTerms: cargoPayload?.FreightTerms ?? null,
             StuffingAt: cargoPayload?.StuffingAt ?? null,
             updatedBy,
-            updatedon: new Date(),
+            updatedOn: new Date(),
             status: cargoPayload?.status || 'A'
         };
     }
@@ -179,7 +179,7 @@ export class BookingService {
             Volumetric: Number(product?.Volumetric) || 0,
             UomMasterSid: product?.UomMasterSid || null,
             updatedBy,
-            updatedon: new Date(),
+            updatedOn: new Date(),
             status: product?.status || 'A',
             ...(product?.CargoRecDate ? { RecdPack: product?.ExternlQty ?? product?.ExternalQty ?? '' } : {})
         };

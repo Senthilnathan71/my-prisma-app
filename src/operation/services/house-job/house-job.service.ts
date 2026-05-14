@@ -223,7 +223,7 @@ export class HouseJobService {
             StuffingAt: cargoPayload?.StuffingAt || '',
             createdBy,
             updatedBy: updatedBy ?? null,
-            updatedon: new Date(),
+            updatedOn: new Date(),
             status: cargoPayload?.status ? String(cargoPayload.status).charAt(0) : 'A',
         };
     }
@@ -268,7 +268,7 @@ export class HouseJobService {
             MarksAndNumber: product?.MarksAndNumber || '',
             createdBy,
             updatedBy: updatedBy ?? null,
-            updatedon: new Date(),
+            updatedOn: new Date(),
             status: product?.status ? String(product.status).charAt(0) : 'A',
         };
     }
@@ -370,7 +370,7 @@ export class HouseJobService {
                     data: {
                         status: 'D',
                         updatedBy: updatedBy ?? createdBy,
-                        updatedon: new Date(),
+                        updatedOn: new Date(),
                     },
                 });
 
@@ -383,7 +383,7 @@ export class HouseJobService {
                     data: {
                         status: 'D',
                         updatedBy: updatedBy ?? createdBy,
-                        updatedon: new Date(),
+                        updatedOn: new Date(),
                     },
                 });
             } else if (flatProducts.length > 0) {
@@ -446,7 +446,7 @@ export class HouseJobService {
                     data: {
                         status: 'D',
                         updatedBy: updatedBy ?? createdBy,
-                        updatedon: new Date(),
+                        updatedOn: new Date(),
                     },
                 });
             }
