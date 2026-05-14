@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+﻿import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { LeadStatus, Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -9,25 +9,83 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 export class PreCustomerMeetingService {
     constructor(private _db: DatabaseService,private logger: Logger) { }
 
-    async getAllPreCustomerMeetings(CompanyMasterSid:number, BranchMasterSid:number) {
+    private async getScopedUserIds(
+        companyMasterSid: number,
+        branchMasterSid: number,
+        userTypeCode?: string,
+        userId?: number
+    ): Promise<number[]> {
+        const normalizedUserType = String(userTypeCode || '').trim().toLowerCase();
+        const normalizedUserId = Number(userId || 0);
+
+        if (!normalizedUserId) {
+            throw new BadRequestException('userId is required for scoped meeting fetch');
+        }
+
+        if (normalizedUserType === 'salesmanager') {
+            const rows: any[] = await this._db.$queryRawUnsafe(
+                `SELECT
+                    um."UserMasterSid"
+                 FROM "UserMaster" um
+                 INNER JOIN "UserBranchMaster" ubm
+                    ON um."UserMasterSid" = ubm."UserMasterSid"
+                 WHERE
+                    ubm."CompanyMasterSid" = $1
+                    AND ubm."BranchMasterSid" = $2
+                    AND um."DeptHead" = $3
+                    AND um."isSalesperson" IN ('1','Y')
+                    AND um."status" = 'A'
+                    AND ubm."status" = 'A'`,
+                companyMasterSid,
+                branchMasterSid,
+                normalizedUserId,
+            );
+
+            const teamIds = rows
+                .map((r: any) => Number(r.UserMasterSid))
+                .filter((id: number) => Number.isFinite(id) && id > 0);
+
+            return Array.from(new Set([...teamIds, normalizedUserId]));
+        }
+
+        return [normalizedUserId];
+    }
+
+    async getAllPreCustomerMeetings(
+        CompanyMasterSid:number,
+        BranchMasterSid:number,
+        userTypeCode?: string,
+        userId?: number
+    ) {
         try {
+            const scopedUserIds = await this.getScopedUserIds(
+                CompanyMasterSid,
+                BranchMasterSid,
+                userTypeCode,
+                userId
+            );
+
             const allMeetings = await this._db.preCustomerMeeting.findMany({
                 where: {
                     status: 'A',
                     meetingStatus: {
                         notIn: ['Completed', 'Confirmed'],
                     },
-                    CompanyMasterSid: CompanyMasterSid,
-                    BranchMasterSid: BranchMasterSid
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    leadAssignTo: { in: scopedUserIds },
                 },
                 include : {
                     preCustomerMaster : {
                         select : {
                             preCustomerName : true,
-                            leadStatus:true
+                            leadStatus:true,
                         }
-                    }
-                    
+                    },
+                    customerMaster : {
+                        select : {
+                            CustomerName : true,
+                        }}
                 }
             });
             return allMeetings;
@@ -118,7 +176,8 @@ export class PreCustomerMeetingService {
                 include: {
                     branchMaster: true,
                     companyMaster: true,
-                    preCustomerMaster: true
+                    preCustomerMaster: true,
+                    customerMaster: true
                 }
             });
             if (!meeting) {
@@ -266,7 +325,7 @@ export class PreCustomerMeetingService {
             'followUpDate'
         ];
         const acceptedType = [...intFields, ...stringFields, ...dateFields];
-        
+
         if (!acceptedType.includes(searchType)) {
             throw new BadRequestException('Invalid Search Type');
         }
@@ -311,18 +370,23 @@ export class PreCustomerMeetingService {
         return searchResults;
     }
 
-    async searchList(params: filterDto) {
-    const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
+    async searchList(params: filterDto & { userTypeCode?: string; userId?: number }) {
+    const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId, userTypeCode, userId } = params as any;
     const skip = (page - 1) * pageSize;
 
     if (!activeCompanyId || !activeBranchId) {
         throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required');
     }
 
+    const scopedUserIds = await this.getScopedUserIds(activeCompanyId, activeBranchId, userTypeCode, userId);
+
     const where: Prisma.PreCustomerMeetingWhereInput = {
         status: statusWhereClause,
         CompanyMasterSid : activeCompanyId,
         BranchMasterSid: activeBranchId,
+        ...(scopedUserIds && scopedUserIds.length
+            ? { leadAssignTo: { in: scopedUserIds } }
+            : {}),
         ...(search
             ? {
                 OR: [
@@ -371,7 +435,3 @@ export class PreCustomerMeetingService {
         }
     }
 }
-
-
-
-
