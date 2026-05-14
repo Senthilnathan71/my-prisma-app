@@ -99,6 +99,7 @@ export class CargoreceiptService {
           CFS: productData.CFS,
           RecdPack: productData.RecdPack != null ? productData.RecdPack.toString() : null,
           updatedBy: productData.updatedBy ?? null,
+          updatedon: new Date(),
         };
 
         const updateResult = await this._db.bookingProduct.updateMany({

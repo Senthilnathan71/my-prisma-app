@@ -445,6 +445,7 @@ export class EnquiryHeaderService {
                         AdditionalService: enquiryOther.AdditionalService,
                         PickupAddress: enquiryOther.PickupAddress,
                         UpdatedBy: payload.updatedBy,
+                        UpdatedOn: new Date(),
                     }
                 })
             } else {

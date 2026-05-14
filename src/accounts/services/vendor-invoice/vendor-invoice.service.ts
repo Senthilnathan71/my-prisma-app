@@ -568,6 +568,7 @@ export class VendorInvoiceService {
                                     BookingRatesSid: detail.BookingRatesSid ? Number(detail.BookingRatesSid) : detail.BookingRateSid ? Number(detail.BookingRateSid) : null,
                                     CostRevenueChargesSid: detail.CostRevenueChargesSid || null,
                                     UpdatedBy: payload.UpdatedBy || 'System',
+                                    UpdatedOn: new Date(),
                                     Narration: detail.Narration || "",
                                     Status: 'A'
                                 }

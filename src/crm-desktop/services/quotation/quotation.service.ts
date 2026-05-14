@@ -471,6 +471,7 @@ export class QuotationService {
                             effDate: new Date(route.effDate),
                             expdate: new Date(route.expDate),
                             updatedBy: payload.updatedBy,
+                            updatedOn: new Date(),
                             TransitDays: Number(route.TransitDays) || Number(route.transit) || null,
                             segmentType: route.segmentType,
                             ServiceLevel: route.ServiceLevel,
@@ -520,6 +521,7 @@ export class QuotationService {
                                 ApprovedBy : carrier.ApprovedBy,
                                 Remarks : carrier.authorizerRemarks,
                                 updatedBy: payload.updatedBy,
+                                updatedOn: new Date(),
                             },
                         });
                         
@@ -554,6 +556,7 @@ export class QuotationService {
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
                                 createdBy: payload.updatedBy,
                                 updatedBy: payload.updatedBy,
+                                updatedOn: new Date(),
                             }
                             return await this.upsertCharge(chPayload)
                         })
@@ -609,7 +612,8 @@ export class QuotationService {
                         },
                         data: {
                             Status: "D",
-                            UpdatedBy: payload.updatedBy
+                            UpdatedBy: payload.updatedBy,
+                            UpdatedOn: new Date(),
                         }
                     });
 
@@ -620,7 +624,8 @@ export class QuotationService {
                         },
                         data: {
                             Status: "D",
-                            UpdatedBy: payload.updatedBy
+                            UpdatedBy: payload.updatedBy,
+                            UpdatedOn: new Date(),
                         }
                     });
                 }
@@ -645,6 +650,7 @@ export class QuotationService {
                                 PackageQty: Number(cargoItem.PackageQty) || 0,
                                 CargoDescription: cargoItem.CargoDescription || "",
                                 UpdatedBy: payload.updatedBy,
+                                UpdatedOn: new Date(),
                             }
                         })
                     } else {
@@ -696,7 +702,8 @@ export class QuotationService {
                             },
                             data: {
                                 Status: "D",
-                                UpdatedBy: payload.updatedBy
+                                UpdatedBy: payload.updatedBy,
+                                UpdatedOn: new Date(),
                             }
                         });
                     }
@@ -713,6 +720,7 @@ export class QuotationService {
                                 QuoteCargoSid: ourCargo.QuoteCargoSid,
                                 createdBy : payload.updatedBy,
                                 updatedBy : payload.updatedBy,
+                                updatedOn : new Date(),
                             }
                             return await this.upsertProduct(productPayload);
                         })
@@ -845,6 +853,7 @@ export class QuotationService {
                 data: {
                     ApprovalStatus: ApprovalStatus.Pending,
                     ...(updatedBy ? { updatedBy } : {}),
+                    updatedOn: new Date(),
                 },
             });
         } catch (error) {
@@ -871,6 +880,7 @@ export class QuotationService {
                     where: { QuoteChargeSid: payload.QuoteChargeSid },
                     data: {
                         updatedBy: payload.updatedBy,
+                        updatedOn: new Date(),
                         ChargeUomSid: payload.ChargeUomSid,
                         ChargeDisplayName: payload.ChargeDisplayName,
                         CostChargeUomSid: payload.CostChargeUomSid,
@@ -961,6 +971,7 @@ export class QuotationService {
                         QuoteHeaderSid: payload.QuoteHeaderSid,
                         QuoteCargoSid: payload.QuoteCargoSid,
                         UpdatedBy: payload.updatedBy,
+                        UpdatedOn: new Date(),
                         ExternalPkg: payload.ExternalPkg || null,
                         ExternalQty: Number(payload.ExternalQty) || 0,
                         GrossWeight: Number(payload.GrossWeight) || 0,

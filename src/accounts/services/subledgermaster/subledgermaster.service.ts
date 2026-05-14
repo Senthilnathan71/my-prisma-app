@@ -370,7 +370,10 @@ export class SubledgermasterService {
                 
                 const updated = await this._db.subledgerMaster.update({
                     where: { SubledgerMasterSid },
-                    data: updateData
+                    data: {
+                        ...updateData,
+                        UpdatedOn: new Date()
+                    }
                 });
                 
                 // results.push(updated);

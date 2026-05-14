@@ -484,6 +484,7 @@ export class ServiceJobService {
                         MasterJobNumber: payload.MBLNo,
                         MBLNo: payload.MBLNo,
                         UpdatedBy: payload.updatedBy, // ✅ FIXED
+                        UpdatedOn: new Date(),
                     },
                 });
 
@@ -511,6 +512,7 @@ export class ServiceJobService {
                 FreightTerms: mainPayload.FreightPPCC || "Prepaid",
                 status: mainPayload.status || 'A',
                 updatedBy: payload.updatedBy,
+                updatedOn: new Date(),
             };
 
             if (payload.HBLNo && payload.HBLNo.trim() !== '') {
@@ -554,6 +556,7 @@ export class ServiceJobService {
                     MarksAndNumber : houseJobCargo.MarksAndNumber || null,
                     updatedBy: payload.updatedBy,
                     status: 'A',
+                    updatedOn: new Date(),
                 };
 
                 await prisma.houseJobCargo.upsert({
@@ -577,6 +580,7 @@ export class ServiceJobService {
                         ShipmentNo: updatedHouseJob.ShipmentNo,
                         MasterJobNo: updatedHouseJob.MBLNo || "",
                         updatedBy: payload.updatedBy,
+                        updatedOn: new Date(),
                         status: charge.status === 'Active' ? 'A' : (charge.status === 'Suspended' ? 'S' : String(charge.status).charAt(0)) || 'A',
                         Remarks: charge.Remarks || '',
                         SerialNumber: chargeIndex++,
@@ -648,6 +652,7 @@ export class ServiceJobService {
                     BlClause: houseJobOthers.BlClause || [],
 
                     updatedBy: payload.updatedBy,
+                    updatedOn: new Date(),
                     status: 'A',
                 };
 

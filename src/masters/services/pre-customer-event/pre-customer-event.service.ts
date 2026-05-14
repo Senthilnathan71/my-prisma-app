@@ -72,7 +72,8 @@ export class PreCustomerEventService {
                 where: { PreCustomerEventSid },
                 data: {
                     ...payload,
-                    updatedBy: 'admin@crm.com'
+                    updatedBy: 'admin@crm.com',
+                    updatedOn: new Date()
                 },
                 include: {
                     companyMaster: true
@@ -101,7 +102,8 @@ export class PreCustomerEventService {
                 where: { PreCustomerEventSid },
                 data: {
                     status:'D',
-                    updatedBy: 'admin@crm.com'
+                    updatedBy: 'admin@crm.com',
+                    updatedOn: new Date()
                 }
             });
         } catch (error) {

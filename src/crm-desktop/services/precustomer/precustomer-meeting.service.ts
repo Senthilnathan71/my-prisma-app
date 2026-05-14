@@ -250,7 +250,8 @@ export class PreCustomerMeetingService {
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
                             createdBy: params.userEmail,
-                            updatedBy: params.userEmail
+                            updatedBy: params.userEmail,
+                            updatedOn: new Date(),
                         }
                     })
                 }

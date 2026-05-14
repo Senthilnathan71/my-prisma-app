@@ -166,6 +166,7 @@ export class HouseJobService {
                     data: {
                         Status: 'D',
                         UpdatedBy: updatedBy ?? createdBy,
+                        UpdatedOn: new Date(),
                     },
                 });
             } else {
@@ -177,6 +178,7 @@ export class HouseJobService {
                     data: {
                         Status: 'D',
                         UpdatedBy: updatedBy ?? createdBy,
+                        UpdatedOn: new Date(),
                     },
                 });
             }
@@ -221,6 +223,7 @@ export class HouseJobService {
             StuffingAt: cargoPayload?.StuffingAt || '',
             createdBy,
             updatedBy: updatedBy ?? null,
+            updatedon: new Date(),
             status: cargoPayload?.status ? String(cargoPayload.status).charAt(0) : 'A',
         };
     }
@@ -265,6 +268,7 @@ export class HouseJobService {
             MarksAndNumber: product?.MarksAndNumber || '',
             createdBy,
             updatedBy: updatedBy ?? null,
+            updatedon: new Date(),
             status: product?.status ? String(product.status).charAt(0) : 'A',
         };
     }
@@ -330,6 +334,7 @@ export class HouseJobService {
                                     data: {
                                         IsHaz: 'Y',
                                         UpdatedBy: updatedBy ?? createdBy,
+                                        UpdatedOn: new Date(),
                                     },
                                 });
                             }
@@ -348,6 +353,7 @@ export class HouseJobService {
                                     data: {
                                         IsHaz: 'Y',
                                         UpdatedBy: updatedBy ?? createdBy,
+                                        UpdatedOn: new Date(),
                                     },
                                 });
                             }
@@ -364,6 +370,7 @@ export class HouseJobService {
                     data: {
                         status: 'D',
                         updatedBy: updatedBy ?? createdBy,
+                        updatedon: new Date(),
                     },
                 });
 
@@ -376,6 +383,7 @@ export class HouseJobService {
                     data: {
                         status: 'D',
                         updatedBy: updatedBy ?? createdBy,
+                        updatedon: new Date(),
                     },
                 });
             } else if (flatProducts.length > 0) {
@@ -403,6 +411,7 @@ export class HouseJobService {
                                 data: {
                                     IsHaz: 'Y',
                                     UpdatedBy: updatedBy ?? createdBy,
+                                    UpdatedOn: new Date(),
                                 },
                             });
                         }
@@ -421,6 +430,7 @@ export class HouseJobService {
                                 data: {
                                     IsHaz: 'Y',
                                     UpdatedBy: updatedBy ?? createdBy,
+                                    UpdatedOn: new Date(),
                                 },
                             });
                         }
@@ -436,6 +446,7 @@ export class HouseJobService {
                     data: {
                         status: 'D',
                         updatedBy: updatedBy ?? createdBy,
+                        updatedon: new Date(),
                     },
                 });
             }
@@ -461,6 +472,7 @@ export class HouseJobService {
                                 data: {
                                     IsHaz: 'Y',
                                     UpdatedBy: updatedBy ?? createdBy,
+                                    UpdatedOn: new Date(),
                                 },
                             });
                         }
@@ -482,6 +494,7 @@ export class HouseJobService {
                             data: {
                                 IsHaz: 'Y',
                                 UpdatedBy: updatedBy ?? createdBy,
+                                UpdatedOn: new Date(),
                             },
                         });
                     }
@@ -1415,6 +1428,7 @@ export class HouseJobService {
                                 ETA: connection.ETA ? new Date(connection.ETA) : null,
                                 Remarks: connection.Remarks,
                                 updatedBy: payload.updatedBy,
+                                updatedOn: new Date(),
                                 status: String(connection.status).charAt(0) || 'A',
                             }
                         })
@@ -1506,6 +1520,7 @@ export class HouseJobService {
                         DODate: otherPayload.DODate ? new Date(otherPayload.DODate) : null,
                         status: 'A',
                         updatedBy: payload.updatedBy || null,
+                        updatedOn: new Date(),
                     }
                 })
             } else {
@@ -1602,6 +1617,7 @@ export class HouseJobService {
                         ShipmentNo: updatedHouseJob.ShipmentNo,
                         MasterJobNo: updatedHouseJob.MBLNo,
                         updatedBy: payload.updatedBy || payload.createdBy || '',
+                        updatedOn: new Date(),
                         status: String(item.status).charAt(0) || 'A',
                         Remarks: item.Remarks || '',
 
@@ -1748,6 +1764,7 @@ export class HouseJobService {
                                 AckStatus: boe.AckStatus || '',
                                 Remarks: boe.Remarks || '',
                                 UpdatedBy: payload.updatedBy || payload.createdBy || null,
+                                UpdatedOn: new Date(),
                                 Status: 'A'
                             }
                         });
@@ -1813,6 +1830,7 @@ export class HouseJobService {
                                 Volume: vehicle.Volume ? Number(vehicle.Volume) : null,
                                 Remarks: vehicle.Remarks,
                                 UpdatedBy: payload.updatedBy,
+                                UpdatedOn: new Date(),
                                 Status: 'A'
                             }
                         });
@@ -1882,6 +1900,7 @@ export class HouseJobService {
                                 MaxTemperature: customs.MaxTemperature ? Number(customs.MaxTemperature) : null,
                                 RefTemperatureUnit: customs.RefTemperatureUnit,
                                 UpdatedBy: payload.updatedBy,
+                                UpdatedOn: new Date(),
                                 Status: 'A'
                             }
                         });
@@ -1939,6 +1958,7 @@ export class HouseJobService {
                                 HouseJobSid: updatedHouseJob.HouseJobSid,
                                 ShipmentNo: updatedHouseJob.ShipmentNo!,
                                 UpdatedBy: milestone.UpdatedBy || milestone.CreatedBy,
+                                UpdatedOn: new Date(),
                                 Status: String(milestone.Status).charAt(0),
                                 MilestoneMasterSid: milestone.MilestoneMasterSid,
                                 Remarks: milestone.Remarks,

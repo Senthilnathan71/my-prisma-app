@@ -1629,7 +1629,8 @@ export class PaymentService {
                         LocalAmount: finalLocalAmount,
                         PostStatus : 'P',
                         PostDate: now,
-                        UpdatedBy: payload.postedBy
+                        UpdatedBy: payload.postedBy,
+                        UpdatedOn: new Date()
                     }
                 })
 

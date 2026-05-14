@@ -652,6 +652,7 @@ export class VendorCreditNoteService {
                                     CostRevenueChargesSid: detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid ?? null,
                                     Narration: detail.Narration,
                                     UpdatedBy: payload.UpdatedBy || 'System',
+                                    UpdatedOn: new Date(),
                                     Status: 'A'
                                 }
                             });
