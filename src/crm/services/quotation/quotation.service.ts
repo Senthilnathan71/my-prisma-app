@@ -103,7 +103,9 @@ export class QuotationService {
                 const quoteDate = (payload.quoteDate || payload.QuoteDate) ? new Date(payload.quoteDate || payload.QuoteDate) : new Date();
                 const quoteHeaderPayload: any = {
                     CustomerName: payload.CustomerName,
-                    CustomerMasterSid: Number(payload.CustomerMasterSid),
+                    CustomerMasterSid: this.toNullableNumber(payload.CustomerMasterSid),
+                    PreCustomerMasterSid: this.toNullableNumber(payload.PreCustomerMasterSid),
+                    LeadOrCustomer: payload.LeadOrCustomer || (payload.PreCustomerMasterSid ? 'L' : 'C'),
                     QuoteDate: quoteDate,
                     CustomerRef: payload.CustomerRef,
                     SalesmanSid: SalesmanSid,
