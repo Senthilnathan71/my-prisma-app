@@ -38,7 +38,7 @@ export class PaymentRequestService {
             CashBank: payload.CashBank || 'Bank',
             DepartmentMasterSid: Number(payload.DepartmentMasterSid),
             PaymentRequestStatus: payload.PaymentRequestStatus || ApprovalStatus.Pending,
-            Party: Number(payload.Party),
+            Party: this.toNullableNumber(payload.Party) ?? 0,
             PayableTo: payload.PayableTo || payload.PartyName || '',
             BookingSid: this.toNullableNumber(payload.BookingSid),
             MasterJobSid: this.toNullableNumber(payload.MasterJobSid),
@@ -114,7 +114,7 @@ export class PaymentRequestService {
           CashBank: payload.CashBank || existing.CashBank,
           DepartmentMasterSid: Number(payload.DepartmentMasterSid),
           PaymentRequestStatus: payload.PaymentRequestStatus || existing.PaymentRequestStatus,
-          Party: Number(payload.Party),
+          Party: this.toNullableNumber(payload.Party) ?? 0,
           PayableTo: payload.PayableTo || payload.PartyName || '',
           BookingSid: this.toNullableNumber(payload.BookingSid),
           MasterJobSid: this.toNullableNumber(payload.MasterJobSid),
@@ -379,9 +379,6 @@ export class PaymentRequestService {
     }
     if (!payload.DepartmentMasterSid) {
       throw new BadRequestException('Department is required');
-    }
-    if (!payload.Party) {
-      throw new BadRequestException('Party is required');
     }
     if (!payload.PayableTo) {
       throw new BadRequestException('Payable To is required');

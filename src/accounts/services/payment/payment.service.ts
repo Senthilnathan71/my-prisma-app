@@ -393,8 +393,9 @@ export class PaymentService {
                     throw new BadRequestException('Payment Voucher Type not found. Please configure VoucherTypeMaster for this company/branch.');
                 }
 
+                let paymentRequest: any = null;
                 if (payload.PaymentRequestSid) {
-                    const paymentRequest = await prisma.paymentRequest.findUnique({
+                    paymentRequest = await prisma.paymentRequest.findUnique({
                         where: { PaymentRequestSid: Number(payload.PaymentRequestSid) },
                     });
 
@@ -459,16 +460,16 @@ export class PaymentService {
                         VoucherType: voucherType.VoucherTypeMasterSid,
                         PostDate: null,
                         Narration: payload.Narration || "",
-                        PartyMasterSid: payload.PartyMasterSid,
-                        PartyName: payload.PartyName || "",
-                        PartyAddress: payload.PartyAddress || "",
-                        CustomerBranchSid: payload.CustomerBranchSid ?? null,
+                        PartyMasterSid: payload.PaymentRequestSid ? null : payload.PartyMasterSid,
+                        PartyName: payload.PaymentRequestSid ? "" : (payload.PartyName || ""),
+                        PartyAddress: payload.PaymentRequestSid ? "" : (payload.PartyAddress || ""),
+                        CustomerBranchSid: payload.PaymentRequestSid ? null : (payload.CustomerBranchSid ?? null),
                         PlaceOfSupply: payload.PlaceOfSupply || "",
                         State: payload.State || "",
-                        COAMasterSid: payload.COAMasterSid,
+                        COAMasterSid: payload.PaymentRequestSid ? null : payload.COAMasterSid,
                         BankCOA: payload.BankCOA ?? null,
-                        BankPartyName: payload.BankPartyName || "",
-                        GST_VAT: payload.GST_VAT || "",
+                        BankPartyName: payload.PaymentRequestSid ? (paymentRequest?.PayableTo || payload.BankPartyName || "") : (payload.BankPartyName || ""),
+                        GST_VAT: payload.PaymentRequestSid ? "" : (payload.GST_VAT || ""),
                         InvoiceType: payload.InvoiceType || "",
                         ReversalVoucher: payload.ReversalVoucher ?? null,
                         TaxNumber: payload.TaxNumber ?? null,
@@ -503,7 +504,16 @@ export class PaymentService {
                 });
 
                 // 5. Prepare VoucherDetail payload array
-                const detailItems = payload.detailItems || [];
+                const detailItems = (payload.detailItems || []).filter((item: any) => {
+                    if (!payload.PaymentRequestSid) return true;
+                    const isPaymentRequestPartyRow =
+                        payload.PartyMasterSid &&
+                        item.LedgerMasterSid === payload.PartyMasterSid &&
+                        !item.SourceDetailSid &&
+                        !item.ChargeMasterSid &&
+                        item.COAMasterSid !== payload.BankCOA;
+                    return !isPaymentRequestPartyRow;
+                });
                 const allDetailPayload = detailItems.map((item, index) => ({
                     CreatedBy: payload.CreatedBy,
                     Status: 'A',
@@ -540,7 +550,7 @@ export class PaymentService {
                     Remarks: item.Remarks || "",
                     ChargeUOMSid: item.ChargeUOMSid ?? null,
                     YearMasterSid: currentYear?.YearMasterSid ?? null,
-                    PartyAmount: item.PartyAmount ?? 0,
+                    PartyAmount: payload.PaymentRequestSid && item.SourceDetailSid ? 0 : (item.PartyAmount ?? 0),
                     CostRevenueChargesSid: item.CostRevenueChargesSid ?? null,
                     SourceDetailSid: item.SourceDetailSid ?? null,
                 }));
@@ -711,7 +721,7 @@ export class PaymentService {
     async updatePayment(VoucherHeaderSid: number, payload: any) {
         try {
             return await this._db.$transaction(async (prisma) => {
-                const {
+                let {
                     CompanyMasterSid,
                     BranchMasterSid,
                     YearMasterSid,
@@ -738,6 +748,25 @@ export class PaymentService {
                 if (existingHeader.PostStatus === 'P') {
                     throw new BadRequestException('Posted vouchers cannot be modified');
                 }
+
+                const paymentRequestSid = payload.PaymentRequestSid || existingHeader.ReversalVoucher;
+                let paymentRequest: any = null;
+                if (paymentRequestSid) {
+                    paymentRequest = await prisma.paymentRequest.findUnique({
+                        where: { PaymentRequestSid: Number(paymentRequestSid) },
+                    });
+                }
+                const isPaymentRequestPayment = !!paymentRequest;
+                detailItems = (detailItems || []).filter((item: any) => {
+                    if (!isPaymentRequestPayment) return true;
+                    const isPaymentRequestPartyRow =
+                        payload.PartyMasterSid &&
+                        item.LedgerMasterSid === payload.PartyMasterSid &&
+                        !item.SourceDetailSid &&
+                        !item.ChargeMasterSid &&
+                        item.COAMasterSid !== payload.BankCOA;
+                    return !isPaymentRequestPartyRow;
+                });
 
                 // 2. Validate Voucher Type
                 const cashOrBankType = payload.CashOrBank === 'C' ? 'Cash' : 'Bank';
@@ -797,18 +826,18 @@ export class PaymentService {
                         VoucherDate: voucherDateObj,
                         PostDate: null,
                         Narration: payload.Narration || "",
-                        PartyMasterSid: payload.PartyMasterSid ?? existingHeader.PartyMasterSid,
-                        PartyName: payload.PartyName || "",
-                        PartyAddress: payload.PartyAddress || "",
-                        CustomerBranchSid: payload.CustomerBranchSid ?? null,
+                        PartyMasterSid: isPaymentRequestPayment ? null : (payload.PartyMasterSid ?? existingHeader.PartyMasterSid),
+                        PartyName: isPaymentRequestPayment ? "" : (payload.PartyName || ""),
+                        PartyAddress: isPaymentRequestPayment ? "" : (payload.PartyAddress || ""),
+                        CustomerBranchSid: isPaymentRequestPayment ? null : (payload.CustomerBranchSid ?? null),
                         PlaceOfSupply: payload.PlaceOfSupply || "",
                         State: payload.State || "",
-                        COAMasterSid: payload.COAMasterSid ?? existingHeader.COAMasterSid,
+                        COAMasterSid: isPaymentRequestPayment ? null : (payload.COAMasterSid ?? existingHeader.COAMasterSid),
                         BankCOA: payload.BankCOA ?? null,
-                        BankPartyName: payload.BankPartyName || "",
-                        GST_VAT: payload.GST_VAT || "",
+                        BankPartyName: isPaymentRequestPayment ? (paymentRequest?.PayableTo || payload.BankPartyName || "") : (payload.BankPartyName || ""),
+                        GST_VAT: isPaymentRequestPayment ? "" : (payload.GST_VAT || ""),
                         InvoiceType: payload.InvoiceType || "",
-                        ReversalVoucher: payload.ReversalVoucher ?? null,
+                        ReversalVoucher: isPaymentRequestPayment ? paymentRequestSid : (payload.ReversalVoucher ?? existingHeader.ReversalVoucher ?? null),
                         TaxNumber: payload.TaxNumber ?? null,
                         GSTType: payload.GSTType || "",
                         Remarks: payload.Remarks || "",
@@ -874,7 +903,7 @@ export class PaymentService {
                         ChargeUOMSid: item.ChargeUOMSid ?? null,
                         CostRevenueChargesSid: item.CostRevenueChargesSid ?? null,
                         YearMasterSid: currentYear?.YearMasterSid ?? null,
-                        PartyAmount: item.PartyAmount ?? 0,
+                        PartyAmount: isPaymentRequestPayment && item.SourceDetailSid ? 0 : (item.PartyAmount ?? 0),
                         UpdatedBy: updatedBy,
                         UpdatedOn: new Date(),
                     };
