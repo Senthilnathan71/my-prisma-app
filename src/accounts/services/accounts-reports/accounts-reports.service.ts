@@ -140,6 +140,8 @@ export class AccountsReportsService {
           return await this.generateVATReceivableReport(parameters);
         case 'vat-payable-report':
           return await this.generateVATPayableReport(parameters);
+        case 'Vat-Summary-Report':
+          return await this.generateVatSummaryReport(parameters);
         case 'profit-summary-report':
           return await this.generateProfitSummaryReport(parameters);
         case 'matching-list-report':
@@ -4380,6 +4382,455 @@ export class AccountsReportsService {
       );
       throw error;
     }
+  }
+
+  private getVatSummaryDefaultOutputRows() {
+    return [
+      { code: '1a', description: 'Standard rated supplies in Abu Dhabi', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1b', description: 'Standard rated supplies in Dubai', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1c', description: 'Standard rated supplies in Sharjah', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1d', description: 'Standard rated supplies in Ajman', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1e', description: 'Standard rated supplies in Umm Al Quwain', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1f', description: 'Standard rated supplies in Ras Al Khaimah', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1g', description: 'Standard rated supplies in Fujairah', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '2', description: 'Tax refunds provided to tourists under the Tax Refunds for Tourists Scheme', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '3', description: 'Supplies subject to the reverse charge provisions', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '4', description: 'Zero rated supplies', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '5', description: 'Exempt supplies', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '6', description: 'Goods imported into the UAE', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '7', description: 'Adjustments to goods imported into the UAE', amount: 0, vatAmount: 0, adjustment: 0 },
+    ];
+  }
+
+  private getVatSummaryDefaultInputRows() {
+    return [
+      { code: '9', description: 'Standard rated expenses', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '10', description: 'Supplies subject to the reverse charge provisions', amount: 0, vatAmount: 0, adjustment: 0 },
+    ];
+  }
+
+  private addVatSummaryAmount(
+    row: { amount: number; vatAmount: number; adjustment: number } | undefined,
+    taxableAmount: number,
+    vatAmount: number,
+  ) {
+    if (!row) {
+      return;
+    }
+
+    row.amount += taxableAmount;
+    row.vatAmount += vatAmount;
+  }
+
+  private normaliseVatText(value: any): string {
+    return String(value ?? '').trim().toUpperCase();
+  }
+
+  private isReverseChargeVat(header: any, detail?: any): boolean {
+    const values = [
+      header?.GSTType,
+      header?.InvoiceType,
+      header?.TaxType,
+      detail?.InvoiceType,
+    ]
+      .map((value) => this.normaliseVatText(value))
+      .join(' ');
+
+    return values.includes('RCM') || values.includes('REVERSE');
+  }
+
+  private getVatSummaryOutputCode(header: any, detail?: any): string | null {
+    const values = [
+      header?.InvoiceType,
+      header?.GSTType,
+      header?.TaxType,
+      detail?.InvoiceType,
+    ]
+      .map((value) => this.normaliseVatText(value))
+      .join(' ');
+
+    if (values.includes('OOS') || values.includes('OUT OF SCOPE')) {
+      return null;
+    }
+
+    if (this.isReverseChargeVat(header, detail)) {
+      return '3';
+    }
+
+    if (
+      values.includes('EXEMPT') ||
+      values.includes('EXE')
+    ) {
+      return '5';
+    }
+
+    if (
+      values.includes('ZERO') ||
+      values.includes('EXPORT') ||
+      values.includes('NONGST') ||
+      values.includes('NON GST')
+    ) {
+      return '4';
+    }
+
+    return this.getVatSummaryEmirateCode(
+      header?.PlaceOfSupply ||
+        header?.State ||
+        header?.customerBranch?.stateMaster?.stateName,
+    );
+  }
+
+  private getVatSummaryEmirateCode(value: any): string {
+    const emirate = String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z]/g, '');
+
+    if (emirate.includes('abudhabi')) return '1a';
+    if (emirate.includes('dubai')) return '1b';
+    if (emirate.includes('sharjah')) return '1c';
+    if (emirate.includes('ajman')) return '1d';
+    if (emirate.includes('ummalquwain') || emirate.includes('ummalqaiwain')) return '1e';
+    if (emirate.includes('rasalkhaimah')) return '1f';
+    if (emirate.includes('fujairah')) return '1g';
+
+    return '1b';
+  }
+
+  private getVatSummaryTaxSign(documentTypeCode: any, taxType: any, drCr: any): number {
+    const code = this.normaliseVatText(documentTypeCode);
+    const ledgerTaxType = this.normaliseVatText(taxType);
+    const debitCredit = this.normaliseVatText(drCr);
+
+    if (code === DOC_TYPE_CODE.CREDIT_NOTE || code === DOC_TYPE_CODE.VENDOR_CREDIT_NOTE) {
+      return -1;
+    }
+
+    if (code === DOC_TYPE_CODE.JOURNAL_VOUCHER || code === DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER) {
+      if (ledgerTaxType === 'OUTPUT') {
+        return debitCredit === 'D' ? -1 : 1;
+      }
+
+      if (ledgerTaxType === 'INPUT') {
+        return debitCredit === 'C' ? -1 : 1;
+      }
+    }
+
+    return 1;
+  }
+
+  private async generateVatSummaryReport(params: any) {
+    const {
+      companyId: CompanyMasterSid,
+      VoucherFromDate,
+      VoucherToDate,
+      FromDate,
+      ToDate,
+    } = params;
+
+    const fromDate = VoucherFromDate || FromDate;
+    const toDate = VoucherToDate || ToDate;
+
+    if (!CompanyMasterSid) {
+      throw new BadRequestException('companyId is required');
+    }
+
+    if (!fromDate || !toDate) {
+      throw new BadRequestException('VoucherFromDate and VoucherToDate are required');
+    }
+
+    const selectedBranches = [
+      ...(Array.isArray(params.Branch) ? params.Branch : params.Branch ? [params.Branch] : []),
+      ...(Array.isArray(params.BranchMasterSid)
+        ? params.BranchMasterSid
+        : params.BranchMasterSid
+          ? [params.BranchMasterSid]
+          : []),
+      ...(params.branchId ? [params.branchId] : []),
+    ]
+      .map((branch) => Number(branch))
+      .filter((branch) => Number.isFinite(branch) && branch > 0);
+
+    const branches = await this._db.branchMaster.findMany({
+      where: {
+        CompanyMasterSid,
+        status: 'A',
+        ...(selectedBranches.length
+          ? { BranchMasterSid: { in: selectedBranches } }
+          : {}),
+      },
+      select: {
+        BranchMasterSid: true,
+        branchName: true,
+        taxRegistrationNo: true,
+        addressLine1: true,
+        addressLine2: true,
+        postalCode: true,
+        email: true,
+        phoneNumber: true,
+        cityMaster: { select: { cityName: true } },
+        stateMaster: { select: { stateName: true } },
+        countryMaster: { select: { countryName: true } },
+      },
+    });
+
+    const branchIds = branches.map((branch) => branch.BranchMasterSid);
+
+    if (!branchIds.length) {
+      throw new BadRequestException('No active branch found for VAT Summary Report');
+    }
+
+    const company = await this._db.companyMaster.findFirst({
+      where: {
+        CompanyMasterSid,
+        status: 'A',
+      },
+      select: {
+        companyName: true,
+        addressLine1: true,
+        addressLine2: true,
+        postal_code: true,
+        email: true,
+        phoneNumber: true,
+        Pan: true,
+        cityMaster: { select: { cityName: true } },
+        stateMaster: { select: { stateName: true } },
+        countryMaster: { select: { countryName: true } },
+      },
+    });
+
+    const outputRows = this.getVatSummaryDefaultOutputRows();
+    const inputRows = this.getVatSummaryDefaultInputRows();
+    const outputRowMap = new Map(outputRows.map((row) => [row.code, row]));
+    const inputRowMap = new Map(inputRows.map((row) => [row.code, row]));
+
+    const voucherHeaderWhere = {
+      CompanyMasterSid,
+      BranchMasterSid: { in: branchIds },
+      VoucherDate: {
+        gte: new Date(fromDate),
+        lte: new Date(toDate),
+      },
+      Status: 'A',
+      PostStatus: 'P',
+      voucherTypeMaster: {
+        DocumentTypeCode: {
+          in: [
+            DOC_TYPE_CODE.INVOICE,
+            DOC_TYPE_CODE.VENDOR_INVOICE,
+            DOC_TYPE_CODE.CREDIT_NOTE,
+            DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+            DOC_TYPE_CODE.JOURNAL_VOUCHER,
+            DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER,
+          ],
+        },
+      },
+    };
+
+    const taxDetails = await this._db.voucherDetail.findMany({
+      where: {
+        Status: 'A',
+        CompanyMasterSid,
+        BranchMasterSid: { in: branchIds },
+        subledgerMaster: {
+          SubledgerType: 'Tax',
+        },
+        VoucherHeader: voucherHeaderWhere,
+      },
+      select: {
+        DrCr: true,
+        TaxableAmount: true,
+        LocalAmount: true,
+        InvoiceType: true,
+        subledgerMaster: {
+          select: {
+            TaxType: true,
+            SubledgerName: true,
+          },
+        },
+        VoucherHeader: {
+          select: {
+            GSTType: true,
+            InvoiceType: true,
+            TaxType: true,
+            PlaceOfSupply: true,
+            State: true,
+            voucherTypeMaster: {
+              select: {
+                DocumentTypeCode: true,
+              },
+            },
+            customerBranch: {
+              select: {
+                stateMaster: { select: { stateName: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for (const detail of taxDetails) {
+      const header = detail.VoucherHeader;
+      const documentTypeCode = header?.voucherTypeMaster?.DocumentTypeCode;
+      const taxType = detail.subledgerMaster?.TaxType;
+      const sign = this.getVatSummaryTaxSign(documentTypeCode, taxType, detail.DrCr);
+      const taxableAmount = roundAmount(toNumber(detail.TaxableAmount) * sign, 2);
+      const vatAmount = roundAmount(toNumber(detail.LocalAmount) * sign, 2);
+
+      if (this.normaliseVatText(taxType) === 'INPUT') {
+        const inputCode = this.isReverseChargeVat(header, detail) ? '10' : '9';
+        this.addVatSummaryAmount(inputRowMap.get(inputCode), taxableAmount, vatAmount);
+        continue;
+      }
+
+      if (this.normaliseVatText(taxType) === 'OUTPUT') {
+        const outputCode = this.getVatSummaryOutputCode(header, detail);
+        if (outputCode && outputRowMap.has(outputCode)) {
+          this.addVatSummaryAmount(outputRowMap.get(outputCode), taxableAmount, vatAmount);
+        }
+      }
+    }
+
+    const nonTaxOutputDetails = await this._db.voucherDetail.findMany({
+      where: {
+        Status: 'A',
+        CompanyMasterSid,
+        BranchMasterSid: { in: branchIds },
+        VoucherHeader: {
+          ...voucherHeaderWhere,
+          voucherTypeMaster: {
+            DocumentTypeCode: {
+              in: [DOC_TYPE_CODE.INVOICE, DOC_TYPE_CODE.CREDIT_NOTE],
+            },
+          },
+        },
+      },
+      select: {
+        DrCr: true,
+        TaxableAmount: true,
+        Amount: true,
+        LocalAmount: true,
+        TaxAmount1: true,
+        TaxAmount2: true,
+        InvoiceType: true,
+        subledgerMaster: {
+          select: {
+            SubledgerType: true,
+          },
+        },
+        VoucherHeader: {
+          select: {
+            GSTType: true,
+            InvoiceType: true,
+            TaxType: true,
+            PlaceOfSupply: true,
+            State: true,
+            voucherTypeMaster: {
+              select: {
+                DocumentTypeCode: true,
+              },
+            },
+            customerBranch: {
+              select: {
+                stateMaster: { select: { stateName: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for (const detail of nonTaxOutputDetails) {
+      if (this.normaliseVatText(detail.subledgerMaster?.SubledgerType) === 'TAX') {
+        continue;
+      }
+
+      const outputCode = this.getVatSummaryOutputCode(detail.VoucherHeader, detail);
+      if (outputCode !== '4' && outputCode !== '5') {
+        continue;
+      }
+
+      const sign = this.getVatSummaryTaxSign(
+        detail.VoucherHeader?.voucherTypeMaster?.DocumentTypeCode,
+        'Output',
+        detail.DrCr,
+      );
+      const taxableAmount = roundAmount(toNumber(detail.TaxableAmount || detail.LocalAmount || detail.Amount) * sign, 2);
+      const vatAmount = roundAmount((toNumber(detail.TaxAmount1) + toNumber(detail.TaxAmount2)) * sign, 2);
+      this.addVatSummaryAmount(outputRowMap.get(outputCode), taxableAmount, vatAmount);
+    }
+
+    for (const row of [...outputRows, ...inputRows]) {
+      row.amount = roundAmount(row.amount, 2);
+      row.vatAmount = roundAmount(row.vatAmount, 2);
+      row.adjustment = roundAmount(row.adjustment, 2);
+    }
+
+    const outputTotal = {
+      amount: roundAmount(outputRows.reduce((sum, row) => sum + row.amount, 0), 2),
+      vatAmount: roundAmount(outputRows.reduce((sum, row) => sum + row.vatAmount, 0), 2),
+      adjustment: roundAmount(outputRows.reduce((sum, row) => sum + row.adjustment, 0), 2),
+    };
+
+    const inputTotal = {
+      amount: roundAmount(inputRows.reduce((sum, row) => sum + row.amount, 0), 2),
+      vatAmount: roundAmount(inputRows.reduce((sum, row) => sum + row.vatAmount, 0), 2),
+      adjustment: roundAmount(inputRows.reduce((sum, row) => sum + row.adjustment, 0), 2),
+    };
+
+    const primaryBranch = branches[0];
+    const branchNames = branches.map((branch) => branch.branchName).join(', ');
+    const addressParts = [
+      primaryBranch?.addressLine1 || company?.addressLine1,
+      primaryBranch?.addressLine2 || company?.addressLine2,
+      primaryBranch?.cityMaster?.cityName || company?.cityMaster?.cityName,
+      primaryBranch?.stateMaster?.stateName || company?.stateMaster?.stateName,
+      primaryBranch?.countryMaster?.countryName || company?.countryMaster?.countryName,
+      primaryBranch?.postalCode || company?.postal_code,
+    ].filter(Boolean);
+
+    return {
+      params,
+      company: {
+        companyName: company?.companyName || '',
+        nameEnglish: company?.companyName || '',
+        nameArabic: '',
+        trn: primaryBranch?.taxRegistrationNo || company?.Pan || '',
+        address: addressParts.join(', '),
+        email: primaryBranch?.email || company?.email || '',
+        phoneNumber: primaryBranch?.phoneNumber || company?.phoneNumber || '',
+      },
+      branch: {
+        branchIds,
+        branchNames,
+      },
+      period: {
+        fromDate,
+        toDate,
+        taxYearEnd: params.TaxYearEnd || '',
+        dueDate: params.VatReturnDueDate || '',
+        referenceNumber: params.VatReturnReferenceNumber || '',
+      },
+      outputRows,
+      inputRows,
+      summary: {
+        outputTotal,
+        inputTotal,
+        totalDueTax: outputTotal.vatAmount,
+        totalRecoverableTax: inputTotal.vatAmount,
+        netVatDue: roundAmount(outputTotal.vatAmount - inputTotal.vatAmount, 2),
+        refundRequested: '',
+      },
+      additionalReporting: {
+        profitMarginScheme: 'No',
+      },
+      declaration: {
+        nameEnglish: '',
+        designation: '',
+        authorizedSignatory: '',
+      },
+    };
   }
 
   private async vat201(param: any) {
