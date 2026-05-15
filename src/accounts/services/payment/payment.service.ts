@@ -550,7 +550,7 @@ export class PaymentService {
                     Remarks: item.Remarks || "",
                     ChargeUOMSid: item.ChargeUOMSid ?? null,
                     YearMasterSid: currentYear?.YearMasterSid ?? null,
-                    PartyAmount: payload.PaymentRequestSid && item.SourceDetailSid ? 0 : (item.PartyAmount ?? 0),
+                    PartyAmount: item.PartyAmount ?? 0,
                     CostRevenueChargesSid: item.CostRevenueChargesSid ?? null,
                     SourceDetailSid: item.SourceDetailSid ?? null,
                 }));
@@ -903,7 +903,7 @@ export class PaymentService {
                         ChargeUOMSid: item.ChargeUOMSid ?? null,
                         CostRevenueChargesSid: item.CostRevenueChargesSid ?? null,
                         YearMasterSid: currentYear?.YearMasterSid ?? null,
-                        PartyAmount: isPaymentRequestPayment && item.SourceDetailSid ? 0 : (item.PartyAmount ?? 0),
+                        PartyAmount: item.PartyAmount ?? 0,
                         UpdatedBy: updatedBy,
                         UpdatedOn: new Date(),
                     };
