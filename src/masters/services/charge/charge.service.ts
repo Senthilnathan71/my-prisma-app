@@ -247,7 +247,7 @@ export class ChargeService {
                         TaxGroupSid: chargeTax.TaxGroupSid,
                         TaxRate: chargeTax.TaxRate,
                         UpdatedBy: payload.updatedBy,
-                        UpdatedOn: new Date(),
+                        updatedOn: new Date(),
                         Status: chargeTax.Status,
                         CompanyMasterSid: payload.CompanyMasterSid,
                         chargeTaxMasterSid: ChargeMasterSid,
