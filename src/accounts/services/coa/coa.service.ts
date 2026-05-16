@@ -5,6 +5,8 @@ import { statusWhereClause } from 'src/common/helper';
 import { getAllowedLedgerTypes } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 
 @Injectable()
 export class CoaService {
@@ -647,4 +649,583 @@ export class CoaService {
             throw error;
         }
     }
+
+// ════════════════════════════════════════════════════════════════════════════
+// METHOD 1 — generateCoaTemplate
+// ════════════════════════════════════════════════════════════════════════════
+async generateCoaTemplate(CompanyMasterSid: number): Promise<Buffer> {
+    const ExcelJS = await import('exceljs');
+    const workbook = new ExcelJS.Workbook();
+
+    // ── Fetch reference data ──────────────────────────────────────────────
+    const [currencies, ledgerTypes, existingGroups, existingSubgroups] = await Promise.all([
+        this._db.currencyMaster.findMany({ select: { currencyCode: true } }),
+        // Ledger types are static; we embed them directly
+        Promise.resolve([
+            'Accrual','Asset','Bank','Cash','Cost','Depreciation',
+            'Expenses GST','Imprest','Income GST','Income Tax Payable',
+            'Income Tax Receivable','Input Tax','Liabilities','Other Cost',
+            'Other Revenue','Output Tax','Revenue','Sy Cr','Sy Dr'
+        ]),
+        this._db.cOAMaster.findMany({
+            where: { CompanyMasterSid, LedgerCategory: 'Group', Status: 'A' },
+            distinct: ['GroupName'],
+            select: { GroupName: true }
+        }),
+        this._db.cOAMaster.findMany({
+            where: { CompanyMasterSid, LedgerCategory: 'Subgroup', Status: 'A' },
+            distinct: ['SubGroupName'],
+            select: { SubGroupName: true }
+        }),
+    ]);
+
+    const categoryOptions    = ['Asset', 'Liability', 'Income', 'Expense'];
+    const ledgerCategoryOpts = ['Group', 'Subgroup', 'Ledger'];
+    const statusOptions      = ['Active', 'Suspended'];
+    const subledgerOptions   = ['Y', 'N'];
+
+    // ════════════════════════════════════════════════════════════════════════
+    // SHEET 1 — COA
+    // ════════════════════════════════════════════════════════════════════════
+    const coaSheet = workbook.addWorksheet('COA');
+
+    const coaHeaders = [
+        'Category',           // A — mandatory
+        'Ledger Category',    // B — mandatory  (Group | Subgroup | Ledger)
+        'Group Name',         // C — mandatory for Subgroup & Ledger; free text for Group
+        'Sub Group Name',     // D — mandatory for Ledger; free text for Subgroup
+        'Ledger Name',        // E — mandatory for Ledger only
+        'Ledger Code',        // F — mandatory for Ledger only (max 10 chars)
+        'Ledger Type',        // G — optional  (Ledger only)
+        'Currency',           // H — optional  (Ledger only)
+        'Remarks',            // I — optional
+        'Subledger Mapping',  // J — optional (Y/N, Ledger only)
+        'Job No Required',    // K — optional (Y/N, Ledger only)
+        'HSN Required',       // L — optional (Y/N, Ledger only)
+        'Status',             // M — optional (Active/Suspended)
+    ];
+    coaSheet.addRow(coaHeaders);
+
+    // Header styling
+    const coaHeaderRow = coaSheet.getRow(1);
+    coaHeaderRow.font   = { bold: true };
+    coaHeaderRow.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+    coaHeaderRow.height = 20;
+
+    // Mandatory cols (A,B) — red; conditional mandatory (C-F) — orange; optional — grey
+    ['A', 'B', 'F'].forEach(col => {
+        const cell = coaSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFFF0000' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+    });
+    ['C', 'D', 'E'].forEach(col => {
+        const cell = coaSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFD97706' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7E5' } };
+    });
+    ['G', 'H', 'I', 'J', 'K', 'L', 'M'].forEach(col => {
+        const cell = coaSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FF555555' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F5F5' } };
+    });
+
+    // Example rows (rows 2–4)
+    const examples = [
+        ['Asset',     'Group',    'Fixed Assets',    '',            '',                '',       '',    '', '',  'N', 'N', 'N', 'Active'],
+        ['Asset',     'Subgroup', 'Fixed Assets',    'Machinery',   '',                '',       '',    '', '',  'N', 'N', 'N', 'Active'],
+        ['Asset',     'Ledger',   'Fixed Assets',    'Machinery',   'Plant & Machinery','FA001', 'Asset','USD','', 'N', 'N', 'N', 'Active'],
+        ['Liability', 'Group',    'Current Liabilities','',         '',                '',       '',    '', '',  'N', 'N', 'N', 'Active'],
+        ['Income',    'Group',    'Revenue',         '',            '',                '',       '',    '', '',  'N', 'N', 'N', 'Active'],
+        ['Income',    'Subgroup', 'Revenue',         'Freight Income','',              '',       '',    '', '',  'N', 'N', 'N', 'Active'],
+        ['Income',    'Ledger',   'Revenue',         'Freight Income','Ocean Freight', 'OC001', 'Revenue','', '', 'Y', 'Y', 'N', 'Active'],
+    ];
+    examples.forEach(rowData => {
+        const r = coaSheet.addRow(rowData);
+        r.eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2FB' } };
+            cell.font = { italic: true, color: { argb: 'FF555555' } };
+        });
+        r.commit();
+    });
+
+    // Reset style for editable rows (after examples)
+for (let r = examples.length + 2; r <= 5000; r++) {
+    for (let c = 1; c <= coaHeaders.length; c++) {
+        const cell = coaSheet.getCell(r, c);
+
+        cell.font = {
+            italic: false,
+            color: { argb: 'FF000000' }
+        };
+    }
+}
+
+    // Column widths
+    [16, 18, 26, 26, 30, 14, 22, 14, 24, 18, 16, 14, 14].forEach((w, i) => {
+        coaSheet.getColumn(i + 1).width = w;
+    });
+
+    // Ledger Code max-length validation
+    for (let r = examples.length + 2; r <= 5000; r++) {
+        coaSheet.getCell(`F${r}`).dataValidation = {
+            type: 'textLength', operator: 'lessThanOrEqual', allowBlank: true,
+            formulae: [10],
+            showErrorMessage: true,
+            errorTitle: 'Invalid Ledger Code',
+            error: 'Ledger Code must be at most 10 characters'
+        };
+    }
+
+    // ════════════════════════════════════════════════════════════════════════
+    // HIDDEN REFERENCE SHEETS
+    // ════════════════════════════════════════════════════════════════════════
+    const addRef = (name: string, values: string[]) => {
+        const ws = workbook.addWorksheet(name);
+        ws.addRow(['Value']);
+        values.forEach(v => ws.addRow([v]));
+        ws.state = 'hidden';
+        return ws;
+    };
+
+    addRef('_Category',      categoryOptions);
+    addRef('_LedgerCategory',ledgerCategoryOpts);
+    addRef('_LedgerType',    ledgerTypes as string[]);
+    addRef('_Currency',      currencies.map(x => x.currencyCode));
+    addRef('_Status',        statusOptions);
+    addRef('_YN',            subledgerOptions);
+    addRef('_Groups',        existingGroups.map(x => x.GroupName).filter(Boolean) as string[]);
+    addRef('_Subgroups',     existingSubgroups.map(x => x.SubGroupName).filter(Boolean) as string[]);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // APPLY DROPDOWNS
+    // ════════════════════════════════════════════════════════════════════════
+    const applyDV = (col: string, refSheet: string, count: number, startRow = examples.length + 2) => {
+        const formula = `'${refSheet}'!$A$2:$A$${count + 1}`;
+        for (let r = startRow; r <= 5000; r++) {
+            coaSheet.getCell(`${col}${r}`).dataValidation = {
+                type: 'list', allowBlank: true,
+                formulae: [formula],
+                showErrorMessage: true,
+                errorTitle: 'Invalid value',
+                error: 'Please select a value from the dropdown list'
+            };
+        }
+    };
+
+    applyDV('A', '_Category',       categoryOptions.length);
+    applyDV('B', '_LedgerCategory', ledgerCategoryOpts.length);
+    applyDV('G', '_LedgerType',     (ledgerTypes as string[]).length);
+    applyDV('H', '_Currency',       currencies.length);
+    applyDV('J', '_YN',             subledgerOptions.length);
+    applyDV('K', '_YN',             subledgerOptions.length);
+    applyDV('L', '_YN',             subledgerOptions.length);
+    applyDV('M', '_Status',         statusOptions.length);
+
+    // ════════════════════════════════════════════════════════════════════════
+    // INSTRUCTIONS SHEET
+    // ════════════════════════════════════════════════════════════════════════
+    const inst = workbook.addWorksheet('Instructions');
+
+    [
+        ['Chart of Accounts Bulk Upload Template — Instructions'],
+        [],
+        ['OVERVIEW'],
+        ['  Each row in the COA sheet represents one account entry (Group, Subgroup, or Ledger).'],
+        [],
+        ['LEDGER CATEGORY RULES'],
+        ['  Group    — enter Category + Group Name only. Sub Group, Ledger Name, Ledger Code must be blank.'],
+        ['  Subgroup — enter Category + Group Name (must already exist as a Group) + Sub Group Name.'],
+        ['  Ledger   — enter all fields: Category, Group Name (existing Group), Sub Group Name (existing Subgroup),'],
+        ['             Ledger Name, Ledger Code (max 10 chars). All other fields optional.'],
+        [],
+        ['FIELD NOTES'],
+        ['  Ledger Code   — max 10 characters, must be unique per company'],
+        ['  Ledger Name   — required for Ledger category, max 100 characters'],
+        ['  Ledger Type   — select from dropdown (Ledger only)'],
+        ['  Currency      — select from dropdown (Ledger only)'],
+        ['  Subledger / Job No / HSN — Y or N (default N). Once set to Y, cannot be changed back.'],
+        ['  Status        — Active (default) or Suspended'],
+        [],
+        ['HIERARCHY RULES'],
+        ['  • To create a Subgroup, the referenced Group must already exist (in DB or in a previous row in this file)'],
+        ['  • To create a Ledger, both the Group and Subgroup must already exist'],
+        ['  • Duplicate Group Name within a Category, or duplicate Ledger Name within Group+Subgroup, will be skipped'],
+        [],
+        ['ROWS 2-8 ARE EXAMPLES — Do not edit or delete them. Enter your data starting from the next blank row.'],
+    ].forEach(r => inst.addRow(r));
+
+    inst.getRow(1).font = { bold: true, size: 13 };
+    inst.getColumn(1).width = 90;
+
+    const buf = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buf);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// METHOD 2 — parseCoaExcel
+// ════════════════════════════════════════════════════════════════════════════
+async parseCoaExcel(
+    buffer: Buffer,
+    CompanyMasterSid: number
+): Promise<{
+    validRows: any[];
+    invalidRows: any[];
+    summary: { total: number; valid: number; invalid: number };
+}> {
+    const XLSX = await import('xlsx');
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+    // Find COA sheet (case-insensitive)
+    const coaSheetName = workbook.SheetNames.find(n => /^coa$/i.test(n.trim()));
+    if (!coaSheetName) {
+        return {
+            validRows: [],
+            invalidRows: [],
+            summary: { total: 0, valid: 0, invalid: 0 },
+        };
+    }
+
+    // Skip header row (row 1) + example rows (rows 2–8) = 8 rows total
+    const EXAMPLE_ROWS = 8;
+    const allRows: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[coaSheetName], {
+        header: 1, defval: null, raw: false
+    });
+    allRows.splice(0, EXAMPLE_ROWS);
+    const dataRows = allRows.filter(r => r.some(cell => cell !== null && cell !== ''));
+
+    // ── Fetch lookup data ─────────────────────────────────────────────────
+    const [currencies, existingCoa] = await Promise.all([
+        this._db.currencyMaster.findMany({ select: { CurrencyMasterSid: true, currencyCode: true } }),
+        this._db.cOAMaster.findMany({
+            where: { CompanyMasterSid, Status: { not: 'D' } },
+            select: {
+                LedgerCode: true,
+                LedgerName: true,
+                GroupName: true,
+                SubGroupName: true,
+                Category: true,
+                LedgerCategory: true,
+            }
+        }),
+    ]);
+
+    const curMap = new Map(currencies.map(x => [x.currencyCode.trim().toLowerCase(), x.CurrencyMasterSid]));
+
+    // FIX 1: Exclude blank/null LedgerCodes from the uniqueness set
+    const existingCodes = new Set(
+        existingCoa
+            .map(x => (x.LedgerCode ?? '').trim().toLowerCase())
+            .filter(code => code !== '')
+    );
+
+    const existingGroups = new Set(
+        existingCoa
+            .filter(x => x.LedgerCategory === 'Group')
+            .map(x => `${(x.Category ?? '').toLowerCase()}||${(x.GroupName ?? '').toLowerCase()}`)
+    );
+    const existingSubgroups = new Set(
+        existingCoa
+            .filter(x => x.LedgerCategory === 'Subgroup')
+            .map(x =>
+                `${(x.Category ?? '').toLowerCase()}||${(x.GroupName ?? '').toLowerCase()}||${(x.SubGroupName ?? '').toLowerCase()}`
+            )
+    );
+
+    // FIX 2: Track existing ledger names per group+subgroup for duplicate check
+    const existingLedgerNames = new Set(
+        existingCoa
+            .filter(x => x.LedgerCategory === 'Ledger')
+            .map(x =>
+                `${(x.Category ?? '').toLowerCase()}||${(x.GroupName ?? '').toLowerCase()}||${(x.SubGroupName ?? '').toLowerCase()}||${(x.LedgerName ?? '').toLowerCase()}`
+            )
+    );
+
+    const validRows:   any[] = [];
+    const invalidRows: any[] = [];
+
+    // Track groups/subgroups/ledger names added in this file (so later rows can reference them)
+    const fileGroups      = new Set<string>();
+    const fileSubgroups   = new Set<string>();
+    const fileLedgerNames = new Set<string>();   // FIX 3: for in-file duplicate ledger name detection
+    const fileLedgerCodes = new Set<string>();   // FIX 4: faster in-file duplicate code detection
+
+    const VALID_CATEGORIES   = new Set(['asset', 'liability', 'income', 'expense']);
+    const VALID_LEDGER_CATS  = new Set(['group', 'subgroup', 'ledger']);
+    const VALID_LEDGER_TYPES = new Set([
+        'accrual', 'asset', 'bank', 'cash', 'cost', 'depreciation',
+        'expenses gst', 'imprest', 'income gst', 'income tax payable',
+        'income tax receivable', 'input tax', 'liabilities', 'other cost',
+        'other revenue', 'output tax', 'revenue', 'sy cr', 'sy dr'
+    ]);
+
+    for (let i = 0; i < dataRows.length; i++) {
+        const row    = dataRows[i];
+        const rowNum = i + EXAMPLE_ROWS + 1;
+
+        const category       = (row[0]  ?? '').toString().trim();
+        const ledgerCategory = (row[1]  ?? '').toString().trim();
+        const groupName      = (row[2]  ?? '').toString().trim();
+        const subGroupName   = (row[3]  ?? '').toString().trim();
+        const ledgerName     = (row[4]  ?? '').toString().trim();
+        const ledgerCode     = (row[5]  ?? '').toString().trim().toUpperCase();
+        const ledgerType     = (row[6]  ?? '').toString().trim();
+        const currencyRaw    = (row[7]  ?? '').toString().trim();
+        const remarks        = (row[8]  ?? '').toString().trim();
+        const subledgerName  = this.normaliseYN(row[9]);
+        const jobNoRequire   = this.normaliseYN(row[10]);
+        const hsnRequire     = this.normaliseYN(row[11]);
+        const statusRaw      = (row[12] ?? 'Active').toString().trim();
+
+        if (!category && !ledgerCategory) continue;
+
+        const rowErrors:   string[] = [];
+        const rowWarnings: string[] = [];
+
+        // ── Category ──────────────────────────────────────────────────────
+        if (!category) {
+            rowErrors.push('Category is required');
+        } else if (!VALID_CATEGORIES.has(category.toLowerCase())) {
+            rowErrors.push(`Category "${category}" is invalid. Must be one of: Asset, Liability, Income, Expense`);
+        }
+
+        // ── Ledger Category ───────────────────────────────────────────────
+        if (!ledgerCategory) {
+            rowErrors.push('Ledger Category is required');
+        } else if (!VALID_LEDGER_CATS.has(ledgerCategory.toLowerCase())) {
+            rowErrors.push(`Ledger Category "${ledgerCategory}" is invalid. Must be Group, Subgroup, or Ledger`);
+        }
+
+        const lc = ledgerCategory.toLowerCase();
+
+        // ── Ledger Code — required for Ledger only ────────────────────────
+        // FIX 5: Group and Subgroup rows do not need a Ledger Code
+        if (lc === 'ledger') {
+            if (!ledgerCode) {
+                rowErrors.push('Ledger Code is required');
+            } else if (ledgerCode.length > 10) {
+                rowErrors.push('Ledger Code must be at most 10 characters');
+            }
+
+            // ── Ledger Code uniqueness (Ledger rows only) ─────────────────
+            if (ledgerCode) {
+                if (existingCodes.has(ledgerCode.toLowerCase())) {
+                    rowErrors.push(`Ledger Code "${ledgerCode}" already exists in the system`);
+                } else if (fileLedgerCodes.has(ledgerCode.toLowerCase())) {
+                    // FIX 6: use a Set instead of .find() for O(1) lookup
+                    rowErrors.push(`Duplicate Ledger Code "${ledgerCode}" in this file`);
+                }
+            }
+        }
+
+        // ── Hierarchy validations ─────────────────────────────────────────
+        if (lc === 'group') {
+            if (!groupName) {
+                rowErrors.push('Group Name is required for Group');
+            } else if (category) {
+                // Duplicate group check (DB + file)
+                const key = `${category.toLowerCase()}||${groupName.toLowerCase()}`;
+                if (existingGroups.has(key) || fileGroups.has(key)) {
+                    rowErrors.push(`Group "${groupName}" already exists in category "${category}"`);
+                }
+            }
+        }
+
+        if (lc === 'subgroup') {
+            if (!groupName) {
+                rowErrors.push('Group Name is required for Subgroup');
+            } else {
+                // Group must already exist in DB or earlier in this file (same category)
+                const groupKey = `${category.toLowerCase()}||${groupName.toLowerCase()}`;
+                if (!existingGroups.has(groupKey) && !fileGroups.has(groupKey)) {
+                    rowErrors.push(`Group "${groupName}" does not exist for category "${category}". Create the Group first.`);
+                }
+            }
+
+            if (!subGroupName) {
+                rowErrors.push('Sub Group Name is required for Subgroup');
+            } else if (groupName && category) {
+                // Duplicate subgroup check (DB + file)
+                const key = `${category.toLowerCase()}||${groupName.toLowerCase()}||${subGroupName.toLowerCase()}`;
+                if (existingSubgroups.has(key) || fileSubgroups.has(key)) {
+                    rowErrors.push(`Subgroup "${subGroupName}" already exists under Group "${groupName}" in category "${category}"`);
+                }
+            }
+        }
+
+        if (lc === 'ledger') {
+            if (!groupName) {
+                rowErrors.push('Group Name is required for Ledger');
+            } else {
+                // Group must already exist in DB or earlier in this file (same category)
+                const groupKey = `${category.toLowerCase()}||${groupName.toLowerCase()}`;
+                if (!existingGroups.has(groupKey) && !fileGroups.has(groupKey)) {
+                    rowErrors.push(`Group "${groupName}" does not exist for category "${category}"`);
+                }
+            }
+
+            if (!subGroupName) {
+                rowErrors.push('Sub Group Name is required for Ledger');
+            } else if (groupName) {
+                // FIX 7: Only validate subgroup key when groupName is present (prevents false key matches)
+                const subKey = `${category.toLowerCase()}||${groupName.toLowerCase()}||${subGroupName.toLowerCase()}`;
+                if (!existingSubgroups.has(subKey) && !fileSubgroups.has(subKey)) {
+                    rowErrors.push(`Subgroup "${subGroupName}" does not exist under Group "${groupName}" for category "${category}"`);
+                }
+            }
+
+            if (!ledgerName) {
+                rowErrors.push('Ledger Name is required for Ledger');
+            } else if (groupName && subGroupName && category) {
+                // FIX 8: Duplicate ledger name check within same Group + Subgroup (DB + file)
+                const ledgerKey = `${category.toLowerCase()}||${groupName.toLowerCase()}||${subGroupName.toLowerCase()}||${ledgerName.toLowerCase()}`;
+                if (existingLedgerNames.has(ledgerKey) || fileLedgerNames.has(ledgerKey)) {
+                    rowErrors.push(`Ledger Name "${ledgerName}" already exists under "${groupName} > ${subGroupName}" in category "${category}"`);
+                }
+            }
+
+            // Optional field validations — Ledger only
+            if (ledgerType && !VALID_LEDGER_TYPES.has(ledgerType.toLowerCase())) {
+                rowWarnings.push(`Ledger Type "${ledgerType}" is unrecognised — it will be stored as-is`);
+            }
+        }
+
+        // ── Currency resolve (Ledger only; ignored for Group/Subgroup) ────
+        let CurrencyMasterSid: number | null = null;
+        if (lc === 'ledger' && currencyRaw) {
+            CurrencyMasterSid = curMap.get(currencyRaw.toLowerCase()) ?? null;
+            if (!CurrencyMasterSid) rowWarnings.push(`Currency "${currencyRaw}" not found — will be ignored`);
+        }
+
+        const resolvedStatus = statusRaw.toLowerCase() === 'suspended' ? 'S' : 'A';
+
+        // ── Strip fields that don't apply to this ledger category ─────────
+        const isLedger   = lc === 'ledger';
+        const isSubgroup = lc === 'subgroup';
+
+        const rowResult = {
+            rowNum,
+            category,
+            ledgerCategory,
+            groupName,
+            ledgerCode:        ledgerCode,   // Ledger only
+            subGroupName:      isSubgroup || isLedger ? subGroupName : '',
+            ledgerName:        isLedger   ? ledgerName         : '',
+            ledgerType:        isLedger   ? ledgerType         : '',
+            currency:          isLedger   ? currencyRaw        : '',
+            CurrencyMasterSid: isLedger   ? CurrencyMasterSid : null,
+            remarks:           isLedger   ? remarks            : '',
+            subledgerName:     isLedger   ? subledgerName      : 'N',
+            jobNoRequire:      isLedger   ? jobNoRequire       : 'N',
+            hsnRequire:        isLedger   ? hsnRequire         : 'N',
+            status:            statusRaw,
+            resolvedStatus,
+            warnings:          rowWarnings,
+        };
+
+        if (rowErrors.length) {
+            invalidRows.push({ ...rowResult, errors: rowErrors });
+        } else {
+            validRows.push(rowResult);
+
+            // Register in file sets so subsequent rows can reference them
+            if (lc === 'group' && category && groupName) {
+                fileGroups.add(`${category.toLowerCase()}||${groupName.toLowerCase()}`);
+            }
+            if (lc === 'subgroup' && category && groupName && subGroupName) {
+                fileSubgroups.add(`${category.toLowerCase()}||${groupName.toLowerCase()}||${subGroupName.toLowerCase()}`);
+            }
+            if (lc === 'ledger') {
+                if (ledgerCode) {
+                    fileLedgerCodes.add(ledgerCode.toLowerCase());
+                }
+                if (category && groupName && subGroupName && ledgerName) {
+                    fileLedgerNames.add(`${category.toLowerCase()}||${groupName.toLowerCase()}||${subGroupName.toLowerCase()}||${ledgerName.toLowerCase()}`);
+                }
+            }
+        }
+    }
+
+    return {
+        validRows,
+        invalidRows,
+        summary: {
+            total:   validRows.length + invalidRows.length,
+            valid:   validRows.length,
+            invalid: invalidRows.length,
+        }
+    };
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// METHOD 3 — saveCoaExcel
+// ════════════════════════════════════════════════════════════════════════════
+async saveCoaExcel(
+    validRows: any[],
+    CompanyMasterSid: number,
+    createdBy: string
+): Promise<{ created: number; skipped: number; errors: any[] }> {
+    let created = 0, skipped = 0;
+    const errors: any[] = [];
+
+    for (const row of validRows) {
+        try {
+            // Final duplicate guard at save time
+            const lc = (row.ledgerCategory ?? '').toLowerCase();
+
+            if (row.ledgerCode) {
+                const dupCode = await this._db.cOAMaster.findFirst({
+                    where: { CompanyMasterSid, LedgerCode: row.ledgerCode, Status: { not: 'D' } }
+                });
+                if (dupCode) {
+                    errors.push({ ledgerCode: row.ledgerCode, message: 'Duplicate Ledger Code at save time — skipped' });
+                    skipped++;
+                    continue;
+                }
+            }
+
+            const reportType =
+                (row.category === 'Asset' || row.category === 'Liability') ? 'Balance Sheet' :
+                (row.category === 'Income' || row.category === 'Expense')  ? 'Profit and Loss' : '';
+
+            await this._db.cOAMaster.create({
+                data: {
+                    Category:        row.category,
+                    LedgerCategory:  row.ledgerCategory,
+                    GroupName:       row.groupName   || null,
+                    SubGroupName:    row.subGroupName || null,
+                    LedgerName:      row.ledgerName  || null,
+                    LedgerCode:      row.ledgerCode  || null,
+                    LedgerType:      row.ledgerType  || null,
+                    LedgerCurrency:  row.CurrencyMasterSid ?? null,
+                    ReportType:      reportType,
+                    Remarks:         row.remarks     || null,
+                    SubledgerName:   row.subledgerName || 'N',
+                    JobNoRequire:    row.jobNoRequire  || 'N',
+                    HSNRequire:      row.hsnRequire    || 'N',
+                    Status:          row.resolvedStatus ?? 'A',
+                    CompanyMasterSid,
+                    CreatedBy:       createdBy,
+                    UpdatedBy:       createdBy,
+                    CreatedOn:       new Date(),
+                    UpdatedOn:       new Date(),
+                }
+            });
+
+            created++;
+        } catch (err: any) {
+            errors.push({ ledgerCode: row.ledgerCode, message: err.message || 'DB insert failed' });
+            skipped++;
+        }
+    }
+
+    return { created, skipped, errors };
+}
+
+// ── Helper (add as private method or module-level function) ──────────────────
+    private normaliseYN(val: any): string {
+        const s = (val ?? '').toString().trim().toUpperCase();
+        if (s === 'Y' || s === 'YES') return 'Y';
+        return 'N';
+    }
+
 }

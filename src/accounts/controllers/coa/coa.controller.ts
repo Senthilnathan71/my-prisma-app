@@ -5,6 +5,10 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiConsumes } from '@nestjs/swagger';
+import { UploadedFile, UseInterceptors, Res } from '@nestjs/common';
+import { Response } from 'express';
 
 class CompanyIdDto {
     CompanyMasterSid: number;
@@ -425,4 +429,115 @@ export class CoaController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Download COA Excel upload template' })
+@HttpCode(HttpStatus.OK)
+@Get('template')
+async downloadCoaTemplate(
+  @Query('CompanyMasterSid') CompanyMasterSid: number,
+  @Res() res: Response,
+) {
+  try {
+    const buffer = await this.coaService.generateCoaTemplate(Number(CompanyMasterSid));
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', 'attachment; filename=COA_Upload_Template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    this.logger.warn(`Error generating COA template: ${error}`);
+    res
+      .status(HttpStatus.INTERNAL_SERVER_ERROR)
+      .json({ status: false, message: 'Error generating template' });
+  }
+}
+ 
+// ─── STEP 1: PARSE ────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Parse & validate COA Excel — does NOT save to DB' })
+@ApiConsumes('multipart/form-data')
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/parse')
+@UseInterceptors(FileInterceptor('file'))
+async parseCoaExcel(
+  @UploadedFile() file: Express.Multer.File,
+  @Body('CompanyMasterSid') CompanyMasterSid: string,
+) {
+  const resp = new ResponseData();
+  try {
+    if (!file) throw new BadRequestException('No file uploaded');
+ 
+    const allowedMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    if (!allowedMimeTypes.includes(file.mimetype))
+      throw new BadRequestException('Invalid file type. Only .xlsx or .xls allowed');
+ 
+    if (file.size > 5 * 1024 * 1024)
+      throw new BadRequestException('File size exceeds 5 MB limit');
+ 
+    if (!CompanyMasterSid)
+      throw new BadRequestException('CompanyMasterSid is required');
+ 
+    const result = await this.coaService.parseCoaExcel(
+      file.buffer,
+      Number(CompanyMasterSid),
+    );
+ 
+    resp.status  = true;
+    resp.message = result.validRows.length > 0
+      ? `Parsed successfully. ${result.validRows.length} valid, ${result.invalidRows.length} invalid.`
+      : 'No valid rows found. Please fix the errors and re-upload.';
+    resp.data    = result;
+  } catch (error) {
+    resp.status  = false;
+    this.logger.warn(`Error parsing COA Excel: ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
+}
+ 
+// ─── STEP 2: SAVE ─────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Save validated COA rows to DB' })
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/save')
+async saveCoaExcel(
+  @Body() payload: {
+    validRows: any[];
+    CompanyMasterSid: number;
+    createdBy: string;
+  },
+) {
+  const resp = new ResponseData();
+  try {
+    const { validRows, CompanyMasterSid, createdBy } = payload;
+ 
+    if (!validRows?.length)
+      throw new BadRequestException('No valid rows to save');
+    if (!CompanyMasterSid)
+      throw new BadRequestException('CompanyMasterSid is required');
+    if (!createdBy)
+      throw new BadRequestException('createdBy is required');
+ 
+    const result = await this.coaService.saveCoaExcel(
+      validRows,
+      CompanyMasterSid,
+      createdBy,
+    );
+ 
+    resp.status  = true;
+    resp.message = `Import complete. ${result.created} created, ${result.skipped} skipped.`;
+    resp.data    = result;
+  } catch (error) {
+    resp.status  = false;
+    this.logger.warn(`Error saving COA Excel: ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
+}
 }
