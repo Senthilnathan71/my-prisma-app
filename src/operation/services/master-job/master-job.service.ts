@@ -51,6 +51,29 @@ export class MasterJobService {
         return `${label} '${value}' already exists. Please use a unique ${label}.`;
     }
 
+    private async getAgentMasterAirWaybillMenuSid() {
+        try {
+            return await this.menuMasterService.getMenuSidByName('Agent Master Air Waybill');
+        } catch {
+            return await this.menuMasterService.getMenuSidByName('AgentMaster Air Waybill');
+        }
+    }
+
+    private async resolveHouseJobMenuSid(
+        departmentType: string | null | undefined,
+        jobType?: string | null,
+    ): Promise<number> {
+        if (String(jobType || '').toLowerCase() === 'agent') {
+            return await this.getAgentMasterAirWaybillMenuSid();
+        }
+
+        return await this.menuMasterService.getMenuSidByName(
+            String(departmentType || '').toUpperCase() === 'AIR'
+                ? 'House Air Waybill'
+                : 'House Job'
+        );
+    }
+
     private isImportableRateRow(rate: any): boolean {
         const normalize = (value: any) => String(value ?? '').trim().toUpperCase();
         const costFlag = normalize(rate?.CostPrepaidCollect);
@@ -809,7 +832,10 @@ export class MasterJobService {
                         });
                         const departmentExportImport = department?.ExportImport ?? null;
 
-                        const houseJobMenuId = await this.menuMasterService.getMenuSidByName(department?.departmentType.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job');
+                        const houseJobMenuId = await this.resolveHouseJobMenuSid(
+                            department?.departmentType,
+                            bookingHeader.JobType,
+                        );
                          // ================= RESOLVE JOB DATE FIRST =================
             let resolvedJobDate: Date = payload.HBLDate
                 ? new Date(payload.HBLDate)
@@ -1570,7 +1596,9 @@ export class MasterJobService {
                 }
             })
 
-            const menuId = await this.menuMasterService.getMenuSidByName(screenName === 'Master Air Waybill' ? "House Air Waybill" : "House Job");
+            const menuId = await this.resolveHouseJobMenuSid(
+                screenName === 'Master Air Waybill' ? 'AIR' : 'SEA',
+            );
 
             if(!masterJobDetails){
                 throw new BadRequestException('Master Job not found.');
@@ -1951,7 +1979,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         },
                         data: {
                             StockStatus: 'Utilised',
-                            updatedBy: payload.updatedBy,
+                            updatedBy: payload.updatedBy || payload.createdBy,
                             updatedOn: new Date()
                         }
                     });
@@ -2127,6 +2155,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
                         UpdatedBy : payload.updatedBy,
+                        UpdatedOn : new Date(),
                         CreatedOn : new Date(),
                     }
                     finalOthers = await prisma.masterJobOthers.update({
@@ -2590,7 +2619,10 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     });
                     const departmentExportImport = department?.ExportImport ?? null;
 
-                    const houseJobMenuId = await this.menuMasterService.getMenuSidByName(payload.screenName === 'Master Job' ? 'House Job' : 'House Air Waybill');
+                    const houseJobMenuId = await this.resolveHouseJobMenuSid(
+                        department?.departmentType,
+                        bookingHeader.JobType,
+                    );
 
                     let HBLNo = "";
 
@@ -2719,6 +2751,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                     ShipmentTerms: cargo.ShipmentTerms || '',
                                     createdBy: payload.createdBy || '',
                                     updatedBy: cargo.updatedBy || null,
+                                    updatedOn: new Date(),
                                     status: 'A',
                                     FreightTerms: cargo.FreightTerms || '',
                                     MovementType: cargo.MovementType || '',
@@ -3868,6 +3901,7 @@ if (houseJobsForBookingSync.length > 0) {
                                 ShipmentTerms: cargo.ShipmentTerms || '',
                                 createdBy: cargo.createdBy,
                                 updatedBy: cargo.updatedBy || null,
+                                updatedOn: new Date(),
                                 status: 'A',
                                 FreightTerms: cargo.FreightTerms || '',
                                 MovementType: cargo.MovementType || '',
@@ -3954,6 +3988,7 @@ if (houseJobsForBookingSync.length > 0) {
                             status: 'A',
                             createdBy: connection.createdBy,
                             updatedBy: connection.updatedBy || null,
+                            updatedOn: new Date(),
                         }))
                     }).catch(err => {
                         console.error('HouseJobConnection createMany error:', err);
@@ -5279,12 +5314,77 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
     // houseJob.POD (Import House POD) → booking.POL
     // houseJob.FPD (Import House FDC) → booking.POD
     tx = tx || this._db;
-    const dateString = moment().format('YYYYMMDD');
-    const count = await this._db.bookingHeader.count({
-        where: { BookingNo: { contains: dateString } }
+    const bookingMenu = await tx.menuMaster.findFirst({
+        where: {
+            MenuCode: 'BKN',
+            status: 'A',
+        },
+        select: { MenuMasterSid: true }
     });
-    
-    const BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+
+    if (!bookingMenu?.MenuMasterSid) {
+        throw new BadRequestException('Booking menu not found for number series generation');
+    }
+
+    const sourceDepartment = await tx.departmentMaster.findFirst({
+        where: { DepartmentMasterSid: houseJob.DepartmentMasterSid },
+        select: {
+            DepartmentMasterSid: true,
+            departmentName: true,
+            departmentType: true,
+            ExportImport: true,
+            FCLLCL: true
+        }
+    });
+
+    const isLclImport = String(sourceDepartment?.FCLLCL || '').toUpperCase() === 'LCL'
+        && String(sourceDepartment?.ExportImport || '').toUpperCase() === 'IMPORT';
+
+    let bookingDepartmentMasterSid = houseJob.DepartmentMasterSid;
+
+    if (isLclImport) {
+        const exportDepartment = await tx.departmentMaster.findFirst({
+            where: {
+                FCLLCL: sourceDepartment?.FCLLCL,
+                departmentType: sourceDepartment?.departmentType,
+                ExportImport: 'Export',
+                CompanyMasterSid: houseJob.CompanyMasterSid,
+                Status: 'A'
+            },
+            orderBy: { DepartmentMasterSid: 'asc' },
+            select: { DepartmentMasterSid: true }
+        });
+
+        if (!exportDepartment?.DepartmentMasterSid) {
+            throw new BadRequestException('LCL Export department not found for transhipment booking');
+        }
+
+        bookingDepartmentMasterSid = exportDepartment.DepartmentMasterSid;
+    }
+
+    const bookingDepartment = await tx.departmentMaster.findFirst({
+        where: { DepartmentMasterSid: bookingDepartmentMasterSid },
+        select: {
+            departmentType: true,
+            ExportImport: true,
+            FCLLCL: true
+        }
+    });
+    const isLclExportBooking = String(bookingDepartment?.departmentType || '').toUpperCase() === 'SEA'
+        && String(bookingDepartment?.FCLLCL || '').toUpperCase() === 'LCL'
+        && String(bookingDepartment?.ExportImport || '').toUpperCase() === 'EXPORT';
+    const hasCargoReceivedDate = Array.isArray(houseJob.Products)
+        && houseJob.Products.some((product: any) => !!product?.CargoRecDate);
+    const bookingStatus = isLclExportBooking && hasCargoReceivedDate ? 'Cargo Received' : 'Booked';
+
+    const bookingDate = moment().toDate();
+    const BookingNo = await this.numberSeriesService.generateNextNumber(
+        houseJob.CompanyMasterSid,
+        houseJob.BranchMasterSid,
+        bookingMenu.MenuMasterSid,
+        bookingDepartmentMasterSid,
+        bookingDate
+    );
     let destinationAgentAddress = '';
     if (houseJob.DestinationAgent) {
     const agent = await tx.customerMaster.findUnique({
@@ -5301,7 +5401,7 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
     const bookingHeader = await tx.bookingHeader.create({
         data: {
             BookingNo: BookingNo,
-            BookingDateTime: moment().toDate(),
+            BookingDateTime: bookingDate,
             TranshipmentHouseSid: houseJob.HouseJobSid,
             CompanyMasterSid: houseJob.CompanyMasterSid,
             BranchMasterSid: houseJob.BranchMasterSid,
@@ -5344,9 +5444,9 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
             MovementType: houseJob.MovementType,
             DoValid: houseJob.DoValid,
             IsServiceJob: houseJob.IsServiceJob,
-            DepartmentMasterSid: houseJob.DepartmentMasterSid,
+            DepartmentMasterSid: bookingDepartmentMasterSid,
             CustomerBranchSid: houseJob.CustomerBranchSid,
-            MenuMasterSid: houseJob.MenuMasterSid,
+            MenuMasterSid: bookingMenu.MenuMasterSid,
             CarrierName: houseJob.CarrierName,
             Coload: houseJob.Coload,
             GeneralNote: houseJob.GeneralNote,
@@ -5361,7 +5461,7 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
             // PODTerminal: houseJob.PODTerminal,
             ShipmentNo: houseJob.ShipmentNo,
             OriginAgent: houseJob.OriginAgent,
-            BookingStatus: 'Booked',
+            BookingStatus: bookingStatus,
             CarrierSid: houseJob.CarrierSid,
             JobType: houseJob.JobType,
             createdBy,
@@ -5375,6 +5475,7 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
     // 2. Insert Cargo
     // ----------------------------------------
     const bookingCargo: any[] = [];
+    const bookingCargoSidByHouseCargoSid = new Map<number, number>();
     if (houseJob.Cargo?.length) {
         for (const c of houseJob.Cargo) {
             const {
@@ -5397,6 +5498,10 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
                 }
             });
             bookingCargo.push(createdCargo);
+
+            if (HouseJobCargoSid) {
+                bookingCargoSidByHouseCargoSid.set(Number(HouseJobCargoSid), createdCargo.BookingCargoSid);
+            }
         }
     }
 
@@ -5406,9 +5511,18 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
     const bookingProducts: any[] = [];
     if (houseJob.Products?.length) {
         for (const p of houseJob.Products) {
+            const sourceHouseCargoSid = Number(p.HouseJobCargoSid) || null;
+            const bookingCargoSid = sourceHouseCargoSid
+                ? bookingCargoSidByHouseCargoSid.get(sourceHouseCargoSid) || null
+                : bookingCargo.length === 1
+                    ? bookingCargo[0].BookingCargoSid
+                    : null;
+
             const createdProduct = await tx.bookingProduct.create({
                 data: {
                     BookingHeaderSid: bookingHeaderSid,
+                    BookingCargoSid: bookingCargoSid,
+                    
                     ProductName: p.ProductName,
                     ProductDescription: p.ProductDescription,
                     ShippingBillNo: p.ShippingBillNo || null,
@@ -5433,7 +5547,7 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
                     ActualVolume: p.ActualVolume,
                     CFS: p.CFS,
                     CargoRecDate: p.CargoRecDate,
-                    RecdPack: p.RecdPack,
+                    RecdPack: p.CargoRecDate ? (p.RecdPack || p.ExternlQty || '') : p.RecdPack,
                     Volumetric: p.Volumetric,
                     createdBy
                 }
@@ -6231,6 +6345,7 @@ if (product.UomMasterSid) {
                         data: {
                             IsHaz: 'Y',
                             UpdatedBy: createdBy || null,
+                            UpdatedOn: new Date(),
                         },
                     });
                 }
@@ -6969,6 +7084,78 @@ console.log('Created product:', createdProduct);
         }
     }
 
+    async reopenJobClose(payload: {
+        MasterJobSid: number;
+        ReopenBy: string;
+        ReopenReason?: string;
+    }) {
+        try {
+            const { MasterJobSid, ReopenBy, ReopenReason } = payload;
+            if (!MasterJobSid) {
+                throw new BadRequestException('MasterJobSid is required');
+            }
+            if (!ReopenBy) {
+                throw new BadRequestException('ReopenBy is required');
+            }
+
+            const masterJob = await this._db.masterJob.findUnique({
+                where: { MasterJobSid },
+                select: { MasterJobSid: true, MasterJobNumber: true, JobStatus: true }
+            });
+            if (!masterJob) {
+                throw new NotFoundException('Master Job not found');
+            }
+
+            const masterJobOthers = await this._db.masterJobOthers.findFirst({
+                where: { MasterJobSid, Status: 'A' },
+                select: { MasterJobOthersSid: true }
+            });
+
+            if (masterJobOthers) {
+                await this._db.masterJobOthers.update({
+                    where: { MasterJobOthersSid: masterJobOthers.MasterJobOthersSid },
+                    data: {
+                        DocCloseStatus: 'Open', DocClosedDate: null, DocClosedBy: null,
+                        OpsCloseStatus: 'Open', OpsClosedDate: null, OpsClosedBy: null,
+                        AccCloseStatus: 'Open', AccClosedDate: null, AccClosedBy: null,
+                        JobCloseStatus: 'Open', JobClosedDate: null, JobClosedBy: null,
+                        UpdatedBy: ReopenBy,
+                        UpdatedOn: new Date(),
+                    }
+                });
+            }
+
+            const updatedJob = await this._db.masterJob.update({
+                where: { MasterJobSid },
+                data: {
+                    JobStatus: 'Job Generated',
+                    UpdatedBy: ReopenBy,
+                    UpdatedOn: new Date(),
+                }
+            });
+
+            await this._db.auditLog.create({
+                data: {
+                    tableName: 'MasterJob',
+                    recordId: String(MasterJobSid),
+                    operation: 'REOPEN',
+                    changedBy: ReopenBy,
+                    changes: {
+                        action: 'Job Close Reopened',
+                        reason: ReopenReason ?? null,
+                        previousJobStatus: masterJob.JobStatus,
+                        newJobStatus: 'Job Generated',
+                    },
+                },
+            });
+
+            return updatedJob;
+        } catch (error) {
+            this.logger.warn(`reopenJobClose error: ${error}`);
+            throw error;
+        }
+    }
+
     async pullMasterJobToImportBranch(payload: {
         MasterJobSid: number;
         DestinationBranchMasterSid: number;
@@ -7099,9 +7286,8 @@ console.log('Created product:', createdProduct);
         }
 
         const masterMenuName = sourceDepartment.departmentType?.toUpperCase() === 'AIR' ? 'Master Air Waybill' : 'Master Job';
-        const houseMenuName = sourceDepartment.departmentType?.toUpperCase() === 'AIR' ? 'House Air Waybill' : 'House Job';
         const masterMenuSid = await this.menuMasterService.getMenuSidByName(masterMenuName);
-        const houseMenuSid = await this.menuMasterService.getMenuSidByName(houseMenuName);
+        const houseMenuSid = await this.resolveHouseJobMenuSid(destinationDepartment.departmentType);
         const createdBy = CreatedBy || 'system';
         const resolveDestinationCustomerSidByName = async (customerName: string): Promise<number | null> => {
             const trimmedName = (customerName || '').trim();

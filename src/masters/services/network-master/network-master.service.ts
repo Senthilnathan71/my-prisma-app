@@ -298,7 +298,10 @@ export class NetworkMasterService {
         if (exist) {
           const updated = await this._db.networkMaster.update({
             where: { NetworkMasterSid },
-            data: updatedData
+            data: {
+                ...updatedData,
+                UpdatedOn: new Date()
+            }
           });
           results.push(updated);
           continue;

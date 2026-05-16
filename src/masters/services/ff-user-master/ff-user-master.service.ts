@@ -10,6 +10,15 @@ import { CreateUserMasterDto, FetchReportingUsersDto, UpdateUserMasterDto, UserB
 export class FfUserMasterService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
+    private parseAttemptDateTime(value?: string | Date | null): Date | null {
+        if (!value) {
+            return null;
+        }
+
+        const date = value instanceof Date ? value : new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
     async getAllFfUser() {
         try {
             const allFfUser = await this._db.userMaster.findMany({
@@ -79,6 +88,14 @@ export class FfUserMasterService {
                         userPassword: true,
                     },
                 });
+
+                if (payload.AttemptDateTime) {
+                    await prisma.$executeRaw`
+                        UPDATE "UserMaster"
+                        SET "AttemptDateTime" = ${this.parseAttemptDateTime(payload.AttemptDateTime)}
+                        WHERE "UserMasterSid" = ${ffUser.UserMasterSid}
+                    `;
+                }
 
                 // Step 2: Create User Companies in parallel
                 const companyPromises = payload.userCompanyMaster.map(async (company: UserCompanyMasterDto) => {
@@ -244,7 +261,18 @@ export class FfUserMasterService {
             if (!ourFfUser) {
                 throw new BadRequestException(`User with Id : ${UserMasterSid} not exists`);
             }
-            return ourFfUser;
+
+            const attemptRows = await this._db.$queryRaw<{ AttemptDateTime: Date | null }[]>`
+                SELECT "AttemptDateTime"
+                FROM "UserMaster"
+                WHERE "UserMasterSid" = ${UserMasterSid}
+                LIMIT 1
+            `;
+
+            return {
+                ...ourFfUser,
+                AttemptDateTime: attemptRows[0]?.AttemptDateTime ?? null,
+            };
         } catch (error) {
             throw error;
         }
@@ -253,7 +281,7 @@ export class FfUserMasterService {
 
     async updateFfUserById(UserMasterSid: number, payload: UpdateUserMasterDto) {
         try {
-            const { userCompanyMaster = [], ...userPayload } = payload;
+            const { userCompanyMaster = [], AttemptDateTime, ...userPayload } = payload;
             const { updatedBy } = payload;
 
             const existing = await this._db.userMaster.findFirst({
@@ -288,7 +316,7 @@ export class FfUserMasterService {
                 const [updatedUser, prevCompanies, prevBranches, prevRolesRaw] = await Promise.all([
                     prisma.userMaster.update({
                         where: { UserMasterSid },
-                        data: { ...userPayload, updatedBy },
+                        data: { ...userPayload, updatedBy, updatedOn: new Date() },
                         omit: { userPassword: true }
                     }),
                     prisma.userCompanyMaster.findMany({
@@ -302,6 +330,12 @@ export class FfUserMasterService {
                         include: { userCompanyMaster: true },
                     }),
                 ]);
+
+                await prisma.$executeRaw`
+                    UPDATE "UserMaster"
+                    SET "AttemptDateTime" = ${this.parseAttemptDateTime(AttemptDateTime)}
+                    WHERE "UserMasterSid" = ${UserMasterSid}
+                `;
 
                 // Normalize previous roles with company info
                 const prevRoles = prevRolesRaw
@@ -339,11 +373,11 @@ export class FfUserMasterService {
                     companyOps.push(
                         prisma.userCompanyMaster.updateMany({
                             where: { UserCompanyMasterSid: { in: deleteUCompanySids } },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy, updatedOn: new Date() },
                         }),
                         prisma.userRoleMaster.updateMany({
                             where: { UserCompanyMasterSid: { in: deleteUCompanySids }, status: 'A' },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy, updatedOn: new Date() },
                         }),
                         prisma.userBranchMaster.updateMany({
                             where: {
@@ -351,7 +385,7 @@ export class FfUserMasterService {
                                 CompanyMasterSid: { in: deleteCompanyIds },
                                 status: 'A',
                             },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy, updatedOn: new Date() },
                         })
                     );
                 }
@@ -379,7 +413,7 @@ export class FfUserMasterService {
                         companyOps.push(
                             prisma.userCompanyMaster.update({
                                 where: { UserCompanyMasterSid: existing.UserCompanyMasterSid },
-                                data: { GiveAccess: c.GiveAccess, IsDefault: c.IsDefault, updatedBy },
+                                data: { GiveAccess: c.GiveAccess, IsDefault: c.IsDefault, updatedBy, updatedOn: new Date() },
                             })
                         );
                     }
@@ -429,7 +463,7 @@ export class FfUserMasterService {
                     roleOps.push(
                         prisma.userRoleMaster.updateMany({
                             where: { UserRoleMasterSid: { in: rolesToDelete.map((r) => r.UserRoleMasterSid) } },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy, updatedOn: new Date() },
                         })
                     );
                 }
@@ -484,6 +518,7 @@ export class FfUserMasterService {
                                     Remarks: r.Remarks,
                                     MenuMasterSid: r.MenuMasterSid,
                                     updatedBy,
+                                    updatedOn: new Date()
                                 },
                             })
                         );
@@ -523,7 +558,7 @@ export class FfUserMasterService {
                     branchOps.push(
                         prisma.userBranchMaster.updateMany({
                             where: { UserBranchMasterSid: { in: branchesToDelete.map((b) => b.UserBranchMasterSid) } },
-                            data: { status: 'D', updatedBy },
+                            data: { status: 'D', updatedBy , updatedOn: new Date() },
                         })
                     );
                 }
@@ -554,7 +589,7 @@ export class FfUserMasterService {
                         branchOps.push(
                             prisma.userBranchMaster.update({
                                 where: { UserBranchMasterSid: existing.UserBranchMasterSid },
-                                data: { GiveAccess: b.GiveAccess, IsDefault: b.IsDefault, updatedBy },
+                                data: { GiveAccess: b.GiveAccess, IsDefault: b.IsDefault, updatedBy , updatedOn: new Date() },
                             })
                         );
                     }

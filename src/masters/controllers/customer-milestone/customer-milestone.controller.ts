@@ -73,10 +73,10 @@ export class CustomerMilestoneController {
     })
     @HttpCode(HttpStatus.CREATED)
     @Delete('delete/:CustomerMilestoneSid')
-    async deleteCustomerMilestone(@Param('CustomerMilestoneSid',ParseIntPipe) CustomerMilestoneSid) {
+    async deleteCustomerMilestone(@Param('CustomerMilestoneSid',ParseIntPipe) CustomerMilestoneSid,@Body('updatedBy') updatedBy: string) {
         let resp = new ResponseData();
         try {
-            const deletedMilestone = await this.customerMilestoneService.deleteCustomerMilestone(CustomerMilestoneSid);
+            const deletedMilestone = await this.customerMilestoneService.deleteCustomerMilestone(CustomerMilestoneSid, updatedBy);
             this.logger.debug(`Deleted customer milestone: ${JSON.stringify(deletedMilestone)}`);
             resp.data = deletedMilestone;
             resp.message = "Customer Milestone deleted successfully";

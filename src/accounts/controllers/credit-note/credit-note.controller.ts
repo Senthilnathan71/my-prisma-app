@@ -29,10 +29,10 @@ export class CreditNoteController {
       @Post('create')
       async createCreditNote(@Body() payload: any) {
         const output = new ResponseData();
-        this.logger.log(`createCreditNote payload: ${JSON.stringify(payload)}`);
+
         try {
           const finalOutput = await this.creditNoteService.createCreditNote(payload);
-          this.logger.debug(`createCreditNote result: ${JSON.stringify(finalOutput)}`);
+
           output.data = finalOutput;
           output.message = "VoucherHeader created successfully";
         } catch (error) {
@@ -59,7 +59,7 @@ export class CreditNoteController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.creditNoteService.allInvoices(body.CompanyMasterSid);
-      this.logger.debug(`getAllInvoices: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+
       output.data = finalOutput;
       output.message = "All Invoices fetched successfully";
     } catch (error) {
@@ -86,7 +86,7 @@ export class CreditNoteController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.creditNoteService.findInvoiceById(voucherHeaderSid);
-      this.logger.debug(`getVoucherHeaderById: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Invoice data fetched successfully by ID";
     } catch (error) {
@@ -113,7 +113,7 @@ export class CreditNoteController {
         const output = new ResponseData();
         try {
           const finalOutput = await this.creditNoteService.fetchCreditNotes();
-          this.logger.debug(`getAllCreditNotes: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+
           output.data = finalOutput;
           output.message = "All CreditNotes fetched successfully";
         } catch (error) {
@@ -140,7 +140,7 @@ export class CreditNoteController {
         const output = new ResponseData();
         try {
           const finalOutput = await this.creditNoteService.findVoucherHeaderById(voucherHeaderSid);
-          this.logger.debug(`getVoucherHeaderById: ${JSON.stringify(finalOutput)}`);
+
           output.data = finalOutput;
           output.message = "CreditNote data fetched successfully by ID";
         } catch (error) {
@@ -170,7 +170,7 @@ export class CreditNoteController {
         const output = new ResponseData();
         try {
           const finalOutput = await this.creditNoteService.updateVoucherHeaderById(voucherHeaderSid, payload);
-          this.logger.debug(`updateVoucherHeader: ${JSON.stringify(finalOutput)}`);
+
           output.data = finalOutput;
           output.message = "CreditNote updated successfully";
         } catch (error) {
@@ -195,7 +195,7 @@ export class CreditNoteController {
         const output = new ResponseData();
         try {
           const booking = await this.creditNoteService.deleteVoucherHeader(voucherHeaderSid);
-          this.logger.debug(`deleteVoucherHeader: ${voucherHeaderSid}`);
+
           output.data = booking;
           output.message = "CreditNote deleted successfully";
         } catch (error) {
@@ -221,7 +221,7 @@ export class CreditNoteController {
         const resp = new ResponseData();
         try {
           const searchOutput = await this.creditNoteService.searchVoucherHeader(payload);
-          this.logger.log(`CreditNote Search Result : ${JSON.stringify(searchOutput)}`);
+
           resp.data = searchOutput;
           resp.message = "CreditNote Search is successfully fetched";
         } catch (error) {
@@ -252,7 +252,7 @@ export class CreditNoteController {
         const output = new ResponseData();
         try {
           const finalOutput = await this.creditNoteService.fetchInvoice(payload);
-          this.logger.debug(`getting Invoice: ${payload.VoucherNumber}`);
+
           output.data = finalOutput;
           output.message = "Invoice data fetched successfully";
         } catch (error) {

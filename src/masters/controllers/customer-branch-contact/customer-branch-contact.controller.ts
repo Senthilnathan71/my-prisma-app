@@ -127,11 +127,11 @@ export class CustomerBranchContactController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:CusBranchContactSid')
-    async deleteCustomerBrContactById(@Param('CusBranchContactSid', ParseIntPipe) CusBranchContactSid: number) {
+    async deleteCustomerBrContactById(@Param('CusBranchContactSid', ParseIntPipe) CusBranchContactSid: number,@Body('updatedBy') updatedBy: string) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Deleting Customer Branch Contact with id :${CusBranchContactSid} `)
-            let res = await this.customerBrContactServ.deleteCustomerBrContactById(CusBranchContactSid);
+            let res = await this.customerBrContactServ.deleteCustomerBrContactById(CusBranchContactSid,updatedBy);
             this.logger.debug(`Deleted Customer Branch Contact Data : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Customer Branch Contact with id :${CusBranchContactSid} is successfully deleted`;

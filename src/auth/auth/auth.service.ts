@@ -19,6 +19,25 @@ export class AuthService {
         return await this.userService.findUserById(where)
     }
 
+    async getAttemptDateTime(userId: number): Promise<Date | null> {
+        const rows = await this.db.$queryRaw<{ AttemptDateTime: Date | null }[]>`
+            SELECT "AttemptDateTime"
+            FROM "UserMaster"
+            WHERE "UserMasterSid" = ${userId}
+            LIMIT 1
+        `;
+
+        return rows[0]?.AttemptDateTime ?? null;
+    }
+
+    async updateAttemptDateTime(userId: number, attemptDateTime: Date | null): Promise<void> {
+        await this.db.$executeRaw`
+            UPDATE "UserMaster"
+            SET "AttemptDateTime" = ${attemptDateTime}
+            WHERE "UserMasterSid" = ${userId}
+        `;
+    }
+
     async getUser(userId: number) {
         try {
             const userData = await this.userService.getUserById(userId);

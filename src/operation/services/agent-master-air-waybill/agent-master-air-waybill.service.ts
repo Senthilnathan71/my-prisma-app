@@ -126,7 +126,7 @@ export class AgentMasterAirWaybillService {
       where: { MawbStockSid: availableMawb.MawbStockSid },
       data: {
         StockStatus: 'Utilised',
-        updatedBy: payload.createdBy,
+        updatedBy: payload.createdBy || payload.updatedBy,
         updatedOn: new Date()
       }
     });
@@ -249,7 +249,7 @@ export class AgentMasterAirWaybillService {
           },
           data: {
             StockStatus: 'Free',
-            updatedBy: payload.createdBy,
+            updatedBy: payload.createdBy || payload.updatedBy,
             updatedOn: new Date(),
           },
         });
@@ -409,41 +409,41 @@ export class AgentMasterAirWaybillService {
     return this._db.$transaction(async (prisma) => {
       const deleted = await prisma.houseJob.update({
         where: { HouseJobSid: houseJobSid },
-        data: { status: 'D', updatedBy },
+        data: { status: 'D', updatedBy, updatedOn: new Date() },
       });
 
       await prisma.houseJobCargo.updateMany({
         where: { HouseJobSid: houseJobSid, status: 'A' },
-        data: { status: 'D', updatedBy },
+        data: { status: 'D', updatedBy , updatedOn: new Date() },
       });
       await prisma.houseJobProduct.updateMany({
         where: { HouseJobSid: houseJobSid, status: 'A' },
-        data: { status: 'D', updatedBy },
+        data: { status: 'D', updatedBy, updatedOn: new Date() },
       });
       await prisma.houseJobConnection.updateMany({
         where: { HouseJobSid: houseJobSid, status: 'A' },
-        data: { status: 'D', updatedBy },
+        data: { status: 'D', updatedBy , updatedOn: new Date() },
       });
       await prisma.houseJobOthers.updateMany({
         where: { HouseJobSid: houseJobSid, status: 'A' },
-        data: { status: 'D', updatedBy },
+        data: { status: 'D', updatedBy, updatedOn: new Date() },
       });
       await prisma.houseJobBOE.updateMany({
         where: { HouseJobSid: houseJobSid, Status: 'A' },
-        data: { Status: 'D', UpdatedBy: updatedBy },
+        data: { Status: 'D', UpdatedBy: updatedBy , UpdatedOn: new Date() },
       });
       await prisma.houseJobVehicle.updateMany({
         where: { HouseJobSid: houseJobSid, Status: 'A' },
-        data: { Status: 'D', UpdatedBy: updatedBy },
+        data: { Status: 'D', UpdatedBy: updatedBy , UpdatedOn: new Date() },
       });
       await prisma.houseJobCustoms.updateMany({
         where: { HouseJobSid: houseJobSid, Status: 'A' },
-        data: { Status: 'D', UpdatedBy: updatedBy },
+        data: { Status: 'D', UpdatedBy: updatedBy , UpdatedOn: new Date() },
       });
 
       await prisma.costRevenueCharges.updateMany({
         where: { TransactionSid: houseJobSid, status: 'A' },
-        data: { status: 'D', updatedBy },
+        data: { status: 'D', updatedBy , updatedOn: new Date() },
       });
 
       if (existing.MasterJobSid) {
@@ -453,7 +453,7 @@ export class AgentMasterAirWaybillService {
         if (activeChildren === 0) {
           await prisma.masterJob.update({
             where: { MasterJobSid: existing.MasterJobSid },
-            data: { Status: 'D', UpdatedBy: updatedBy },
+            data: { Status: 'D', UpdatedBy: updatedBy , UpdatedOn: new Date() },
           });
         }
       }

@@ -28,7 +28,7 @@ export class VoucherMatchingController {
     const resp = new ResponseData();
     try {
       const res = await this.voucherMatchingService.searchVoucherMatching(searchParams);
-      this.logger.log(`Voucher Matching Search Data: ${JSON.stringify(res)}`);
+
       resp.data = res;
       resp.message = 'Voucher Matching Search is successfully fetched';
     } catch (error) {
@@ -54,7 +54,7 @@ export class VoucherMatchingController {
     const output = new ResponseData();
     try {
       const finalOutput = await this.voucherMatchingService.getVoucherMatchingById(voucherMatchingHeaderSid);
-      this.logger.debug(`getVoucherMatchingById: ${JSON.stringify(finalOutput)}`);
+
       output.data = finalOutput;
       output.message = "Voucher Matching data fetched successfully by ID";
     } catch (error) {

@@ -36,7 +36,6 @@ export class CoaController {
         let resp = new ResponseData();
         try {
             let res = await this.coaService.createNewCoa(newData);
-            this.logger.log(`New Coa Created : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "New Coa is successfully created"
         } catch (error) {
@@ -62,7 +61,6 @@ export class CoaController {
         let resp = new ResponseData();
         try {
             let res = await this.coaService.getAllCoa(body.CompanyMasterSid);
-            this.logger.log(`All Coa Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All Coa are successfully fetched";
         } catch (error) {
@@ -88,7 +86,6 @@ export class CoaController {
         let resp = new ResponseData();
         try {
             let res = await this.coaService.getAllGroupsByCategory(body.Category, body.CompanyMasterSid);
-            this.logger.log(`Groups by Category Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Groups by category are successfully fetched";
         } catch (error) {
@@ -111,7 +108,6 @@ export class CoaController {
         const resp = new ResponseData();
         try {
             const res = await this.coaService.getCOAByLedgerType(body.LedgerType, body.CompanyMasterSid);
-            this.logger.log(`COA by LedgerType : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "COA by LedgerType is successfully fetched";
         } catch (error) {
@@ -136,7 +132,6 @@ export class CoaController {
         let resp = new ResponseData();
         try {
             let res = await this.coaService.getAllSubgroupsByGroup(body.Category, body.GroupName, body.CompanyMasterSid);
-            this.logger.log(`Subgroups by Group Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Subgroups by group are successfully fetched";
         } catch (error) {
@@ -162,7 +157,6 @@ export class CoaController {
         let resp = new ResponseData();
         try {
             let res = await this.coaService.getCoaWithSubledger(body.CompanyMasterSid);
-            this.logger.log(`Coa with SubledgerName='yes' Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Coa records with SubledgerName='yes' are successfully fetched";
         } catch (error) {
@@ -187,9 +181,9 @@ export class CoaController {
     async getCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Coa with id : ${COAMasterSid}`);
+
             let res = await this.coaService.fetchCoaById(COAMasterSid);
-            this.logger.debug(`Fetched Coa : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `Coa with id : ${COAMasterSid} is successfully fetched`;
         } catch (error) {
@@ -214,9 +208,9 @@ export class CoaController {
     async updateCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Updating Coa with id : ${COAMasterSid}`);
+
             let res = await this.coaService.updateCoaById(COAMasterSid, payload);
-            this.logger.debug(`Updated Coa : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `Coa with id : ${COAMasterSid} is successfully updated`;
         } catch (error) {
@@ -241,9 +235,9 @@ export class CoaController {
     async deleteCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Deleting Coa with id : ${COAMasterSid}`);
+
             let res = await this.coaService.deleteCOA(COAMasterSid);
-            this.logger.debug(`Deleted Coa : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `Coa with id : ${COAMasterSid} is successfully deleted`;
         } catch (error) {
@@ -269,7 +263,7 @@ export class CoaController {
         let resp = new ResponseData();
         try {
             let res = await this.coaService.searchCoa(searchData);
-            this.logger.log(`Coa Search Results :${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "Coa Search results are successfully fetched"
         } catch (error) {
@@ -333,7 +327,7 @@ export class CoaController {
                 throw new BadRequestException('CompanyMasterSid is required');
             }
             let res = await this.coaService.getCOAByLedgerCategory(body.LedgerCategory, body.CompanyMasterSid , body.filterNonJob , body.VoucherType);
-            this.logger.log(`Coa by LedgerCategory : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "Coa by LedgerCategory is successfully fetched";
         } catch (error) {
@@ -365,7 +359,7 @@ export class CoaController {
                 throw new BadRequestException('CompanyMasterSid is required');
             }
             let res = await this.coaService.getCOAByCashOrBank(body.LedgerType, body.CompanyMasterSid, body.filterNonJob);
-            this.logger.log(`Coa by LedgerType : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "Coa by LedgerType is successfully fetched";
         } catch (error) {
@@ -391,7 +385,7 @@ export class CoaController {
         let resp = new ResponseData();
         try {
             let res = await this.coaService.getGroupsByCompany(body.CompanyMasterSid);
-            this.logger.log(`Groups by Company Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "Groups are successfully fetched";
         } catch (error) {
@@ -417,7 +411,7 @@ export class CoaController {
         let resp = new ResponseData();
         try {
             let res = await this.coaService.getSubGroupsByCompany(body.CompanyMasterSid);
-            this.logger.log(`SubGroups by Company Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "SubGroups are successfully fetched";
         } catch (error) {

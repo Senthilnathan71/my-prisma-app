@@ -1,5 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
-import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, Res, UnauthorizedException, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiOperation, ApiCreatedResponse, ApiConsumes } from '@nestjs/swagger';
+import { Response } from 'express';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -259,4 +261,118 @@ export class ChargeController {
         }
         return resp;
     }
+    // ─── DOWNLOAD TEMPLATE ────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Download Charge Excel template' })
+@HttpCode(HttpStatus.OK)
+@Get('template')
+async downloadChargeTemplate(
+  @Query('CompanyMasterSid') CompanyMasterSid: number,
+  @Res() res: Response
+) {
+  try {
+    this.logger.log(`Generating Excel template for charge upload`);
+    const buffer = await this.chargeService.generateChargeTemplate(Number(CompanyMasterSid));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=Charge_Upload_Template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    this.logger.warn(`Error generating charge template: ${JSON.stringify(error)}, ${error}`);
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ status: false, message: 'Error generating template' });
+  }
+}
+
+// ─── STEP 1: PARSE ────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Parse & validate charge Excel — does NOT save to DB' })
+@ApiConsumes('multipart/form-data')
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/parse')
+@UseInterceptors(FileInterceptor('file'))
+async parseChargeExcel(
+  @UploadedFile() file: Express.Multer.File,
+  @Body('CompanyMasterSid') CompanyMasterSid: string,
+) {
+  const resp = new ResponseData();
+  try {
+    if (!file) throw new BadRequestException('No file uploaded');
+
+    const allowedMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    if (!allowedMimeTypes.includes(file.mimetype))
+      throw new BadRequestException('Invalid file type. Only .xlsx or .xls allowed');
+
+    if (file.size > 5 * 1024 * 1024)
+      throw new BadRequestException('File size exceeds 5MB limit');
+
+    if (!CompanyMasterSid)
+      throw new BadRequestException('CompanyMasterSid is required');
+
+    const result = await this.chargeService.parseChargeExcel(
+      file.buffer,
+      Number(CompanyMasterSid)
+    );
+
+    // result has: validRows[], invalidRows[], summary
+    const hasValid = result.validRows.length > 0;
+
+    resp.status = true;
+    resp.message = hasValid
+      ? `Parsed successfully. ${result.validRows.length} valid, ${result.invalidRows.length} invalid.`
+      : 'No valid rows found. Please fix the errors and re-upload.';
+    resp.data = result;
+
+  } catch (error) {
+    resp.status = false;
+    this.logger.warn(`Error parsing charge Excel: ${JSON.stringify(error)}, ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
+}
+
+// ─── STEP 2: SAVE ─────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Save validated charge rows to DB' })
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/save')
+async saveChargeExcel(
+  @Body() payload: {
+    validRows: any[];
+    CompanyMasterSid: number;
+    createdBy: string;
+  }
+) {
+  const resp = new ResponseData();
+  try {
+    const { validRows, CompanyMasterSid, createdBy } = payload;
+
+    if (!validRows?.length)
+      throw new BadRequestException('No valid rows to save');
+
+    if (!CompanyMasterSid)
+      throw new BadRequestException('CompanyMasterSid is required');
+
+    if (!createdBy)
+      throw new BadRequestException('createdBy is required');
+
+    const result = await this.chargeService.saveChargeExcel(
+      validRows,
+      CompanyMasterSid,
+      createdBy
+    );
+
+    resp.status = true;
+    resp.message = `Import complete. ${result.created} created, ${result.skipped} skipped.`;
+    resp.data = result;
+
+  } catch (error) {
+    resp.status = false;
+    this.logger.warn(`Error saving charge Excel: ${JSON.stringify(error)}, ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
+}
 }

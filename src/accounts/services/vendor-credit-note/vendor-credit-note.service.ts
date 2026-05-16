@@ -304,14 +304,25 @@ export class VendorCreditNoteService {
                                             CostRevenueChargesSid: Number(detail.CostRevenueChargesSid),
                                             Status: 'A',
                                         },
-                                        select: { Rate: true, DrCr: true },
+                                        select: { VoucherHeaderSid: true, VoucherDetailSid: true, Rate: true, DrCr: true },
                                     });
                                     if (vinDetail) {
+                                        const reversalVouchers = await tx.voucherHeader.findMany({
+                                            where: {
+                                                ReversalVoucher: vinDetail.VoucherHeaderSid,
+                                                PostStatus: 'P',
+                                                Status: 'A',
+                                                voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE },
+                                            },
+                                            select: { VoucherHeaderSid: true },
+                                        });
+                                        const reversalIds = reversalVouchers.map(v => v.VoucherHeaderSid);
                                         const vcnDetails = await tx.voucherDetail.findMany({
                                             where: {
                                                 CostRevenueChargesSid: Number(detail.CostRevenueChargesSid),
+                                                SourceDetailSid: vinDetail.VoucherDetailSid,
                                                 Status: 'A',
-                                                VoucherHeaderSid: { not: chargeRef.CostVoucherHeaderSid },
+                                                VoucherHeaderSid: { in: reversalIds },
                                             },
                                             select: { Rate: true, DrCr: true },
                                         });
@@ -339,14 +350,25 @@ export class VendorCreditNoteService {
                                             BookingRatesSid: bookingRatesSid,
                                             Status: 'A',
                                         },
-                                        select: { Rate: true, DrCr: true },
+                                        select: { VoucherHeaderSid: true, VoucherDetailSid: true, Rate: true, DrCr: true },
                                     });
                                     if (vinDetail) {
+                                        const reversalVouchers = await tx.voucherHeader.findMany({
+                                            where: {
+                                                ReversalVoucher: vinDetail.VoucherHeaderSid,
+                                                PostStatus: 'P',
+                                                Status: 'A',
+                                                voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE },
+                                            },
+                                            select: { VoucherHeaderSid: true },
+                                        });
+                                        const reversalIds = reversalVouchers.map(v => v.VoucherHeaderSid);
                                         const vcnDetails = await tx.voucherDetail.findMany({
                                             where: {
                                                 BookingRatesSid: bookingRatesSid,
+                                                SourceDetailSid: vinDetail.VoucherDetailSid,
                                                 Status: 'A',
-                                                VoucherHeaderSid: { not: rateRef.CostVoucherHeaderSid },
+                                                VoucherHeaderSid: { in: reversalIds },
                                             },
                                             select: { Rate: true, DrCr: true },
                                         });
@@ -630,6 +652,7 @@ export class VendorCreditNoteService {
                                     CostRevenueChargesSid: detail.CostRevenueChargesSid ?? detail.CostRevenueChargeSid ?? null,
                                     Narration: detail.Narration,
                                     UpdatedBy: payload.UpdatedBy || 'System',
+                                    UpdatedOn: new Date(),
                                     Status: 'A'
                                 }
                             });
@@ -742,14 +765,25 @@ export class VendorCreditNoteService {
                                         CostRevenueChargesSid: crcSid,
                                         Status: 'A',
                                     },
-                                    select: { Rate: true, DrCr: true },
+                                    select: { VoucherHeaderSid: true, VoucherDetailSid: true, Rate: true, DrCr: true },
                                 });
                                 if (vinDetail) {
+                                    const reversalVouchers = await tx.voucherHeader.findMany({
+                                        where: {
+                                            ReversalVoucher: vinDetail.VoucherHeaderSid,
+                                            PostStatus: 'P',
+                                            Status: 'A',
+                                            voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE },
+                                        },
+                                        select: { VoucherHeaderSid: true },
+                                    });
+                                    const reversalIds = reversalVouchers.map(v => v.VoucherHeaderSid);
                                     const vcnDetails = await tx.voucherDetail.findMany({
                                         where: {
                                             CostRevenueChargesSid: crcSid,
+                                            SourceDetailSid: vinDetail.VoucherDetailSid,
                                             Status: 'A',
-                                            VoucherHeaderSid: { not: chargeRef.CostVoucherHeaderSid },
+                                            VoucherHeaderSid: { in: reversalIds },
                                         },
                                         select: { Rate: true, DrCr: true },
                                     });
@@ -777,14 +811,25 @@ export class VendorCreditNoteService {
                                         BookingRatesSid: brSid,
                                         Status: 'A',
                                     },
-                                    select: { Rate: true, DrCr: true },
+                                    select: { VoucherHeaderSid: true, VoucherDetailSid: true, Rate: true, DrCr: true },
                                 });
                                 if (vinDetail) {
+                                    const reversalVouchers = await tx.voucherHeader.findMany({
+                                        where: {
+                                            ReversalVoucher: vinDetail.VoucherHeaderSid,
+                                            PostStatus: 'P',
+                                            Status: 'A',
+                                            voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.VENDOR_CREDIT_NOTE },
+                                        },
+                                        select: { VoucherHeaderSid: true },
+                                    });
+                                    const reversalIds = reversalVouchers.map(v => v.VoucherHeaderSid);
                                     const vcnDetails = await tx.voucherDetail.findMany({
                                         where: {
                                             BookingRatesSid: brSid,
+                                            SourceDetailSid: vinDetail.VoucherDetailSid,
                                             Status: 'A',
-                                            VoucherHeaderSid: { not: rateRef.CostVoucherHeaderSid },
+                                            VoucherHeaderSid: { in: reversalIds },
                                         },
                                         select: { Rate: true, DrCr: true },
                                     });

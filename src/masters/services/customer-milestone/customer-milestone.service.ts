@@ -40,6 +40,7 @@ export class CustomerMilestoneService {
                                 EffectiveFrom : milestone.EffectiveFrom,
                                 Status : milestone.Status,
                                 UpdatedBy : milestone.updatedBy,
+                                UpdatedOn: new Date()
                             }
                         })
                         finalMilestones.push(updatedMilestone);
@@ -65,7 +66,7 @@ export class CustomerMilestoneService {
         }
     }
 
-    async deleteCustomerMilestone(CustomerMilestoneSid :any) {
+    async deleteCustomerMilestone(CustomerMilestoneSid :any,updatedBy: string) {
         try {
             const ourMilestone = await this._db.customerMilestone.findUnique({
                 where : {
@@ -82,7 +83,7 @@ export class CustomerMilestoneService {
                 where : {
                     CustomerMilestoneSid : CustomerMilestoneSid
                 },
-                data : {Status : 'D'}
+                data : {Status : 'D', UpdatedBy : updatedBy, UpdatedOn : new Date()}
             })
             return deletedMilestone;
         } catch (error) {

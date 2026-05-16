@@ -393,6 +393,7 @@ export class ReverseVoucherService {
                                     MasterJobSid: detail.MasterJobSid || payload.MasterJobSid,
                                     HouseJobSid: detail.HouseJobSid || payload.HouseJobSid,
                                     UpdatedBy: payload.UpdatedBy || 'System',
+                                    UpdatedOn: new Date(),
                                     CostCenter: detail.CostCenterMasterSid,
                                     ProfitCenter: detail.ProfitCenterMasterSid,
                                     Status: 'A'
@@ -1079,9 +1080,57 @@ export class ReverseVoucherService {
                     LocalAmount: partyDetail.LocalAmount,
                     PostStatus: 'P',
                     PostDate: now,
-                    UpdatedBy: payload.postedBy
+                    UpdatedBy: payload.postedBy,
+                    UpdatedOn: new Date()
                 }
             });
+
+            // If reversing a PAYMENT: unlink PaymentRequest (if any) and clear charge cost refs
+            if (voucher.ReversalVoucher) {
+                const originalVoucher = await tx.voucherHeader.findUnique({
+                    where: { VoucherHeaderSid: voucher.ReversalVoucher },
+                    include: {
+                        voucherTypeMaster: { select: { DocumentTypeCode: true } },
+                        VoucherDetail: {
+                            where: { Status: 'A' },
+                            select: { CostRevenueChargesSid: true, BookingRatesSid: true },
+                        },
+                    },
+                });
+                if (originalVoucher?.voucherTypeMaster?.DocumentTypeCode === DOC_TYPE_CODE.PAYMENT) {
+                    // Only clear PaymentRequest if the payment was created from one
+                    const linkedPR = await tx.paymentRequest.findFirst({
+                        where: { VoucherSid: voucher.ReversalVoucher, Status: 'A' },
+                        select: { PaymentRequestSid: true },
+                    });
+                    if (linkedPR) {
+                        await tx.paymentRequest.updateMany({
+                            where: { VoucherSid: voucher.ReversalVoucher, Status: 'A' },
+                            data: { VoucherSid: null },
+                        });
+                    }
+                    // Clear cost voucher refs from charge rows
+                    const originalDetails = originalVoucher.VoucherDetail;
+                    const isBookingVoucher = !!originalVoucher.BookingHeaderSid && !originalVoucher.HouseJobSid && !originalVoucher.MasterJobSid;
+                    if (isBookingVoucher) {
+                        const bookingRateIds = originalDetails.map(d => d.BookingRatesSid).filter(Boolean) as number[];
+                        if (bookingRateIds.length > 0) {
+                            await tx.bookingRates.updateMany({
+                                where: { BookingRatesSid: { in: bookingRateIds } },
+                                data: { CostVoucherHeaderSid: null, CostVoucherTypeMasterSid: null, UpdatedOn: now, UpdatedBy: payload.postedBy },
+                            });
+                        }
+                    } else {
+                        const costChargeIds = originalDetails.map(d => d.CostRevenueChargesSid).filter(Boolean) as number[];
+                        if (costChargeIds.length > 0) {
+                            await tx.costRevenueCharges.updateMany({
+                                where: { CostRevenueChargesSid: { in: costChargeIds } },
+                                data: { CostVoucherHeaderSid: null, CostVoucherTypeMasterSid: null, updatedOn: now, updatedBy: payload.postedBy },
+                            });
+                        }
+                    }
+                }
+            }
 
             return {
                 ...updatedVoucher,

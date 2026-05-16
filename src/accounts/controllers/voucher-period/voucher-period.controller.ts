@@ -27,7 +27,7 @@ export class VoucherPeriodController {
         let resp = new ResponseData();
         try {
             let res = await this.voucherPeriodService.createVoucherPeriod(newData);
-            this.logger.log(`New VoucherPeriod Created : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "New VoucherPeriod is successfully created"
         } catch (error) {
@@ -57,7 +57,7 @@ export class VoucherPeriodController {
                 body.BranchMasterSid,
                 body.YearMasterSid
             );
-            this.logger.log(`All VoucherPeriods Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "All VoucherPeriods are successfully fetched";
         } catch (error) {
@@ -82,9 +82,9 @@ export class VoucherPeriodController {
     async getVoucherPeriodById(@Param('VoucherPeriodSid', ParseIntPipe) VoucherPeriodSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting VoucherPeriod with id : ${VoucherPeriodSid}`);
+
             let res = await this.voucherPeriodService.fetchVoucherPeriodById(VoucherPeriodSid);
-            this.logger.debug(`Fetched VoucherPeriod : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `VoucherPeriod with id : ${VoucherPeriodSid} is successfully fetched`;
         } catch (error) {
@@ -109,9 +109,9 @@ export class VoucherPeriodController {
     async updateVoucherPeriodById(@Param('VoucherPeriodSid', ParseIntPipe) VoucherPeriodSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Updating VoucherPeriod with id : ${VoucherPeriodSid}`);
+
             let res = await this.voucherPeriodService.updateVoucherPeriodById(VoucherPeriodSid, payload);
-            this.logger.debug(`Updated VoucherPeriod : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `VoucherPeriod with id : ${VoucherPeriodSid} is successfully updated`;
         } catch (error) {
@@ -136,9 +136,9 @@ export class VoucherPeriodController {
     async deleteVoucherPeriodById(@Param('VoucherPeriodSid', ParseIntPipe) VoucherPeriodSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Deleting VoucherPeriod with id : ${VoucherPeriodSid}`);
+
             let res = await this.voucherPeriodService.deleteVoucherPeriod(VoucherPeriodSid);
-            this.logger.debug(`Deleted VoucherPeriod : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `VoucherPeriod with id : ${VoucherPeriodSid} is successfully deleted`;
         } catch (error) {
@@ -164,7 +164,7 @@ export class VoucherPeriodController {
         const resp = new ResponseData();
         try {
             const res = await this.voucherPeriodService.searchVoucherPeriodNew(searchParams);
-            this.logger.log(`VoucherPeriod Search Data: ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = 'VoucherPeriod Search is successfully fetched';
         } catch (error) {
@@ -230,7 +230,7 @@ export class VoucherPeriodController {
         const resp = new ResponseData();
         try {
             const res = await this.voucherPeriodService.createPeriodsForYear(body);
-            this.logger.log(`Periods created for year: ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = res.message;
         } catch (error) {

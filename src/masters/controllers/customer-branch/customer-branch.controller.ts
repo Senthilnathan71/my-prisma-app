@@ -174,11 +174,11 @@ export class CustomerBranchController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:CustomerBranchSid')
-    async deleteCustomerBranch(@Param('CustomerBranchSid', ParseIntPipe) CustomerBranchSid: number) {
+    async deleteCustomerBranch(@Param('CustomerBranchSid', ParseIntPipe) CustomerBranchSid: number,@Body('updatedBy') updatedBy: string) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Deleting Customer Branch with id:${CustomerBranchSid}`)
-            let res = await this.customerBranchService.softDeleteCustomerBranch(CustomerBranchSid);
+            let res = await this.customerBranchService.softDeleteCustomerBranch(CustomerBranchSid,updatedBy);
             this.logger.debug(`Deleted Customer Branch : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Customer Branch is successfully deleted";

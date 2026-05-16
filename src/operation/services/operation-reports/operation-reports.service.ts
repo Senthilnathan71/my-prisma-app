@@ -4103,6 +4103,21 @@ export class OperationReportsService {
         );
       };
 
+      const calculateProfitMetrics = (totalSales: number, totalCost: number) => {
+        let profit = 0;
+        let profitPercent = 0;
+
+        if (totalSales > totalCost) {
+          profit = totalSales - totalCost;
+          profitPercent = totalSales !== 0 ? (profit / totalSales) * 100 : 0;
+        } else {
+          profit = -(totalCost - totalSales);
+          profitPercent = totalCost !== 0 ? (profit / totalCost) * 100 : 0;
+        }
+
+        return { profit, profitPercent };
+      };
+
       /* ===================== FINAL DATA ===================== */
 
       const data = await Promise.all(
@@ -4147,6 +4162,8 @@ export class OperationReportsService {
               const houseActuals = await getActualsFromCharges(houseCR);
               const haSale = houseActuals.aSale;
               const haCost = houseActuals.aCost;
+              const housePlannedProfit = calculateProfitMetrics(hpSale, hpCost);
+              const houseActualProfit = calculateProfitMetrics(haSale, haCost);
 
               return {
                 HouseJobSid: hj.HouseJobSid,
@@ -4182,15 +4199,20 @@ export class OperationReportsService {
                   houseCrSummary: {
                     pSale: hpSale,
                     pCost: hpCost,
-                    pGp: hpSale - hpCost,
+                    pGp: housePlannedProfit.profit,
+                    pGpPercent: housePlannedProfit.profitPercent,
                     aSale: haSale,
                     aCost: haCost,
-                    aGp: haSale - haCost,
+                    aGp: houseActualProfit.profit,
+                    aGpPercent: houseActualProfit.profitPercent,
                   },
                 },
               };
             }),
           );
+
+          const masterPlannedProfit = calculateProfitMetrics(pSale, pCost);
+          const masterActualProfit = calculateProfitMetrics(aSale, aCost);
 
           return {
             JobNo: mj.MasterJobNumber,
@@ -4241,10 +4263,12 @@ export class OperationReportsService {
               masterCrSummary: {
                 pSale,
                 pCost,
-                pGp: pSale - pCost,
+                pGp: masterPlannedProfit.profit,
+                pGpPercent: masterPlannedProfit.profitPercent,
                 aSale,
                 aCost,
-                aGp: aSale - aCost,
+                aGp: masterActualProfit.profit,
+                aGpPercent: masterActualProfit.profitPercent,
               },
             },
             houseWithCR,

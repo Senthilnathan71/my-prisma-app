@@ -16,6 +16,18 @@ export class CityService {
         where: {
           status: 'A',
         },
+        include: {
+          countryMaster: {
+            select: {
+              countryName: true,
+            }
+          },
+          stateMaster: {
+            select: {
+              stateName: true,
+            }
+          }
+        }
       })
       return cityList;
     } catch (error) {

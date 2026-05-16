@@ -497,14 +497,25 @@ export class CreditNoteService {
                       CostRevenueChargesSid: Number(detail.CostRevenueChargesSid),
                       Status: 'A',
                     },
-                    select: { Rate: true, DrCr: true },
+                    select: { VoucherHeaderSid: true, VoucherDetailSid: true, Rate: true, DrCr: true },
                   });
                   if (invDetail) {
+                    const reversalVouchers = await prisma.voucherHeader.findMany({
+                      where: {
+                        ReversalVoucher: invDetail.VoucherHeaderSid,
+                        PostStatus: 'P',
+                        Status: 'A',
+                        voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.CREDIT_NOTE },
+                      },
+                      select: { VoucherHeaderSid: true },
+                    });
+                    const reversalIds = reversalVouchers.map(v => v.VoucherHeaderSid);
                     const cnDetails = await prisma.voucherDetail.findMany({
                       where: {
                         CostRevenueChargesSid: Number(detail.CostRevenueChargesSid),
+                        SourceDetailSid: invDetail.VoucherDetailSid,
                         Status: 'A',
-                        VoucherHeaderSid: { not: chargeRef.RevenueVoucherHeaderSid },
+                        VoucherHeaderSid: { in: reversalIds },
                       },
                       select: { Rate: true, DrCr: true },
                     });
@@ -532,14 +543,25 @@ export class CreditNoteService {
                       BookingRatesSid: bookingRatesSid,
                       Status: 'A',
                     },
-                    select: { Rate: true, DrCr: true },
+                    select: { VoucherHeaderSid : true, VoucherDetailSid: true, Rate: true, DrCr: true },
                   });
                   if (invDetail) {
+                    const reversalVouchers = await prisma.voucherHeader.findMany({
+                      where : {
+                        ReversalVoucher : invDetail.VoucherHeaderSid,
+                        PostStatus : 'P',
+                        Status : 'A',
+                        voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.CREDIT_NOTE },
+                      },
+                      select: { VoucherHeaderSid: true },
+                    })
+                    const reversalIds = reversalVouchers.map(v => v.VoucherHeaderSid);
                     const cnDetails = await prisma.voucherDetail.findMany({
                       where: {
                         BookingRatesSid: bookingRatesSid,
+                        SourceDetailSid: invDetail.VoucherDetailSid,
                         Status: 'A',
-                        VoucherHeaderSid: { not: rateRef.RevenueVoucherHeaderSid },
+                        VoucherHeaderSid: { in : reversalIds },
                       },
                       select: { Rate: true, DrCr: true },
                     });
@@ -765,14 +787,25 @@ export class CreditNoteService {
                     CostRevenueChargesSid: crcSid,
                     Status: 'A',
                   },
-                  select: { Rate: true, DrCr: true },
+                  select: { VoucherHeaderSid: true, VoucherDetailSid: true, Rate: true, DrCr: true },
                 });
                 if (invDetail) {
+                  const reversalVouchers = await prisma.voucherHeader.findMany({
+                    where: {
+                      ReversalVoucher: invDetail.VoucherHeaderSid,
+                      PostStatus: 'P',
+                      Status: 'A',
+                      voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.CREDIT_NOTE },
+                    },
+                    select: { VoucherHeaderSid: true },
+                  });
+                  const reversalIds = reversalVouchers.map(v => v.VoucherHeaderSid);
                   const cnDetails = await prisma.voucherDetail.findMany({
                     where: {
                       CostRevenueChargesSid: crcSid,
+                      SourceDetailSid: invDetail.VoucherDetailSid,
                       Status: 'A',
-                      VoucherHeaderSid: { not: chargeRef.RevenueVoucherHeaderSid },
+                      VoucherHeaderSid: { in: reversalIds },
                     },
                     select: { Rate: true, DrCr: true },
                   });
@@ -800,14 +833,25 @@ export class CreditNoteService {
                     BookingRatesSid: brSid,
                     Status: 'A',
                   },
-                  select: { Rate: true, DrCr: true },
+                  select: { VoucherHeaderSid: true, VoucherDetailSid: true, Rate: true, DrCr: true },
                 });
                 if (invDetail) {
+                  const reversalVouchers = await prisma.voucherHeader.findMany({
+                    where: {
+                      ReversalVoucher: invDetail.VoucherHeaderSid,
+                      PostStatus: 'P',
+                      Status: 'A',
+                      voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.CREDIT_NOTE },
+                    },
+                    select: { VoucherHeaderSid: true },
+                  });
+                  const reversalIds = reversalVouchers.map(v => v.VoucherHeaderSid);
                   const cnDetails = await prisma.voucherDetail.findMany({
                     where: {
                       BookingRatesSid: brSid,
+                      SourceDetailSid: invDetail.VoucherDetailSid,
                       Status: 'A',
-                      VoucherHeaderSid: { not: rateRef.RevenueVoucherHeaderSid },
+                      VoucherHeaderSid: { in: reversalIds },
                     },
                     select: { Rate: true, DrCr: true },
                   });

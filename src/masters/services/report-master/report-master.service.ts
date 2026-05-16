@@ -78,6 +78,7 @@ export class ReportMasterService {
           data: {
             ...detailData,
             UpdatedBy: auditUser,
+            UpdatedOn: new Date(),
           },
         });
         continue;
@@ -99,6 +100,7 @@ export class ReportMasterService {
           data: {
             ...detailData,
             UpdatedBy: auditUser,
+            UpdatedOn: new Date(),
             Status: detail.Status || alreadyExisting.Status,
           },
         });
@@ -205,6 +207,7 @@ export class ReportMasterService {
           where: { ReportMasterSid: id },
           data: {
             UpdatedBy: auditUser,
+            UpdatedOn: new Date(),
             Status: newData.Status,
             ReportName: newData.ReportName,
             ReportDisplayName: newData.ReportDisplayName,
@@ -420,6 +423,7 @@ export class ReportMasterService {
         data: {
           UpdatedBy: this.getAuditUser(parameterData, existing.UpdatedBy || existing.CreatedBy),
           Status: parameterData.Status,
+          UpdatedOn: new Date(),
           ParameterName: parameterData.ParameterName,
           ParameterFieldType: parameterData.ParameterFieldType,
           DropDownValue: parameterData.DropDownValue,

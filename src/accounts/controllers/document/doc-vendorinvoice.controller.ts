@@ -149,8 +149,6 @@ export class DocVendorInvoiceController {
         throw new BadRequestException('Uploaded file is empty');
       }
 
-      this.logger.log(`Processing vendor invoice: ${file.originalname}, Size: ${file.size} bytes`);
-
       // Process the document
       const extractedData = await this.docVendorInvoiceService.processVendorInvoice(file);
       
@@ -158,8 +156,6 @@ export class DocVendorInvoiceController {
       
       // Generate extraction summary
       const extractionSummary = this.generateExtractionSummary(extractedData);
-      
-      this.logger.log(`Vendor invoice processed successfully in ${processingTime}ms`);
 
       const confidencePercentage = Math.round(extractedData.confidence * 100);
       let message = `Vendor invoice processed successfully with ${confidencePercentage}% confidence`;

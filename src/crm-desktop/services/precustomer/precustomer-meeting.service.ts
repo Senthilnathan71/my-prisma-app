@@ -186,7 +186,7 @@ export class PreCustomerMeetingService {
                 payload.createdOn = new Date();
                 payload.updatedOn = new Date();
                 const payloadData = {
-                    createdBy: params.userEmail,
+                    createdBy: params.createdBy || params.userEmail,
                     meetingDate: params.meetingDate,
                     meetingType: params.meetingType,
                     meetingStatus: params.meetingStatus ? params.meetingStatus : 'Scheduled',
@@ -250,7 +250,8 @@ export class PreCustomerMeetingService {
                             MeetingNote: params.meetingNote,
                             Remarks: params.remarks ?? null,
                             createdBy: params.userEmail,
-                            updatedBy: params.userEmail
+                            updatedBy: params.userEmail,
+                            updatedOn: new Date(),
                         }
                     })
                 }

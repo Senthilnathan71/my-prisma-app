@@ -41,16 +41,11 @@ export class VoucherPostingController {
   async getDraftVoucher(@Param('voucherHeaderSid', ParseIntPipe) voucherHeaderSid: number) {
     const resp = new ResponseData();
     try {
-      this.logger.log(`GET /voucher-posting/draft/${voucherHeaderSid} - Fetching draft voucher`);
 
       const result = await this.voucherPostingService.getDraftVoucher(voucherHeaderSid);
 
       resp.data = result;
       resp.message = 'Draft voucher retrieved successfully';
-
-      this.logger.log(
-        `Draft voucher ${voucherHeaderSid} retrieved: ${result.details.length} detail lines, Posted: ${result.isPosted}`,
-      );
 
       return resp;
     } catch (error) {
@@ -80,7 +75,6 @@ export class VoucherPostingController {
   async validateVoucher(@Param('voucherHeaderSid', ParseIntPipe) voucherHeaderSid: number) {
     const resp = new ResponseData();
     try {
-      this.logger.log(`POST /voucher-posting/validate/${voucherHeaderSid} - Validating voucher`);
 
       const result = await this.voucherPostingService.validateVoucher(voucherHeaderSid);
 
@@ -93,9 +87,7 @@ export class VoucherPostingController {
           `Voucher ${voucherHeaderSid} validation failed: ${result.errors.map((e) => e.code).join(', ')}`,
         );
       } else {
-        this.logger.log(
-          `Voucher ${voucherHeaderSid} validation passed: ${result.lineCount} lines, Dr=${result.totalDebit}, Cr=${result.totalCredit}`,
-        );
+
       }
 
       return resp;
@@ -126,16 +118,11 @@ export class VoucherPostingController {
   async preparePostingPayload(@Param('voucherHeaderSid', ParseIntPipe) voucherHeaderSid: number) {
     const resp = new ResponseData();
     try {
-      this.logger.log(`POST /voucher-posting/prepare/${voucherHeaderSid} - Preparing posting payload`);
 
       const result = await this.voucherPostingService.preparePostingPayload(voucherHeaderSid);
 
       resp.data = result;
       resp.message = 'Posting payload prepared successfully';
-
-      this.logger.log(
-        `Posting payload prepared for voucher ${voucherHeaderSid}: ${result.lines.length} lines, ${result.taxSummaries.length} tax summaries`,
-      );
 
       return resp;
     } catch (error) {
@@ -166,9 +153,6 @@ export class VoucherPostingController {
   async postVoucher(@Body() payload: PostVoucherRequestDto) {
     const resp = new ResponseData();
     try {
-      this.logger.log(
-        `POST /voucher-posting/post - Posting voucher ${payload.voucherHeaderSid} (${payload.voucherNumber})`,
-      );
 
       const result = await this.voucherPostingService.postVoucher(payload);
 
@@ -177,9 +161,7 @@ export class VoucherPostingController {
       resp.message = result.message || (result.success ? 'Voucher posted successfully' : 'Posting failed');
 
       if (result.success) {
-        this.logger.log(
-          `Voucher ${payload.voucherHeaderSid} posted successfully: ${result.transactionCount} transactions created`,
-        );
+
       } else {
         this.logger.warn(
           `Voucher ${payload.voucherHeaderSid} posting failed: ${result.errors.map((e) => e.code).join(', ')}`,
@@ -219,7 +201,6 @@ export class VoucherPostingController {
   async postVoucherById(@Param('voucherHeaderSid', ParseIntPipe) voucherHeaderSid: number) {
     const resp = new ResponseData();
     try {
-      this.logger.log(`POST /voucher-posting/post/${voucherHeaderSid} - Posting voucher by ID`);
 
       // Prepare payload
       const payload = await this.voucherPostingService.preparePostingPayload(voucherHeaderSid);
@@ -232,9 +213,7 @@ export class VoucherPostingController {
       resp.message = result.message || (result.success ? 'Voucher posted successfully' : 'Posting failed');
 
       if (result.success) {
-        this.logger.log(
-          `Voucher ${voucherHeaderSid} posted successfully: ${result.transactionCount} transactions created`,
-        );
+
       } else {
         this.logger.warn(
           `Voucher ${voucherHeaderSid} posting failed: ${result.errors.map((e) => e.code).join(', ')}`,
@@ -272,7 +251,6 @@ export class VoucherPostingController {
   async getPostedTransactions(@Param('voucherHeaderSid', ParseIntPipe) voucherHeaderSid: number) {
     const resp = new ResponseData();
     try {
-      this.logger.log(`GET /voucher-posting/transactions/${voucherHeaderSid} - Fetching posted transactions`);
 
       const transactions = await this.voucherPostingService['_db'].voucherTransaction.findMany({
         where: {
@@ -290,8 +268,6 @@ export class VoucherPostingController {
 
       resp.data = transactions;
       resp.message = `Retrieved ${transactions.length} posted transactions`;
-
-      this.logger.log(`Retrieved ${transactions.length} posted transactions for voucher ${voucherHeaderSid}`);
 
       return resp;
     } catch (error) {

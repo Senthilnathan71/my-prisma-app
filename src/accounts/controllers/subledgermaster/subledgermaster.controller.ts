@@ -25,7 +25,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.getAllSuledgermaster();
-            this.logger.log(`All SubledgerMaster Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "All SubledgerMaster are successfully fetched";
         } catch (error) {
@@ -51,7 +51,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.getAllMappedLedgerByCOA(payload.COAMasterSid , payload.CompanyMasterSid);
-            this.logger.log(`All SubledgerMaster Fetched with COA Id : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "All SubledgerMaster are successfully fetched";
         } catch (error) {
@@ -77,7 +77,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.createNewSubledgerMaster(newData);
-            this.logger.log(`New SubledgerMaster Created : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "New SubledgerMaster is successfully created"
         } catch (error) {
@@ -103,7 +103,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.getSubledgerMasterByMappingId(payload);
-            this.logger.log(`Subledger Id By Its Mapping Id And Type Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "Subledger Id By Its Mapping Id And Type Fetched";
         } catch (error) {
@@ -129,7 +129,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.getAllMappedLedgerByCOAId(payload.COAMasterSid, payload.CompanyMasterSid,payload.DrCr);
-            this.logger.log(`All Mapped Ledgers For this COA Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "All Mapped Ledgers For this COA are successfully fetched";
         } catch (error) {
@@ -156,7 +156,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.getAllMappedCustomerCreditors(payload);
-            this.logger.log(`All Mapped Creditors Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "All Mapped Creditors are successfully fetched";
         } catch (error) {
@@ -182,7 +182,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.getAllMappedChargeDebtors(payload);
-            this.logger.log(`All Mapped Charge Debtors Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "All Mapped Charge Debtors are successfully fetched";
         } catch (error) {
@@ -207,7 +207,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             const res = await this.SubledgermasterService.getAllMappedChargeCreditors(payload);
-            this.logger.log(`All Mapped Charge Creditors Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "All Mapped Charge Creditors Fetched";
         } catch (error) {
@@ -233,7 +233,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.getAllMappedCustomerDebtors(payload);
-            this.logger.log(`All Mapped Debtors Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "All Mapped Debtors are successfully fetched";
         } catch (error) {
@@ -260,9 +260,9 @@ export class SubledgermasterController {
     async getSubledgerMasterId(@Param('SubledgerMasterSid', ParseIntPipe) SubledgerMasterSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting SubledgerMaster with id : ${SubledgerMasterSid}`);
+
             let res = await this.SubledgermasterService.fetchSubledgerMasterId(SubledgerMasterSid);
-            this.logger.debug(`Fetched SubledgerMaster : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `SubledgerMaster with id : ${SubledgerMasterSid} is successfully fetched`;
         } catch (error) {
@@ -287,9 +287,9 @@ export class SubledgermasterController {
     async updateSubledgerMasterById(@Param('SubledgerMasterSid', ParseIntPipe) SubledgerMasterSid: number, @Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Updating SubledgerMaster with id : ${SubledgerMasterSid}`);
+
             let res = await this.SubledgermasterService.updateSubledgerMasterById(SubledgerMasterSid, payload);
-            this.logger.debug(`Updated SubledgerMaster : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `SubledgerMaster with id : ${SubledgerMasterSid} is successfully updated`;
         } catch (error) {
@@ -314,9 +314,9 @@ export class SubledgermasterController {
     async deleteSudledgerMasterById(@Param('SubledgerMasterSid', ParseIntPipe) SubledgerMasterSid: number) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Deleting SubledgerMaster with id : ${SubledgerMasterSid}`);
+
             let res = await this.SubledgermasterService.deleteSudledgerMaster(SubledgerMasterSid);
-            this.logger.debug(`Deleted SubledgerMaster : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = `
             SubledgerMaster with id : ${SubledgerMasterSid} is successfully deleted`;
@@ -343,7 +343,7 @@ export class SubledgermasterController {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.searchSubledgerMaster(searchData);
-            this.logger.log(`SubledgerMaster Search Results :${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "SubledgerMaster Search results are successfully fetched"
         } catch (error) {
@@ -402,7 +402,7 @@ async getSubledgerMasterByType(@Param('subledgerType') subledgerType: string,  @
     let resp = new ResponseData();
     try {
         let res = await this.SubledgermasterService.getSubledgerMasterByType(subledgerType,CompanyMasterSid);
-        this.logger.log(`SubledgerMaster by Type Fetched : ${JSON.stringify(res)}`);
+
         resp.data = res;
         resp.message = "SubledgerMaster by type successfully fetched";
     } catch (error) {
@@ -428,7 +428,7 @@ async bulkUpdateSubledgerMaster(@Body() payload: { updates: any[] }) {
     let resp = new ResponseData();
     try {
         let res = await this.SubledgermasterService.bulkUpdateSubledgerMaster(payload.updates);
-        this.logger.log(`SubledgerMaster Bulk Updated : ${JSON.stringify(res)}`);
+
         resp.data = res;
         resp.message = "SubledgerMaster successfully updated in bulk";
     } catch (error) {
@@ -466,7 +466,7 @@ async bulkUpdateSubledgerMaster(@Body() payload: { updates: any[] }) {
                 throw new BadRequestException('Country Master Sid is required');
             }
             let res = await this.SubledgermasterService.getLedgerForTaxGroup(payload.taxGroup, payload.InputOrOutput, payload.TaxCategory, payload.CountryMasterSid);
-            this.logger.log(`Ledger for Tax Group Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "Ledger for Tax Group Fetched";
         } catch (error) {
@@ -492,7 +492,7 @@ async bulkUpdateSubledgerMaster(@Body() payload: { updates: any[] }) {
         let resp = new ResponseData();
         try {
             let res = await this.SubledgermasterService.getSubledgerMasterById(payload);
-            this.logger.log(`Subledger Fetched : ${JSON.stringify(res)}`);
+
             resp.data = res;
             resp.message = "Subledger Fetched";
         } catch (error) {

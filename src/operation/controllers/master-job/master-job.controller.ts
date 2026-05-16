@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UploadedFile, UseInterceptors, Res, StreamableFile } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, NotFoundException, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UploadedFile, UseInterceptors, Res, StreamableFile } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
@@ -359,6 +359,32 @@ export class MasterJobController {
             resp.status = false;
             this.logger.warn(`Error in saving Job Close Status : ${JSON.stringify(error),error}`);
             if(error instanceof BadRequestException || error instanceof UnauthorizedException){
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Reopen Job Close' })
+    @ApiCreatedResponse({
+        description: 'Reopen Job Close',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('job-close/reopen')
+    async reopenJobClose(@Body() payload: any){
+        let resp = new ResponseData();
+        try {
+            this.logger.log(`Reopening Job Close : ${JSON.stringify(payload)}`);
+            const result = await this.masterJobService.reopenJobClose(payload);
+            resp.message = 'Job reopened successfully';
+            resp.data = result;
+        } catch (error) {
+            resp.status = false;
+            this.logger.warn(`Error in reopening Job Close : ${JSON.stringify(error),error}`);
+            if(error instanceof BadRequestException || error instanceof UnauthorizedException || error instanceof NotFoundException){
                 resp.message = error.message;
             } else {
                 resp.message = 'Internal Server Error';

@@ -26,10 +26,10 @@ export class ReverseVoucherController {
           @Post('create')
           async createReverseVoucher(@Body() payload: any) {
             const output = new ResponseData();
-            this.logger.log(`createReverseVoucher payload: ${JSON.stringify(payload)}`);
+
             try {
               const finalOutput = await this.reverseVoucherService.createReverseVoucher(payload);
-              this.logger.debug(`createReverseVoucher result: ${JSON.stringify(finalOutput)}`);
+
               output.data = finalOutput;
               output.message = "Reverse Voucher created successfully";
             } catch (error) {
@@ -55,7 +55,7 @@ export class ReverseVoucherController {
               const output = new ResponseData();
               try {
                 const finalOutput = await this.reverseVoucherService.fetchReverseVouchers();
-                this.logger.debug(`getAllReverseVouchers: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+
                 output.data = finalOutput;
                 output.message = "All Reverse Vouchers fetched successfully";
               } catch (error) {
@@ -81,7 +81,7 @@ export class ReverseVoucherController {
                 const output = new ResponseData();
                 try {
                   const finalOutput = await this.reverseVoucherService.fetchReverseVoucherById(VoucherHeaderSid);
-                  this.logger.debug(`fetchReverseVoucherById: ${VoucherHeaderSid}`);
+
                   output.data = finalOutput;
                   output.message = "Reverse Voucher data fetched successfully";
                 } catch (error) {
@@ -108,10 +108,10 @@ export class ReverseVoucherController {
                   @Body() payload: any
                 ) {
                   const output = new ResponseData();
-                  this.logger.log(`updateReverseVoucher ID: ${VoucherHeaderSid}, payload: ${JSON.stringify(payload)}`);
+
                   try {
                     const finalOutput = await this.reverseVoucherService.updateReverseVoucher(VoucherHeaderSid, payload);
-                    this.logger.debug(`updateReverseVoucher result: ${JSON.stringify(finalOutput)}`);
+
                     output.data = finalOutput;
                     output.message = "Reverse Voucher updated successfully";
                   } catch (error) {
@@ -137,7 +137,7 @@ export class ReverseVoucherController {
                     const output = new ResponseData();
                     try {
                       const finalOutput = await this.reverseVoucherService.deleteReverseVoucher(VoucherHeaderSid);
-                      this.logger.debug(`deleteReverseVoucher: ${VoucherHeaderSid}`);
+
                       output.data = finalOutput;
                       output.message = "Reverse Voucher deleted successfully";
                     } catch (error) {
@@ -163,7 +163,7 @@ export class ReverseVoucherController {
         const output = new ResponseData();
         try {
           const finalOutput = await this.reverseVoucherService.searchReverseVouchers(payload);
-          this.logger.debug(`searchReverseVouchers: returned ${finalOutput?.items?.length || 0} items`);
+
           output.data = finalOutput;
           output.message = "Reverse Voucher search completed";
         } catch (error) {
@@ -189,7 +189,7 @@ export class ReverseVoucherController {
         const output = new ResponseData();
         try {
           const finalOutput = await this.reverseVoucherService.fetchVouchers(body.CompanyMasterSid, body.BranchMasterSid);
-          this.logger.debug(`fetchVouchers: returned ${Array.isArray(finalOutput) ? finalOutput.length : 0} items`);
+
           output.data = finalOutput;
           output.message = "All Vouchers fetched successfully";
         } catch (error) {
@@ -215,7 +215,7 @@ export class ReverseVoucherController {
         const output = new ResponseData();
         try {
           const finalOutput = await this.reverseVoucherService.fetchVoucherById(payload);
-          this.logger.debug(`fetchVoucherById: ${payload}`);
+
           output.data = finalOutput;
           output.message = "Voucher data fetched successfully";
         } catch (error) {
@@ -236,7 +236,6 @@ async postReversalVoucher(
   @Body() payload: any,
 ) {
   let resp = new ResponseData();
-  this.logger.log(`Posting Reversal Voucher for company ${payload.CompanyMasterSid}`);
 
   try {
     const payment = await this.reverseVoucherService.postReversalInternal({
@@ -249,8 +248,6 @@ async postReversalVoucher(
       postedBy: payload.PostedBy,
       taxDetails: payload.TaxDetails,
     });
-
-    this.logger.log(`Reversal voucher posted successfully: ${payment?.VoucherNumber}`);
 
     resp.data = payment;
     resp.message = "Reversal voucher posted successfully";

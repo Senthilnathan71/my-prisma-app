@@ -140,6 +140,8 @@ export class AccountsReportsService {
           return await this.generateVATReceivableReport(parameters);
         case 'vat-payable-report':
           return await this.generateVATPayableReport(parameters);
+        case 'Vat-Summary-Report':
+          return await this.generateVatSummaryReport(parameters);
         case 'profit-summary-report':
           return await this.generateProfitSummaryReport(parameters);
         case 'matching-list-report':
@@ -2820,6 +2822,7 @@ export class AccountsReportsService {
               GroupName: true,
               SubGroupName: true,
               LedgerName: true,
+              LedgerType: true,
             },
           },
           yearMaster: true,
@@ -2828,27 +2831,102 @@ export class AccountsReportsService {
 
       let totalIncome = 0;
       let totalExpense = 0;
+      let totalOtherRevenue = 0;
+      let totalOtherCost = 0;
 
       const groupedMap = new Map<string, any>();
       const data: any[] = [];
 
-      voucherData.forEach((v) => {
-        if (!v.coaMaster || !v.yearMaster) return;
+      const normalizeText = (value?: string | null) =>
+        String(value || '').trim().toLowerCase();
 
-        const amount = v.LocalAmount.toNumber();
+      const hasDirectKeyword = (value?: string | null) =>
+        /\bdirect\b/.test(normalizeText(value));
 
-        const signedAmount =
-          v.DrCr === 'C' ? amount : v.DrCr === 'D' ? amount * -1 : 0;
+      const resolveProfitSection = (
+        category?: string | null,
+        groupName?: string | null,
+        subGroupName?: string | null,
+        ledgerName?: string | null,
+        ledgerType?: string | null,
+      ) => {
+        const normalizedLedgerType = normalizeText(ledgerType);
 
-        const category = v.coaMaster.Category;
+        if (
+          category === 'Income' &&
+          (hasDirectKeyword(subGroupName) || hasDirectKeyword(ledgerName))
+        ) {
+          return 'DirectIncome';
+        }
+
+        if (
+          category === 'Expense' &&
+          (hasDirectKeyword(subGroupName) || hasDirectKeyword(ledgerName))
+        ) {
+          return 'DirectExpense';
+        }
+
+        if (normalizedLedgerType.includes('other revenue')) {
+          return 'OtherRevenue';
+        }
+
+        if (
+          normalizedLedgerType.includes('other cost') ||
+          normalizedLedgerType.includes('expense')
+        ) {
+          return 'OtherCost';
+        }
 
         if (category === 'Income') {
-          totalIncome += signedAmount;
+          return 'OtherRevenue';
+        }
+
+        if (category === 'Expense') {
+          return 'OtherCost';
+        }
+
+        return 'Unknown';
+      };
+
+      voucherData.forEach((v) => {
+        if (!v.coaMaster) return;
+
+        const amount = v.LocalAmount.toNumber();
+        const drCr = v.DrCr?.trim().toUpperCase();
+
+        const category = v.coaMaster.Category;
+        const profitSection = resolveProfitSection(
+          category,
+          v.coaMaster.GroupName,
+          v.coaMaster.SubGroupName,
+          v.coaMaster.LedgerName,
+          v.coaMaster.LedgerType,
+        ); 
+
+        let signedAmount = amount;
+        if (category === 'Income') {
+          signedAmount = drCr === 'C' ? amount : -amount;
+        } else if (category === 'Expense') {
+          signedAmount = drCr === 'D' ? amount : -amount;
+        } else {
+          signedAmount = drCr === 'C' ? amount : drCr === 'D' ? amount * -1 : 0;
+        }
+
+        if (category === 'Income') {
+          if (profitSection === 'OtherRevenue') {
+            totalOtherRevenue += signedAmount;
+          } else {
+            totalIncome += signedAmount;
+          }
           return;
         }
 
         if (category === 'Expense') {
-          totalExpense += signedAmount;
+          if (profitSection === 'OtherCost') {
+            totalOtherCost += signedAmount;
+          } else {
+            totalExpense += signedAmount;
+          }
           return;
         }
 
@@ -2876,9 +2954,23 @@ export class AccountsReportsService {
 
       data.push(...groupedMap.values());
 
+      const incomeTotal = roundAmount(totalIncome, 2);
+      const expenseTotal = roundAmount(totalExpense, 2);
+      const otherRevenueTotal = roundAmount(totalOtherRevenue, 2);
+      const otherCostTotal = roundAmount(totalOtherCost, 2);
+      const grossProfit = roundAmount(incomeTotal - expenseTotal, 2);
+      const netProfit = roundAmount(
+        grossProfit + otherRevenueTotal - otherCostTotal,
+        2,
+      );
+
       return {
-        incomeTotal: Math.abs(totalIncome),
-        expenseTotal: Math.abs(totalExpense),
+        incomeTotal,
+        expenseTotal,
+        grossProfit,
+        otherRevenueTotal,
+        otherCostTotal,
+        retained: netProfit,
         data,
         CompanyMasterSid,
         BranchMasterSid: branchId,
@@ -3627,6 +3719,21 @@ export class AccountsReportsService {
         );
       };
 
+      const calculateProfitMetrics = (totalSales: number, totalCost: number) => {
+        let profit = 0;
+        let profitPercent = 0;
+
+        if (totalSales > totalCost) {
+          profit = totalSales - totalCost;
+          profitPercent = totalSales !== 0 ? (profit / totalSales) * 100 : 0;
+        } else {
+          profit = -(totalCost - totalSales);
+          profitPercent = totalCost !== 0 ? (profit / totalCost) * 100 : 0;
+        }
+
+        return { profit, profitPercent };
+      };
+
       /* ===================== FINAL DATA ===================== */
 
       const data = await Promise.all(
@@ -3675,6 +3782,8 @@ export class AccountsReportsService {
               const houseActuals = await getActualsFromCharges(houseCR);
               const haSale = houseActuals.aSale;
               const haCost = houseActuals.aCost;
+              const housePlannedProfit = calculateProfitMetrics(hpSale, hpCost);
+              const houseActualProfit = calculateProfitMetrics(haSale, haCost);
 
               return {
                 HouseJobSid: hj.HouseJobSid,
@@ -3710,15 +3819,20 @@ export class AccountsReportsService {
                   houseCrSummary: {
                     pSale: hpSale,
                     pCost: hpCost,
-                    pGp: hpSale - hpCost,
+                    pGp: housePlannedProfit.profit,
+                    pGpPercent: housePlannedProfit.profitPercent,
                     aSale: haSale,
                     aCost: haCost,
-                    aGp: haSale - haCost,
+                    aGp: houseActualProfit.profit,
+                    aGpPercent: houseActualProfit.profitPercent,
                   },
                 },
               };
             }),
           );
+
+          const masterPlannedProfit = calculateProfitMetrics(pSale, pCost);
+          const masterActualProfit = calculateProfitMetrics(aSale, aCost);
 
           return {
             JobNo: mj.MasterJobNumber,
@@ -3765,10 +3879,12 @@ export class AccountsReportsService {
               masterCrSummary: {
                 pSale,
                 pCost,
-                pGp: pSale - pCost,
+                pGp: masterPlannedProfit.profit,
+                pGpPercent: masterPlannedProfit.profitPercent,
                 aSale,
                 aCost,
-                aGp: aSale - aCost,
+                aGp: masterActualProfit.profit,
+                aGpPercent: masterActualProfit.profitPercent,
               },
             },
             houseWithCR,
@@ -4266,6 +4382,455 @@ export class AccountsReportsService {
       );
       throw error;
     }
+  }
+
+  private getVatSummaryDefaultOutputRows() {
+    return [
+      { code: '1a', description: 'Standard rated supplies in Abu Dhabi', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1b', description: 'Standard rated supplies in Dubai', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1c', description: 'Standard rated supplies in Sharjah', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1d', description: 'Standard rated supplies in Ajman', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1e', description: 'Standard rated supplies in Umm Al Quwain', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1f', description: 'Standard rated supplies in Ras Al Khaimah', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '1g', description: 'Standard rated supplies in Fujairah', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '2', description: 'Tax refunds provided to tourists under the Tax Refunds for Tourists Scheme', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '3', description: 'Supplies subject to the reverse charge provisions', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '4', description: 'Zero rated supplies', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '5', description: 'Exempt supplies', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '6', description: 'Goods imported into the UAE', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '7', description: 'Adjustments to goods imported into the UAE', amount: 0, vatAmount: 0, adjustment: 0 },
+    ];
+  }
+
+  private getVatSummaryDefaultInputRows() {
+    return [
+      { code: '9', description: 'Standard rated expenses', amount: 0, vatAmount: 0, adjustment: 0 },
+      { code: '10', description: 'Supplies subject to the reverse charge provisions', amount: 0, vatAmount: 0, adjustment: 0 },
+    ];
+  }
+
+  private addVatSummaryAmount(
+    row: { amount: number; vatAmount: number; adjustment: number } | undefined,
+    taxableAmount: number,
+    vatAmount: number,
+  ) {
+    if (!row) {
+      return;
+    }
+
+    row.amount += taxableAmount;
+    row.vatAmount += vatAmount;
+  }
+
+  private normaliseVatText(value: any): string {
+    return String(value ?? '').trim().toUpperCase();
+  }
+
+  private isReverseChargeVat(header: any, detail?: any): boolean {
+    const values = [
+      header?.GSTType,
+      header?.InvoiceType,
+      header?.TaxType,
+      detail?.InvoiceType,
+    ]
+      .map((value) => this.normaliseVatText(value))
+      .join(' ');
+
+    return values.includes('RCM') || values.includes('REVERSE');
+  }
+
+  private getVatSummaryOutputCode(header: any, detail?: any): string | null {
+    const values = [
+      header?.InvoiceType,
+      header?.GSTType,
+      header?.TaxType,
+      detail?.InvoiceType,
+    ]
+      .map((value) => this.normaliseVatText(value))
+      .join(' ');
+
+    if (values.includes('OOS') || values.includes('OUT OF SCOPE')) {
+      return null;
+    }
+
+    if (this.isReverseChargeVat(header, detail)) {
+      return '3';
+    }
+
+    if (
+      values.includes('EXEMPT') ||
+      values.includes('EXE')
+    ) {
+      return '5';
+    }
+
+    if (
+      values.includes('ZERO') ||
+      values.includes('EXPORT') ||
+      values.includes('NONGST') ||
+      values.includes('NON GST')
+    ) {
+      return '4';
+    }
+
+    return this.getVatSummaryEmirateCode(
+      header?.PlaceOfSupply ||
+        header?.State ||
+        header?.customerBranch?.stateMaster?.stateName,
+    );
+  }
+
+  private getVatSummaryEmirateCode(value: any): string {
+    const emirate = String(value ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z]/g, '');
+
+    if (emirate.includes('abudhabi')) return '1a';
+    if (emirate.includes('dubai')) return '1b';
+    if (emirate.includes('sharjah')) return '1c';
+    if (emirate.includes('ajman')) return '1d';
+    if (emirate.includes('ummalquwain') || emirate.includes('ummalqaiwain')) return '1e';
+    if (emirate.includes('rasalkhaimah')) return '1f';
+    if (emirate.includes('fujairah')) return '1g';
+
+    return '1b';
+  }
+
+  private getVatSummaryTaxSign(documentTypeCode: any, taxType: any, drCr: any): number {
+    const code = this.normaliseVatText(documentTypeCode);
+    const ledgerTaxType = this.normaliseVatText(taxType);
+    const debitCredit = this.normaliseVatText(drCr);
+
+    if (code === DOC_TYPE_CODE.CREDIT_NOTE || code === DOC_TYPE_CODE.VENDOR_CREDIT_NOTE) {
+      return -1;
+    }
+
+    if (code === DOC_TYPE_CODE.JOURNAL_VOUCHER || code === DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER) {
+      if (ledgerTaxType === 'OUTPUT') {
+        return debitCredit === 'D' ? -1 : 1;
+      }
+
+      if (ledgerTaxType === 'INPUT') {
+        return debitCredit === 'C' ? -1 : 1;
+      }
+    }
+
+    return 1;
+  }
+
+  private async generateVatSummaryReport(params: any) {
+    const {
+      companyId: CompanyMasterSid,
+      VoucherFromDate,
+      VoucherToDate,
+      FromDate,
+      ToDate,
+    } = params;
+
+    const fromDate = VoucherFromDate || FromDate;
+    const toDate = VoucherToDate || ToDate;
+
+    if (!CompanyMasterSid) {
+      throw new BadRequestException('companyId is required');
+    }
+
+    if (!fromDate || !toDate) {
+      throw new BadRequestException('VoucherFromDate and VoucherToDate are required');
+    }
+
+    const selectedBranches = [
+      ...(Array.isArray(params.Branch) ? params.Branch : params.Branch ? [params.Branch] : []),
+      ...(Array.isArray(params.BranchMasterSid)
+        ? params.BranchMasterSid
+        : params.BranchMasterSid
+          ? [params.BranchMasterSid]
+          : []),
+      ...(params.branchId ? [params.branchId] : []),
+    ]
+      .map((branch) => Number(branch))
+      .filter((branch) => Number.isFinite(branch) && branch > 0);
+
+    const branches = await this._db.branchMaster.findMany({
+      where: {
+        CompanyMasterSid,
+        status: 'A',
+        ...(selectedBranches.length
+          ? { BranchMasterSid: { in: selectedBranches } }
+          : {}),
+      },
+      select: {
+        BranchMasterSid: true,
+        branchName: true,
+        taxRegistrationNo: true,
+        addressLine1: true,
+        addressLine2: true,
+        postalCode: true,
+        email: true,
+        phoneNumber: true,
+        cityMaster: { select: { cityName: true } },
+        stateMaster: { select: { stateName: true } },
+        countryMaster: { select: { countryName: true } },
+      },
+    });
+
+    const branchIds = branches.map((branch) => branch.BranchMasterSid);
+
+    if (!branchIds.length) {
+      throw new BadRequestException('No active branch found for VAT Summary Report');
+    }
+
+    const company = await this._db.companyMaster.findFirst({
+      where: {
+        CompanyMasterSid,
+        status: 'A',
+      },
+      select: {
+        companyName: true,
+        addressLine1: true,
+        addressLine2: true,
+        postal_code: true,
+        email: true,
+        phoneNumber: true,
+        Pan: true,
+        cityMaster: { select: { cityName: true } },
+        stateMaster: { select: { stateName: true } },
+        countryMaster: { select: { countryName: true } },
+      },
+    });
+
+    const outputRows = this.getVatSummaryDefaultOutputRows();
+    const inputRows = this.getVatSummaryDefaultInputRows();
+    const outputRowMap = new Map(outputRows.map((row) => [row.code, row]));
+    const inputRowMap = new Map(inputRows.map((row) => [row.code, row]));
+
+    const voucherHeaderWhere = {
+      CompanyMasterSid,
+      BranchMasterSid: { in: branchIds },
+      VoucherDate: {
+        gte: new Date(fromDate),
+        lte: new Date(toDate),
+      },
+      Status: 'A',
+      PostStatus: 'P',
+      voucherTypeMaster: {
+        DocumentTypeCode: {
+          in: [
+            DOC_TYPE_CODE.INVOICE,
+            DOC_TYPE_CODE.VENDOR_INVOICE,
+            DOC_TYPE_CODE.CREDIT_NOTE,
+            DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+            DOC_TYPE_CODE.JOURNAL_VOUCHER,
+            DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER,
+          ],
+        },
+      },
+    };
+
+    const taxDetails = await this._db.voucherDetail.findMany({
+      where: {
+        Status: 'A',
+        CompanyMasterSid,
+        BranchMasterSid: { in: branchIds },
+        subledgerMaster: {
+          SubledgerType: 'Tax',
+        },
+        VoucherHeader: voucherHeaderWhere,
+      },
+      select: {
+        DrCr: true,
+        TaxableAmount: true,
+        LocalAmount: true,
+        InvoiceType: true,
+        subledgerMaster: {
+          select: {
+            TaxType: true,
+            SubledgerName: true,
+          },
+        },
+        VoucherHeader: {
+          select: {
+            GSTType: true,
+            InvoiceType: true,
+            TaxType: true,
+            PlaceOfSupply: true,
+            State: true,
+            voucherTypeMaster: {
+              select: {
+                DocumentTypeCode: true,
+              },
+            },
+            customerBranch: {
+              select: {
+                stateMaster: { select: { stateName: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for (const detail of taxDetails) {
+      const header = detail.VoucherHeader;
+      const documentTypeCode = header?.voucherTypeMaster?.DocumentTypeCode;
+      const taxType = detail.subledgerMaster?.TaxType;
+      const sign = this.getVatSummaryTaxSign(documentTypeCode, taxType, detail.DrCr);
+      const taxableAmount = roundAmount(toNumber(detail.TaxableAmount) * sign, 2);
+      const vatAmount = roundAmount(toNumber(detail.LocalAmount) * sign, 2);
+
+      if (this.normaliseVatText(taxType) === 'INPUT') {
+        const inputCode = this.isReverseChargeVat(header, detail) ? '10' : '9';
+        this.addVatSummaryAmount(inputRowMap.get(inputCode), taxableAmount, vatAmount);
+        continue;
+      }
+
+      if (this.normaliseVatText(taxType) === 'OUTPUT') {
+        const outputCode = this.getVatSummaryOutputCode(header, detail);
+        if (outputCode && outputRowMap.has(outputCode)) {
+          this.addVatSummaryAmount(outputRowMap.get(outputCode), taxableAmount, vatAmount);
+        }
+      }
+    }
+
+    const nonTaxOutputDetails = await this._db.voucherDetail.findMany({
+      where: {
+        Status: 'A',
+        CompanyMasterSid,
+        BranchMasterSid: { in: branchIds },
+        VoucherHeader: {
+          ...voucherHeaderWhere,
+          voucherTypeMaster: {
+            DocumentTypeCode: {
+              in: [DOC_TYPE_CODE.INVOICE, DOC_TYPE_CODE.CREDIT_NOTE],
+            },
+          },
+        },
+      },
+      select: {
+        DrCr: true,
+        TaxableAmount: true,
+        Amount: true,
+        LocalAmount: true,
+        TaxAmount1: true,
+        TaxAmount2: true,
+        InvoiceType: true,
+        subledgerMaster: {
+          select: {
+            SubledgerType: true,
+          },
+        },
+        VoucherHeader: {
+          select: {
+            GSTType: true,
+            InvoiceType: true,
+            TaxType: true,
+            PlaceOfSupply: true,
+            State: true,
+            voucherTypeMaster: {
+              select: {
+                DocumentTypeCode: true,
+              },
+            },
+            customerBranch: {
+              select: {
+                stateMaster: { select: { stateName: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    for (const detail of nonTaxOutputDetails) {
+      if (this.normaliseVatText(detail.subledgerMaster?.SubledgerType) === 'TAX') {
+        continue;
+      }
+
+      const outputCode = this.getVatSummaryOutputCode(detail.VoucherHeader, detail);
+      if (outputCode !== '4' && outputCode !== '5') {
+        continue;
+      }
+
+      const sign = this.getVatSummaryTaxSign(
+        detail.VoucherHeader?.voucherTypeMaster?.DocumentTypeCode,
+        'Output',
+        detail.DrCr,
+      );
+      const taxableAmount = roundAmount(toNumber(detail.TaxableAmount || detail.LocalAmount || detail.Amount) * sign, 2);
+      const vatAmount = roundAmount((toNumber(detail.TaxAmount1) + toNumber(detail.TaxAmount2)) * sign, 2);
+      this.addVatSummaryAmount(outputRowMap.get(outputCode), taxableAmount, vatAmount);
+    }
+
+    for (const row of [...outputRows, ...inputRows]) {
+      row.amount = roundAmount(row.amount, 2);
+      row.vatAmount = roundAmount(row.vatAmount, 2);
+      row.adjustment = roundAmount(row.adjustment, 2);
+    }
+
+    const outputTotal = {
+      amount: roundAmount(outputRows.reduce((sum, row) => sum + row.amount, 0), 2),
+      vatAmount: roundAmount(outputRows.reduce((sum, row) => sum + row.vatAmount, 0), 2),
+      adjustment: roundAmount(outputRows.reduce((sum, row) => sum + row.adjustment, 0), 2),
+    };
+
+    const inputTotal = {
+      amount: roundAmount(inputRows.reduce((sum, row) => sum + row.amount, 0), 2),
+      vatAmount: roundAmount(inputRows.reduce((sum, row) => sum + row.vatAmount, 0), 2),
+      adjustment: roundAmount(inputRows.reduce((sum, row) => sum + row.adjustment, 0), 2),
+    };
+
+    const primaryBranch = branches[0];
+    const branchNames = branches.map((branch) => branch.branchName).join(', ');
+    const addressParts = [
+      primaryBranch?.addressLine1 || company?.addressLine1,
+      primaryBranch?.addressLine2 || company?.addressLine2,
+      primaryBranch?.cityMaster?.cityName || company?.cityMaster?.cityName,
+      primaryBranch?.stateMaster?.stateName || company?.stateMaster?.stateName,
+      primaryBranch?.countryMaster?.countryName || company?.countryMaster?.countryName,
+      primaryBranch?.postalCode || company?.postal_code,
+    ].filter(Boolean);
+
+    return {
+      params,
+      company: {
+        companyName: company?.companyName || '',
+        nameEnglish: company?.companyName || '',
+        nameArabic: '',
+        trn: primaryBranch?.taxRegistrationNo || company?.Pan || '',
+        address: addressParts.join(', '),
+        email: primaryBranch?.email || company?.email || '',
+        phoneNumber: primaryBranch?.phoneNumber || company?.phoneNumber || '',
+      },
+      branch: {
+        branchIds,
+        branchNames,
+      },
+      period: {
+        fromDate,
+        toDate,
+        taxYearEnd: params.TaxYearEnd || '',
+        dueDate: params.VatReturnDueDate || '',
+        referenceNumber: params.VatReturnReferenceNumber || '',
+      },
+      outputRows,
+      inputRows,
+      summary: {
+        outputTotal,
+        inputTotal,
+        totalDueTax: outputTotal.vatAmount,
+        totalRecoverableTax: inputTotal.vatAmount,
+        netVatDue: roundAmount(outputTotal.vatAmount - inputTotal.vatAmount, 2),
+        refundRequested: '',
+      },
+      additionalReporting: {
+        profitMarginScheme: 'No',
+      },
+      declaration: {
+        nameEnglish: '',
+        designation: '',
+        authorizedSignatory: '',
+      },
+    };
   }
 
   private async vat201(param: any) {
@@ -6982,21 +7547,17 @@ export class AccountsReportsService {
         }
       }
 
-      // Validate and sanitize the query
+      // Validate the query
       this.validateQuery(parameter.ParameterQuery);
 
-      // Substitute context variables in the query
-      let query = parameter.ParameterQuery;
-
-      // Standard substitutions
-      if (context.companyId) {
-        query = query.replace(/\{companyId\}/g, context.companyId.toString());
+      // Build a parameterized Prisma SQL query from {placeholders}
+      const contextValues: Record<string, any> = {};
+      if (context.companyId !== undefined && context.companyId !== null) {
+        contextValues.companyId = context.companyId;
       }
-      if (context.branchId) {
-        query = query.replace(/\{branchId\}/g, context.branchId.toString());
+      if (context.branchId !== undefined && context.branchId !== null) {
+        contextValues.branchId = context.branchId;
       }
-
-      // Dynamic parent parameter substitutions (e.g., {Ledger}, {Subledger})
       for (const [key, value] of Object.entries(context)) {
         if (
           key !== 'companyId' &&
@@ -7004,40 +7565,67 @@ export class AccountsReportsService {
           value !== undefined &&
           value !== null
         ) {
-          const placeholder = new RegExp(`\\{${key}\\}`, 'g');
-          query = query.replace(placeholder, this.sanitizeValue(value));
+          contextValues[key] = value;
         }
       }
 
+      const buildParameterizedSql = (
+        template: string,
+        valuesMap: Record<string, any>,
+      ): Prisma.Sql => {
+        const tokenRegex = /\{([^}]+)\}/g;
+        let lastIndex = 0;
+        let match: RegExpExecArray | null;
+        let sql = Prisma.sql``;
+
+        while ((match = tokenRegex.exec(template)) !== null) {
+          const rawChunk = template.slice(lastIndex, match.index);
+          if (rawChunk) {
+            sql = Prisma.sql`${sql}${Prisma.raw(rawChunk)}`;
+          }
+
+          const key = match[1];
+          if (!(key in valuesMap)) {
+            sql = Prisma.sql`${sql}${Prisma.raw(match[0])}`;
+          } else {
+            const value = valuesMap[key];
+            if (Array.isArray(value)) {
+              sql =
+                value.length > 0
+                  ? Prisma.sql`${sql}${Prisma.join(value)}`
+                  : Prisma.sql`${sql}NULL`;
+            } else {
+              sql = Prisma.sql`${sql}${value}`;
+            }
+          }
+
+          lastIndex = tokenRegex.lastIndex;
+        }
+
+        const tailChunk = template.slice(lastIndex);
+        if (tailChunk) {
+          sql = Prisma.sql`${sql}${Prisma.raw(tailChunk)}`;
+        }
+
+        return sql;
+      };
+
+      const sqlQuery = buildParameterizedSql(
+        parameter.ParameterQuery,
+        contextValues,
+      );
+
       // Execute the query
-      this.logger.log(`Executing parameter query: ${query}`);
-      const results =
-        await this._db.$queryRawUnsafe<Array<{ value: any; label: string }>>(
-          query,
-        );
+      this.logger.log(`Executing parameter query for parameterId: ${parameterId}`);
+      const results = await this._db.$queryRaw<Array<{ value: any; label: string }>>(
+        sqlQuery,
+      );
 
       return results;
     } catch (error) {
       this.logger.error(`executeParameterQueryError: ${error}`);
       throw error;
     }
-  }
-
-  /**
-   * Sanitize value for SQL query substitution to prevent SQL injection
-   */
-  private sanitizeValue(value: any): string {
-    if (typeof value === 'number') {
-      return value.toString();
-    }
-    if (typeof value === 'string') {
-      // Escape single quotes to prevent SQL injection
-      return value.replace(/'/g, "''");
-    }
-    if (Array.isArray(value)) {
-      return value.map((v) => this.sanitizeValue(v)).join(',');
-    }
-    return String(value);
   }
 
   /**

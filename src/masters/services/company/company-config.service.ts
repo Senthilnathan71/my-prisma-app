@@ -1,45 +1,157 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { DatabaseService } from 'src/database/database.service';
 import { CompanyConfiguration, Prisma } from '@prisma/client';
+import { DatabaseService } from 'src/database/database.service';
+
+type ConfigType = 'string' | 'number' | 'boolean' | 'email-array';
 
 @Injectable()
 export class CompanyConfigService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
+    private normalizeCompanyIds(payload: any): number[] {
+        const rawIds =
+            payload?.CompanyMasterSids ??
+            payload?.companyMasterSids ??
+            payload?.CompanyMasterSid ??
+            payload?.companyMasterSid ??
+            payload?.companyIds ??
+            payload?.companyId;
+
+        const ids = Array.isArray(rawIds) ? rawIds : rawIds !== undefined && rawIds !== null ? [rawIds] : [];
+        const normalized = ids
+            .map((id: any) => Number(id))
+            .filter((id: number) => Number.isInteger(id) && id > 0);
+
+        return Array.from(new Set(normalized));
+    }
+
+    private normalizeConfigType(type: any): ConfigType {
+        const normalized = String(type || 'string').toLowerCase();
+        return ['string', 'number', 'boolean', 'email-array'].includes(normalized)
+            ? (normalized as ConfigType)
+            : 'string';
+    }
+
+    private resolveDisplayName(configurationName: string, displayName?: string | null): string {
+        const trimmed = String(displayName || '').trim();
+        if (trimmed) return trimmed;
+
+        return String(configurationName || '')
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/^./, str => str.toUpperCase())
+            .trim();
+    }
+
+    private unwrapConfigurationValue(value: any): any {
+        if (value && typeof value === 'object' && !Array.isArray(value) && 'value' in value) {
+            return value.value;
+        }
+        return value;
+    }
+
+    private serializeConfigurationValue(value: any, configType: ConfigType): string {
+        const rawValue = this.unwrapConfigurationValue(value);
+
+        switch (configType) {
+            case 'boolean':
+                if (rawValue === true || rawValue === 1) return 'Y';
+                if (rawValue === false || rawValue === 0 || rawValue === null || rawValue === undefined) return 'N';
+                return ['Y', 'YES', 'TRUE'].includes(String(rawValue).trim().toUpperCase()) ? 'Y' : 'N';
+            case 'number':
+                if (rawValue === null || rawValue === undefined || rawValue === '') return '';
+                return Number(rawValue).toString();
+            case 'email-array':
+                if (Array.isArray(rawValue)) {
+                    return rawValue.map(item => String(item).trim()).filter(Boolean).join(', ');
+                }
+                return String(rawValue || '')
+                    .split(',')
+                    .map(item => item.trim())
+                    .filter(Boolean)
+                    .join(', ');
+            default:
+                return rawValue === null || rawValue === undefined ? '' : String(rawValue);
+        }
+    }
+
+    private async findDuplicateCompanies(companyIds: number[], configurationName: string, tx: any = this._db) {
+        const prisma: any = tx;
+        return prisma.companyConfiguration.findMany({
+            where: {
+                CompanyMasterSid: { in: companyIds },
+                ConfigurationName: configurationName,
+                Status: 'A'
+            },
+            select: {
+                CompanyMasterSid: true,
+                CompanyMaster: {
+                    select: {
+                        companyName: true,
+                        companyCode: true
+                    }
+                }
+            }
+        });
+    }
+
+    private async createConfigurationRows(companyIds: number[], payload: any, user: any, tx: Prisma.TransactionClient) {
+        const configType = this.normalizeConfigType(payload.ConfigType ?? payload.ConfigurationType);
+        const configurationName = String(payload.ConfigurationName || '').trim();
+        const displayName = this.resolveDisplayName(configurationName, payload.DisplayName);
+        const configurationValue = this.serializeConfigurationValue(
+            payload.ConfigurationValue,
+            configType
+        );
+
+        const createdConfigs: CompanyConfiguration[] = [];
+
+        for (const companyId of companyIds) {
+            const createdConfig = await tx.companyConfiguration.create({
+                data: {
+                    CompanyMasterSid: companyId,
+                    ConfigurationName: configurationName,
+                    DisplayName: displayName,
+                    ConfigType: configType,
+                    ConfigurationValue: configurationValue,
+                    CreatedBy: user.userEmail,
+                    UpdatedBy: user.userEmail,
+                    Status: 'A'
+                }
+            });
+            createdConfigs.push(createdConfig);
+        }
+
+        return createdConfigs;
+    }
+
     async createCompanyConfig(newData: any, user: any) {
         try {
-            // Validate required fields
-            if (!newData.CompanyMasterSid) {
+            const companyIds = this.normalizeCompanyIds(newData);
+            const configurationName = String(newData.ConfigurationName || '').trim();
+
+            if (!companyIds.length) {
                 throw new BadRequestException('CompanyMasterSid is required');
             }
-            if (!newData.ConfigurationName) {
+            if (!configurationName) {
                 throw new BadRequestException('ConfigurationName is required');
             }
 
-            // Check if configuration already exists for this company
-            const existingConfig = await this._db.companyConfiguration.findFirst({
-                where: {
-                    CompanyMasterSid: newData.CompanyMasterSid,
-                    ConfigurationName: newData.ConfigurationName,
-                    Status: 'A'
-                }
-            });
-
-            if (existingConfig) {
-                throw new BadRequestException(`Configuration '${newData.ConfigurationName}' already exists for this company`);
+            const duplicateConfigs = await this.findDuplicateCompanies(companyIds, configurationName);
+            if (duplicateConfigs.length) {
+                const duplicateCompanyNames = duplicateConfigs
+                    .map((item: any) => item.CompanyMaster?.companyName || item.CompanyMasterSid)
+                    .join(', ');
+                throw new BadRequestException(
+                    `Configuration '${configurationName}' already exists for: ${duplicateCompanyNames}`
+                );
             }
 
-            const createdConfig = await this._db.companyConfiguration.create({
-                data: {
-                    CompanyMasterSid: newData.CompanyMasterSid,
-                    ConfigurationName: newData.ConfigurationName,
-                    ConfigurationValue: newData.ConfigurationValue || '',
-                    CreatedBy: user.userEmail,
-                    Status: 'A'
-                }
+            const result = await this._db.$transaction(async (tx) => {
+                const createdConfigs = await this.createConfigurationRows(companyIds, { ...newData, ConfigurationName: configurationName }, user, tx);
+                return createdConfigs.length === 1 ? createdConfigs[0] : createdConfigs;
             });
 
-            return createdConfig;
+            return result;
         } catch (error) {
             throw error;
         }
@@ -47,54 +159,58 @@ export class CompanyConfigService {
 
     async createBulkCompanyConfigs(companyConfigs: any[], user: any) {
         try {
-            const result = await this._db.$transaction(async (prisma) => {
-                // Explicitly type the array
+            if (!Array.isArray(companyConfigs)) {
+                throw new BadRequestException('Configurations array is required');
+            }
+
+            const normalizedItems = companyConfigs.flatMap((configData) => {
+                const companyIds = this.normalizeCompanyIds(configData);
+                if (!companyIds.length) {
+                    return [];
+                }
+                return companyIds.map(companyId => ({
+                    ...configData,
+                    CompanyMasterSid: companyId,
+                    CompanyMasterSids: [companyId]
+                }));
+            });
+
+            if (!normalizedItems.length) {
+                throw new BadRequestException('CompanyMasterSid is required for all configurations');
+            }
+
+            const result = await this._db.$transaction(async (tx) => {
                 const createdConfigs: CompanyConfiguration[] = [];
 
-                for (const configData of companyConfigs) {
-                    // Validate required fields
-                    if (!configData.CompanyMasterSid) {
-                        throw new BadRequestException('CompanyMasterSid is required for all configurations');
-                    }
-                    if (!configData.ConfigurationName) {
+                for (const configData of normalizedItems) {
+                    const configurationName = String(configData.ConfigurationName || '').trim();
+
+                    if (!configurationName) {
                         throw new BadRequestException('ConfigurationName is required for all configurations');
                     }
 
-                    // Check if configuration already exists
-                    const existingConfig = await prisma.companyConfiguration.findFirst({
-                        where: {
-                            CompanyMasterSid: configData.CompanyMasterSid,
-                            ConfigurationName: configData.ConfigurationName,
-                            Status: 'A'
-                        }
-                    });
+                    const duplicateConfigs = await this.findDuplicateCompanies(
+                        [Number(configData.CompanyMasterSid)],
+                        configurationName,
+                        tx
+                    );
 
-                    if (existingConfig) {
-                        // Update existing configuration
-                        const updatedConfig = await prisma.companyConfiguration.update({
-                            where: {
-                                CompanyConfigurationSid: existingConfig.CompanyConfigurationSid
-                            },
-                            data: {
-                                ConfigurationValue: configData.ConfigurationValue || '',
-                                UpdatedBy: user.userEmail,
-                                UpdatedOn: new Date()
-                            }
-                        });
-                        createdConfigs.push(updatedConfig);
-                    } else {
-                        // Create new configuration
-                        const createdConfig = await prisma.companyConfiguration.create({
-                            data: {
-                                CompanyMasterSid: configData.CompanyMasterSid,
-                                ConfigurationName: configData.ConfigurationName,
-                                ConfigurationValue: configData.ConfigurationValue || '',
-                                CreatedBy: user.userEmail,
-                                Status: 'A'
-                            }
-                        });
-                        createdConfigs.push(createdConfig);
+                    if (duplicateConfigs.length) {
+                        const duplicateCompanyNames = duplicateConfigs
+                            .map((item: any) => item.CompanyMaster?.companyName || item.CompanyMasterSid)
+                            .join(', ');
+                        throw new BadRequestException(
+                            `Configuration '${configurationName}' already exists for: ${duplicateCompanyNames}`
+                        );
                     }
+
+                    const createdConfig = await this.createConfigurationRows(
+                        [Number(configData.CompanyMasterSid)],
+                        { ...configData, ConfigurationName: configurationName },
+                        user,
+                        tx
+                    );
+                    createdConfigs.push(...createdConfig);
                 }
 
                 return createdConfigs;
@@ -126,11 +242,7 @@ export class CompanyConfigService {
                 }
             });
 
-            if (!configs || configs.length === 0) {
-                throw new BadRequestException(`No configurations found for company with id: ${CompanyMasterSid}`);
-            }
-
-            return configs;
+            return configs || [];
         } catch (error) {
             throw error;
         }
@@ -174,12 +286,12 @@ export class CompanyConfigService {
                 throw new BadRequestException(`Company Configuration with id: ${CompanyConfigurationSid} not found`);
             }
 
-            // If ConfigurationName is being updated, check for duplicates
-            if (updateData.ConfigurationName && updateData.ConfigurationName !== existing.ConfigurationName) {
+            const nextName = String((updateData.ConfigurationName ?? existing.ConfigurationName) || '').trim();
+            if (nextName && nextName !== existing.ConfigurationName) {
                 const duplicateConfig = await this._db.companyConfiguration.findFirst({
                     where: {
                         CompanyMasterSid: existing.CompanyMasterSid,
-                        ConfigurationName: updateData.ConfigurationName,
+                        ConfigurationName: nextName,
                         Status: 'A',
                         CompanyConfigurationSid: {
                             not: CompanyConfigurationSid
@@ -188,16 +300,23 @@ export class CompanyConfigService {
                 });
 
                 if (duplicateConfig) {
-                    throw new BadRequestException(`Configuration '${updateData.ConfigurationName}' already exists for this company`);
+                    throw new BadRequestException(`Configuration '${nextName}' already exists for this company`);
                 }
             }
 
+            const configType = this.normalizeConfigType(updateData.ConfigType ?? updateData.ConfigurationType ?? existing.ConfigType);
             const updatedConfig = await this._db.companyConfiguration.update({
                 where: {
                     CompanyConfigurationSid: CompanyConfigurationSid
                 },
                 data: {
-                    ...updateData,
+                    ConfigurationName: nextName || existing.ConfigurationName,
+                    DisplayName: this.resolveDisplayName(nextName || existing.ConfigurationName, updateData.DisplayName ?? existing.DisplayName),
+                    ConfigType: configType,
+                    ConfigurationValue: this.serializeConfigurationValue(
+                        updateData.ConfigurationValue ?? existing.ConfigurationValue,
+                        configType
+                    ),
                     UpdatedBy: user.userEmail,
                     UpdatedOn: new Date()
                 }
@@ -254,37 +373,74 @@ export class CompanyConfigService {
             }
 
             const result = await this._db.$transaction(async (prisma) => {
-                // Explicitly type the array
                 const results: CompanyConfiguration[] = [];
 
                 for (const config of configurations) {
+                    const configType = this.normalizeConfigType(config.ConfigType ?? config.ConfigurationType);
+
                     let operationResult: CompanyConfiguration;
 
                     if (config.CompanyConfigurationSid) {
-                        // Update existing configuration
+                        const existing = await prisma.companyConfiguration.findUnique({
+                            where: {
+                                CompanyConfigurationSid: Number(config.CompanyConfigurationSid)
+                            }
+                        });
+
+                        if (!existing) {
+                            throw new BadRequestException(
+                                `Company Configuration with id: ${config.CompanyConfigurationSid} not found`
+                            );
+                        }
+
                         operationResult = await prisma.companyConfiguration.update({
                             where: {
-                                CompanyConfigurationSid: config.CompanyConfigurationSid
+                                CompanyConfigurationSid: Number(config.CompanyConfigurationSid)
                             },
                             data: {
-                                ConfigurationName: config.ConfigurationName,
-                                ConfigurationValue: config.ConfigurationValue || '',
+                                ConfigurationName: config.ConfigurationName ?? existing.ConfigurationName,
+                                DisplayName: this.resolveDisplayName(
+                                    config.ConfigurationName ?? existing.ConfigurationName,
+                                    config.DisplayName ?? existing.DisplayName
+                                ),
+                                ConfigType: configType,
+                                ConfigurationValue: this.serializeConfigurationValue(
+                                    config.ConfigurationValue ?? existing.ConfigurationValue,
+                                    configType
+                                ),
                                 UpdatedBy: user.userEmail,
                                 UpdatedOn: new Date()
                             }
                         });
                     } else {
-                        // Create new configuration
-                        operationResult = await prisma.companyConfiguration.create({
-                            data: {
-                                CompanyMasterSid: CompanyMasterSid,
-                                ConfigurationName: config.ConfigurationName,
-                                ConfigurationValue: config.ConfigurationValue || '',
-                                CreatedBy: user.userEmail,
-                                Status: 'A'
-                            }
-                        });
+                        const companyIds = this.normalizeCompanyIds(config);
+                        const targetCompanyIds = companyIds.length ? companyIds : [Number(CompanyMasterSid)];
+                        const configurationName = String(config.ConfigurationName || '').trim();
+
+                        if (!configurationName) {
+                            throw new BadRequestException('ConfigurationName is required for all configurations');
+                        }
+
+                        const duplicateConfigs = await this.findDuplicateCompanies(targetCompanyIds, configurationName, prisma);
+
+                        if (duplicateConfigs.length) {
+                            const duplicateCompanyNames = duplicateConfigs
+                                .map((item: any) => item.CompanyMaster?.companyName || item.CompanyMasterSid)
+                                .join(', ');
+                            throw new BadRequestException(
+                                `Configuration '${configurationName}' already exists for: ${duplicateCompanyNames}`
+                            );
+                        }
+
+                        const createdConfig = await this.createConfigurationRows(
+                            targetCompanyIds,
+                            { ...config, ConfigurationName: configurationName },
+                            user,
+                            prisma
+                        );
+                        operationResult = createdConfig[0];
                     }
+
                     results.push(operationResult);
                 }
 
@@ -297,14 +453,52 @@ export class CompanyConfigService {
         }
     }
 
-    async getConfigurationValue(CompanyMasterSid: number, ConfigurationName: string,tx?: Prisma.TransactionClient) {
+    async getEligibleCompaniesForConfiguration(ConfigurationName: string) {
+        try {
+            const configurationName = String(ConfigurationName || '').trim();
+            const configuredCompanies = await this._db.companyConfiguration.findMany({
+                where: {
+                    ConfigurationName: configurationName,
+                    Status: 'A'
+                },
+                select: {
+                    CompanyMasterSid: true
+                }
+            });
+
+            const excludedCompanyIds = configuredCompanies.map(item => item.CompanyMasterSid);
+
+            const companies = await this._db.companyMaster.findMany({
+                where: {
+                    status: 'A',
+                    ...(excludedCompanyIds.length
+                        ? { CompanyMasterSid: { notIn: excludedCompanyIds } }
+                        : {})
+                },
+                select: {
+                    CompanyMasterSid: true,
+                    companyName: true,
+                    companyCode: true
+                },
+                orderBy: {
+                    companyName: 'asc'
+                }
+            });
+
+            return companies;
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    async getConfigurationValue(CompanyMasterSid: number, ConfigurationName: string, tx?: Prisma.TransactionClient) {
         try {
             const prisma = tx || this._db;
             const config = await prisma.companyConfiguration.findFirst({
                 where: {
                     CompanyMasterSid: CompanyMasterSid,
                     ConfigurationName: ConfigurationName,
-                    Status : 'A'
+                    Status: 'A'
                 }
             });
 

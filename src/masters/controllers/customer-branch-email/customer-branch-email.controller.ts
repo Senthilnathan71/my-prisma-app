@@ -129,11 +129,11 @@ export class CustomerBranchEmailController {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:CustomerBrEmailSid')
-    async deleteCustomerBrEmailById(@Param('CustomerBrEmailSid', ParseIntPipe) CustomerBrEmailSid: number) {
+    async deleteCustomerBrEmailById(@Param('CustomerBrEmailSid', ParseIntPipe) CustomerBrEmailSid: number,@Body('updatedBy') updatedBy: string) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Deleting Customer Branch Email : ${CustomerBrEmailSid}`);
-            let res = await this.customerBrEmailServ.deleteCustomerBrEmailById(CustomerBrEmailSid);
+            let res = await this.customerBrEmailServ.deleteCustomerBrEmailById(CustomerBrEmailSid,updatedBy);
             this.logger.debug(`Deleted Customer Branch Email : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Customer Branch Email with id : ${CustomerBrEmailSid} is successfully deleted`;

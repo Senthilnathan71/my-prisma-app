@@ -33,7 +33,7 @@ export class ManagementReportsController {
     const resp = new ResponseData();
     try {
       const reports = await this.managementReportsService.getAvailableReports(companyId);
-      this.logger.log(`getAvailableReports for company ${companyId}: ${reports.length} reports found`);
+
       resp.data = reports;
       resp.message = 'Available reports fetched successfully';
     } catch (error) {
@@ -55,7 +55,7 @@ export class ManagementReportsController {
     const resp = new ResponseData();
     try {
       const parameters = await this.managementReportsService.getReportParameters(reportName);
-      this.logger.log(`getReportParameters for ${reportName}`);
+
       resp.data = parameters;
       resp.message = 'Report parameters fetched successfully';
     } catch (error) {
@@ -76,9 +76,9 @@ export class ManagementReportsController {
   async generateReport(@Param('reportName') reportName: string, @Body() parameters: any) {
     const resp = new ResponseData();
     try {
-      this.logger.log(`generateReport: ${reportName} with parameters: ${JSON.stringify(parameters)}`);
+
       const reportData = await this.managementReportsService.generateReport(reportName, parameters);
-      this.logger.debug(`generated reportData: ${JSON.stringify(reportData)}`);
+
       resp.data = reportData;
       resp.message = `${reportName} generated successfully`;
     } catch (error) {
@@ -99,7 +99,7 @@ export class ManagementReportsController {
   async exportReport(@Param('reportName') reportName: string, @Body() exportParams: any) {
     const resp = new ResponseData();
     try {
-      this.logger.log(`exportReport: ${reportName} as ${exportParams.format}`);
+
       const exportData = await this.managementReportsService.exportReport(reportName, exportParams);
       resp.data = exportData;
       resp.message = 'Report exported successfully';
@@ -124,9 +124,7 @@ export class ManagementReportsController {
   ) {
     const resp = new ResponseData();
     try {
-      this.logger.log(
-        `executeParameterQuery for parameter ${parameterId} with context: ${JSON.stringify(context)}`,
-      );
+
       const options = await this.managementReportsService.executeParameterQuery(parameterId, context);
       resp.data = options;
       resp.message = 'Parameter options fetched successfully';
@@ -148,7 +146,7 @@ export class ManagementReportsController {
   async emailReport(@Param('reportName') reportName: string, @Body() emailParams: any) {
     const resp = new ResponseData();
     try {
-      this.logger.log(`emailReport: ${reportName} to ${emailParams.email}`);
+
       await this.managementReportsService.emailReport(reportName, emailParams);
       resp.message = 'Report emailed successfully';
     } catch (error) {
