@@ -73,15 +73,43 @@ export class PublicAccessTokenService implements OnModuleInit {
     return sid;
   }
 
+  isSupportedMenuSid(menuMasterSid: number): boolean {
+    for (const sid of this.menuCodeToSid.values()) {
+      if (sid === menuMasterSid) return true;
+    }
+    return false;
+  }
+
   async issue(params: IssueParams): Promise<IssueResult> {
     const menuMasterSid = this.resolveMenuSid(params.menuCode);
+    return this.issueByMenuSid({
+      menuMasterSid,
+      resourceSid: params.resourceSid,
+      ttlHours: params.ttlHours,
+      sentToEmail: params.sentToEmail,
+      createdBy: params.createdBy,
+    });
+  }
+
+  async issueByMenuSid(params: {
+    menuMasterSid: number;
+    resourceSid: number;
+    ttlHours: number;
+    sentToEmail?: string;
+    createdBy?: string;
+  }): Promise<IssueResult> {
+    if (!this.isSupportedMenuSid(params.menuMasterSid)) {
+      throw new Error(
+        `MenuMasterSid ${params.menuMasterSid} is not registered for public access tokens.`,
+      );
+    }
     const expiresAt = new Date(Date.now() + params.ttlHours * 60 * 60 * 1000);
     const token = crypto.randomBytes(32).toString('base64url');
 
     const row = await this._db.$transaction(async (tx) => {
       await tx.publicAccessToken.updateMany({
         where: {
-          MenuMasterSid: menuMasterSid,
+          MenuMasterSid: params.menuMasterSid,
           ResourceSid: params.resourceSid,
           UsedAt: null,
         },
@@ -94,7 +122,7 @@ export class PublicAccessTokenService implements OnModuleInit {
       return tx.publicAccessToken.create({
         data: {
           Token: token,
-          MenuMasterSid: menuMasterSid,
+          MenuMasterSid: params.menuMasterSid,
           ResourceSid: params.resourceSid,
           ExpiresAt: expiresAt,
           SentToEmail: params.sentToEmail,

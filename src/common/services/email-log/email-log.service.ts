@@ -1,10 +1,19 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { EmailService } from 'src/email/email.service';
+import { PublicAccessTokenService } from 'src/common/public-access-token/public-access-token.service';
+
+const APPROVAL_TOKEN_PLACEHOLDER = '{{APPROVAL_TOKEN}}';
+const PUBLIC_QUOTATION_TOKEN_TTL_HOURS = Number(process.env.PUBLIC_QUOTATION_TOKEN_TTL_HOURS ?? 72);
 
 @Injectable()
 export class EmailLogService {
-    constructor(private _db: DatabaseService, private emailService: EmailService, private logger: Logger) { }
+    constructor(
+        private _db: DatabaseService,
+        private emailService: EmailService,
+        private logger: Logger,
+        private publicAccessTokens: PublicAccessTokenService,
+    ) { }
 
 
     async createEmailLog(payload: any, user) {
@@ -119,7 +128,7 @@ export class EmailLogService {
             let emailData: any = {};
 
             if (payload instanceof FormData) {
-                
+
                 emailData = {
                     CompanyMasterSid: parseInt(payload.get('CompanyMasterSid') as string),
                     BranchMasterSid: parseInt(payload.get('BranchMasterSid') as string),
@@ -129,6 +138,8 @@ export class EmailLogService {
                     Subject: payload.get('Subject') as string,
                     Mailbody: payload.get('Mailbody') as string,
                     CreatedBy: payload.get('CreatedBy') as string,
+                    MenuMasterSid: payload.get('MenuMasterSid') as string,
+                    ResourceSid: payload.get('ResourceSid') as string,
                 };
             } else {
                 // Regular object payload
@@ -141,12 +152,32 @@ export class EmailLogService {
                     Subject: payload.Subject,
                     Mailbody: payload.Mailbody,
                     CreatedBy: payload.CreatedBy,
+                    MenuMasterSid: payload.MenuMasterSid,
+                    ResourceSid: payload.ResourceSid,
                 };
             }
 
-            console.log(emailData);
+            let fullMailBody: string = emailData.Mailbody || '';
 
-            const fullMailBody = emailData.Mailbody || '';
+            if (fullMailBody.includes(APPROVAL_TOKEN_PLACEHOLDER)) {
+                const menuMasterSid = Number(emailData.MenuMasterSid);
+                const resourceSid = Number(emailData.ResourceSid);
+                if (!Number.isFinite(menuMasterSid) || menuMasterSid <= 0
+                    || !Number.isFinite(resourceSid) || resourceSid <= 0) {
+                    throw new BadRequestException(
+                        `Email body contains ${APPROVAL_TOKEN_PLACEHOLDER} but MenuMasterSid/ResourceSid is missing.`,
+                    );
+                }
+                const issued = await this.publicAccessTokens.issueByMenuSid({
+                    menuMasterSid,
+                    resourceSid,
+                    ttlHours: PUBLIC_QUOTATION_TOKEN_TTL_HOURS,
+                    sentToEmail: typeof emailData.EmailTo === 'string' ? emailData.EmailTo : undefined,
+                    createdBy: emailData.CreatedBy,
+                });
+                fullMailBody = fullMailBody.split(APPROVAL_TOKEN_PLACEHOLDER).join(issued.token);
+            }
+
             const logMailBody = this.buildEmailLogBody(fullMailBody);
 
             const emailLog = await this._db.emailLog.create({
