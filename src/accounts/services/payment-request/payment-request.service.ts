@@ -198,8 +198,11 @@ export class PaymentRequestService {
         paymentRequestDetails: {
           orderBy: { PaymentRequestDtlSid: 'asc' },
           include: {
-           
-          
+            agent: true,
+            agentBranch: true,
+            Charge: true,
+            uomMaster: true,
+            currency: true,
           },
         },
       },
@@ -879,6 +882,7 @@ private async generatePaymentRequestNumberFromConfig(
     return new Prisma.Decimal(value);
   }
 }
+
 
 
 
