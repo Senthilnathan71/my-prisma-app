@@ -7,6 +7,13 @@ export const PUBLIC_RESOURCE_MENU_CODES = {
   QUOTATION: 'QUA',
 } as const;
 
+export const PUBLIC_TOKEN_PURPOSES = {
+  FORGOT_PASSWORD: 'FORGOT_PASSWORD',
+} as const;
+
+export type PublicTokenPurpose =
+  (typeof PUBLIC_TOKEN_PURPOSES)[keyof typeof PUBLIC_TOKEN_PURPOSES];
+
 export type PublicResourceMenuCode =
   (typeof PUBLIC_RESOURCE_MENU_CODES)[keyof typeof PUBLIC_RESOURCE_MENU_CODES];
 
@@ -164,5 +171,75 @@ export class PublicAccessTokenService implements OnModuleInit {
       where: { PublicAccessTokenSid: publicAccessTokenSid },
       data: { UsedAt: new Date(), updatedBy },
     });
+  }
+
+  async issueByPurpose(params: {
+    purpose: PublicTokenPurpose;
+    resourceSid: number;
+    ttlMinutes: number;
+    sentToEmail?: string;
+    createdBy?: string;
+  }): Promise<IssueResult> {
+    const expiresAt = new Date(Date.now() + params.ttlMinutes * 60 * 1000);
+    const token = crypto.randomBytes(32).toString('base64url');
+
+    const row = await this._db.$transaction(async (tx) => {
+      await tx.publicAccessToken.updateMany({
+        where: {
+          Purpose: params.purpose,
+          ResourceSid: params.resourceSid,
+          UsedAt: null,
+        },
+        data: {
+          UsedAt: new Date(),
+          updatedBy: params.createdBy ?? 'SYSTEM',
+        },
+      });
+
+      return tx.publicAccessToken.create({
+        data: {
+          Token: token,
+          Purpose: params.purpose,
+          ResourceSid: params.resourceSid,
+          ExpiresAt: expiresAt,
+          SentToEmail: params.sentToEmail,
+          createdBy: params.createdBy,
+        },
+      });
+    });
+
+    return {
+      token,
+      expiresAt,
+      publicAccessTokenSid: row.PublicAccessTokenSid,
+    };
+  }
+
+  async findValidByPurpose(token: string, expectedPurpose: PublicTokenPurpose) {
+    const row = await this._db.publicAccessToken.findUnique({
+      where: { Token: token },
+    });
+    if (!row || row.Purpose !== expectedPurpose) {
+      throw new PublicAccessTokenError('NOT_FOUND');
+    }
+    if (row.UsedAt !== null) {
+      throw new PublicAccessTokenError('ALREADY_USED');
+    }
+    if (row.ExpiresAt.getTime() <= Date.now()) {
+      throw new PublicAccessTokenError('EXPIRED');
+    }
+    return row;
+  }
+
+  async cleanupExpiredTokens(): Promise<number> {
+    const result = await this._db.publicAccessToken.deleteMany({
+      where: {
+        OR: [
+          { ExpiresAt: { lt: new Date() } },
+          { UsedAt: { not: null } },
+        ],
+      },
+    });
+    return result.count;
   }
 }

@@ -8,7 +8,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { EmailModule } from 'src/email/email.module';
 import { SessionCleanupService } from './auth/session-cleanup.service';
+import { TokenCleanupService } from './auth/token-cleanup.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { SchedulerService } from 'src/common/services/scheduler/scheduler.service';
 
 @Module({
   imports: [
@@ -31,9 +33,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       },
       inject: [ConfigService],
     }),
-    EmailModule
+    EmailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, UserService, JwtStrategy, Logger, SessionCleanupService]
+  providers: [AuthService, UserService, JwtStrategy, Logger, SessionCleanupService, TokenCleanupService, SchedulerService]
 })
 export class AuthModule { }
