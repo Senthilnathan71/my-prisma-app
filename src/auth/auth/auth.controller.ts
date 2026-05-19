@@ -1,18 +1,17 @@
 import { UserService } from './../../masters/services/user.service';
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, HttpStatus, InternalServerErrorException, Logger, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, HttpStatus, InternalServerErrorException, Logger, Param, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
 import { ResponseData } from '../../common/response-data';
 import { AuthService } from './auth.service';
-import { checkPassword, encodePassword, getClientIp } from 'src/common/helper';
+import { checkPassword, getClientIp } from 'src/common/helper';
 import { LoginRequest } from '../dto/loginRequest.dto';
 import { ApiBody, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtStrategy } from './jwt.strategy';
 import { JwtService } from '@nestjs/jwt';
 import { UserData } from 'src/common/decorators/user.decorator';
-import { ConfigService } from '@nestjs/config';
-import { EmailService } from 'src/email/email.service';
 import { TokenPayload } from 'src/common/decorators/token-payload.decorator';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { PublicAccessTokenService, PublicAccessTokenError, PUBLIC_TOKEN_PURPOSES } from 'src/common/public-access-token/public-access-token.service';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -26,9 +25,8 @@ export class AuthController {
         private authService: AuthService,
         private readonly jwtService: JwtService,
         private userService: UserService,
-        private emailService: EmailService,
-        private configService: ConfigService,
-        private logger: Logger
+        private logger: Logger,
+        private publicAccessTokenService: PublicAccessTokenService,
     ) { }
 
     private getRateLimitKey(prefix: string, identifier: string, req: any): string {
@@ -218,7 +216,7 @@ export class AuthController {
 
             if (!email) {
                 this.logger.warn(`forgotPassword failed: Email is required`);
-                throw new BadRequestException('Email are required.');
+                throw new BadRequestException('Email is required.');
             }
 
             const user: any = await this.userService.findUserById({ UserEmail: email });
@@ -228,47 +226,14 @@ export class AuthController {
                 output.message = 'If the email is registered, a password reset link will be sent.';
                 return output;
             }
-            const token = this.jwtService.sign(
-                { userId: user.UserMasterSid },
-                { expiresIn: '1h' }
-            )
 
-            // const resetPasswordLink = `${this.configService.get('WEB_URL')}auth/reset-password?token=${token}`
-            const resetPasswordLink = `https://app.dofi.co/auth/reset-password?token=${token}`
-
-            const emailSent = await this.emailService.sendForgotPasswordMail({
-                email: user.userEmail,
-                id: user.UserMasterSid,
-                subject: `Hello ${user.userName}, Reset Your Password for CRM`,
-                html: `
-                    <p>Hello <strong>${user.userName}</strong>,</p>
-                
-                    <p>We received a request to reset the password for your <span style="color: #2e477c;">CRM</span> account. You can reset your password by clicking the link below:</p>
-                
-                    <p><a href="${resetPasswordLink}" style="color: #FD8024;">Reset Password</a></p>
-                
-                    <p>Please note that this link will expire in 1 hour. If you did not request a password reset, please ignore this email or contact our support team.</p>
-                
-                    <br />
-                
-                    <p>Thank you,</p>
-                
-                    <p>The <span style="color: #2e477c;">CRM</span> Team</p>
-                `
-            })
-
-            if (!emailSent) {
-                this.logger.warn(`Failed to send password reset email`);
-                throw 'Failed to send password reset email'
-            }
+            const origin = req.headers['origin'] || req.headers['referer'];
+            const baseUrl = origin ? new URL(origin).origin : null;
+            await this.authService.handleForgotPassword(email, user, baseUrl);
 
             output.status = true;
             output.message = 'If the email is registered, a password reset link will be sent.';
-            output.data = {
-                email: user.email,
-                resetLink: resetPasswordLink
-            };
-            this.logger.log(`forgotPassword: ${output.data}`);
+            this.logger.log(`forgotPassword: reset email sent to ${email}`);
 
         } catch (error) {
             this.logger.warn(`forgotPassword failed: Internal Server Error`);
@@ -280,59 +245,71 @@ export class AuthController {
 
 
 
-    @ApiOperation({ summary: 'Reset user password by id' })
-    @ApiCreatedResponse({
-        description: 'User data',
-        type: ResponseData
-    })
-    @Patch('reset-password')
-    async resetPassword(@Body() passwordData: any, @TokenPayload() tokenPayload, @Req() req: any) {
-        let output = new ResponseData();
-        this.logger.log(`resetPassword: Token payload ${tokenPayload}`)
+    @ApiOperation({ summary: 'Validate a password reset token without consuming it' })
+    @Get('validate-reset-token/:token')
+    async validateResetToken(@Param('token') token: string, @Req() req: any) {
+        const output = new ResponseData();
         try {
             this.enforceRateLimit(
-                this.getRateLimitKey('reset-password', String(tokenPayload?.userId ?? 'no-token'), req),
+                this.getRateLimitKey('validate-reset-token', token.substring(0, 8), req),
+                10,
+                15 * 60 * 1000
+            );
+
+            const tokenRow = await this.publicAccessTokenService.findValidByPurpose(
+                token,
+                PUBLIC_TOKEN_PURPOSES.FORGOT_PASSWORD,
+            );
+
+            output.status = true;
+            output.message = 'Token is valid';
+            output.data = {
+                email: tokenRow.SentToEmail,
+                expiresAt: tokenRow.ExpiresAt,
+            };
+        } catch (error) {
+            output.status = false;
+            if (error instanceof PublicAccessTokenError) {
+                output.message = error.code;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Reset user password using a public access token' })
+    @ApiCreatedResponse({
+        description: 'Password updated successfully',
+        type: ResponseData
+    })
+    @Patch('reset-password/:token')
+    async resetPassword(@Param('token') token: string, @Body() passwordData: any, @Req() req: any) {
+        let output = new ResponseData();
+        try {
+            this.enforceRateLimit(
+                this.getRateLimitKey('reset-password', token.substring(0, 8), req),
                 5,
                 15 * 60 * 1000
             );
 
-            if (!tokenPayload) {
-                this.logger.warn(`resetPassword failed: No token provided - ${tokenPayload}`);
-                throw new UnauthorizedException('No token provided');
-            }
-
-            const user: any = await this.userService.getUserById(tokenPayload.userId);
-
             if (passwordData.confirmPassword !== passwordData.password) {
-                this.logger.warn(`resetPassword failed: Confirm Password does not match - ${passwordData.confirmPassword}`);
-                throw new BadRequestException('Confirm Password does not match')
+                throw new BadRequestException('Confirm Password does not match');
             }
 
-            const newPassword = passwordData.password
-
-            const result = await this.userService.updatePassword(
-                tokenPayload.userId,
-                newPassword
-            )
-
-            this.logger.log(`resetPassword: result ${JSON.stringify(result)}`)
-
-
-            if (result instanceof HttpException) {
-                throw result
-            }
-
-            await this.authService.updateAttemptDateTime(tokenPayload.userId, null);
-            this.failedLoginAttempts.delete(tokenPayload.userId);
+            const userId = await this.authService.handleResetPassword(token, passwordData.password);
+            this.failedLoginAttempts.delete(userId);
 
             output.status = true;
-            output.message = 'Password update Successfully';
-            output.data = result
-
+            output.message = 'Password updated successfully';
         } catch (error) {
-            this.logger.warn(`resetPassword failed: Internal Server Error - ${error}`);
+            this.logger.warn(`resetPassword failed: ${error}`);
             output.status = false;
-            output.message = error.message || 'Internal Server Error';
+            if (error instanceof PublicAccessTokenError) {
+                output.message = error.code;
+            } else {
+                output.message = error.message || 'Internal Server Error';
+            }
         }
         return output;
     }

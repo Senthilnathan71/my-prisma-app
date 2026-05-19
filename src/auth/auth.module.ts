@@ -8,6 +8,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './auth/jwt.strategy';
 import { EmailModule } from 'src/email/email.module';
 import { SessionCleanupService } from './auth/session-cleanup.service';
+import { TokenCleanupService } from './auth/token-cleanup.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -34,6 +35,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     EmailModule
   ],
   controllers: [AuthController],
-  providers: [AuthService, UserService, JwtStrategy, Logger, SessionCleanupService]
+  providers: [AuthService, UserService, JwtStrategy, Logger, SessionCleanupService, TokenCleanupService]
 })
 export class AuthModule { }
