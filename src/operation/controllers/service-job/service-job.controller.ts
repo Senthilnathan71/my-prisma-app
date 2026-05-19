@@ -15,8 +15,13 @@ import {
   ValidationPipe,
   UsePipes,
   UnauthorizedException,
+  Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiBody, ApiCreatedResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
@@ -172,6 +177,117 @@ export class ServiceJobController {
       }
     }
     return output
+  }
+
+  @ApiOperation({ summary: 'Download Service Job Excel template' })
+  @HttpCode(HttpStatus.OK)
+  @Get('template')
+  async downloadServiceJobTemplate(
+    @Query('CompanyMasterSid') CompanyMasterSid: number,
+    @Query('BranchMasterSid') BranchMasterSid: number,
+    @Res() res: Response
+  ) {
+    try {
+      if (!CompanyMasterSid) throw new BadRequestException('CompanyMasterSid is required');
+      if (!BranchMasterSid) throw new BadRequestException('BranchMasterSid is required');
+
+      this.logger.log(`Generating Excel template for service job upload`);
+      const buffer = await this.serviceJobService.generateServiceJobTemplate(
+        Number(CompanyMasterSid),
+        Number(BranchMasterSid),
+      );
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=ServiceJob_Upload_Template.xlsx');
+      res.send(buffer);
+    } catch (error) {
+      this.logger.warn(`Error generating service job template: ${JSON.stringify(error)}, ${error}`);
+      const status = error instanceof BadRequestException ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR;
+      res.status(status).json({ status: false, message: error.message || 'Error generating template' });
+    }
+  }
+
+  @ApiOperation({ summary: 'Parse and validate Service Job Excel without saving' })
+  @HttpCode(HttpStatus.OK)
+  @Post('bulk-upload/parse')
+  @UseInterceptors(FileInterceptor('file'))
+  async parseServiceJobExcel(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('CompanyMasterSid') CompanyMasterSid: string,
+    @Body('BranchMasterSid') BranchMasterSid: string,
+  ) {
+    const resp = new ResponseData();
+    try {
+      if (!file) throw new BadRequestException('No file uploaded');
+
+      const allowedMimeTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-excel',
+      ];
+      if (!allowedMimeTypes.includes(file.mimetype)) {
+        throw new BadRequestException('Invalid file type. Only .xlsx or .xls allowed');
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        throw new BadRequestException('File size exceeds 5MB limit');
+      }
+      if (!CompanyMasterSid) throw new BadRequestException('CompanyMasterSid is required');
+      if (!BranchMasterSid) throw new BadRequestException('BranchMasterSid is required');
+
+      const result = await this.serviceJobService.parseServiceJobExcel(
+        file.buffer,
+        Number(CompanyMasterSid),
+        Number(BranchMasterSid),
+      );
+
+      resp.status = true;
+      resp.message = result.validRows.length
+        ? `Parsed successfully. ${result.validRows.length} valid, ${result.invalidRows.length} invalid.`
+        : 'No valid rows found. Please fix the errors and re-upload.';
+      resp.data = result;
+    } catch (error) {
+      resp.status = false;
+      this.logger.warn(`Error parsing service job Excel: ${JSON.stringify(error)}, ${error}`);
+      resp.message = error instanceof BadRequestException ? error.message : 'Internal Server Error';
+    }
+    return resp;
+  }
+
+  @ApiOperation({ summary: 'Save validated Service Job Excel rows to DB' })
+  @HttpCode(HttpStatus.OK)
+  @Post('bulk-upload/save')
+  async saveServiceJobExcel(
+    @Body() payload: {
+      validRows: any[];
+      CompanyMasterSid: number;
+      BranchMasterSid: number;
+      createdBy: string;
+    }
+  ) {
+    const resp = new ResponseData();
+    try {
+      const { validRows, CompanyMasterSid, BranchMasterSid, createdBy } = payload;
+
+      if (!validRows?.length) throw new BadRequestException('No valid rows to save');
+      if (!CompanyMasterSid) throw new BadRequestException('CompanyMasterSid is required');
+      if (!BranchMasterSid) throw new BadRequestException('BranchMasterSid is required');
+      if (!createdBy) throw new BadRequestException('createdBy is required');
+
+      const result = await this.serviceJobService.saveServiceJobExcel(
+        validRows,
+        Number(CompanyMasterSid),
+        Number(BranchMasterSid),
+        createdBy,
+      );
+
+      resp.status = true;
+      resp.message = `Import complete. ${result.created} created, ${result.skipped} skipped.`;
+      resp.data = result;
+    } catch (error) {
+      resp.status = false;
+      this.logger.warn(`Error saving service job Excel: ${JSON.stringify(error)}, ${error}`);
+      resp.message = error instanceof BadRequestException ? error.message : 'Internal Server Error';
+    }
+    return resp;
   }
 
    @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
