@@ -1,7 +1,8 @@
 model PublicAccessToken {
   PublicAccessTokenSid Int       @id @default(autoincrement()) @map("PublicAccessTokenSid")
   Token                String    @unique @db.VarChar(80)
-  MenuMasterSid        Int
+  Purpose              String?   @db.VarChar(50)
+  MenuMasterSid        Int?
   ResourceSid          Int
   ExpiresAt            DateTime  @db.Timestamptz(6)
   UsedAt               DateTime? @db.Timestamptz(6)
@@ -13,8 +14,9 @@ model PublicAccessToken {
   updatedBy            String?   @db.VarChar(100)
   status               String?   @default("A") @db.Char(1)
 
-  menuMaster           MenuMaster @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  menuMaster MenuMaster? @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
 
   @@index([MenuMasterSid, ResourceSid])
+  @@index([Purpose, ResourceSid])
   @@index([ExpiresAt])
 }

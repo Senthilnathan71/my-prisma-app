@@ -2796,6 +2796,7 @@ model MasterJobOthers {
   JobtoSubjob           String?   @db.VarChar(5)
   ExportToImport        String    @default("N") @db.Char(1)
   ImportMasterJobSid    Int?
+  JobLossReason         String?   @db.VarChar(300)
   masterJob             MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
 }
 
@@ -3231,6 +3232,7 @@ model VoucherHeader {
   MultiBranch               String?                     @default("N") @db.Char(1)
   BookingHeaderSid          Int?
   Salesman                  String?                     @db.VarChar(30)
+  CustomsDuty               String                      @default("N") @db.Char(1)
   BookingRatesCost          BookingRates[]              @relation("COST")
   BookingRatesRevenue       BookingRates[]              @relation("REVENUE")
   CostRevenueChargesCost    CostRevenueCharges[]        @relation("COST")
@@ -3571,7 +3573,7 @@ model PaymentRequest {
   CashBank              String?                @db.VarChar(10)
   DepartmentMasterSid   Int
   PaymentRequestStatus  ApprovalStatus
-  Party                 Int
+  Party                 Int?
   PayableTo             String                 @db.VarChar(100)
   BookingSid            Int?
   MasterJobSid          Int?
@@ -3585,7 +3587,7 @@ model PaymentRequest {
   dept                  DepartmentMaster       @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   houseJob              HouseJob?              @relation(fields: [HouseJobSid], references: [HouseJobSid])
   masterJob             MasterJob?             @relation(fields: [MasterJobSid], references: [MasterJobSid])
-  customer              CustomerMaster         @relation(fields: [Party], references: [CustomerMasterSid])
+  customer              CustomerMaster?        @relation(fields: [Party], references: [CustomerMasterSid])
   bookingRates          BookingRates[]
   costRevenueCharges    CostRevenueCharges[]
   paymentRequestDetails PaymentRequestDetail[]
