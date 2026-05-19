@@ -38,7 +38,7 @@ export class PaymentRequestService {
             CashBank: payload.CashBank || 'Bank',
             DepartmentMasterSid: Number(payload.DepartmentMasterSid),
             PaymentRequestStatus: payload.PaymentRequestStatus || ApprovalStatus.Pending,
-            Party: this.toNullableNumber(payload.Party) ?? 0,
+            Party: this.toNullableNumber(payload.Party) ?? null,
             PayableTo: payload.PayableTo || payload.PartyName || '',
             BookingSid: this.toNullableNumber(payload.BookingSid),
             MasterJobSid: this.toNullableNumber(payload.MasterJobSid),
