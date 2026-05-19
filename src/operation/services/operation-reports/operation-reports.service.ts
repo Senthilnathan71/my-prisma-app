@@ -7688,8 +7688,24 @@ ports.forEach((p) => {
       // Total 
 
      const calculateMoM = (current: number, previous: number) => {
-      if (!previous) return 0;
-      return ((current - previous) / previous) * 100;
+      const safeCurrent = Number(current) || 0;
+      const safePrevious = Number(previous) || 0;
+
+      // both months no business
+      if (safePrevious === 0 && safeCurrent === 0) {
+        return 0;
+      }
+      // avoid division by zero
+      if (safePrevious === 0) {
+        return safeCurrent > 0 ? 100 : -100;
+      }
+      // business completely dropped
+      if (safeCurrent === 0) {
+        return -100;
+      }
+
+      const result = ((safeCurrent - safePrevious) / safePrevious) * 100;
+      return Number.isFinite(result) ? result : 0;
     };
 
     const departmentWiseMoM = (currentMonthData as any[]).map((curr: any) => {

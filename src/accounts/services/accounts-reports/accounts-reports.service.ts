@@ -3051,6 +3051,10 @@ export class AccountsReportsService {
           ],
           Status: 'A',
           COAMasterSid: coamasterSid,
+          subledgerMaster: {
+            SubledgerType: 'Tax',
+            TaxType: 'Input',
+          },
           voucherTypeMaster: {
             DocumentTypeCode: {
               in: [
@@ -3089,7 +3093,6 @@ export class AccountsReportsService {
       });
 
       const inputTax: any[] = [];
-      const outputTax: any[] = [];
 
       voucherData.forEach((v) => {
         const ledgerType = v.coaMaster?.LedgerType;
@@ -3141,10 +3144,6 @@ export class AccountsReportsService {
         if (ledgerType === 'Input Tax') {
           inputTax.push(row);
         }
-
-        if (ledgerType === 'Output Tax') {
-          outputTax.push(row);
-        }
       });
 
       return {
@@ -3152,7 +3151,6 @@ export class AccountsReportsService {
         CompanyMasterSid,
         data: {
           inputTax,
-          outputTax,
         },
       };
     } catch (error) {
@@ -3319,6 +3317,10 @@ export class AccountsReportsService {
           ],
           Status: 'A',
           COAMasterSid: coamasterSid,
+          subledgerMaster: {
+            SubledgerType: 'Tax',
+            TaxType: 'Output',
+          },
           voucherTypeMaster: {
             DocumentTypeCode: {
               in: [
@@ -3357,7 +3359,6 @@ export class AccountsReportsService {
         orderBy: { VoucherDate: 'asc' },
       });
 
-      const inputTax: any[] = [];
       const outputTax: any[] = [];
 
       voucherData.forEach((v) => {
@@ -3404,10 +3405,6 @@ export class AccountsReportsService {
           documentDate,
         };
 
-        if (ledgerType === 'Input Tax') {
-          inputTax.push(row);
-        }
-
         if (ledgerType === 'Output Tax') {
           outputTax.push(row);
         }
@@ -3417,7 +3414,6 @@ export class AccountsReportsService {
         params,
         CompanyMasterSid,
         data: {
-          inputTax,
           outputTax,
         },
       };
@@ -4839,6 +4835,7 @@ export class AccountsReportsService {
       Branch: BranchId,
       FromDate: fromDate,
       ToDate: toDate,
+      coamasterSid,
     } = param;
     try {
       /* -------------------- BRANCH NAME (SELECTED / ALL) -------------------- */
@@ -4881,16 +4878,16 @@ export class AccountsReportsService {
           gte: fromDate,
           lte: toDate,
         },
-        voucherTypeMaster: {
-          DocumentTypeCode: {
-            in: [
-              DOC_TYPE_CODE.INVOICE,
-              DOC_TYPE_CODE.VENDOR_INVOICE,
-              DOC_TYPE_CODE.CREDIT_NOTE,
-              DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
-            ],
-          },
-        },
+        // voucherTypeMaster: {
+        //   DocumentTypeCode: {
+        //     in: [
+        //       DOC_TYPE_CODE.INVOICE,
+        //       DOC_TYPE_CODE.VENDOR_INVOICE,
+        //       DOC_TYPE_CODE.CREDIT_NOTE,
+        //       DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+        //     ],
+        //   },
+        // },
         PostStatus: {
           in: ['P', 'U'],
         },
@@ -4997,23 +4994,35 @@ export class AccountsReportsService {
 
       // INPUT TAX – Purchases / Input VAT
 
-      const inputTaxDetails = await this._db.voucherDetail.findMany({
+      const inputTaxTransactions = await this._db.voucherTransaction.findMany({
         where: {
+          CompanyMasterSid: CompanyId,
+          AND: [
+            { VoucherDate: { gte: fromDate } },
+            { VoucherDate: { lte: toDate } },
+          ],
           Status: 'A',
+          ...(coamasterSid ? { COAMasterSid: coamasterSid } : {}),
+          coaMaster: {
+            LedgerType: 'Input Tax',
+          },
           subledgerMaster: {
             SubledgerType: 'Tax',
             TaxType: 'Input',
           },
-          VoucherHeader: baseHeaderWhere,
+          voucherTypeMaster: {
+            DocumentTypeCode: {
+              in: [
+                DOC_TYPE_CODE.VENDOR_INVOICE,
+                DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+              ],
+            },
+          },
         },
         select: {
+          COAMasterSid: true,
           TaxableAmount: true,
-          Amount: true,
           LocalAmount: true,
-          // TaxPercentage1: true,
-          // TaxAmount1: true,
-          // TaxPercentage2: true,
-          // TaxAmount2: true,
           subledgerMaster: {
             select: {
               SubledgerMasterSid: true,
@@ -5041,26 +5050,55 @@ export class AccountsReportsService {
         },
       });
 
+      const inputTaxDetails = inputTaxTransactions.map((row) => ({
+        TaxableAmount: row.TaxableAmount,
+        Amount: row.LocalAmount,
+        LocalAmount: row.LocalAmount,
+        subledgerMaster: {
+          SubledgerMasterSid:
+            row.subledgerMaster?.SubledgerMasterSid ??
+            row.COAMasterSid ??
+            null,
+          SubledgerName:
+            row.subledgerMaster?.SubledgerName ??
+            'Unknown Tax Ledger',
+        },
+        VoucherHeader: row.VoucherHeader,
+      }));
+
       const inputTax = aggregateByLedger(inputTaxDetails);
 
       // OUTPUT TAX – Sales / Output VAT (also classified local/overseas)
 
-      const outputTaxDetails = await this._db.voucherDetail.findMany({
+      const outputTaxTransactions = await this._db.voucherTransaction.findMany({
         where: {
+          CompanyMasterSid: CompanyId,
+          AND: [
+            { VoucherDate: { gte: fromDate } },
+            { VoucherDate: { lte: toDate } },
+          ],
           Status: 'A',
+          ...(coamasterSid ? { COAMasterSid: coamasterSid } : {}),
           subledgerMaster: {
             SubledgerType: 'Tax',
             TaxType: 'Output',
           },
-          VoucherHeader: baseHeaderWhere,
+          voucherTypeMaster: {
+            DocumentTypeCode: {
+              in: [
+                DOC_TYPE_CODE.INVOICE,
+                DOC_TYPE_CODE.JOURNAL_VOUCHER,
+                DOC_TYPE_CODE.CREDIT_NOTE,
+              ],
+            },
+          },
+          coaMaster: {
+            LedgerType: 'Output Tax',
+          },
         },
         select: {
+          COAMasterSid: true,
           TaxableAmount: true,
-          // TaxPercentage1: true,
-          // TaxAmount1: true,
-          // TaxPercentage2: true,
-          // TaxAmount2: true,
-          Amount: true,
           LocalAmount: true,
           subledgerMaster: {
             select: {
@@ -5087,6 +5125,22 @@ export class AccountsReportsService {
           },
         },
       });
+
+      const outputTaxDetails = outputTaxTransactions.map((row) => ({
+        TaxableAmount: row.TaxableAmount,
+        Amount: row.LocalAmount,
+        LocalAmount: row.LocalAmount,
+        subledgerMaster: {
+          SubledgerMasterSid:
+            row.subledgerMaster?.SubledgerMasterSid ??
+            row.COAMasterSid ??
+            null,
+          SubledgerName:
+            row.subledgerMaster?.SubledgerName ??
+            'Unknown Tax Ledger',
+        },
+        VoucherHeader: row.VoucherHeader,
+      }));
 
       const outputTax = aggregateByLedger(outputTaxDetails);
 
