@@ -12,6 +12,7 @@ import { TokenPayload } from 'src/common/decorators/token-payload.decorator';
 import { CreateUserDto } from '../dto/create-user.dto';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { PublicAccessTokenService, PublicAccessTokenError, PUBLIC_TOKEN_PURPOSES } from 'src/common/public-access-token/public-access-token.service';
+import { TokenCleanupService } from './token-cleanup.service';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -27,6 +28,7 @@ export class AuthController {
         private userService: UserService,
         private logger: Logger,
         private publicAccessTokenService: PublicAccessTokenService,
+        private tokenCleanupService: TokenCleanupService,
     ) { }
 
     private getRateLimitKey(prefix: string, identifier: string, req: any): string {
@@ -395,6 +397,25 @@ export class AuthController {
             this.logger.error(`Logout error: ${error.message}`);
             output.status = false;
             output.message = 'Logout failed';
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Manually clean up expired/used public access tokens' })
+    @Post('cleanup-tokens')
+    @Auth()
+    @HttpCode(HttpStatus.OK)
+    async cleanupTokens() {
+        const output = new ResponseData();
+        try {
+            const count = await this.tokenCleanupService.handleTokenCleanup();
+            output.status = true;
+            output.message = `Cleaned up ${count} token(s)`;
+            output.data = { deletedCount: count };
+        } catch (error) {
+            this.logger.error(`Manual token cleanup failed: ${error.message}`);
+            output.status = false;
+            output.message = 'Token cleanup failed';
         }
         return output;
     }
