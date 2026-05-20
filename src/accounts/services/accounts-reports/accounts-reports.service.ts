@@ -4522,6 +4522,7 @@ export class AccountsReportsService {
       VoucherToDate,
       FromDate,
       ToDate,
+      coamasterSid,
     } = params;
 
     const fromDate = VoucherFromDate || FromDate;
@@ -4608,7 +4609,9 @@ export class AccountsReportsService {
         lte: new Date(toDate),
       },
       Status: 'A',
-      PostStatus: 'P',
+      PostStatus: {
+        in: ['P', 'U'],
+      },
       voucherTypeMaster: {
         DocumentTypeCode: {
           in: [
@@ -4617,19 +4620,23 @@ export class AccountsReportsService {
             DOC_TYPE_CODE.CREDIT_NOTE,
             DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
             DOC_TYPE_CODE.JOURNAL_VOUCHER,
-            DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER,
+            // DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER,
           ],
         },
       },
     };
 
-    const taxDetails = await this._db.voucherDetail.findMany({
+    const taxTransactions = await this._db.voucherTransaction.findMany({
       where: {
         Status: 'A',
         CompanyMasterSid,
         BranchMasterSid: { in: branchIds },
+        ...(coamasterSid ? { COAMasterSid: coamasterSid } : {}),
         subledgerMaster: {
           SubledgerType: 'Tax',
+          TaxType: {
+            in: ['Input', 'Output'],
+          },
         },
         VoucherHeader: voucherHeaderWhere,
       },
@@ -4637,7 +4644,6 @@ export class AccountsReportsService {
         DrCr: true,
         TaxableAmount: true,
         LocalAmount: true,
-        InvoiceType: true,
         subledgerMaster: {
           select: {
             TaxType: true,
@@ -4666,21 +4672,48 @@ export class AccountsReportsService {
       },
     });
 
+    const taxDetails = taxTransactions.map((tx) => ({
+      DrCr: tx.DrCr,
+      TaxableAmount: tx.TaxableAmount,
+      LocalAmount: tx.LocalAmount,
+      InvoiceType: undefined,
+      subledgerMaster: {
+        TaxType: tx.subledgerMaster?.TaxType,
+        SubledgerName: tx.subledgerMaster?.SubledgerName,
+      },
+      VoucherHeader: tx.VoucherHeader,
+    }));
+
     for (const detail of taxDetails) {
       const header = detail.VoucherHeader;
       const documentTypeCode = header?.voucherTypeMaster?.DocumentTypeCode;
       const taxType = detail.subledgerMaster?.TaxType;
-      const sign = this.getVatSummaryTaxSign(documentTypeCode, taxType, detail.DrCr);
-      const taxableAmount = roundAmount(toNumber(detail.TaxableAmount) * sign, 2);
-      const vatAmount = roundAmount(toNumber(detail.LocalAmount) * sign, 2);
+      // Keep VAT summary aligned with VAT-210 direct totals: no additional sign remap.
+      const taxableAmount = roundAmount(toNumber(detail.TaxableAmount), 2);
+      const vatAmount = roundAmount(toNumber(detail.LocalAmount), 2);
 
       if (this.normaliseVatText(taxType) === 'INPUT') {
-        const inputCode = this.isReverseChargeVat(header, detail) ? '10' : '9';
+        const allowedInputCodes: string[] = [
+          DOC_TYPE_CODE.VENDOR_INVOICE,
+          DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+        ];
+        if (!allowedInputCodes.includes(this.normaliseVatText(documentTypeCode))) {
+          continue;
+        }
+        const inputCode = '9';
         this.addVatSummaryAmount(inputRowMap.get(inputCode), taxableAmount, vatAmount);
         continue;
       }
 
       if (this.normaliseVatText(taxType) === 'OUTPUT') {
+        const allowedOutputCodes: string[] = [
+          DOC_TYPE_CODE.INVOICE,
+          DOC_TYPE_CODE.CREDIT_NOTE,
+          DOC_TYPE_CODE.JOURNAL_VOUCHER,
+        ];
+        if (!allowedOutputCodes.includes(this.normaliseVatText(documentTypeCode))) {
+          continue;
+        }
         const outputCode = this.getVatSummaryOutputCode(header, detail);
         if (outputCode && outputRowMap.has(outputCode)) {
           this.addVatSummaryAmount(outputRowMap.get(outputCode), taxableAmount, vatAmount);
@@ -4688,54 +4721,7 @@ export class AccountsReportsService {
       }
     }
 
-    const nonTaxOutputDetails = await this._db.voucherDetail.findMany({
-      where: {
-        Status: 'A',
-        CompanyMasterSid,
-        BranchMasterSid: { in: branchIds },
-        VoucherHeader: {
-          ...voucherHeaderWhere,
-          voucherTypeMaster: {
-            DocumentTypeCode: {
-              in: [DOC_TYPE_CODE.INVOICE, DOC_TYPE_CODE.CREDIT_NOTE],
-            },
-          },
-        },
-      },
-      select: {
-        DrCr: true,
-        TaxableAmount: true,
-        Amount: true,
-        LocalAmount: true,
-        TaxAmount1: true,
-        TaxAmount2: true,
-        InvoiceType: true,
-        subledgerMaster: {
-          select: {
-            SubledgerType: true,
-          },
-        },
-        VoucherHeader: {
-          select: {
-            GSTType: true,
-            InvoiceType: true,
-            TaxType: true,
-            PlaceOfSupply: true,
-            State: true,
-            voucherTypeMaster: {
-              select: {
-                DocumentTypeCode: true,
-              },
-            },
-            customerBranch: {
-              select: {
-                stateMaster: { select: { stateName: true } },
-              },
-            },
-          },
-        },
-      },
-    });
+    const nonTaxOutputDetails: any[] = [];
 
     for (const detail of nonTaxOutputDetails) {
       if (this.normaliseVatText(detail.subledgerMaster?.SubledgerType) === 'TAX') {
@@ -4792,7 +4778,7 @@ export class AccountsReportsService {
         companyName: company?.companyName || '',
         nameEnglish: company?.companyName || '',
         nameArabic: '',
-        trn: primaryBranch?.taxRegistrationNo || company?.Pan || '',
+        trn: company?.Pan || '',
         address: addressParts.join(', '),
         email: primaryBranch?.email || company?.email || '',
         phoneNumber: primaryBranch?.phoneNumber || company?.phoneNumber || '',
