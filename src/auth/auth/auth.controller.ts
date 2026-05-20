@@ -1,11 +1,11 @@
 import { UserService } from './../../masters/services/user.service';
-import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, HttpStatus, InternalServerErrorException, Logger, Param, Patch, Post, Req, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, HttpCode, HttpException, HttpStatus, InternalServerErrorException, Logger, Param, Patch, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Response } from 'express';
 import { ResponseData } from '../../common/response-data';
 import { AuthService } from './auth.service';
 import { checkPassword, getClientIp } from 'src/common/helper';
 import { LoginRequest } from '../dto/loginRequest.dto';
 import { ApiBody, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { JwtStrategy } from './jwt.strategy';
 import { JwtService } from '@nestjs/jwt';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { TokenPayload } from 'src/common/decorators/token-payload.decorator';
@@ -13,6 +13,7 @@ import { CreateUserDto } from '../dto/create-user.dto';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { PublicAccessTokenService, PublicAccessTokenError, PUBLIC_TOKEN_PURPOSES } from 'src/common/public-access-token/public-access-token.service';
 import { TokenCleanupService } from './token-cleanup.service';
+import { AUTH_COOKIE_NAME, getAuthCookieClearOptions, getAuthCookieOptions } from './auth-cookie';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -77,7 +78,11 @@ export class AuthController {
     })
     @Post('login')
     @HttpCode(HttpStatus.OK) // ensure success returns 200 instead of 201
-    async login(@Body() loginData: LoginRequest, @Req() req: any) {
+    async login(
+        @Body() loginData: LoginRequest,
+        @Req() req: any,
+        @Res({ passthrough: true }) res: Response
+    ) {
         let output = new ResponseData();
 
         try {
@@ -173,14 +178,17 @@ export class AuthController {
             );
 
             // Successful login — populate ResponseData
+            const token = await this.jwtService.sign(
+                { id: user.UserMasterSid, projectType: loginData.projectType, sessionToken },
+                { expiresIn: '3h' }
+            );
+
+            res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
             output.status = true;
             output.message = 'Login successful';
             output.data = {
                 user: await this.authService.getUser(user.UserMasterSid),
-                token: await this.jwtService.sign(
-                    { id: user.UserMasterSid, projectType: loginData.projectType, sessionToken },
-                    { expiresIn: '3h' }
-                )
             };
 
             this.logger.log(`Login successful for email: ${loginData.email}`);
@@ -387,10 +395,14 @@ export class AuthController {
     @Post('logout')
     @Auth()
     @HttpCode(HttpStatus.OK)
-    async logout(@UserData() user: any) {
+    async logout(
+        @UserData() user: any,
+        @Res({ passthrough: true }) res: Response
+    ) {
         const output = new ResponseData();
         try {
             await this.authService.invalidateSession(user.UserMasterSid);
+            res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieClearOptions());
             output.status = true;
             output.message = 'Logged out successfully';
         } catch (error) {
