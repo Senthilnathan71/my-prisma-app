@@ -455,7 +455,7 @@ export class CustomerService {
                         }
                     },
                     CustomerBrEmail: {
-                        where: { status: 'A' },
+                        where: { status:{in: ['A', 'S']}},
                         select: {
                             customerBranch: {
                                 select: {
@@ -482,7 +482,7 @@ export class CustomerService {
                         }
                     },
                     CustomerLogin: {
-                        where: { status: 'A' },
+                        where: { status: {in: ['A', 'S']} },
                         select: {
                             customerBranch: {
                                 select: {
@@ -508,7 +508,7 @@ export class CustomerService {
                         }
                     },
                     CustomerSalesTeam: {
-                        where: { status: 'A' },
+                        where: { status:{in: ['A', 'S']} },
                         select: {
                             customerBranch: {
                                 select: {
@@ -570,7 +570,7 @@ export class CustomerService {
                         }
                     },
                     CustomerMilestone: {
-                        where: { Status: 'A' },
+                        where: { Status: {in: ['A', 'S']} },
                         select: {
                             CustomerMilestoneSid: true,
                             customerBranch: {
