@@ -309,6 +309,7 @@ model UserBranchMaster {
   status              String?       @default("A") @db.Char(1)
   GiveAccess          String?       @default("N") @db.Char(1)
   IsDefault           String?       @default("N") @db.Char(1)
+  CostRevenueAccess   String        @default("NONE") @db.VarChar(20)
   branchMaster        BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster       CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   userMaster          UserMaster    @relation(fields: [UserMasterSid], references: [UserMasterSid])
@@ -517,46 +518,48 @@ model DepartmentMaster {
 }
 
 model PortMaster {
-  createdOn             DateTime             @default(now()) @db.Timestamptz(6)
-  updatedOn             DateTime?            @updatedAt @db.Timestamptz(6)
+  createdOn             DateTime              @default(now()) @db.Timestamptz(6)
+  updatedOn             DateTime?             @updatedAt @db.Timestamptz(6)
   deletedAt             DateTime?
-  createdBy             String               @db.VarChar(100)
-  updatedBy             String?              @db.VarChar(100)
-  status                String?              @default("A") @db.Char(1)
-  PortCode              String               @db.VarChar(5)
-  PortName              String               @db.VarChar(50)
+  createdBy             String                @db.VarChar(100)
+  updatedBy             String?               @db.VarChar(100)
+  status                String?               @default("A") @db.Char(1)
+  PortCode              String                @db.VarChar(5)
+  PortName              String                @db.VarChar(50)
   SectorMasterSid       Int?
-  TimeZone              String?              @db.VarChar(10)
-  EdiPortCode           String?              @db.VarChar(10)
-  ExportRestriction     String?              @db.VarChar(100)
-  ImportRestriction     String?              @db.VarChar(100)
-  PortType              String?              @db.VarChar(10)
-  TerminalCode          String?              @db.VarChar(10)
-  Remarks               String?              @db.VarChar(100)
-  CBMRequire            String?              @db.Char(1)
-  SCMTPortCode          String?              @db.VarChar(10)
+  TimeZone              String?               @db.VarChar(10)
+  EdiPortCode           String?               @db.VarChar(10)
+  ExportRestriction     String?               @db.VarChar(100)
+  ImportRestriction     String?               @db.VarChar(100)
+  PortType              String?               @db.VarChar(10)
+  TerminalCode          String?               @db.VarChar(10)
+  Remarks               String?               @db.VarChar(100)
+  CBMRequire            String?               @db.Char(1)
+  SCMTPortCode          String?               @db.VarChar(10)
   CountryMasterSid      Int?
   LoginSid              Int?
-  PortMasterSid         Int                  @id @default(autoincrement()) @map("PortMasterSid")
+  PortMasterSid         Int                   @id @default(autoincrement()) @map("PortMasterSid")
   StateMasterSid        Int?
   ZoneMasterSid         Int?
   CityMasterSid         Int?
   bookingHeader         BookingHeader[]
   customerMaster        CustomerMaster[]
   houseJob              HouseJob[]
-  cityMaster            CityMaster?          @relation(fields: [CityMasterSid], references: [CityMasterSid])
-  countryMaster         CountryMaster?       @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
-  sectorMaster          SectorMaster?        @relation(fields: [SectorMasterSid], references: [SectorMasterSid])
-  stateMaster           StateMaster?         @relation(fields: [StateMasterSid], references: [StateMasterSid])
-  zoneMaster            ZoneMaster?          @relation(fields: [ZoneMasterSid], references: [ZoneMasterSid])
-  tariffFDC             TariffHeader[]       @relation("FDC")
-  tariffPOD             TariffHeader[]       @relation("POD")
-  tariffPOL             TariffHeader[]       @relation("POL")
-  tariffPOO             TariffHeader[]       @relation("POO")
-  VoyageMasterDetailPOD VoyageMasterDetail[] @relation("POD")
-  VoyageMasterDetailPOL VoyageMasterDetail[] @relation("POL")
-  VoyageMasterHeaderPOD VoyageMasterHeader[] @relation("POD")
-  VoyageMasterHeaderPOL VoyageMasterHeader[] @relation("POL")
+  polSeriesCounter      NumberSeriesCounter[] @relation("POL")
+  podSeriesCounter      NumberSeriesCounter[] @relation("POD")
+  cityMaster            CityMaster?           @relation(fields: [CityMasterSid], references: [CityMasterSid])
+  countryMaster         CountryMaster?        @relation(fields: [CountryMasterSid], references: [CountryMasterSid])
+  sectorMaster          SectorMaster?         @relation(fields: [SectorMasterSid], references: [SectorMasterSid])
+  stateMaster           StateMaster?          @relation(fields: [StateMasterSid], references: [StateMasterSid])
+  zoneMaster            ZoneMaster?           @relation(fields: [ZoneMasterSid], references: [ZoneMasterSid])
+  tariffFDC             TariffHeader[]        @relation("FDC")
+  tariffPOD             TariffHeader[]        @relation("POD")
+  tariffPOL             TariffHeader[]        @relation("POL")
+  tariffPOO             TariffHeader[]        @relation("POO")
+  VoyageMasterDetailPOD VoyageMasterDetail[]  @relation("POD")
+  VoyageMasterDetailPOL VoyageMasterDetail[]  @relation("POL")
+  VoyageMasterHeaderPOD VoyageMasterHeader[]  @relation("POD")
+  VoyageMasterHeaderPOL VoyageMasterHeader[]  @relation("POL")
 }
 
 model UnitMaster {

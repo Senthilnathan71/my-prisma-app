@@ -12,6 +12,7 @@ model NumberSeriesConfig {
   CompanyPrefix          String?  @db.VarChar(10)            // e.g., "BE"
   BranchFlagRequired     String   @default("N") @db.Char(1)  // Y/N - Include branch prefix
   BranchPrefix           String?  @db.VarChar(10)            // e.g., "DU"
+  POLPODFlagRequired     String   @default("N") @db.Char(1)  // Y/N - Include both POL and POD port codes
   DepartmentCodeRequired String   @default("N") @db.Char(1)  // Y/N - Include dept code from DepartmentMaster
   MonthFlagRequired      String   @default("N") @db.Char(1)  // Y/N - Include month (MM format)
   YearFlagRequired       String   @default("N") @db.Char(1)  // Y/N - Include YearCode from YearMaster
@@ -51,6 +52,8 @@ model NumberSeriesCounter {
   MenuMasterSid          Int
 
   // Counter Key Components - determines which counter to use
+  POLSid                 Int?     // NULL if not POL-wise, specific POL ID otherwise
+  PODSid                 Int?     // NULL if not POD-wise, specific POD ID otherwise
   DepartmentMasterSid    Int?     // NULL if not department-wise, specific dept ID otherwise
   YearMasterSid          Int?     // For yearly reset (financial year based), NULL if no reset
   Month                  Int?     // For monthly reset only (1-12), NULL if not monthly reset
@@ -68,10 +71,12 @@ model NumberSeriesCounter {
   branchMaster           BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   menuMaster             MenuMaster    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   departmentMaster       DepartmentMaster? @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+  portMasterPOL          PortMaster? @relation("POL", fields: [POLSid], references: [PortMasterSid])
+  portMasterPOD          PortMaster? @relation("POD", fields: [PODSid], references: [PortMasterSid])
   yearMaster             YearMaster? @relation(fields: [YearMasterSid], references: [YearMasterSid])
 
   // Unique constraint: one counter per config/dept/year/month combination
-  @@unique([NumberSeriesConfigSid, DepartmentMasterSid, YearMasterSid, Month])
+  @@unique([NumberSeriesConfigSid, DepartmentMasterSid, YearMasterSid, Month , POLSid, PODSid])
   @@index([CompanyMasterSid, BranchMasterSid, MenuMasterSid])
   @@index([NumberSeriesConfigSid])
 }
