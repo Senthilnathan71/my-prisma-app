@@ -201,7 +201,6 @@ export class PreCustomerMeetingService {
                 customerProfile: params.customerProfile,
                 meetingNote: params.meetingNote || '',
                 followUpNote: params.followUpNote,
-                createdBy: params.userEmail,
                 status: params.status || "A",
                 remarks: params.remarks,
                 companyMaster: {
@@ -248,7 +247,7 @@ export class PreCustomerMeetingService {
                     throw new BadRequestException('Meeting not found');
                 }
                 payload.updatedOn = new Date(); // Only update UpdatedOn
-                payload.updatedBy = params.userEmail
+                payload.updatedBy = user?.userEmail || params.updatedBy || params.createdBy || 'system'
                 payload.followUpDate = params.followUpDate || null,
                     payload.meetingDate = params.meetingDate
 
@@ -260,13 +259,13 @@ export class PreCustomerMeetingService {
                     }
                 })
 
-                if (updatePreCustomer && (payload.meetingStatus === 'Confirmed' || payload.meetingStatus === 'Completed')) {
+                if (updatePreCustomer && (payload.meetingStatus === 'Confirmed' || payload.meetingStatus === 'Completed') && updatePreCustomer.preCustomerMaster?.PreCustomerMasterSid) {
                     await this._db.preCustomerMaster.update({
                         where: {
-                            PreCustomerMasterSid: updatePreCustomer.preCustomerMaster?.PreCustomerMasterSid
+                            PreCustomerMasterSid: updatePreCustomer.preCustomerMaster.PreCustomerMasterSid
                         }, data: {
                             leadStatus: LeadStatus.MeetingCompleted,
-                            updatedBy: params.userEmail,
+                            updatedBy: user?.userEmail || params.updatedBy || params.createdBy || 'system',
                             updatedOn: new Date()
                         }
                     })
@@ -317,10 +316,10 @@ export class PreCustomerMeetingService {
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
                             FollowupDate: params.followUpDate || "",
-                            FollowupNote: params.followUpNote,
-                            MeetingNote: params.meetingNote,
+                            FollowupNote: params.followUpNote || '',
+                            MeetingNote: params.meetingNote || '',
                             Remarks: params.remarks ?? null,
-                            createdBy: params.userEmail,
+                            createdBy: user?.userEmail || params.createdBy || 'system',
 
                         }
                     })
@@ -337,11 +336,10 @@ export class PreCustomerMeetingService {
                             DepartmentMasterSid: params.DepartmentMasterSid,
                             OpportunitySector: params.OpportunitySector,
                             FollowupDate: params.followUpDate || "",
-                            FollowupNote: params.followUpNote,
-                            MeetingNote: params.meetingNote,
+                            FollowupNote: params.followUpNote || '',
+                            MeetingNote: params.meetingNote || '',
                             Remarks: params.remarks ?? null,
-                            createdBy: params.userEmail,
-                            updatedBy: params.userEmail,
+                            updatedBy: user?.userEmail || params.updatedBy || params.createdBy || 'system',
                             updatedOn: new Date(),
                         }
                     })

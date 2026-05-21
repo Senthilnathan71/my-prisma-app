@@ -81,6 +81,19 @@ export class CreateMeetingOnBehalfDto {
   @MaxLength(1000)
   meetingNote?: string;
 
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsDateString()
+  followUpDate?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  followUpNote?: string;
+
   @ApiProperty()
   @IsInt()
   @Min(1)

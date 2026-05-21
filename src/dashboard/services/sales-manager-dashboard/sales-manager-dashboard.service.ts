@@ -1795,6 +1795,8 @@ export class SalesManagerDashboardService {
         meetingDate: new Date(payload.meetingDate),
         meetingType: payload.meetingType,
         meetingNote: payload.meetingNote || null,
+        followUpDate: payload.followUpDate ? new Date(payload.followUpDate) : null,
+        followUpNote: payload.followUpNote || null,
         meetingStatus: 'Scheduled',
         LeadOrCustomer: 'L',
         CompanyMasterSid: payload.CompanyMasterSid,
@@ -2253,11 +2255,19 @@ export class SalesManagerDashboardService {
       throw new BadRequestException('Invalid meetingDate');
     }
 
+    if (dto.followUpDate) {
+      const followUpDate = new Date(dto.followUpDate);
+      if (Number.isNaN(followUpDate.getTime())) {
+        throw new BadRequestException('Invalid followUpDate');
+      }
+    }
+
     return {
       ...dto,
       createdBy: this.sanitizeEmail(dto.createdBy),
       meetingType: dto.meetingType,
       meetingNote: dto.meetingNote ? this.sanitizeFreeText(dto.meetingNote, 1000) : undefined,
+      followUpNote: dto.followUpNote ? this.sanitizeFreeText(dto.followUpNote, 100) : undefined,
     };
   }
 
