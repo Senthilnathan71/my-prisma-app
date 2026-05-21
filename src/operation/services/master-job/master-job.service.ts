@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import * as moment from 'moment-timezone';
 import { MawbStock, Prisma, PrismaClient } from '@prisma/client';
@@ -12,6 +12,7 @@ import { catchError, of } from 'rxjs';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { MilestoneCode, MilestoneCategory, getDefaultMilestoneCodes, getMilestoneByCode } from './milestone-registry';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
 
 interface searchMasterJob {
     search: string,
@@ -32,6 +33,8 @@ export class MasterJobService {
         private commonService: OperationCommonService,
         private numberSeriesService: NumberSeriesService,
         private companyConfigService: CompanyConfigService,
+        @Inject(forwardRef(() => VoucherService))
+        private voucherService: VoucherService,
     ) { }
 
     private parseConfigBoolean(value: any): boolean {
@@ -84,6 +87,64 @@ export class MasterJobService {
         }
 
         return costFlag !== 'PREPAID' || revenueFlag !== 'PREPAID';
+    }
+
+    private async getHouseJobActualCostRevenue(houseJobs: { HouseJobSid: number; ShipmentNo?: string | null }[]): Promise<Map<number, { ActualCost: number; ActualRevenue: number }>> {
+        const result = new Map<number, { ActualCost: number; ActualRevenue: number }>();
+        houseJobs.forEach(houseJob => {
+            result.set(houseJob.HouseJobSid, { ActualCost: 0, ActualRevenue: 0 });
+        });
+
+        const houseJobSids = houseJobs.map(houseJob => houseJob.HouseJobSid);
+        const shipmentNoByHouseJobSid = new Map(
+            houseJobs.map(houseJob => [
+                houseJob.HouseJobSid,
+                String(houseJob.ShipmentNo || '').trim(),
+            ])
+        );
+
+        if (houseJobSids.length === 0) {
+            return result;
+        }
+
+        const charges = await this._db.costRevenueCharges.findMany({
+            where: {
+                status: 'A',
+                TransactionSid: { in: houseJobSids },
+            },
+            select: {
+                CostRevenueChargesSid: true,
+                TransactionSid: true,
+                ShipmentNo: true,
+            },
+        });
+
+        const matchingCharges = charges.filter(charge => {
+            if (!charge.TransactionSid) {
+                return false;
+            }
+
+            const houseShipmentNo = shipmentNoByHouseJobSid.get(charge.TransactionSid) || '';
+            const chargeShipmentNo = String(charge.ShipmentNo || '').trim();
+            return !houseShipmentNo || !chargeShipmentNo || houseShipmentNo === chargeShipmentNo;
+        });
+
+        if (matchingCharges.length === 0) {
+            return result;
+        }
+
+        await Promise.all(matchingCharges.map(async charge => {
+            const houseJobSid = charge.TransactionSid;
+            if (!houseJobSid) return;
+
+            const actualAmount = await this.voucherService.getActualAmountForCostRevenue(charge.CostRevenueChargesSid);
+            const actual = result.get(houseJobSid) || { ActualCost: 0, ActualRevenue: 0 };
+            actual.ActualCost += Number(actualAmount?.ActualCost || 0);
+            actual.ActualRevenue += Number(actualAmount?.ActualRevenue || 0);
+            result.set(houseJobSid, actual);
+        }));
+
+        return result;
     }
 
     private async allocateMawbFromStock(
@@ -567,6 +628,7 @@ export class MasterJobService {
                         Transporter: otherFormValue?.Transporter,
                         HandlingInformation: otherFormValue?.HandlingInformation,
                         InternalNote: otherFormValue?.InternalNote,
+                        JobLossReason: otherFormValue?.JobLossReason?.substring(0, 300) || null,
                         CFS: otherFormValue?.CFS ? Number(otherFormValue?.CFS) : null,
                         CFSAddress: otherFormValue?.CFSAddress,
                         StuffingStartDate: otherFormValue?.StuffingStartDate ? new Date(otherFormValue?.StuffingStartDate) : null,
@@ -2139,6 +2201,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         Transporter: otherFormValue?.Transporter,
                         HandlingInformation: otherFormValue?.HandlingInformation,
                         InternalNote: otherFormValue?.InternalNote,
+                        JobLossReason: otherFormValue?.JobLossReason?.substring(0, 300) || null,
                         CFS: otherFormValue?.CFS ? Number(otherFormValue?.CFS) : null,
                         CFSAddress: otherFormValue?.CFSAddress,
                         StuffingStartDate: otherFormValue?.StuffingStartDate ? new Date(otherFormValue?.StuffingStartDate) : null,
@@ -2174,6 +2237,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         Transporter: otherFormValue?.Transporter,
                         HandlingInformation: otherFormValue?.HandlingInformation,
                         InternalNote: otherFormValue?.InternalNote,
+                        JobLossReason: otherFormValue?.JobLossReason?.substring(0, 300) || null,
                         CFS: otherFormValue?.CFS ? Number(otherFormValue?.CFS) : null,
                         CFSAddress: otherFormValue?.CFSAddress,
                         StuffingStartDate: otherFormValue?.StuffingStartDate ? new Date(otherFormValue?.StuffingStartDate) : null,
@@ -6414,6 +6478,7 @@ console.log('Created product:', createdProduct);
                     JobCloseStatus: true,
                     JobClosedDate: true,
                     JobClosedBy: true,
+                    JobLossReason: true,
                     JobtoSubjob:true
                 }
             });
@@ -6474,24 +6539,14 @@ console.log('Created product:', createdProduct);
                 }
             }) : [];
 
-            // 5. Get cost/revenue aggregation per house job
-            const costRevenueData = houseJobSids.length > 0 ? await this._db.$queryRawUnsafe(`
-                SELECT
-                    hj."HouseJobSid",
-                    COALESCE(SUM(cr."CostLocalAmount"), 0) AS "ActualCost",
-                    COALESCE(SUM(cr."RevenueLocalAmount"), 0) AS "ActualRevenue"
-                FROM "HouseJob" hj
-                LEFT JOIN "CostRevenueCharges" cr ON cr."ShipmentNo" = hj."ShipmentNo"
-                    AND cr.status = 'A'
-                WHERE hj."HouseJobSid" = ANY($1::int[])
-                AND hj.status = 'A'
-                GROUP BY hj."HouseJobSid"
-            `, houseJobSids) as any[] : [];
+            const costRevenueData = await this.getHouseJobActualCostRevenue(houseJobs);
 
             // Build HBL data
             const hblData = houseJobs.map(hj => {
                 const cargo = cargoData.filter(c => c.HouseJobSid === hj.HouseJobSid);
-                const cr = costRevenueData.find((c: any) => c.HouseJobSid === hj.HouseJobSid);
+                const cr = costRevenueData.get(hj.HouseJobSid);
+                const actualCost = Number(cr?.ActualCost || 0);
+                const actualRevenue = Number(cr?.ActualRevenue || 0);
                 return {
                     HBLNo: hj.HBLNo,
                     GrossWt: cargo.reduce((sum, c) => sum + Number(c.GrossWeight || 0), 0),
@@ -6499,8 +6554,9 @@ console.log('Created product:', createdProduct);
                     CBM: cargo.reduce((sum, c) => sum + Number(c.Volume || 0), 0),
                     ProvCost: 0,
                     ProvRevenue: 0,
-                    ActualCost: Number(cr?.ActualCost || 0),
-                    ActualRevenue: Number(cr?.ActualRevenue || 0),
+                    ActualCost: actualCost,
+                    ActualRevenue: actualRevenue,
+                    GP: actualRevenue - actualCost,
                 };
             });
 
@@ -6517,6 +6573,9 @@ console.log('Created product:', createdProduct);
                     POD: masterJob.POD,
                     departmentType,
                     departmentName: department?.departmentName || '',
+                    others: {
+                        JobLossReason: masterJobOthers?.JobLossReason || '',
+                    },
                 },
                 containers: containerData,
                 hblData,
@@ -6875,32 +6934,30 @@ console.log('Created product:', createdProduct);
 
         checkRunners.set('JOB_PROFIT_LOSS', async () => {
             // Mirrors the Master/House Job Rate → Profit tab Total row:
-            // sum CostRevenueCharges scoped to this master (master-level + house-level
-            // direct rows) using DrCr sign flips on local amounts, then assert
-            // total revenue >= total cost.
-            const charges = await this._db.costRevenueCharges.findMany({
-                where: {
-                    MasterJobNo: masterJobNumber,
-                    status: 'A',
-                },
+            // Sum house-job actual cost/revenue with the same fields shown in Job Close.
+            if (houseJobSids.length === 0) {
+                jobProfitable = false;
+                return jobProfitable;
+            }
+
+            const houseJobs = await this._db.houseJob.findMany({
+                where: { HouseJobSid: { in: houseJobSids }, status: 'A' },
                 select: {
-                    CostLocalAmount: true,
-                    CostDrCr: true,
-                    RevenueLocalAmount: true,
-                    RevenueDrCr: true,
+                    HouseJobSid: true,
+                    ShipmentNo: true,
                 },
             });
 
+            const costRevenueData = await this.getHouseJobActualCostRevenue(houseJobs);
             let totalRevenue = 0;
             let totalCost = 0;
-            for (const c of charges) {
-                const costAmt = Number(c.CostLocalAmount ?? 0);
-                const revAmt = Number(c.RevenueLocalAmount ?? 0);
-                totalCost += c.CostDrCr === 'D' ? costAmt : -costAmt;
-                totalRevenue += c.RevenueDrCr === 'C' ? revAmt : -revAmt;
+            for (const actual of costRevenueData.values()) {
+                totalCost += Number(actual.ActualCost || 0);
+                totalRevenue += Number(actual.ActualRevenue || 0);
             }
 
-            jobProfitable = totalRevenue >= totalCost;
+            const grossProfit = totalRevenue - totalCost;
+            jobProfitable = grossProfit > 0;
             return jobProfitable;
         });
 
@@ -6970,6 +7027,7 @@ console.log('Created product:', createdProduct);
                     AccCloseStatus: true,
                     JobCloseStatus: true,
                     JobtoSubjob: true,
+                    JobLossReason: true,
                 }
             });
 
@@ -7003,7 +7061,7 @@ console.log('Created product:', createdProduct);
             );
 
             // Validate each closer being set to "Closed"
-            if (DocCloseStatus === 'Closed') {
+            if (DocCloseStatus === 'Closed' && masterJobOthers?.DocCloseStatus !== 'Closed') {
                 const failed = milestoneChecks.documentation.filter(m => !m.passed);
                 if (failed.length > 0) {
                     throw new BadRequestException(
@@ -7011,7 +7069,7 @@ console.log('Created product:', createdProduct);
                     );
                 }
             }
-            if (OpsCloseStatus === 'Closed') {
+            if (OpsCloseStatus === 'Closed' && masterJobOthers?.OpsCloseStatus !== 'Closed') {
                 const failed = milestoneChecks.operation.filter(m => !m.passed);
                 if (failed.length > 0) {
                     throw new BadRequestException(
@@ -7019,7 +7077,7 @@ console.log('Created product:', createdProduct);
                     );
                 }
             }
-            if (AccCloseStatus === 'Closed') {
+            if (AccCloseStatus === 'Closed' && masterJobOthers?.AccCloseStatus !== 'Closed') {
                 const failed = milestoneChecks.accounts.filter(m => !m.passed);
                 if (failed.length > 0) {
                     throw new BadRequestException(
@@ -7027,12 +7085,21 @@ console.log('Created product:', createdProduct);
                     );
                 }
             }
-            if (JobCloseStatus === 'Closed') {
+            if (JobCloseStatus === 'Closed' && masterJobOthers?.JobCloseStatus !== 'Closed') {
                 const failed = milestoneChecks.jobClose
                     .filter(m => !m.nonBlocking && !m.passed);
-                if (failed.length > 0) {
+                const nonLossFailed = failed.filter(m => m.code !== 'JOB_PROFIT_LOSS');
+                if (nonLossFailed.length > 0) {
                     throw new BadRequestException(
-                        `Job Close milestones not met: ${failed.map(m => m.label).join(', ')}`
+                        `Job Close milestones not met: ${nonLossFailed.map(m => m.label).join(', ')}`
+                    );
+                }
+
+                const jobProfitLossFailed = failed.some(m => m.code === 'JOB_PROFIT_LOSS');
+                const hasJobLossReason = !!String(masterJobOthers?.JobLossReason || '').trim();
+                if (jobProfitLossFailed && !hasJobLossReason) {
+                    throw new BadRequestException(
+                        'GP is negative/zero. Please update Job Loss Reason before closing the job.'
                     );
                 }
             }
