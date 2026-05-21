@@ -12,6 +12,8 @@ import { CreatePreCustomerMeetingDto } from 'src/crm-desktop/DTO/create-precusto
 class CompanyIdDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
+  userTypeCode?: string;
+  userId?: number;
 }
 @Auth()
 @Controller('ff-pre-customer-meeting')
@@ -207,13 +209,18 @@ export class PreCustomerMeetingController {
         })
         @HttpCode(HttpStatus.OK)
         @Post()
-        async getAllPreCustomerMeetings(@UserData() user:any,@Body() body: CompanyIdDto) {
-            let resp = new ResponseData();
-            try {
-                let res = await this.preCustomerMeetingService.getAllPreCustomerMeetings(user,body.CompanyMasterSid, body.BranchMasterSid);
-                this.logger.log(`All PreCustomerMeetings Fetched : ${JSON.stringify(res)}`);
-                resp.data = res;
-                resp.message = "All PreCustomerMeetings are successfully fetched";
+    async getAllPreCustomerMeetings(@UserData() user:any,@Body() body: CompanyIdDto) {
+        let resp = new ResponseData();
+        try {
+            const scopedUser = {
+              ...user,
+              userTypeCode: body?.userTypeCode || user?.userTypeCode,
+              UserMasterSid: Number(body?.userId || user?.UserMasterSid || 0),
+            };
+            let res = await this.preCustomerMeetingService.getAllPreCustomerMeetings(scopedUser,body.CompanyMasterSid, body.BranchMasterSid);
+            this.logger.log(`All PreCustomerMeetings Fetched : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = "All PreCustomerMeetings are successfully fetched";
             } catch (error) {
                 this.logger.warn(`Get All PreCustomerMeetings Error : ${JSON.stringify(error)}`, error);
                 resp.status = false;

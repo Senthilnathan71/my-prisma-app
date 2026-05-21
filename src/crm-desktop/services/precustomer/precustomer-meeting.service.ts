@@ -33,6 +33,74 @@ export class PreCustomerMeetingService {
         private logger: Logger
     ) { }
 
+    private resolveUserScopeContext(user: any): { userId: number; userTypeCode: string } {
+        const userId = Number(
+            user?.UserMasterSid
+            || user?.userMasterSid
+            || user?.UserSid
+            || user?.userSid
+            || user?.userMaster?.UserMasterSid
+            || user?.userMaster?.userMasterSid
+            || 0
+        );
+
+        const userTypeCode = String(
+            user?.userTypeCode
+            || user?.userType?.code
+            || user?.userMaster?.userType?.code
+            || ''
+        );
+
+        return { userId, userTypeCode };
+    }
+
+    private async getScopedUserIds(
+        companyMasterSid: number,
+        branchMasterSid: number,
+        userTypeCode?: string,
+        userId?: number,
+    ): Promise<number[]> {
+        const normalizedUserType = String(userTypeCode || '').trim().toLowerCase();
+        const normalizedUserId = Number(userId || 0);
+
+        if (!normalizedUserId) {
+            throw new BadRequestException('userId is required for scoped meeting fetch');
+        }
+
+        if (normalizedUserType === 'salesmanager') {
+            const rows: any[] = await this._db.$queryRawUnsafe(
+                `SELECT
+                    um."UserMasterSid"
+                 FROM "UserMaster" um
+                 INNER JOIN "UserBranchMaster" ubm
+                    ON um."UserMasterSid" = ubm."UserMasterSid"
+                 WHERE
+                    ubm."CompanyMasterSid" = $1
+                    AND ubm."BranchMasterSid" = $2
+                    AND um."DeptHead" = $3
+                    AND um."isSalesperson" IN ('1','Y')
+                    AND um."status" = 'A'
+                    AND ubm."status" = 'A'`,
+                companyMasterSid,
+                branchMasterSid,
+                normalizedUserId,
+            );
+
+            const teamIds = rows
+                .map((r: any) => Number(r.UserMasterSid))
+                .filter((id: number) => Number.isFinite(id) && id > 0);
+
+            if (teamIds.length > 0) {
+                return Array.from(new Set([...teamIds, normalizedUserId]));
+            }
+
+            // If manager has no mapped team, keep scope to self only.
+            return [normalizedUserId];
+        }
+
+        return [normalizedUserId];
+    }
+
     private buildCustomerTypePayload(preCustomerType?: string | null) {
         if (!preCustomerType?.trim()) {
             return { customer: 'isTrue' };
@@ -146,12 +214,35 @@ export class PreCustomerMeetingService {
             };
             console.log('Final payload:', payload);
             if (params.PreCustomerMeetingSid) {
-                existingLead = await this._db.preCustomerMeeting.findUnique({
-                    where: {
-                        PreCustomerMeetingSid: params.PreCustomerMeetingSid, leadAssignTo: user.UserMasterSid
-                    },
-                    include: { meetingFollowUp: true }
-                });
+                const meetingId = Number(params.PreCustomerMeetingSid);
+                const { userId, userTypeCode } = this.resolveUserScopeContext(user);
+                const hasUserTypeCode = !!String(userTypeCode || '').trim();
+                const fallbackUserId = Number(user?.UserMasterSid || userId || 0);
+
+                if (hasUserTypeCode) {
+                    const scopedUserIds = await this.getScopedUserIds(
+                        Number(params.CompanyMasterSid || 0),
+                        Number(params.BranchMasterSid || 0),
+                        userTypeCode,
+                        userId,
+                    );
+
+                    existingLead = await this._db.preCustomerMeeting.findFirst({
+                        where: {
+                            PreCustomerMeetingSid: meetingId,
+                            leadAssignTo: { in: scopedUserIds }
+                        },
+                        include: { meetingFollowUp: true }
+                    });
+                } else {
+                    existingLead = await this._db.preCustomerMeeting.findFirst({
+                        where: {
+                            PreCustomerMeetingSid: meetingId,
+                            leadAssignTo: fallbackUserId
+                        },
+                        include: { meetingFollowUp: true }
+                    });
+                }
 
                 if (!existingLead) {
                     throw new BadRequestException('Meeting not found');
@@ -364,10 +455,18 @@ export class PreCustomerMeetingService {
 
 
     async getPreCustomerMeetingDate(user) {
+        const { userId, userTypeCode } = this.resolveUserScopeContext(user);
+        const companyMasterSid = Number(user?.CompanyMasterSid || user?.companyMasterSid || 0);
+        const branchMasterSid = Number(user?.BranchMasterSid || user?.branchMasterSid || 0);
+
+        const scopedUserIds = (companyMasterSid && branchMasterSid)
+            ? await this.getScopedUserIds(companyMasterSid, branchMasterSid, userTypeCode, userId)
+            : [userId];
+
         const result = await this._db.preCustomerMeeting.findMany({
             where: {
                 status: "A",
-                leadAssignTo: user.UserMasterSid
+                leadAssignTo: { in: scopedUserIds }
             },
             select: {
                 preCustomerMaster: {
@@ -396,20 +495,48 @@ export class PreCustomerMeetingService {
     }
 
     async getPreCustomer(user, PreCustomerMeetingSid: any) {
-        const result = await this._db.preCustomerMeeting.findUnique({
-            where: {
-                PreCustomerMeetingSid: Number(PreCustomerMeetingSid),
-                leadAssignTo: user.UserMasterSid
-            },
-            include: {
-                preCustomerMaster: true,
-                customerMaster: true
+        try {
+            const meetingId = Number(PreCustomerMeetingSid);
+            if (!meetingId) {
+                return null;
             }
-        })
-            .catch((error) => {
-                return []; // Return an empty array or handle it appropriately
+
+            const baseMeeting = await this._db.preCustomerMeeting.findUnique({
+                where: { PreCustomerMeetingSid: meetingId },
+                select: {
+                    PreCustomerMeetingSid: true,
+                    leadAssignTo: true,
+                    CompanyMasterSid: true,
+                    BranchMasterSid: true
+                }
             });
-        return result;
+
+            if (!baseMeeting) {
+                return null;
+            }
+
+            const { userId, userTypeCode } = this.resolveUserScopeContext(user);
+            const scopedUserIds = await this.getScopedUserIds(
+                Number(baseMeeting.CompanyMasterSid || 0),
+                Number(baseMeeting.BranchMasterSid || 0),
+                userTypeCode,
+                userId,
+            );
+
+            if (!scopedUserIds.includes(Number(baseMeeting.leadAssignTo || 0))) {
+                return null;
+            }
+
+            return await this._db.preCustomerMeeting.findUnique({
+                where: { PreCustomerMeetingSid: meetingId },
+                include: {
+                    preCustomerMaster: true,
+                    customerMaster: true
+                }
+            });
+        } catch (error) {
+            return null;
+        }
     }
 
 
@@ -463,13 +590,21 @@ export class PreCustomerMeetingService {
 
 
     async getPreCustomerFollowupMeetings(user, CompanyMasterSid: number, BranchMasterSid: number) {
+        const { userId, userTypeCode } = this.resolveUserScopeContext(user);
+        const scopedUserIds = await this.getScopedUserIds(
+            CompanyMasterSid,
+            BranchMasterSid,
+            userTypeCode,
+            userId,
+        );
+
         const result = await this._db.meetingFollowup.findMany({
             where: {
                 CompanyMasterSid: CompanyMasterSid,
                 BranchMasterSid: BranchMasterSid,
                 Status: 'A',
                 preCustomerMeeting: {
-                    leadAssignTo: user.UserMasterSid,
+                    leadAssignTo: { in: scopedUserIds },
                 }
             },
             include: {
@@ -493,13 +628,21 @@ export class PreCustomerMeetingService {
 
     async getAllPreCustomerMeetings(user, CompanyMasterSid: number, BranchMasterSid: number) {
         try {
+            const { userId, userTypeCode } = this.resolveUserScopeContext(user);
+            const scopedUserIds = await this.getScopedUserIds(
+                CompanyMasterSid,
+                BranchMasterSid,
+                userTypeCode,
+                userId,
+            );
+
             const allMeetings = await this._db.preCustomerMeeting.findMany({
                 where: {
                     status: 'A',
                     meetingStatus: {
                         in: ['Scheduled', 'In Progress', 'On Hold'],
                     },
-                    leadAssignTo: user.UserMasterSid,
+                    leadAssignTo: { in: scopedUserIds },
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid
                 },
@@ -509,9 +652,13 @@ export class PreCustomerMeetingService {
                             preCustomerName: true,
                             leadStatus: true
                         }
-                    }
-
+                    },
+                    customerMaster: {
+                        select: {
+                            CustomerName: true,
+                        }
                 }
+            }
             });
             return allMeetings;
         } catch (error) {
@@ -528,6 +675,16 @@ export class PreCustomerMeetingService {
         const { search = '', page = 1, pageSize = 10, activeCompanyId, activeBranchId } = params;
         const skip = (page - 1) * pageSize;
         const parsedDate = parseDateFromString(search);
+        const resolvedUserTypeCode =
+            (params as any)?.userTypeCode || user?.userTypeCode;
+        const resolvedUserId =
+            Number((params as any)?.userId || user?.UserMasterSid || 0);
+        const scopedUserIds = await this.getScopedUserIds(
+            activeCompanyId,
+            activeBranchId,
+            resolvedUserTypeCode,
+            resolvedUserId,
+        );
 
         let salesmanIds: number[] = [];
 
@@ -545,7 +702,7 @@ export class PreCustomerMeetingService {
 
         const where: Prisma.PreCustomerMeetingWhereInput = {
             status: statusWhereClause,
-            leadAssignTo: user.UserMasterSid,
+            leadAssignTo: { in: scopedUserIds },
             meetingStatus: {
                 in: ['Scheduled', 'In Progress', 'On Hold'],
             },

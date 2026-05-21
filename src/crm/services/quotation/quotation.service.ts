@@ -206,24 +206,41 @@ export class QuotationService {
                         BranchMasterSid: quoteHeader.BranchMasterSid,
                         QuoteHeaderSid: quoteHeader.QuoteHeaderSid,
                         QuoteRouteSid: quoteRoute.createdQuoteRoute.QuoteRouteSid, // Fixed reference
+                        QuoteCarrierSid: quoteRoute.createdQuoteCarrier?.QuoteCarrierSid ?? null,
                         CustomerMasterSid: quoteHeader.CustomerMasterSid,
                         ChargeUomSid: this.toNullableNumber(cargo.ChargeUomSid),
                         ChargeDisplayName: cargo.charge ?? cargo.ChargeDisplayName ?? '',
                         CurrencyMasterSid: this.toNullableNumber(cargo.currency ?? cargo.CurrencyMasterSid),
                         UOMMasterSid: this.toNullableNumber(cargo.unit ?? cargo.UOMMasterSid ?? cargo.RevenueChargeUomSid),
+                        Qty: Number(cargo.Qty ?? 0) || 0,
+                        Remarks: cargo.Remarks ?? null,
+                        TariffDetailSid: this.toNullableNumber(cargo.TariffDetailSid),
                         RevenueChargeUomSid: this.toNullableNumber(cargo.unit ?? cargo.RevenueChargeUomSid ?? cargo.UOMMasterSid),
+                        RevenuePrepaidCollect: cargo.RevenuePrepaidCollect || 'Prepaid',
+                        RevenueCurrencyMasterSid: this.toNullableNumber(cargo.RevenueCurrencyMasterSid ?? cargo.CurrencyMasterSid ?? cargo.currency),
+                        RevenueExchangeRate: Number(cargo.RevenueExchangeRate) || 0,
                         perUnit: cargo.perUnit ?? cargo.RevenueRate ?? null,
                         RevenueRate: cargo.RevenueRate ?? cargo.perUnit ?? null,
+                        RevenueNumberOfUnit: Number(cargo.RevenueNumberOfUnit ?? cargo.Qty ?? 0) || 0,
+                        RevenueDrCr: cargo.RevenueDrCr || 'C',
                         RevenueAmount: cargo.revenueAmount ?? cargo.RevenueAmount ?? null,
                         RevenueLocalAmount: cargo.revenueLocalAmount ?? cargo.RevenueLocalAmount ?? null,
+                        RevenueCustomerMasterSid: this.toNullableNumber(cargo.RevenueCustomerMasterSid),
+                        RevenueCustomerBranchSid: this.toNullableNumber(cargo.RevenueCustomerBranchSid),
                         CostChargeUomSid: this.toNullableNumber(cargo.costUnit ?? cargo.CostChargeUomSid),
+                        CostPrepaidCollect: cargo.CostPrepaidCollect || 'Prepaid',
                         CostCurrencyMasterSid: this.toNullableNumber(cargo.costCurrency ?? cargo.CostCurrencyMasterSid),
+                        CostExchangeRate: Number(cargo.CostExchangeRate) || 0,
                         costUnit: (cargo.costUnit ?? cargo.CostChargeUomSid) ? String(cargo.costUnit ?? cargo.CostChargeUomSid) : null,
                         costCurrency: (cargo.costCurrency ?? cargo.CostCurrencyMasterSid) ? String(cargo.costCurrency ?? cargo.CostCurrencyMasterSid) : null,
                         costPerUnit: cargo.costPerUnit ?? cargo.CostRate ?? null,
                         CostRate: cargo.CostRate ?? cargo.costPerUnit ?? null,
+                        CostNumberOfUnit: Number(cargo.CostNumberOfUnit ?? cargo.Qty ?? 0) || 0,
+                        CostDrCr: cargo.CostDrCr || 'D',
                         CostAmount: cargo.costAmount ?? cargo.CostAmount ?? null,
                         CostLocalAmount: cargo.costLocalAmount ?? cargo.CostLocalAmount ?? null,
+                        CostAgentMasterSid: this.toNullableNumber(cargo.CostAgentMasterSid),
+                        CostAgentBranchSid: this.toNullableNumber(cargo.CostAgentBranchSid),
                         createdBy: user['userEmail']
                     }))
                 );
@@ -310,13 +327,49 @@ export class QuotationService {
                     CustomerName: true,
                     CustomerAddress: true,
                     QuoteDate: true,
-                    status: true
+                    status: true,
+                    quoteRoute: {
+                        where: { status: 'A' },
+                        select: {
+                            QuoteRouteSid: true,
+                            quoteCarrier: {
+                                where: { status: 'A' },
+                                select: {
+                                    QuoteCarrierSid: true,
+                                    ApprovalStatus: true,
+                                    ApprovedBy: true,
+                                    Remarks: true,
+                                    status: true
+                                }
+                            }
+                        }
+                    }
                 },
                 orderBy: {
                     QuoteHeaderSid: 'desc'
                 }
             });
-            return quotations;
+            const normalizedRows = (quotations || []).map((quote: any) => {
+                const activeRoutes = Array.isArray(quote?.quoteRoute) ? quote.quoteRoute : [];
+                const carriers = activeRoutes.flatMap((route: any) =>
+                    Array.isArray(route?.quoteCarrier) ? route.quoteCarrier : []
+                );
+
+                const preferredCarrier =
+                    carriers.find((carrier: any) => carrier?.ApprovalStatus === 'Approved')
+                    || carriers.find((carrier: any) => carrier?.status === 'A')
+                    || carriers[0]
+                    || null;
+
+                return {
+                    ...quote,
+                    authorizerStatus: preferredCarrier?.ApprovalStatus ?? null,
+                    ApprovedBy: preferredCarrier?.ApprovedBy ?? null,
+                    AuthorizerRemarks: preferredCarrier?.Remarks ?? null
+                };
+            });
+
+            return normalizedRows;
         } catch (error) {
             throw error;
         }
@@ -335,6 +388,18 @@ export class QuotationService {
                             status : 'A'
                         },
                         include: {
+                            quoteCarrier: {
+                                where: {
+                                    status: 'A'
+                                },
+                                include: {
+                                    quoteCharge: {
+                                        where: {
+                                            status: 'A'
+                                        }
+                                    }
+                                }
+                            },
                             quoteCargo: {
                                 where: {
                                     Status: 'A'
@@ -530,19 +595,35 @@ export class QuotationService {
                                     ChargeDisplayName: cargoItem.charge ?? cargoItem.ChargeDisplayName ?? '',
                                     CurrencyMasterSid: this.toNullableNumber(cargoItem.currency ?? cargoItem.CurrencyMasterSid),
                                     UOMMasterSid: this.toNullableNumber(cargoItem.unit ?? cargoItem.UOMMasterSid ?? cargoItem.RevenueChargeUomSid),
+                                    Qty: Number(cargoItem.Qty ?? 0) || 0,
+                                    Remarks: cargoItem.Remarks ?? null,
+                                    TariffDetailSid: this.toNullableNumber(cargoItem.TariffDetailSid),
                                     RevenueChargeUomSid: this.toNullableNumber(cargoItem.unit ?? cargoItem.RevenueChargeUomSid ?? cargoItem.UOMMasterSid),
+                                    RevenuePrepaidCollect: cargoItem.RevenuePrepaidCollect || 'Prepaid',
+                                    RevenueCurrencyMasterSid: this.toNullableNumber(cargoItem.RevenueCurrencyMasterSid ?? cargoItem.CurrencyMasterSid ?? cargoItem.currency),
+                                    RevenueExchangeRate: Number(cargoItem.RevenueExchangeRate) || 0,
                                     perUnit: cargoItem.perUnit ?? cargoItem.RevenueRate ?? null,
                                     RevenueRate: cargoItem.RevenueRate ?? cargoItem.perUnit ?? null,
+                                    RevenueNumberOfUnit: Number(cargoItem.RevenueNumberOfUnit ?? cargoItem.Qty ?? 0) || 0,
+                                    RevenueDrCr: cargoItem.RevenueDrCr || 'C',
                                     RevenueAmount: cargoItem.revenueAmount ?? cargoItem.RevenueAmount ?? null,
                                     RevenueLocalAmount: cargoItem.revenueLocalAmount ?? cargoItem.RevenueLocalAmount ?? null,
+                                    RevenueCustomerMasterSid: this.toNullableNumber(cargoItem.RevenueCustomerMasterSid),
+                                    RevenueCustomerBranchSid: this.toNullableNumber(cargoItem.RevenueCustomerBranchSid),
                                     CostChargeUomSid: this.toNullableNumber(cargoItem.costUnit ?? cargoItem.CostChargeUomSid),
+                                    CostPrepaidCollect: cargoItem.CostPrepaidCollect || 'Prepaid',
                                     CostCurrencyMasterSid: this.toNullableNumber(cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid),
+                                    CostExchangeRate: Number(cargoItem.CostExchangeRate) || 0,
                                     costUnit: (cargoItem.costUnit ?? cargoItem.CostChargeUomSid) ? String(cargoItem.costUnit ?? cargoItem.CostChargeUomSid) : null,
                                     costCurrency: (cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid) ? String(cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid) : null,
                                     costPerUnit: cargoItem.costPerUnit ?? cargoItem.CostRate ?? null,
                                     CostRate: cargoItem.CostRate ?? cargoItem.costPerUnit ?? null,
+                                    CostNumberOfUnit: Number(cargoItem.CostNumberOfUnit ?? cargoItem.Qty ?? 0) || 0,
+                                    CostDrCr: cargoItem.CostDrCr || 'D',
                                     CostAmount: cargoItem.costAmount ?? cargoItem.CostAmount ?? null,
                                     CostLocalAmount: cargoItem.costLocalAmount ?? cargoItem.CostLocalAmount ?? null,
+                                    CostAgentMasterSid: this.toNullableNumber(cargoItem.CostAgentMasterSid),
+                                    CostAgentBranchSid: this.toNullableNumber(cargoItem.CostAgentBranchSid),
                                     updatedBy: user['userEmail'],
                                     updatedOn: new Date(),
                                 }
@@ -554,21 +635,38 @@ export class QuotationService {
                                     ChargeDisplayName: cargoItem.charge ?? cargoItem.ChargeDisplayName ?? '',
                                     CurrencyMasterSid: this.toNullableNumber(cargoItem.currency ?? cargoItem.CurrencyMasterSid),
                                     UOMMasterSid: this.toNullableNumber(cargoItem.unit ?? cargoItem.UOMMasterSid ?? cargoItem.RevenueChargeUomSid),
+                                    Qty: Number(cargoItem.Qty ?? 0) || 0,
+                                    Remarks: cargoItem.Remarks ?? null,
+                                    TariffDetailSid: this.toNullableNumber(cargoItem.TariffDetailSid),
                                     RevenueChargeUomSid: this.toNullableNumber(cargoItem.unit ?? cargoItem.RevenueChargeUomSid ?? cargoItem.UOMMasterSid),
+                                    RevenuePrepaidCollect: cargoItem.RevenuePrepaidCollect || 'Prepaid',
+                                    RevenueCurrencyMasterSid: this.toNullableNumber(cargoItem.RevenueCurrencyMasterSid ?? cargoItem.CurrencyMasterSid ?? cargoItem.currency),
+                                    RevenueExchangeRate: Number(cargoItem.RevenueExchangeRate) || 0,
                                     perUnit: cargoItem.perUnit ?? cargoItem.RevenueRate ?? null,
                                     RevenueRate: cargoItem.RevenueRate ?? cargoItem.perUnit ?? null,
+                                    RevenueNumberOfUnit: Number(cargoItem.RevenueNumberOfUnit ?? cargoItem.Qty ?? 0) || 0,
+                                    RevenueDrCr: cargoItem.RevenueDrCr || 'C',
                                     RevenueAmount: cargoItem.revenueAmount ?? cargoItem.RevenueAmount ?? null,
                                     RevenueLocalAmount: cargoItem.revenueLocalAmount ?? cargoItem.RevenueLocalAmount ?? null,
+                                    RevenueCustomerMasterSid: this.toNullableNumber(cargoItem.RevenueCustomerMasterSid),
+                                    RevenueCustomerBranchSid: this.toNullableNumber(cargoItem.RevenueCustomerBranchSid),
                                     CostChargeUomSid: this.toNullableNumber(cargoItem.costUnit ?? cargoItem.CostChargeUomSid),
+                                    CostPrepaidCollect: cargoItem.CostPrepaidCollect || 'Prepaid',
                                     CostCurrencyMasterSid: this.toNullableNumber(cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid),
+                                    CostExchangeRate: Number(cargoItem.CostExchangeRate) || 0,
                                     costUnit: (cargoItem.costUnit ?? cargoItem.CostChargeUomSid) ? String(cargoItem.costUnit ?? cargoItem.CostChargeUomSid) : null,
                                     costCurrency: (cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid) ? String(cargoItem.costCurrency ?? cargoItem.CostCurrencyMasterSid) : null,
                                     costPerUnit: cargoItem.costPerUnit ?? cargoItem.CostRate ?? null,
                                     CostRate: cargoItem.CostRate ?? cargoItem.costPerUnit ?? null,
+                                    CostNumberOfUnit: Number(cargoItem.CostNumberOfUnit ?? cargoItem.Qty ?? 0) || 0,
+                                    CostDrCr: cargoItem.CostDrCr || 'D',
                                     CostAmount: cargoItem.costAmount ?? cargoItem.CostAmount ?? null,
                                     CostLocalAmount: cargoItem.costLocalAmount ?? cargoItem.CostLocalAmount ?? null,
+                                    CostAgentMasterSid: this.toNullableNumber(cargoItem.CostAgentMasterSid),
+                                    CostAgentBranchSid: this.toNullableNumber(cargoItem.CostAgentBranchSid),
                                     QuoteHeaderSid: QuoteHeaderSid,
                                     QuoteRouteSid: routeData.QuoteRouteSid, // Link to the correct route
+                                    QuoteCarrierSid: this.toNullableNumber(cargoItem.QuoteCarrierSid),
                                     createdBy: user['userEmail'],
                                     CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                     BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
@@ -588,6 +686,14 @@ export class QuotationService {
                     quoteRoute: {
                         where: { status: 'A' },
                         include: {
+                            quoteCarrier: {
+                                where: { status: 'A' },
+                                include: {
+                                    quoteCharge: {
+                                        where: { status: 'A' }
+                                    }
+                                }
+                            },
                             quoteCargo: {
                                 where: { Status: 'A' }
                             },
