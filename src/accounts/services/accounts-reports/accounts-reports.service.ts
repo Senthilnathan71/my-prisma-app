@@ -1768,6 +1768,7 @@ export class AccountsReportsService {
               SubGroupName: true,
               LedgerName: true,
               LedgerType: true,
+              COAMasterSid: true,
             },
           },
           yearMaster: {
@@ -2805,12 +2806,12 @@ export class AccountsReportsService {
         branchId && branchId.length > 0
           ? branches.map((b) => b.branchName).join(', ')
           : 'All Branches';
+      const fromDateObj = new Date(FromDate);
       const voucherData = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
           VoucherDate: {
-            gte: FromDate,
             lte: ToDate,
           },
           Status: 'A',
@@ -2823,6 +2824,7 @@ export class AccountsReportsService {
               SubGroupName: true,
               LedgerName: true,
               LedgerType: true,
+              COAMasterSid: true,
             },
           },
           yearMaster: true,
@@ -2833,6 +2835,10 @@ export class AccountsReportsService {
       let totalExpense = 0;
       let totalOtherRevenue = 0;
       let totalOtherCost = 0;
+      let openingIncome = 0;
+      let openingExpense = 0;
+      let openingOtherRevenue = 0;
+      let openingOtherCost = 0;
 
       const groupedMap = new Map<string, any>();
       const data: any[] = [];
@@ -2893,6 +2899,8 @@ export class AccountsReportsService {
 
         const amount = v.LocalAmount.toNumber();
         const drCr = v.DrCr?.trim().toUpperCase();
+        const voucherDateObj = new Date(v.VoucherDate);
+        const isWithinRetainedRange = voucherDateObj >= fromDateObj;
 
         const category = v.coaMaster.Category;
         const profitSection = resolveProfitSection(
@@ -2913,6 +2921,14 @@ export class AccountsReportsService {
         }
 
         if (category === 'Income') {
+          if (!isWithinRetainedRange) {
+            if (profitSection === 'OtherRevenue') {
+              openingOtherRevenue += signedAmount;
+            } else {
+              openingIncome += signedAmount;
+            }
+            return;
+          }
           if (profitSection === 'OtherRevenue') {
             totalOtherRevenue += signedAmount;
           } else {
@@ -2922,6 +2938,14 @@ export class AccountsReportsService {
         }
 
         if (category === 'Expense') {
+          if (!isWithinRetainedRange) {
+            if (profitSection === 'OtherCost') {
+              openingOtherCost += signedAmount;
+            } else {
+              openingExpense += signedAmount;
+            }
+            return;
+          }
           if (profitSection === 'OtherCost') {
             totalOtherCost += signedAmount;
           } else {
@@ -2936,6 +2960,7 @@ export class AccountsReportsService {
             v.coaMaster.GroupName,
             v.coaMaster.SubGroupName,
             v.coaMaster.LedgerName,
+            v.coaMaster.COAMasterSid,
           ].join('|');
 
           if (!groupedMap.has(key)) {
@@ -2944,6 +2969,7 @@ export class AccountsReportsService {
               groupName: v.coaMaster.GroupName,
               subgroupName: v.coaMaster.SubGroupName,
               ledgerName: v.coaMaster.LedgerName,
+              COAMasterSid: v.coaMaster.COAMasterSid,
               LocalAmt: signedAmount,
             });
           } else {
@@ -2963,6 +2989,15 @@ export class AccountsReportsService {
         grossProfit + otherRevenueTotal - otherCostTotal,
         2,
       );
+      const openingIncomeTotal = roundAmount(openingIncome, 2);
+      const openingExpenseTotal = roundAmount(openingExpense, 2);
+      const openingOtherRevenueTotal = roundAmount(openingOtherRevenue, 2);
+      const openingOtherCostTotal = roundAmount(openingOtherCost, 2);
+      const openingGrossProfit = roundAmount(openingIncomeTotal - openingExpenseTotal, 2);
+      const openingRetained = roundAmount(
+        openingGrossProfit + openingOtherRevenueTotal - openingOtherCostTotal,
+        2,
+      );
 
       return {
         incomeTotal,
@@ -2971,6 +3006,7 @@ export class AccountsReportsService {
         otherRevenueTotal,
         otherCostTotal,
         retained: netProfit,
+        openingRetained,
         data,
         CompanyMasterSid,
         BranchMasterSid: branchId,
