@@ -189,6 +189,11 @@ export class InvoiceService {
                   MasterJobContainerSid: true,
                   masterJobContainer: true
                 }
+              },
+              houseJobBOE:{
+                select:{
+                  BOENo:true,
+                }
               }
             }
           },
