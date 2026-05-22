@@ -147,6 +147,7 @@ export class FfUserMasterService {
                         status: 'A',
                         GiveAccess: branch.GiveAccess,
                         IsDefault: branch.IsDefault,
+                        CostRevenueAccess: branch.CostRevenueAccess ?? 'NONE',
                     }))
                 );
 
@@ -538,6 +539,7 @@ export class FfUserMasterService {
                         BranchMasterSid: b.BranchMasterSid,
                         GiveAccess: b.GiveAccess,
                         IsDefault: b.IsDefault,
+                        CostRevenueAccess: b.CostRevenueAccess,
                     }))
                 );
 
@@ -573,6 +575,7 @@ export class FfUserMasterService {
                                 BranchMasterSid: b.BranchMasterSid,
                                 GiveAccess: b.GiveAccess,
                                 IsDefault: b.IsDefault,
+                                CostRevenueAccess: b.CostRevenueAccess ?? 'NONE',
                                 status: 'A',
                                 createdBy: updatedBy,
                             })),
@@ -585,11 +588,11 @@ export class FfUserMasterService {
                     const existing = prevBranches.find(
                         (pb) => pb.CompanyMasterSid === b.CompanyMasterSid && pb.BranchMasterSid === b.BranchMasterSid
                     );
-                    if (existing && (existing.GiveAccess !== b.GiveAccess || existing.IsDefault !== b.IsDefault)) {
+                    if (existing && (existing.GiveAccess !== b.GiveAccess || existing.IsDefault !== b.IsDefault || existing.CostRevenueAccess !== b.CostRevenueAccess)) {
                         branchOps.push(
                             prisma.userBranchMaster.update({
                                 where: { UserBranchMasterSid: existing.UserBranchMasterSid },
-                                data: { GiveAccess: b.GiveAccess, IsDefault: b.IsDefault, updatedBy , updatedOn: new Date() },
+                                data: { GiveAccess: b.GiveAccess, IsDefault: b.IsDefault, CostRevenueAccess: b.CostRevenueAccess, updatedBy , updatedOn: new Date() },
                             })
                         );
                     }
