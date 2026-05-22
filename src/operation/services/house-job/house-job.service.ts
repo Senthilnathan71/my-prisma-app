@@ -585,12 +585,19 @@ export class HouseJobService {
             // 🎯 Otherwise → Auto generate
             else {
                 if (numberSeriesMenuId) {
+                    // Resolve POL/POD port Sids for number series counter key
+                    const [polPortHJ, podPortHJ] = await Promise.all([
+                        payload.POL ? this._db.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
+                        payload.POD ? this._db.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
+                    ]);
                     HBLNo = await this.numberSeriesService.generateNextNumber(
                         payload.CompanyMasterSid,
                         payload.BranchMasterSid,
                         numberSeriesMenuId,
                         payload.DepartmentMasterSid,
                         resolvedJobDate,
+                        polPortHJ?.PortMasterSid,
+                        podPortHJ?.PortMasterSid,
                     );
                 }
 

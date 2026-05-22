@@ -36,13 +36,23 @@ export class BookingService {
       // Generate booking number using NumberSeriesService
       let bookingNo: string | null = null;
       if (MenuMasterSid) {
-        bookingNo = await this.numberSeriesService.generateNextNumber(
-          CompanyMasterSid,
-          BranchMasterSid,
-          MenuMasterSid,
-          DepartmentMasterSid,
-          undefined,
-        );
+        try {
+          const [polPortCrm, podPortCrm] = await Promise.all([
+            payload.from ? this.db.portMaster.findFirst({ where: { PortCode: payload.from }, select: { PortMasterSid: true } }) : null,
+            payload.to ? this.db.portMaster.findFirst({ where: { PortCode: payload.to }, select: { PortMasterSid: true } }) : null,
+          ]);
+          bookingNo = await this.numberSeriesService.generateNextNumber(
+            CompanyMasterSid,
+            BranchMasterSid,
+            MenuMasterSid,
+            DepartmentMasterSid,
+            undefined,
+            polPortCrm?.PortMasterSid,
+            podPortCrm?.PortMasterSid,
+          );
+        } catch (err) {
+          throw err;
+        }
       }
 
       return await this.db.$transaction(async (prisma) => {

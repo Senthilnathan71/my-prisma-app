@@ -87,6 +87,8 @@ export class NumberSeriesService {
           CompanyPrefix: payload.CompanyPrefix,
           BranchFlagRequired: payload.BranchFlagRequired || 'N',
           BranchPrefix: payload.BranchPrefix,
+          POLPODFlagRequired: payload.POLPODFlagRequired ?? 'N',
+          POLPODPortWiseCounter: payload.POLPODPortWiseCounter ?? 'Y',
           DepartmentCodeRequired: payload.DepartmentCodeRequired || 'N',
           MonthFlagRequired: payload.MonthFlagRequired || 'N',
           YearFlagRequired: payload.YearFlagRequired || 'N',
@@ -110,6 +112,8 @@ export class NumberSeriesService {
           CompanyPrefix: payload.CompanyPrefix,
           BranchFlagRequired: payload.BranchFlagRequired || 'N',
           BranchPrefix: payload.BranchPrefix,
+          POLPODFlagRequired: payload.POLPODFlagRequired ?? 'N',
+          POLPODPortWiseCounter: payload.POLPODPortWiseCounter ?? 'Y',
           DepartmentCodeRequired: payload.DepartmentCodeRequired || 'N',
           MonthFlagRequired: payload.MonthFlagRequired || 'N',
           YearFlagRequired: payload.YearFlagRequired || 'N',
@@ -135,6 +139,8 @@ export class NumberSeriesService {
     MenuMasterSid: number,
     DepartmentMasterSid?: number,
     documentDate?: Date,
+    POLSid?: number,
+    PODSid?: number,
   ): Promise<string> {
     this.logger.log(`[NumberSeries] generateNextNumber called with: Company=${CompanyMasterSid}, Branch=${BranchMasterSid}, Menu=${MenuMasterSid}, Dept=${DepartmentMasterSid}`);
 
@@ -191,6 +197,22 @@ export class NumberSeriesService {
         const deptSid =
           config.DepartmentWiseCounter === 'Y' ? DepartmentMasterSid : null;
 
+        // Resolve port codes and counter key Sids for POL/POD flag
+        // polSid/podSid are included in counter key only when PortWiseCounter='Y' (Case I)
+        // When PortWiseCounter='N' (Case II), sids are null → shared counter, but port codes still appear in the number
+        let polCode: string | undefined;
+        let podCode: string | undefined;
+        const polSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (POLSid ?? null) : null;
+        const podSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (PODSid ?? null) : null;
+        if (config.POLPODFlagRequired === 'Y' && POLSid && PODSid) {
+          const [polPort, podPort] = await Promise.all([
+            prisma.portMaster.findUnique({ where: { PortMasterSid: POLSid }, select: { PortCode: true } }),
+            prisma.portMaster.findUnique({ where: { PortMasterSid: PODSid }, select: { PortCode: true } }),
+          ]);
+          polCode = polPort?.PortCode ? (polPort.PortCode.length > 3 ? polPort.PortCode.slice(-3) : polPort.PortCode) : undefined;
+          podCode = podPort?.PortCode ? (podPort.PortCode.length > 3 ? podPort.PortCode.slice(-3) : podPort.PortCode) : undefined;
+        }
+
         // 4. Get or create counter with row-level locking
         let counter = await prisma.numberSeriesCounter.findFirst({
           where: {
@@ -198,6 +220,8 @@ export class NumberSeriesService {
             DepartmentMasterSid: deptSid,
             YearMasterSid: yearMasterSid,
             Month: month,
+            POLSid: polSid,
+            PODSid: podSid,
           },
         });
 
@@ -215,6 +239,8 @@ export class NumberSeriesService {
               DepartmentMasterSid: deptSid,
               YearMasterSid: yearMasterSid,
               Month: month,
+              POLSid: polSid,
+              PODSid: podSid,
               LastNumber: startingNumber,
             },
           });
@@ -247,6 +273,8 @@ export class NumberSeriesService {
           DepartmentMasterSid,
           currentYear,
           documentDate,
+          polCode,
+          podCode,
         );
       },
       {
@@ -264,6 +292,8 @@ export class NumberSeriesService {
     MenuMasterSid: number,
     DepartmentMasterSid?: number,
     documentDate?: Date,
+    POLSid?: number,
+    PODSid?: number,
   ): Promise<{ preview: string; nextNumber: number }> {
     const config = await this._db.numberSeriesConfig.findFirst({
       where: {
@@ -297,12 +327,28 @@ export class NumberSeriesService {
     const deptSid =
       config.DepartmentWiseCounter === 'Y' ? DepartmentMasterSid : null;
 
+    // Resolve port codes for POL/POD flag
+    let polCode: string | undefined;
+    let podCode: string | undefined;
+    const polSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (POLSid ?? null) : null;
+    const podSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (PODSid ?? null) : null;
+    if (config.POLPODFlagRequired === 'Y' && POLSid && PODSid) {
+      const [polPort, podPort] = await Promise.all([
+        this._db.portMaster.findUnique({ where: { PortMasterSid: POLSid }, select: { PortCode: true } }),
+        this._db.portMaster.findUnique({ where: { PortMasterSid: PODSid }, select: { PortCode: true } }),
+      ]);
+      polCode = polPort?.PortCode ? (polPort.PortCode.length > 3 ? polPort.PortCode.slice(-3) : polPort.PortCode) : undefined;
+      podCode = podPort?.PortCode ? (podPort.PortCode.length > 3 ? podPort.PortCode.slice(-3) : podPort.PortCode) : undefined;
+    }
+
     const counter = await this._db.numberSeriesCounter.findFirst({
       where: {
         NumberSeriesConfigSid: config.NumberSeriesConfigSid,
         DepartmentMasterSid: deptSid,
         YearMasterSid: yearMasterSid,
         Month: month,
+        POLSid: polSid,
+        PODSid: podSid,
       },
     });
 
@@ -326,6 +372,8 @@ export class NumberSeriesService {
       DepartmentMasterSid,
       currentYear,
       documentDate,
+      polCode,
+      podCode,
     );
 
     return { preview, nextNumber };
@@ -341,6 +389,8 @@ export class NumberSeriesService {
     DepartmentMasterSid?: number,
     yearMaster?: any,
     documentDate?: Date,
+    polCode?: string,
+    podCode?: string,
   ): Promise<string> {
     const parts: string[] = [];
     const sep = config.Separator || '';
@@ -356,7 +406,12 @@ export class NumberSeriesService {
       parts.push(config.BranchPrefix);
     }
 
-    // 3. Department Code (fetched from DepartmentMaster)
+    // 3. POL-POD segment (e.g., MAA-CHE)
+    if (config.POLPODFlagRequired === 'Y' && polCode && podCode) {
+      parts.push(`${polCode}-${podCode}`);
+    }
+
+    // 4. Department Code (fetched from DepartmentMaster)
     if (config.DepartmentCodeRequired === 'Y' && DepartmentMasterSid) {
       const dept = await prisma.departmentMaster.findUnique({
         where: { DepartmentMasterSid },
@@ -367,17 +422,17 @@ export class NumberSeriesService {
       }
     }
 
-    // 4. Month (MM format)
+    // 5. Month (MM format)
     if (config.MonthFlagRequired === 'Y') {
       parts.push(now.format('MM'));
     }
 
-    // 5. Year (YearCode from YearMaster)
+    // 6. Year (YearCode from YearMaster)
     if (config.YearFlagRequired === 'Y' && yearMaster?.YearCode) {
       parts.push(String(yearMaster.YearCode).slice(-2)); // e.g., "25"
     }
 
-    // 6. Sequence Number (padded to configured length)
+    // 7. Sequence Number (padded to configured length)
     const paddedNumber = sequenceNumber
       .toString()
       .padStart(config.NumberLength || 5, '0');
@@ -533,6 +588,8 @@ export class NumberSeriesService {
     BranchMasterSid: number,
     MenuMasterSid: number,
     DepartmentMasterSid?: number,
+    POLSid?: number,
+    PODSid?: number,
   ) {
     const config = await this._db.numberSeriesConfig.findFirst({
       where: {
@@ -561,6 +618,8 @@ export class NumberSeriesService {
     const month = config.ResetOption === 'Monthly' ? now.month() + 1 : null;
     const deptSid =
       config.DepartmentWiseCounter === 'Y' ? DepartmentMasterSid : null;
+    const polSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (POLSid ?? null) : null;
+    const podSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (PODSid ?? null) : null;
 
     // Reset to StartingNumber - 1 so the next generated number will be StartingNumber
     // Using max(0, StartingNumber - 1) to handle edge case where StartingNumber is 1
@@ -572,6 +631,8 @@ export class NumberSeriesService {
         DepartmentMasterSid: deptSid,
         YearMasterSid: yearMasterSid,
         Month: month,
+        POLSid: polSid,
+        PODSid: podSid,
       },
       data: { LastNumber: resetValue },
     });

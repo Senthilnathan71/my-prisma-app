@@ -55,16 +55,20 @@ export class QuotationService {
                 MenuMasterSid = enquiryMenu?.MenuMasterSid;
             }
 
-            // Generate enquiry number using NumberSeriesService
+            // Generate quotation number using NumberSeriesService
             let quotationNumber: string | null = null;
             if (MenuMasterSid) {
-                quotationNumber = await this.numberSeriesService.generateNextNumber(
-                    payload.CompanyMasterSid,
-                    payload.BranchMasterSid,
-                    MenuMasterSid,
-                    DepartmentMasterSid,
-                    payload.QuoteDate ? new Date(payload.QuoteDate) : undefined,
-                );
+                try {
+                    quotationNumber = await this.numberSeriesService.generateNextNumber(
+                        payload.CompanyMasterSid,
+                        payload.BranchMasterSid,
+                        MenuMasterSid,
+                        DepartmentMasterSid,
+                        payload.QuoteDate ? new Date(payload.QuoteDate) : undefined,
+                    );
+                } catch (err) {
+                    throw err;
+                }
             }
 
             // Step 1: Create Quote Header

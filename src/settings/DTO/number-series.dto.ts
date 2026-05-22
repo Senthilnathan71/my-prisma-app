@@ -25,7 +25,7 @@ export class CreateNumberSeriesConfigDto {
   CompanyFlagRequired?: string;
 
   @IsString()
-  @Length(0, 10)
+  @Length(0, 3)
   @IsOptional()
   CompanyPrefix?: string;
 
@@ -35,7 +35,7 @@ export class CreateNumberSeriesConfigDto {
   BranchFlagRequired?: string;
 
   @IsString()
-  @Length(0, 10)
+  @Length(0, 3)
   @IsOptional()
   BranchPrefix?: string;
 
@@ -53,6 +53,16 @@ export class CreateNumberSeriesConfigDto {
   @IsIn(['Y', 'N'])
   @IsOptional()
   YearFlagRequired?: string;
+
+  @IsString()
+  @IsIn(['Y', 'N'])
+  @IsOptional()
+  POLPODFlagRequired?: string;
+
+  @IsString()
+  @IsIn(['Y', 'N'])
+  @IsOptional()
+  POLPODPortWiseCounter?: string;
 
   @IsString()
   @Length(0, 5)
@@ -107,6 +117,14 @@ export class GenerateNumberDto {
   @IsDateString()
   @IsOptional()
   DocumentDate?: string;
+
+  @IsOptional()
+  @IsNumber()
+  POLSid?: number;
+
+  @IsOptional()
+  @IsNumber()
+  PODSid?: number;
 }
 
 export class PreviewNumberDto extends GenerateNumberDto {}

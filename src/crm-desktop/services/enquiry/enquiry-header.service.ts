@@ -43,13 +43,17 @@ export class EnquiryHeaderService {
             // Generate enquiry number using NumberSeriesService
             let enquiryNumber: string | null = null;
             if (MenuMasterSid) {
-                enquiryNumber = await this.numberSeriesService.generateNextNumber(
-                    payload.CompanyMasterSid,
-                    payload.BranchMasterSid,
-                    MenuMasterSid,
-                    DepartmentMasterSid,
-                    payload.EnquiryDate ? new Date(payload.EnquiryDate) : undefined,
-                );
+                try {
+                    enquiryNumber = await this.numberSeriesService.generateNextNumber(
+                        payload.CompanyMasterSid,
+                        payload.BranchMasterSid,
+                        MenuMasterSid,
+                        DepartmentMasterSid,
+                        payload.EnquiryDate ? new Date(payload.EnquiryDate) : undefined,
+                    );
+                } catch (err) {
+                    throw err;
+                }
             }
 
                 // Step 1: Create Enquiry Header

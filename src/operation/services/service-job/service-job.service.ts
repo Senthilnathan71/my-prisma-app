@@ -116,6 +116,11 @@ export class ServiceJobService {
         );
         const serviceJobMenuId = await this.menuService.getMenuSidByName("Service Job");
 
+        // Resolve POL/POD port Sids for number series counter key
+        const [polPortSJ, podPortSJ] = await Promise.all([
+            mainPayload.POL ? this._db.portMaster.findFirst({ where: { PortCode: mainPayload.POL }, select: { PortMasterSid: true } }) : null,
+            mainPayload.POD ? this._db.portMaster.findFirst({ where: { PortCode: mainPayload.POD }, select: { PortMasterSid: true } }) : null,
+        ]);
         let generatedMasterJobNumber: string | null = null;
         try {
             generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
@@ -124,6 +129,8 @@ export class ServiceJobService {
                 masterJobMenuId,
                 mainPayload.DepartmentMasterSid,
                 documentDate,
+                polPortSJ?.PortMasterSid,
+                podPortSJ?.PortMasterSid,
             );
         } catch (err) {
             this.logger.error(`[ServiceJob] MasterJob number generation failed: ${err.message}`);
@@ -157,6 +164,8 @@ export class ServiceJobService {
                 houseJobMenuId,
                 mainPayload.DepartmentMasterSid,
                 documentDate,
+                polPortSJ?.PortMasterSid,
+                podPortSJ?.PortMasterSid,
             );
         } catch (err) {
             this.logger.error(`[ServiceJob] HBL number generation failed: ${err.message}`);
