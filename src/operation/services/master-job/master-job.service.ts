@@ -367,12 +367,19 @@ export class MasterJobService {
             // ==========================================================
 
 
+            // Resolve POL/POD port Sids for number series counter key
+            const [polPortMJ, podPortMJ] = await Promise.all([
+                payload.POL ? this._db.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
+                payload.POD ? this._db.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
+            ]);
             let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
                 payload.CompanyMasterSid,
                 payload.BranchMasterSid,
                 menuId,
                 payload.DepartmentMasterSid,
-                resolvedJobDate
+                resolvedJobDate,
+                polPortMJ?.PortMasterSid,
+                podPortMJ?.PortMasterSid,
             );
             console.log("generatedMasterJobNumber", generatedMasterJobNumber);
 
@@ -978,12 +985,19 @@ export class MasterJobService {
                             HBLNo = String(bookingHeader.HBLNo || '').trim();
                         } else {
                             if (departmentExportImport === 'Export') {
+                                // Resolve POL/POD port Sids from booking header for number series
+                                const [polPortBH, podPortBH] = await Promise.all([
+                                    bookingHeader.POL ? prisma.portMaster.findFirst({ where: { PortCode: bookingHeader.POL }, select: { PortMasterSid: true } }) : null,
+                                    bookingHeader.POD ? prisma.portMaster.findFirst({ where: { PortCode: bookingHeader.POD }, select: { PortMasterSid: true } }) : null,
+                                ]);
                                 HBLNo = await this.numberSeriesService.generateNextNumber(
                                     payload.CompanyMasterSid,
                                     payload.BranchMasterSid,
                                     houseJobMenuId,
                                     bookingHeader.DepartmentMasterSid,
                                     resolvedJobDate,
+                                    polPortBH?.PortMasterSid,
+                                    podPortBH?.PortMasterSid,
                                 )
                             } else {
                                 HBLNo = "";
@@ -2746,12 +2760,19 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         HBLNo = String(bookingHeader.HBLNo || '').trim();
                     } else {
                         if (departmentExportImport === 'Export') {
+                            // Resolve POL/POD port Sids from booking header for number series
+                            const [polPortBH2, podPortBH2] = await Promise.all([
+                                bookingHeader.POL ? this._db.portMaster.findFirst({ where: { PortCode: bookingHeader.POL }, select: { PortMasterSid: true } }) : null,
+                                bookingHeader.POD ? this._db.portMaster.findFirst({ where: { PortCode: bookingHeader.POD }, select: { PortMasterSid: true } }) : null,
+                            ]);
                             HBLNo = await this.numberSeriesService.generateNextNumber(
                                 payload.CompanyMasterSid,
                                 payload.BranchMasterSid,
                                 houseJobMenuId,
                                 bookingHeader.DepartmentMasterSid,
                                 bookingHeader.BookingDateTime ? new Date(bookingHeader.BookingDateTime) : undefined,
+                                polPortBH2?.PortMasterSid,
+                                podPortBH2?.PortMasterSid,
                             )
                         } else {
                             HBLNo = "";
@@ -5493,12 +5514,19 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
     const bookingStatus = isLclExportBooking && hasCargoReceivedDate ? 'Cargo Received' : 'Booked';
 
     const bookingDate = moment().toDate();
+    // Resolve POL/POD port Sids from house job for number series
+    const [polPortBkn2, podPortBkn2] = await Promise.all([
+        houseJob.POL ? this._db.portMaster.findFirst({ where: { PortCode: houseJob.POL }, select: { PortMasterSid: true } }) : null,
+        houseJob.POD ? this._db.portMaster.findFirst({ where: { PortCode: houseJob.POD }, select: { PortMasterSid: true } }) : null,
+    ]);
     const BookingNo = await this.numberSeriesService.generateNextNumber(
         houseJob.CompanyMasterSid,
         houseJob.BranchMasterSid,
         bookingMenu.MenuMasterSid,
         bookingDepartmentMasterSid,
-        bookingDate
+        bookingDate,
+        polPortBkn2?.PortMasterSid,
+        podPortBkn2?.PortMasterSid,
     );
     let destinationAgentAddress = '';
     if (houseJob.DestinationAgent) {
@@ -7535,6 +7563,11 @@ console.log('Created product:', createdProduct);
 
             throw new BadRequestException('Notify and Consignee Name are blank. Unable to map import customer.');
         };
+        // Resolve POL/POD port Sids from source master job for number series
+        const [polPortSrc, podPortSrc] = await Promise.all([
+            sourceMasterJob.POL ? this._db.portMaster.findFirst({ where: { PortCode: sourceMasterJob.POL }, select: { PortMasterSid: true } }) : null,
+            sourceMasterJob.POD ? this._db.portMaster.findFirst({ where: { PortCode: sourceMasterJob.POD }, select: { PortMasterSid: true } }) : null,
+        ]);
         return this._db.$transaction(async (prisma) => {
             const sourceJobDate = sourceMasterJob.MasterJobDate ? new Date(sourceMasterJob.MasterJobDate) : new Date();
             let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
@@ -7542,7 +7575,9 @@ console.log('Created product:', createdProduct);
                 DestinationBranchMasterSid,
                 masterMenuSid,
                 destinationDepartment.DepartmentMasterSid,
-                sourceJobDate
+                sourceJobDate,
+                polPortSrc?.PortMasterSid,
+                podPortSrc?.PortMasterSid,
             );
 
             if (!generatedMasterJobNumber) {
@@ -7721,12 +7756,19 @@ console.log('Created product:', createdProduct);
             for (const sourceHouseJob of sourceMasterJob.houseJob || []) {
                 shipmentSerial += 1;
                 const shipmentDate = sourceHouseJob.HBLDate ? new Date(sourceHouseJob.HBLDate) : sourceJobDate;
+                // Resolve POL/POD port Sids from source house job for number series
+                const [polPortHJSrc, podPortHJSrc] = await Promise.all([
+                    sourceHouseJob.POL ? this._db.portMaster.findFirst({ where: { PortCode: sourceHouseJob.POL }, select: { PortMasterSid: true } }) : null,
+                    sourceHouseJob.POD ? this._db.portMaster.findFirst({ where: { PortCode: sourceHouseJob.POD }, select: { PortMasterSid: true } }) : null,
+                ]);
                 let generatedShipmentNo = await this.numberSeriesService.generateNextNumber(
                     destinationCompanyMasterSid,
                     DestinationBranchMasterSid,
                     houseMenuSid,
                     destinationDepartment.DepartmentMasterSid,
-                    shipmentDate
+                    shipmentDate,
+                    polPortHJSrc?.PortMasterSid,
+                    podPortHJSrc?.PortMasterSid,
                 );
 
                 if (!generatedShipmentNo) {

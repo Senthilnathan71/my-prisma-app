@@ -266,13 +266,20 @@ export class BookingService {
             let BookingNo: string | null = null;
             if (numberSeriesMenuId && payload.CompanyMasterSid && payload.BranchMasterSid) {
                 this.logger.log(`[NumberSeries] Calling generateNextNumber with MenuMasterSid: ${numberSeriesMenuId}`);
+                // Resolve POL/POD port Sids for number series counter key
+                const [polPortBkn, podPortBkn] = await Promise.all([
+                    payload.POL ? this._db.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
+                    payload.POD ? this._db.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
+                ]);
                 try {
                     BookingNo = await this.numberSeriesService.generateNextNumber(
                         payload.CompanyMasterSid,
                         payload.BranchMasterSid,
                         numberSeriesMenuId,
                         payload.DepartmentMasterSid ?? undefined,
-                        resolvedJobDate
+                        resolvedJobDate,
+                        polPortBkn?.PortMasterSid,
+                        podPortBkn?.PortMasterSid,
                     );
                     this.logger.log(`[NumberSeries] Generated BookingNo: ${BookingNo}, Length: ${BookingNo?.length}`);
                 } catch (err) {

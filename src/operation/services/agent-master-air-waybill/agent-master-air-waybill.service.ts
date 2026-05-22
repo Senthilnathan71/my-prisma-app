@@ -158,12 +158,19 @@ export class AgentMasterAirWaybillService {
     const masterMenuId = await this.getAgentMasterAirWaybillMenuSid();
     const resolvedJobDate = payload.MBLDate ? new Date(payload.MBLDate) : new Date();
 
+    // Resolve POL/POD port Sids for number series counter key
+    const [polPortAMW, podPortAMW] = await Promise.all([
+      payload.POL ? this._db.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
+      payload.POD ? this._db.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
+    ]);
     let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
       payload.CompanyMasterSid,
       payload.BranchMasterSid,
       masterMenuId,
       payload.DepartmentMasterSid,
       resolvedJobDate,
+      polPortAMW?.PortMasterSid,
+      podPortAMW?.PortMasterSid,
     );
 
     if (!generatedMasterJobNumber) {

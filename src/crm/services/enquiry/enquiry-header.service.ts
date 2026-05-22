@@ -39,13 +39,17 @@ export class EnquiryHeaderService {
             // Generate enquiry number using NumberSeriesService
             let enquiryNumber: string | null = null;
             if (MenuMasterSid) {
-                enquiryNumber = await this.numberSeriesService.generateNextNumber(
-                    CompanyMasterSid,
-                    BranchMasterSid,
-                    MenuMasterSid,
-                    DepartmentMasterSid,
-                    undefined,
-                );
+                try {
+                    enquiryNumber = await this.numberSeriesService.generateNextNumber(
+                        CompanyMasterSid,
+                        BranchMasterSid,
+                        MenuMasterSid,
+                        DepartmentMasterSid,
+                        undefined,
+                    );
+                } catch (err) {
+                    throw err;
+                }
             }
 
             return await this._db.$transaction(async (prisma) => {

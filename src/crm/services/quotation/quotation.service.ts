@@ -89,13 +89,17 @@ export class QuotationService {
             // Generate quote number using NumberSeriesService
             let quoteNumber: string | null = null;
             if (MenuMasterSid) {
-                quoteNumber = await this.numberSeriesService.generateNextNumber(
-                    CompanyMasterSid,
-                    BranchMasterSid,
-                    MenuMasterSid,
-                    DepartmentMasterSid ?? undefined,
-                    (payload.quoteDate || payload.QuoteDate) ? new Date(payload.quoteDate || payload.QuoteDate) : undefined,
-                );
+                try {
+                    quoteNumber = await this.numberSeriesService.generateNextNumber(
+                        CompanyMasterSid,
+                        BranchMasterSid,
+                        MenuMasterSid,
+                        DepartmentMasterSid ?? undefined,
+                        (payload.quoteDate || payload.QuoteDate) ? new Date(payload.quoteDate || payload.QuoteDate) : undefined,
+                    );
+                } catch (err) {
+                    throw err;
+                }
             }
 
             return await this._db.$transaction(async (prisma) => {

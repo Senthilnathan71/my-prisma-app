@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as fs from 'fs';
 import { json, urlencoded } from 'express';
+import * as cookieParser from 'cookie-parser';
+import { AUTH_COOKIE_NAME } from './auth/auth/auth-cookie';
 
 async function bootstrap() {
 
@@ -77,13 +79,14 @@ async function bootstrap() {
     credentials: true,
   });
   
+  app.use(cookieParser());
   app.use(json({ limit: '200mb' }));
   app.use(urlencoded({ extended: true, limit: '200mb' }));
   // swagger setup
   const options = new DocumentBuilder()
     .setTitle('CRM-MOBILE-API')
     .setDescription('CRM mobile application API')
-    .addBearerAuth()
+    .addCookieAuth(AUTH_COOKIE_NAME)
     .setVersion('1.0')
     .addTag('crm')
     .build()

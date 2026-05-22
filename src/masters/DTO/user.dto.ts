@@ -8,6 +8,7 @@ import {
     IsNotEmpty,
     ValidateNested,
     IsDateString,
+    IsIn,
 } from 'class-validator';
 import { PartialType } from '@nestjs/mapped-types';
 import { Type } from 'class-transformer';
@@ -292,6 +293,10 @@ export class UserBranchMasterDto {
     @IsOptional()
     @Length(1, 1, { message: 'IsDefault must be a single character (Y/N)' })
     IsDefault?: string;
+
+    @IsOptional()
+    @IsIn(['NONE', 'HIDE_COST', 'HIDE_REVENUE', 'HIDE_BOTH', 'READ_ONLY'])
+    CostRevenueAccess?: string;
 
     @IsOptional()
     @IsInt({ message: 'LoginSid must be a number if provided' })

@@ -95,6 +95,8 @@ export class NumberSeriesController {
         payload.MenuMasterSid,
         payload.DepartmentMasterSid,
         payload.DocumentDate ? new Date(payload.DocumentDate) : undefined,
+        payload.POLSid,
+        payload.PODSid,
       );
       return { status: true, data: number };
     } catch (error) {
@@ -115,6 +117,8 @@ export class NumberSeriesController {
         payload.MenuMasterSid,
         payload.DepartmentMasterSid,
         payload.DocumentDate ? new Date(payload.DocumentDate) : undefined,
+        payload.POLSid,
+        payload.PODSid,
       );
       return { status: true, data: result };
     } catch (error) {
@@ -192,6 +196,8 @@ export class NumberSeriesController {
         payload.BranchMasterSid,
         payload.MenuMasterSid,
         payload.DepartmentMasterSid,
+        payload.POLSid,
+        payload.PODSid,
       );
       return { status: true, data, message: 'Counter reset successfully' };
     } catch (error) {
