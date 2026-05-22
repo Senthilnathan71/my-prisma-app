@@ -20,6 +20,8 @@ export class CreateServiceJobDto {
     HBLDate?: Date;
     ShipmentNo?: string;
     JobType?: string;
+    ETD?: Date;
+    ETA?: Date;
 
     // HouseJob fields
     BookingNo: string;
@@ -61,6 +63,8 @@ export class UpdateServiceJobDto {
     HBLNo?: string;
     HBLDate?: Date;
     ShipmentNo?: string;
+    ETD?: Date;
+    ETA?: Date;
     CustomerBranchSid: number;
     CustomerName: string;
     CustomerAddress: string;
@@ -196,6 +200,9 @@ export class ServiceJobService {
         // --- Transaction: create all records ---
 
         return this._db.$transaction(async (prisma) => {
+            const etdDate = payload.ETD ? new Date(payload.ETD) : null;
+            const etaDate = payload.ETA ? new Date(payload.ETA) : null;
+
             // Create the MasterJob
             const masterJob = await prisma.masterJob.create({
                 data: {
@@ -221,6 +228,18 @@ export class ServiceJobService {
                 throw new BadRequestException('Failed to create the master job component.');
             }
 
+            const masterJobVoyage = (etdDate || etaDate)
+                ? await prisma.masterJobVoyage.create({
+                    data: {
+                        MasterJobSid: masterJob.MasterJobSid,
+                        ETD: etdDate,
+                        ETA: etaDate,
+                        Status: 'A',
+                        CreatedBy: mainPayload.createdBy,
+                    },
+                })
+                : null;
+
             // Create the HouseJob
             const houseJob = await prisma.houseJob.create({
                 data: {
@@ -245,6 +264,8 @@ export class ServiceJobService {
                     HBLNo: finalHBLNo,
                     POL: mainPayload.POL || "",
                     POD: mainPayload.POD || "",
+                    ETD: etdDate,
+                    ETA: etaDate,
                     FreightTerms: mainPayload.FreightTerms || mainPayload.FreightPPCC || "Prepaid",
                     BookingNo: "",
                     IsServiceJob: 'Y',
@@ -415,6 +436,7 @@ export class ServiceJobService {
             return {
                 ...houseJob,
                 masterJob,
+                masterJobVoyage,
                 Cargo: createdCargo,
                 Others: createdOthers,
                 costRevenueCharges: createdCharges,
@@ -783,7 +805,7 @@ export class ServiceJobService {
         const resolvedDateFrom = dateFrom ?? DateFrom;
         const resolvedDateTo = dateTo ?? DateTo;
         const rawDateField = (dateField ?? DateField ?? '').toString();
-        const allowedDateFields = ['MBLDate', 'HBLDate'];
+        const allowedDateFields = ['MBLDate', 'HBLDate', 'ETD', 'ETA'];
         const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'MBLDate';
 
         const parsedDateFrom = resolvedDateFrom ? new Date(resolvedDateFrom) : null;
@@ -841,6 +863,8 @@ export class ServiceJobService {
                         HBLNo: true,
                         MBLNo: true,
                         MBLDate: true,
+                        ETD: true,
+                        ETA: true,
                         ShipmentNo: true,
                         POL: true,
                         POD: true,
@@ -1064,7 +1088,7 @@ export class ServiceJobService {
         const baseHeaders = [
             'Department ', 'Job Date  (DD-MM-YYYY)', 'Customer Name*', 'Customer Address*', 'Job No.',
             'HBLNo (HouseJobNo)', 'ShipmentNo (Reference)', 'JobType ', 'ShipperName', 'ShipperAddress',
-            'ConsigneeName', 'ConsigneeAddress', 'POL (PortCode)', 'POD (PortCode)', 'CargoType ',
+            'ConsigneeName', 'ConsigneeAddress', 'POL (PortCode)', 'POD (PortCode)', 'ETD (DD-MM-YYYY)', 'ETA (DD-MM-YYYY)', 'CargoType ',
             'GrossWeight', 'NetWeight', 'Volume_CBM', 'ChargeableWeight', 'NoOfPackage', 'NoofContainers',
             'ContainerTypeName', 'ShipmentTerms', 'MovementType', 'ModeOfTransport ', 'StuffingAt ',
             'External Note', 'Internal Note', 'Good Decription', 'Marks and Number '
@@ -1086,8 +1110,8 @@ export class ServiceJobService {
         uploadSheet.getRow(2).values = [];
         uploadSheet.getRow(3).values = [];
         uploadSheet.getCell('A3').value = 'SERVICE JOB';
-        uploadSheet.getCell('O3').value = 'CARGO DETAILS';
-        uploadSheet.getCell('AE3').value = 'RATE / CHARGES DETAILS';
+        uploadSheet.getCell('Q3').value = 'CARGO DETAILS';
+        uploadSheet.getCell('AG3').value = 'RATE / CHARGES DETAILS';
         uploadSheet.getRow(4).values = headers;
         uploadSheet.getRow(5).values = [
             departments[0]?.departmentName || 'Air Export',
@@ -1104,6 +1128,8 @@ export class ServiceJobService {
             '',
             this.formatServiceJobPort(ports[0]) || '',
             this.formatServiceJobPort(ports[1]) || '',
+            '',
+            '',
             'General',
             0, 0, 0, 0, 0, 0,
             containerTypes[0]?.ContainerName || '',
@@ -1141,7 +1167,7 @@ export class ServiceJobService {
         ];
         uploadSheet.getRow(6).values = ['NOTES: 1) One row per charge line. Repeat MasterJobNo+HouseJob fields on each charge row for the same job. 2) MasterJobNo is used as the linking key - same MasterJobNo = same MasterJob. 3) Leave HBLNo/ShipmentNo blank to auto-generate. 4) Red headers are MANDATORY - all others are optional.'];
 
-        const baseWidths = [22, 22, 18, 18, 18, 20, 20, 22, 22, 22, 22, 22, 15, 15, 24, 14, 14, 14, 16, 14, 15, 18, 18, 18, 22, 18, 18, 18, 18, 18];
+        const baseWidths = [22, 22, 18, 18, 18, 20, 20, 22, 22, 22, 22, 22, 15, 15, 16, 16, 24, 14, 14, 14, 16, 14, 15, 18, 18, 18, 22, 18, 18, 18, 18, 18];
         const chargeWidths = [22, 14, 12, 12, 14, 16, 12, 14, 16, 14, 18, 18, 14, 16, 12, 14, 16, 14, 18, 18];
         const widths = [
             ...baseWidths,
@@ -1149,7 +1175,7 @@ export class ServiceJobService {
         ];
         widths.forEach((width, index) => uploadSheet.getColumn(index + 1).width = width);
         for (let block = 1; block < chargeBlockCount; block++) {
-            const startCol = 31 + (block * chargeHeaders.length);
+            const startCol = 33 + (block * chargeHeaders.length);
             const endCol = startCol + chargeHeaders.length - 1;
             for (let col = startCol; col <= endCol; col++) {
                 uploadSheet.getColumn(col).outlineLevel = 1;
@@ -1346,47 +1372,52 @@ export class ServiceJobService {
             const pol = polPort?.PortCode || polInput;
             const pod = podPort?.PortCode || podInput;
 
-            const cargoType = text(14) || 'General';
+            const etd = this.parseServiceJobExcelDate(row[14]);
+            if (row[14] && !etd) errors.push('ETD is invalid. Use DD-MM-YYYY');
+            const eta = this.parseServiceJobExcelDate(row[15]);
+            if (row[15] && !eta) errors.push('ETA is invalid. Use DD-MM-YYYY');
+
+            const cargoType = text(16) || 'General';
             if (!['general', 'haz', 'refer', 'tanker', 'oog'].includes(cargoType.toLowerCase())) {
                 errors.push(`CargoType "${cargoType}" is invalid`);
             }
-            const grossWeight = num(15, 'GrossWeight') ?? 0;
-            const netWeight = num(16, 'NetWeight') ?? 0;
+            const grossWeight = num(17, 'GrossWeight') ?? 0;
+            const netWeight = num(18, 'NetWeight') ?? 0;
             if (grossWeight && netWeight && grossWeight <= netWeight) errors.push('Gross Weight should be greater than Net Weight');
-            const volume = num(17, 'Volume_CBM') ?? 0;
-            const chargeableWeight = num(18, 'ChargeableWeight') ?? 0;
-            const noOfPackage = num(19, 'NoOfPackage') ?? 0;
-            const noofContainers = num(20, 'NoofContainers') ?? 0;
+            const volume = num(19, 'Volume_CBM') ?? 0;
+            const chargeableWeight = num(20, 'ChargeableWeight') ?? 0;
+            const noOfPackage = num(21, 'NoOfPackage') ?? 0;
+            const noofContainers = num(22, 'NoofContainers') ?? 0;
 
-            const containerTypeName = text(21);
+            const containerTypeName = text(23);
             const containerType = containerTypeName ? containerMap.get(this.lookupKey(containerTypeName)) : null;
             if (containerTypeName && !containerType) errors.push(`ContainerTypeName "${containerTypeName}" not found`);
 
-            const shipmentTerms = text(22);
+            const shipmentTerms = text(24);
             if (shipmentTerms && !['fcl/fcl', 'fcl/lcl', 'lcl/fcl', 'lcl/lcl', 'ltl', 'ftl', 'ftl hh'].includes(shipmentTerms.toLowerCase())) {
                 errors.push(`ShipmentTerms "${shipmentTerms}" is invalid`);
             }
-            const movementType = text(23);
+            const movementType = text(25);
             if (movementType && !['cy-cfs', 'cfs-fo', 'cfs-cy', 'cfs-cfs', 'fo-fi', 'door-door', 'cy-door', 'cy-fo'].includes(movementType.toLowerCase())) {
                 errors.push(`MovementType "${movementType}" is invalid`);
             }
-            const modeOfTransport = text(24);
+            const modeOfTransport = text(26);
             if (modeOfTransport && !['rail', 'road', 'flight', 'vessel'].includes(modeOfTransport.toLowerCase())) {
                 errors.push(`ModeOfTransport "${modeOfTransport}" is invalid`);
             }
-            const stuffingAt = text(25) || 'Dock';
+            const stuffingAt = text(27) || 'Dock';
             if (stuffingAt && !['dock', 'factory'].includes(stuffingAt.toLowerCase())) {
                 errors.push(`StuffingAt "${stuffingAt}" is invalid`);
             }
 
-            const externalNote = text(26);
-            const internalNote = text(27);
-            const commodityDescription = text(28);
-            const marksAndNumber = text(29);
+            const externalNote = text(28);
+            const internalNote = text(29);
+            const commodityDescription = text(30);
+            const marksAndNumber = text(31);
 
             const chargeRecords: any[] = [];
             for (let block = 0; block < 6; block++) {
-                const offset = 30 + (block * 20);
+                const offset = 32 + (block * 20);
                 const blockLabel = block === 0 ? '' : `Charge ${block + 1}: `;
                 const chargeCode = text(offset);
                 const chargeDescriptionInput = text(offset + 1);
@@ -1511,6 +1542,8 @@ export class ServiceJobService {
                 consigneeAddress: text(11),
                 pol,
                 pod,
+                etd: etd ? etd.toISOString() : null,
+                eta: eta ? eta.toISOString() : null,
                 cargoType,
                 grossWeight,
                 netWeight,
@@ -1528,8 +1561,8 @@ export class ServiceJobService {
                 commodityDescription,
                 marksAndNumber,
                 chargeDescription: chargeRecords[0]?.ChargeDescription || '',
-                chargeCode: text(30),
-                uom: text(32),
+                chargeCode: text(32),
+                uom: text(34),
                 noOfUnit: chargeRecords[0]?.NoOfUnit ?? null,
                 DepartmentMasterSid: department?.DepartmentMasterSid ?? null,
                 CustomerMasterSid: customer?.CustomerMasterSid ?? null,
@@ -1610,6 +1643,8 @@ export class ServiceJobService {
                     MBLDate: row.jobDate ? new Date(row.jobDate) : new Date(),
                     HBLNo: row.hblNo || '',
                     HBLDate: row.jobDate ? new Date(row.jobDate) : undefined,
+                    ETD: row.etd ? new Date(row.etd) : undefined,
+                    ETA: row.eta ? new Date(row.eta) : undefined,
                     ShipmentNo: row.shipmentNo || '',
                     JobType: row.jobType || null,
                     FreightPPCC: row.chargeRecords?.[0]?.RevenuePrepaidCollect || row.chargeRecords?.[0]?.CostPrepaidCollect || row.chargeRecord?.RevenuePrepaidCollect || row.chargeRecord?.CostPrepaidCollect || 'Prepaid',
@@ -1801,7 +1836,7 @@ export class ServiceJobService {
         const rateSectionFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF9C4A00' } };
         const mandatoryFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFC00000' } };
         const optionalFill = { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF808080' } };
-        const mandatoryHeaders = new Set([1, 3, 4, 31]);
+        const mandatoryHeaders = new Set([1, 3, 4, 33]);
 
         sheet.getRow(1).height = 24;
         sheet.getRow(2).height = 20;
@@ -1825,9 +1860,9 @@ export class ServiceJobService {
                 cell.border = this.excelThinBorder();
             }
         };
-        styleSectionRange(1, 14, serviceSectionFill);
-        styleSectionRange(15, 30, cargoSectionFill);
-        styleSectionRange(31, sheet.columnCount || 50, rateSectionFill);
+        styleSectionRange(1, 16, serviceSectionFill);
+        styleSectionRange(17, 32, cargoSectionFill);
+        styleSectionRange(33, sheet.columnCount || 52, rateSectionFill);
 
         sheet.getRow(4).eachCell({ includeEmpty: true }, (cell, colNumber) => {
             cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
@@ -1850,16 +1885,16 @@ export class ServiceJobService {
     }
 
     private applyServiceJobUploadMerges(sheet: ExcelJS.Worksheet): void {
-        sheet.mergeCells('A1:AX1');
-        sheet.mergeCells('A3:N3');
-        sheet.mergeCells('O3:AD3');
-        sheet.mergeCells('AE3:AX3');
-        sheet.mergeCells('A6:AX6');
+        sheet.mergeCells('A1:AZ1');
+        sheet.mergeCells('A3:P3');
+        sheet.mergeCells('Q3:AF3');
+        sheet.mergeCells('AG3:AZ3');
+        sheet.mergeCells('A6:AZ6');
 
         sheet.getCell('A1').alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
         sheet.getCell('A3').alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-        sheet.getCell('O3').alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-        sheet.getCell('AE3').alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        sheet.getCell('Q3').alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        sheet.getCell('AG3').alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
         sheet.getCell('A6').alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
     }
 
@@ -1928,14 +1963,14 @@ export class ServiceJobService {
         addListValidation('H', 'JobType');
         addListValidation('M', 'Port');
         addListValidation('N', 'Port');
-        addListValidation('O', 'CargoType');
-        addListValidation('V', 'ContainerType');
-        addListValidation('W', 'ShipmentTerms');
-        addListValidation('X', 'MovementType');
-        addListValidation('Y', 'ModeOfTransport');
-        addListValidation('Z', 'StuffingAt');
+        addListValidation('Q', 'CargoType');
+        addListValidation('X', 'ContainerType');
+        addListValidation('Y', 'ShipmentTerms');
+        addListValidation('Z', 'MovementType');
+        addListValidation('AA', 'ModeOfTransport');
+        addListValidation('AB', 'StuffingAt');
         for (let block = 0; block < 6; block++) {
-            const startCol = 31 + (block * 20);
+            const startCol = 33 + (block * 20);
             const col = (offset: number) => sheet.getColumn(startCol + offset).letter;
             addListValidation(col(0), 'ChargeCode');
             addListValidation(col(1), 'ChargeDescription');
@@ -1997,7 +2032,7 @@ export class ServiceJobService {
         };
 
         for (let block = 0; block < 6; block++) {
-            const startCol = 31 + (block * 20);
+            const startCol = 33 + (block * 20);
             const col = (offset: number) => sheet.getColumn(startCol + offset).letter;
             for (let row = 7; row <= 1000; row++) {
                 const chargeCodeCell = `$${col(0)}${row}`;
@@ -2011,7 +2046,7 @@ export class ServiceJobService {
                 const unitQtyRange = range('ChargeUnitQty');
                 const unitLookup = unitQtyRange ? `INDEX(${unitQtyRange},MATCH(${chargeCodeCell},${codeRange},0))` : '""';
                 sheet.getCell(`${col(3)}${row}`).value = {
-                    formula: `IF(${chargeCodeCell}="","",IFERROR(SWITCH(${unitLookup},"Per 20ft Cont",IF($U${row}>0,$U${row},1),"Per 40ft Cont",IF($U${row}>0,$U${row},1),"Per 45ft Cont",IF($U${row}>0,$U${row},1),"Per Cont",IF($U${row}>0,$U${row},1),"20ft",IF($U${row}>0,$U${row},1),"40ft",IF($U${row}>0,$U${row},1),"Per CBM",IF($R${row}>0,$R${row},1),"CBM",IF($R${row}>0,$R${row},1),"Per GrossWeight",IF($P${row}>0,$P${row},1),"GrossWeight",IF($P${row}>0,$P${row},1),"ChargeableWeight",IF($S${row}>0,$S${row},1),1),1))`,
+                    formula: `IF(${chargeCodeCell}="","",IFERROR(SWITCH(${unitLookup},"Per 20ft Cont",IF($W${row}>0,$W${row},1),"Per 40ft Cont",IF($W${row}>0,$W${row},1),"Per 45ft Cont",IF($W${row}>0,$W${row},1),"Per Cont",IF($W${row}>0,$W${row},1),"20ft",IF($W${row}>0,$W${row},1),"40ft",IF($W${row}>0,$W${row},1),"Per CBM",IF($T${row}>0,$T${row},1),"CBM",IF($T${row}>0,$T${row},1),"Per GrossWeight",IF($R${row}>0,$R${row},1),"GrossWeight",IF($R${row}>0,$R${row},1),"ChargeableWeight",IF($U${row}>0,$U${row},1),1),1))`,
                     result: ''
                 };
                 sheet.getCell(`${col(7)}${row}`).value = { formula: `IF(OR($${col(3)}${row}="",$${col(6)}${row}=""),"",ROUND($${col(3)}${row}*$${col(6)}${row},2))`, result: '' };
@@ -2034,10 +2069,10 @@ export class ServiceJobService {
     private isServiceJobExcelDataRow(row: any[]): boolean {
         if (!row?.length) return false;
         const chargeIndexes = Array.from({ length: 6 }).flatMap((_, block) => {
-            const offset = 30 + (block * 20);
+            const offset = 32 + (block * 20);
             return [offset, offset + 6, offset + 14, offset + 18];
         });
-        const meaningfulIndexes = [0, 2, 3, 4, 5, 6, ...chargeIndexes];
+        const meaningfulIndexes = [0, 2, 3, 4, 5, 6, 14, 15, ...chargeIndexes];
         if (!meaningfulIndexes.some(index => row[index] !== null && row[index] !== undefined && String(row[index]).trim() !== '')) return false;
         const firstCell = String(row[0] ?? '').trim().toLowerCase();
         if (firstCell.startsWith('notes:') || firstCell.startsWith('📌')) return false;

@@ -147,6 +147,57 @@ export class MasterJobService {
         return result;
     }
 
+    private async getHouseJobProvisionalCostRevenue(houseJobs: { HouseJobSid: number; ShipmentNo?: string | null }[]): Promise<Map<number, { ProvCost: number; ProvRevenue: number }>> {
+        const result = new Map<number, { ProvCost: number; ProvRevenue: number }>();
+        houseJobs.forEach(houseJob => {
+            result.set(houseJob.HouseJobSid, { ProvCost: 0, ProvRevenue: 0 });
+        });
+
+        const houseJobSids = houseJobs.map(houseJob => houseJob.HouseJobSid);
+        const shipmentNoByHouseJobSid = new Map(
+            houseJobs.map(houseJob => [
+                houseJob.HouseJobSid,
+                String(houseJob.ShipmentNo || '').trim(),
+            ])
+        );
+
+        if (houseJobSids.length === 0) {
+            return result;
+        }
+
+        const charges = await this._db.costRevenueCharges.findMany({
+            where: {
+                status: 'A',
+                TransactionSid: { in: houseJobSids },
+            },
+            select: {
+                TransactionSid: true,
+                ShipmentNo: true,
+                CostLocalAmount: true,
+                RevenueLocalAmount: true,
+            },
+        });
+
+        charges.forEach(charge => {
+            if (!charge.TransactionSid) {
+                return;
+            }
+
+            const houseShipmentNo = shipmentNoByHouseJobSid.get(charge.TransactionSid) || '';
+            const chargeShipmentNo = String(charge.ShipmentNo || '').trim();
+            if (houseShipmentNo && chargeShipmentNo && houseShipmentNo !== chargeShipmentNo) {
+                return;
+            }
+
+            const provisional = result.get(charge.TransactionSid) || { ProvCost: 0, ProvRevenue: 0 };
+            provisional.ProvCost += Number(charge.CostLocalAmount || 0);
+            provisional.ProvRevenue += Number(charge.RevenueLocalAmount || 0);
+            result.set(charge.TransactionSid, provisional);
+        });
+
+        return result;
+    }
+
     private async allocateMawbFromStock(
         prisma: Prisma.TransactionClient,
         payload: any,
@@ -6539,12 +6590,16 @@ console.log('Created product:', createdProduct);
                 }
             }) : [];
 
-            const costRevenueData = await this.getHouseJobActualCostRevenue(houseJobs);
+            const [costRevenueData, provisionalCostRevenueData] = await Promise.all([
+                this.getHouseJobActualCostRevenue(houseJobs),
+                this.getHouseJobProvisionalCostRevenue(houseJobs),
+            ]);
 
             // Build HBL data
             const hblData = houseJobs.map(hj => {
                 const cargo = cargoData.filter(c => c.HouseJobSid === hj.HouseJobSid);
                 const cr = costRevenueData.get(hj.HouseJobSid);
+                const provisional = provisionalCostRevenueData.get(hj.HouseJobSid);
                 const actualCost = Number(cr?.ActualCost || 0);
                 const actualRevenue = Number(cr?.ActualRevenue || 0);
                 return {
@@ -6552,8 +6607,8 @@ console.log('Created product:', createdProduct);
                     GrossWt: cargo.reduce((sum, c) => sum + Number(c.GrossWeight || 0), 0),
                     Volumetric: cargo.reduce((sum, c) => sum + Number(c.Volumetric || 0), 0),
                     CBM: cargo.reduce((sum, c) => sum + Number(c.Volume || 0), 0),
-                    ProvCost: 0,
-                    ProvRevenue: 0,
+                    ProvCost: Number(provisional?.ProvCost || 0),
+                    ProvRevenue: Number(provisional?.ProvRevenue || 0),
                     ActualCost: actualCost,
                     ActualRevenue: actualRevenue,
                     GP: actualRevenue - actualCost,
@@ -7110,6 +7165,8 @@ console.log('Created product:', createdProduct);
                 OpsCloseStatus === 'Closed' &&
                 AccCloseStatus === 'Closed' &&
                 JobCloseStatus === 'Closed';
+            const nextJobStatus = allClosed ? 'Closed' : 'Job Generated';
+            const nextHouseStatus = allClosed ? 'Job closed' : 'Job Generated';
 
             // Update closure fields in MasterJobOthers
             if (masterJobOthers) {
@@ -7138,9 +7195,18 @@ console.log('Created product:', createdProduct);
             const updatedJob = await this._db.masterJob.update({
                 where: { MasterJobSid },
                 data: {
-                    JobStatus: allClosed ? 'Closed' : 'Job Generated',
+                    JobStatus: nextJobStatus,
                     UpdatedBy: UpdatedBy,
                     UpdatedOn: new Date(),
+                }
+            });
+
+            await this._db.houseJob.updateMany({
+                where: { MasterJobSid, status: 'A' },
+                data: {
+                    HouseStatus: nextHouseStatus,
+                    updatedBy: UpdatedBy,
+                    updatedOn: new Date(),
                 }
             });
 
@@ -7198,6 +7264,15 @@ console.log('Created product:', createdProduct);
                     JobStatus: 'Job Generated',
                     UpdatedBy: ReopenBy,
                     UpdatedOn: new Date(),
+                }
+            });
+
+            await this._db.houseJob.updateMany({
+                where: { MasterJobSid, status: 'A' },
+                data: {
+                    HouseStatus: 'Job Generated',
+                    updatedBy: ReopenBy,
+                    updatedOn: new Date(),
                 }
             });
 

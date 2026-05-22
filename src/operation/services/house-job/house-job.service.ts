@@ -30,6 +30,27 @@ export class HouseJobService {
         private numberSeriesService: NumberSeriesService,
     ) { }
 
+    private isClosedJobStatus(status: string | null | undefined): boolean {
+        return ['Closed', 'Job Closed', 'Job closed'].includes(status || '');
+    }
+
+    private async resolveHouseStatusForMasterJob(MasterJobSid: number | null | undefined, requestedHouseStatus: string | null | undefined): Promise<string> {
+        if (!MasterJobSid) {
+            return requestedHouseStatus || 'Job Generated';
+        }
+
+        const masterJob = await this._db.masterJob.findUnique({
+            where: { MasterJobSid: Number(MasterJobSid) },
+            select: { JobStatus: true }
+        });
+
+        if (this.isClosedJobStatus(masterJob?.JobStatus)) {
+            return 'Job closed';
+        }
+
+        return requestedHouseStatus || 'Job Generated';
+    }
+
     private getHouseJobCargoPayloads(payload: any): any[] {
         const cargoPayload = payload?.houseJobCargo ?? payload?.cargo ?? payload?.Cargo;
 
@@ -549,6 +570,7 @@ export class HouseJobService {
 
             const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
             const menuId = await this.resolveHouseJobMenuSid(department.departmentType, payload.JobType);
+            const resolvedHouseStatus = await this.resolveHouseStatusForMasterJob(payload.MasterJobSid, payload.HouseStatus);
             // ================= RESOLVE JOB DATE FIRST =================
             let resolvedJobDate: Date = payload.HBLDate
                 ? new Date(payload.HBLDate)
@@ -677,7 +699,7 @@ export class HouseJobService {
                         createdBy: payload.createdBy || '',
                         updatedBy: payload.updatedBy || '',
                         status: payload.status || 'A',
-                        HouseStatus: payload.HouseStatus,
+                        HouseStatus: resolvedHouseStatus,
                         HBLCount: payload.HBLCount || 0,
                         BookingStatus: payload.BookingStatus || '',
                         DepartmentMasterSid: payload.DepartmentMasterSid,
@@ -1271,6 +1293,7 @@ export class HouseJobService {
 
             const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
             const menuId = await this.resolveHouseJobMenuSid(department.departmentType, payload.JobType);
+            const resolvedHouseStatus = await this.resolveHouseStatusForMasterJob(payload.MasterJobSid, payload.HouseStatus);
 
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
 
@@ -1323,7 +1346,7 @@ export class HouseJobService {
                         IsServiceJob: payload.IsServiceJob || '',
                         updatedBy: payload.updatedBy || '',
                         status: payload.status || '',
-                        HouseStatus: payload.HouseStatus,
+                        HouseStatus: resolvedHouseStatus,
                         HBLCount: payload.HBLCount || 0,
                         BookingStatus: payload.BookingStatus || '',
                         DepartmentMasterSid: payload.DepartmentMasterSid,
