@@ -9,7 +9,6 @@ import { ApiBody, ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swag
 import { JwtService } from '@nestjs/jwt';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { TokenPayload } from 'src/common/decorators/token-payload.decorator';
-import { CreateUserDto } from '../dto/create-user.dto';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { PublicAccessTokenService, PublicAccessTokenError, PUBLIC_TOKEN_PURPOSES } from 'src/common/public-access-token/public-access-token.service';
 import { TokenCleanupService } from './token-cleanup.service';
@@ -95,8 +94,8 @@ export class AuthController {
             const user = await this.authService.login({ UserEmail: loginData.email });
 
             if (!user) {
-                this.logger.warn(`Login failed: User does not exist - ${loginData.email}`);
-                throw new UnauthorizedException('User does not exist.');
+                this.logger.warn(`Login failed: Invalid credentials - ${loginData.email}`);
+                throw new UnauthorizedException('Invalid email or password.');
             }
 
             const attemptDateTime = await this.authService.getAttemptDateTime(user.UserMasterSid);
@@ -139,8 +138,8 @@ export class AuthController {
                 });
 
                 const remainingAttempts = this.maxLoginAttempts - nextAttempts;
-                this.logger.warn(`Login failed: Incorrect password - ${loginData.email}`);
-                throw new UnauthorizedException(`Invalid password. ${remainingAttempts} attempts remaining.`);
+                this.logger.warn(`Login failed: Invalid credentials - ${loginData.email}`);
+                throw new UnauthorizedException(`Invalid email or password. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`);
             }
 
             this.failedLoginAttempts.delete(user.UserMasterSid);
@@ -330,29 +329,6 @@ export class AuthController {
         return this.userService.getAllCountries()
             .then(data => ({ data }))
             .catch(() => ({ message: "Countries not found" }));
-    }
-
-
-    @Post('user/create')
-    async createUser(@Body() createUserDto: CreateUserDto) {
-        const output = new ResponseData();
-        try {
-            const user = await this.userService.signUp(createUserDto)
-            if (user instanceof HttpException) {
-                this.logger.warn(`createUser failed: ${user}`);
-                throw user
-            }
-            output.status = true;
-            output.message = 'User Created Successfully';
-            output.data = user
-            this.logger.log(`createUser: user Creation ${JSON.stringify(user)}`)
-
-        } catch (error) {
-            this.logger.warn(`createUser failed: ${error}`);
-            output.status = false;
-            output.message = error.message || 'Internal Server Error';
-        }
-        return output
     }
 
 

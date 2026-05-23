@@ -1010,8 +1010,20 @@ export class CreditNoteService {
         activeCompanyId,
         activeBranchId
       } = params;
-      const dateFromRaw = params?.dateFrom ?? params?.DateFrom;
-      const dateToRaw = params?.dateTo ?? params?.DateTo;
+      let dateFromRaw = params?.dateFrom ?? params?.DateFrom;
+      let dateToRaw = params?.dateTo ?? params?.DateTo;
+
+      const resolvedYearSid = params?.YearMasterSid ?? params?.yearMasterSid;
+      if (resolvedYearSid) {
+        const year = await this._db.yearMaster.findUnique({
+          where: { YearMasterSid: Number(resolvedYearSid) },
+          select: { StartDate: true, EndDate: true },
+        });
+        if (year) {
+          dateFromRaw = year.StartDate.toISOString().split('T')[0];
+          dateToRaw = year.EndDate.toISOString().split('T')[0];
+        }
+      }
       const dateFieldRaw = params?.dateField ?? params?.DateField ?? 'VoucherDate';
       const allowedDateFields = new Set(['VoucherDate', 'DocumentDate']);
       const dateField = allowedDateFields.has(dateFieldRaw) ? dateFieldRaw : 'VoucherDate';

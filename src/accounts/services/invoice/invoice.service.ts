@@ -860,8 +860,20 @@ export class InvoiceService {
   async searchVoucherHeader(params: filterDto) {
     const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
     const skip = (page - 1) * pageSize;
-    const dateFromRaw = (params as any).dateFrom ?? (params as any).DateFrom;
-    const dateToRaw = (params as any).dateTo ?? (params as any).DateTo;
+    let dateFromRaw = (params as any).dateFrom ?? (params as any).DateFrom;
+    let dateToRaw = (params as any).dateTo ?? (params as any).DateTo;
+
+    const resolvedYearSid = (params as any).YearMasterSid ?? (params as any).yearMasterSid;
+    if (resolvedYearSid) {
+      const year = await this._db.yearMaster.findUnique({
+        where: { YearMasterSid: Number(resolvedYearSid) },
+        select: { StartDate: true, EndDate: true },
+      });
+      if (year) {
+        dateFromRaw = year.StartDate.toISOString().split('T')[0];
+        dateToRaw = year.EndDate.toISOString().split('T')[0];
+      }
+    }
     const dateFieldRaw = (params as any).dateField ?? (params as any).DateField ?? 'VoucherDate';
     const allowedDateFields = new Set(['VoucherDate', 'DocumentDate']);
     const dateField = allowedDateFields.has(dateFieldRaw) ? dateFieldRaw : 'VoucherDate';

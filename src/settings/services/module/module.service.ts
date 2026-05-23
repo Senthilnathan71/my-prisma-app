@@ -430,6 +430,9 @@ export class ModuleService {
       // 🔹 Step 1: Fetch all RoleMenuDetails for given roleIds
       const roleMenuDetails = await this._db.roleMenuDetail.findMany({
         where: {
+          menuMaster : {
+            status : 'A'
+          },
           RoleMenuHeader: {
             RoleMasterSid: { in: roleIds },
             status: 'A',

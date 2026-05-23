@@ -32,11 +32,25 @@ export class VoucherMatchingService {
             dateField,
             DateField,
             SubledgerName,
-            subledgerName
-        } = params;
+            subledgerName,
+            YearMasterSid,
+            yearMasterSid
+        } = params as any;
         const skip = (page - 1) * pageSize;
-        const resolvedDateFrom = dateFrom ?? DateFrom;
-        const resolvedDateTo = dateTo ?? DateTo;
+        let resolvedDateFrom = dateFrom ?? DateFrom;
+        let resolvedDateTo = dateTo ?? DateTo;
+
+        const resolvedYearSid = YearMasterSid ?? yearMasterSid;
+        if (resolvedYearSid) {
+            const year = await this._db.yearMaster.findUnique({
+                where: { YearMasterSid: Number(resolvedYearSid) },
+                select: { StartDate: true, EndDate: true },
+            });
+            if (year) {
+                resolvedDateFrom = year.StartDate.toISOString().split('T')[0];
+                resolvedDateTo = year.EndDate.toISOString().split('T')[0];
+            }
+        }
         const rawDateField = (dateField ?? DateField ?? '').toString();
         const allowedDateFields = ['VoucherMatchingDate'];
         const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'VoucherMatchingDate';

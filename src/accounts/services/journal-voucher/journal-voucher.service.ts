@@ -564,14 +564,28 @@ return {
                 dateField,
                 DateField,
                 PostStatus,
-                postStatus
+                postStatus,
+                YearMasterSid,
+                yearMasterSid
             } = params;
 
             const skip = (page - 1) * pageSize;
             const take = Number(pageSize);
 
-            const resolvedDateFrom = dateFrom ?? DateFrom;
-            const resolvedDateTo = dateTo ?? DateTo;
+            let resolvedDateFrom = dateFrom ?? DateFrom;
+            let resolvedDateTo = dateTo ?? DateTo;
+
+            const resolvedYearSid = YearMasterSid ?? yearMasterSid;
+            if (resolvedYearSid) {
+                const year = await this._db.yearMaster.findUnique({
+                    where: { YearMasterSid: Number(resolvedYearSid) },
+                    select: { StartDate: true, EndDate: true },
+                });
+                if (year) {
+                    resolvedDateFrom = year.StartDate.toISOString().split('T')[0];
+                    resolvedDateTo = year.EndDate.toISOString().split('T')[0];
+                }
+            }
             const rawDateField = (dateField ?? DateField ?? '').toString();
             const allowedDateFields = ['VoucherDate', 'PostDate'];
             const selectedDateField = allowedDateFields.includes(rawDateField) ? rawDateField : 'VoucherDate';

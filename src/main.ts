@@ -80,19 +80,21 @@ async function bootstrap() {
   });
   
   app.use(cookieParser());
-  app.use(json({ limit: '200mb' }));
-  app.use(urlencoded({ extended: true, limit: '200mb' }));
-  // swagger setup
-  const options = new DocumentBuilder()
-    .setTitle('CRM-MOBILE-API')
-    .setDescription('CRM mobile application API')
-    .addCookieAuth(AUTH_COOKIE_NAME)
-    .setVersion('1.0')
-    .addTag('crm')
-    .build()
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
+  // swagger setup — disabled in production
+  if (ENV !== 'Production') {
+    const options = new DocumentBuilder()
+      .setTitle('CRM-MOBILE-API')
+      .setDescription('CRM mobile application API')
+      .addCookieAuth(AUTH_COOKIE_NAME)
+      .setVersion('1.0')
+      .addTag('crm')
+      .build()
 
-  const document = SwaggerModule.createDocument(app, options);
-  SwaggerModule.setup('documentation', app, document)
+    const document = SwaggerModule.createDocument(app, options);
+    SwaggerModule.setup('documentation', app, document);
+  }
 
   console.log(`LISTENING PORT IS ${process.env.PORT}}` );
   await app.listen(process.env.PORT ?? 3008);
