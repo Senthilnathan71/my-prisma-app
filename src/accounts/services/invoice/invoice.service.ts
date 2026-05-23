@@ -191,6 +191,9 @@ export class InvoiceService {
                 }
               },
               houseJobBOE:{
+                where:{
+                  Status:'A'
+                },
                 select:{
                   BOENo:true,
                 }
