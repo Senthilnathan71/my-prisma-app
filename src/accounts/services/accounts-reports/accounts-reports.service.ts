@@ -3091,11 +3091,17 @@ export class AccountsReportsService {
             SubledgerType: 'Tax',
             TaxType: 'Input',
           },
+          OR : [
+            { MasterJobSid : { not :null }},
+            { HouseJobSid : { not :null }},
+          ],
           voucherTypeMaster: {
             DocumentTypeCode: {
               in: [
                 DOC_TYPE_CODE.VENDOR_INVOICE,
                 DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+                DOC_TYPE_CODE.PAYMENT,
+                DOC_TYPE_CODE.JOURNAL_VOUCHER,
               ],
             },
           },
@@ -4656,6 +4662,7 @@ export class AccountsReportsService {
             DOC_TYPE_CODE.CREDIT_NOTE,
             DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
             DOC_TYPE_CODE.JOURNAL_VOUCHER,
+            DOC_TYPE_CODE.PAYMENT,
             // DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER,
           ],
         },
@@ -4680,6 +4687,8 @@ export class AccountsReportsService {
         DrCr: true,
         TaxableAmount: true,
         LocalAmount: true,
+        MasterJobSid: true,
+        HouseJobSid: true,
         subledgerMaster: {
           select: {
             TaxType: true,
@@ -4712,6 +4721,8 @@ export class AccountsReportsService {
       DrCr: tx.DrCr,
       TaxableAmount: tx.TaxableAmount,
       LocalAmount: tx.LocalAmount,
+      MasterJobSid: tx.MasterJobSid,
+      HouseJobSid: tx.HouseJobSid,
       InvoiceType: undefined,
       subledgerMaster: {
         TaxType: tx.subledgerMaster?.TaxType,
@@ -4729,9 +4740,14 @@ export class AccountsReportsService {
       const vatAmount = roundAmount(toNumber(detail.LocalAmount), 2);
 
       if (this.normaliseVatText(taxType) === 'INPUT') {
+        if (!detail.MasterJobSid && !detail.HouseJobSid) {
+          continue;
+        }
         const allowedInputCodes: string[] = [
           DOC_TYPE_CODE.VENDOR_INVOICE,
           DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+          DOC_TYPE_CODE.PAYMENT,
+          DOC_TYPE_CODE.JOURNAL_VOUCHER,
         ];
         if (!allowedInputCodes.includes(this.normaliseVatText(documentTypeCode))) {
           continue;
@@ -5032,11 +5048,17 @@ export class AccountsReportsService {
             SubledgerType: 'Tax',
             TaxType: 'Input',
           },
+          OR : [
+            { MasterJobSid : { not :null }},
+            { HouseJobSid : { not :null }},
+          ],
           voucherTypeMaster: {
             DocumentTypeCode: {
               in: [
                 DOC_TYPE_CODE.VENDOR_INVOICE,
                 DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+                DOC_TYPE_CODE.PAYMENT,
+                DOC_TYPE_CODE.JOURNAL_VOUCHER,
               ],
             },
           },
