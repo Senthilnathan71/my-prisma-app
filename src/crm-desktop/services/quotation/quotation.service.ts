@@ -1488,7 +1488,7 @@ export class QuotationService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { QuoteDate: 'desc' },
+                orderBy: { QuoteHeaderSid: 'desc' },
                 include: {
                     bookingHeader: {
                         select: {
