@@ -7089,8 +7089,10 @@ ports.forEach((p) => {
         );
         return {
           screen: 'Master Job',
+          masterJobSid: m.MasterJobSid,
           jobNo: m.MasterJobNumber,
           MBLNo: m.MBLNo,
+          MasterDate : m.MBLDate,
           POL: m.POL,
           POLName: portMap.get(m.POL) || '',
           POD: m.POD,
@@ -7128,6 +7130,8 @@ ports.forEach((p) => {
         const vol = h.Cargo.reduce((sum, c) => sum + toNumber(c.Volume), 0);
         return {
           HBLNo: h.HBLNo,
+          HouseDate:h.HBLDate,
+          HouseJobSid: h.HouseJobSid,
           POL: h.POL,
           POLName: portMap.get(h.POL) || '',
           POD: h.POD,
@@ -7167,6 +7171,8 @@ ports.forEach((p) => {
 
         return {
           bookingNo: b.BookingNo,
+          BookingDate:b.BookingDateTime,
+          BookingSid: b.BookingHeaderSid,
           POL: b.POL,
           POLName: portMap.get(b.POL) || '',
           POD: b.POD,
