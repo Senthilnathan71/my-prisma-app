@@ -39,4 +39,12 @@ export class SalesDashboardController {
     );
     return resp;
   }
+
+  @Auth()
+  @Get('sales-dashboard/funnel-journeys')
+  async getFunnelJourneys(@Query() query: SalesDashboardQueryDto) {
+    const resp = new ResponseData();
+    resp.data = await this.salesDashboardService.getFunnelJourneys(query);
+    return resp;
+  }
 }

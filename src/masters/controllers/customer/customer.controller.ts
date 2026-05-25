@@ -605,4 +605,21 @@ async searchCustomersByName(@Body() body: {
         return output
     }
 
+    @ApiOperation({ summary: 'Validate customer KYC readiness before booking creation' })
+    @HttpCode(HttpStatus.OK)
+    @Post('validate-for-booking')
+    async validateForBooking(@Body() body: { CustomerMasterSid: number }) {
+        const output = new ResponseData();
+        try {
+            output.data = await this.customerService.validateCustomerForBooking(
+                body.CustomerMasterSid,
+            );
+        } catch (error) {
+            this.logger.warn(`validateForBooking: ${JSON.stringify(error)}`);
+            output.status = false;
+            output.message = error instanceof BadRequestException ? error.message : 'Internal Server Error';
+        }
+        return output;
+    }
+
 }

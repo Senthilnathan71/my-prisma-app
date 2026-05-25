@@ -20,7 +20,7 @@ import { EmailService } from "src/email/email.service";
         EnquiryHeaderService,
         QuotationService,
         GlobalConfigService,
-        EmailService
+        EmailService,
     ],
     controllers:[
         LeadController,

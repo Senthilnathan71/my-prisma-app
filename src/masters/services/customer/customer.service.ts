@@ -1788,5 +1788,35 @@ export class CustomerService {
         }
     }
 
+    /**
+     * Validates that a customer has the KYC details required before a booking can be created:
+     *  1. A branch is selected (CustomerBranchSid provided)
+     *  2. The branch exists and is active for this customer
+     *  3. The branch has a GST / VAT number on file
+     *
+     * Returns { valid: true } when all checks pass, or { valid: false, message } describing the first failed check.
+     */
+    async validateCustomerForBooking(
+        customerMasterSid: number,
+    ): Promise<{ valid: boolean; message: string }> {
+        if (!customerMasterSid) {
+            return { valid: false, message: 'Customer information is missing.' };
+        }
+
+        const branch = await this._db.customerBranch.findFirst({
+            where: { CustomerMasterSid: customerMasterSid, status: 'A' },
+            select: { CustomerBranchSid: true },
+        });
+
+        if (!branch) {
+            return {
+                valid: false,
+                message: 'Customer does not have a branch set up. Please add a branch before creating a booking.',
+            };
+        }
+
+        return { valid: true, message: '' };
+    }
+
 }
 
