@@ -747,6 +747,7 @@ export class AccountsReportsService {
       Ledger: coaMasterSid,
       Branch: branchId,
       companyId: CompanyMasterSid,
+      CustomsDutyInvoice,
     } = params;
 
     try {
@@ -801,6 +802,7 @@ export class AccountsReportsService {
           COAMasterSid: coaMasterSid,
           LedgerMasterSid: ledgerMasterSid,
           Status: 'A',
+          ...(CustomsDutyInvoice ? { VoucherHeader: { CustomsDuty: 'Y' } } : {}),
         },
         include: {
           VoucherHeader: true,

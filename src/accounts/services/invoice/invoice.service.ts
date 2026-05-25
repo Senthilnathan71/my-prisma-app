@@ -373,6 +373,7 @@ export class InvoiceService {
           DocumentNumber: payload.DocumentNumber || '',
           DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : null,
           Narration: payload.Narration || "",
+          CustomsDuty: payload.CustomsDuty || 'N',
 
         };
 
@@ -566,6 +567,7 @@ export class InvoiceService {
           DocumentNumber: payload.DocumentNumber || existingVoucher.DocumentNumber,
           DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : existingVoucher.DocumentDate,
           Narration: payload.Narration || existingVoucher.Narration,
+          CustomsDuty: payload.CustomsDuty !== undefined ? payload.CustomsDuty : existingVoucher.CustomsDuty,
           Status: String(payload.status || 'A').charAt(0)?.toUpperCase()
         };
 

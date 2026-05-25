@@ -27,7 +27,7 @@ export class QuotationService {
     constructor(
         private _db: DatabaseService, private logger: Logger,
         private globalConfigService: GlobalConfigService,
-        private numberSeriesService: NumberSeriesService
+        private numberSeriesService: NumberSeriesService,
     ) { }
 
     async createQuotation(payload) {
@@ -1164,19 +1164,21 @@ export class QuotationService {
 
             /* ================= OPTIMIZATION (CACHE LOOKUPS) ================= */
 
-            // Collect unique container + package names
+            // Collect unique container + package + product names
             const containerNames = new Set<string>();
             const packageNames = new Set<string>();
+            const productNames = new Set<string>();
 
             enquiry.enquiryRoute.forEach(route => {
                 route.enquiryCargo?.forEach(cargo => {
                     if (cargo.ContainerType) containerNames.add(cargo.ContainerType);
                     if (cargo.PackageType) packageNames.add(cargo.PackageType);
+                    if (cargo.ProductName) productNames.add(cargo.ProductName);
                 });
             });
 
             // Fetch all at once
-            const [containerTypes, uomTypes] = await Promise.all([
+            const [containerTypes, uomTypes, productMasters] = await Promise.all([
                 this._db.containerTypeMaster.findMany({
                     where: {
                         ContainerName: { in: Array.from(containerNames) },
@@ -1195,6 +1197,20 @@ export class QuotationService {
                         UOMCode: true,
                         UOMMasterSid: true
                     }
+                }),
+                this._db.productMaster.findMany({
+                    where: {
+                        ProductName: { in: Array.from(productNames) },
+                        OR: [
+                            { CompanyMasterSid: payload.CompanyMasterSid },
+                            { CompanyMasterSid: null }
+                        ],
+                        status: 'A'
+                    },
+                    select: {
+                        ProductMasterSId: true,
+                        ProductName: true
+                    }
                 })
             ]);
 
@@ -1207,6 +1223,10 @@ export class QuotationService {
                 uomTypes.map(u => [u.UOMCode, u.UOMMasterSid])
             );
 
+            const productMap = new Map(
+                productMasters.map(p => [p.ProductName, p.ProductMasterSId])
+            );
+
             /* ================= BUILD ROUTES ================= */
 
             const enrichedRoutes = await Promise.all(
@@ -1215,7 +1235,7 @@ export class QuotationService {
                     const quoteCargo = (route.enquiryCargo || []).map((cargo: any) => {
                         const cargoItem = cargo as any;
                         const mappedProduct = cargoItem.ProductName || cargoItem.ProductSid ? [{
-                            ProductSid: cargoItem.ProductSid || null,
+                            ProductSid: cargoItem.ProductName ? (productMap.get(cargoItem.ProductName) || null) : (cargoItem.ProductSid || null),
                             ProductName: cargoItem.ProductName || '',
                             PackageType: cargoItem.PackageType || '',
                             CargoDescription: cargoItem.CargoDescription || '',
@@ -1243,22 +1263,23 @@ export class QuotationService {
                         GrossWeight: cargoItem.GrossWeight,
                         NetWeight: cargoItem.NetWeight,
                         Volume: cargoItem.Volume,
-                        ContainerType: cargoItem.ContainerType ? containerMap.get(cargoItem.ContainerType) : null,
-                        Qty: cargoItem.Qty,
-                        ContainerQty: cargoItem.Qty,
+                        ContainerType: cargoItem.ContainerType
+                            ? (containerMap.get(cargoItem.ContainerType) || cargoItem.ContainerType)
+                            : null,
+                        Qty: Number(cargoItem.Qty) || 0,
+                        ContainerQty: Number(cargoItem.Qty) || 0,
                         ChargeableWeight: cargoItem.ChargeableWeight,
                         PackageQty: cargoItem.PackageQty,
                         PackageType: cargoItem.PackageType,
-                        PackageTypeId: cargoItem.PackageType ?  packageMap.get(cargoItem.PackageType) : null,
-                        ServiceLevel: enquiry.IncoTerms,
+                        PackageTypeId: cargoItem.PackageType ? packageMap.get(cargoItem.PackageType) : null,
+                        ShipmentTerms: cargoItem.ShipmentTerms || null,
+                        CargoDescription: cargoItem.CargoDescription || null,
                         ProductName: cargoItem.ProductName,
                         length: cargoItem.length,
                         width: cargoItem.width,
                         height: cargoItem.height,
                         Volumetric: cargoItem.Volumetric,
-                        quoteProducts: mappedProduct,
-                        quoteProduct: mappedProduct,
-                        products: mappedProduct
+                        quoteProducts: mappedProduct
                     };
                     });
 
