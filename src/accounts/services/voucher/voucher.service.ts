@@ -1064,7 +1064,8 @@ export class VoucherService {
                         CashOrBank : payload.CashOrBank ?? "",
                         MultiBranch : payload.MultiBranch ?? "",
                         BookingHeaderSid : payload.BookingHeaderSid ?? null,
-                        Salesman : payload.Salesman
+                        Salesman : payload.Salesman,
+                        CustomsDuty : payload.CustomsDuty || 'N',
                     }
                 });
 

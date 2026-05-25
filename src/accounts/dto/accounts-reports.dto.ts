@@ -98,6 +98,11 @@ export class OutstandingReportQueryDto {
   @IsNotEmpty()
   @IsArray()
   Branch?: number[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  CustomsDutyInvoice?: boolean;
 }
 
 // Statement/Ledger Report DTOs

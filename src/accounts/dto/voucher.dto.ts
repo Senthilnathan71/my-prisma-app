@@ -130,12 +130,17 @@ export class VoucherHeaderDto {
     @IsString() 
     GSTType?: string;
 
-    @IsOptional() 
-    @IsString() 
+    @IsOptional()
+    @IsString()
     Remarks?: string;
 
-    @IsOptional() 
-    @IsNumber() 
+    @IsOptional()
+    @IsString()
+    @Length(0, 1)
+    CustomsDuty?: string;
+
+    @IsOptional()
+    @IsNumber()
     DepartmentMasterSid?: number;
 
     @IsOptional()
