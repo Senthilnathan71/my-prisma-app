@@ -349,8 +349,8 @@ export class SalesManagerDashboardService {
         companyMasterSid,
         branchMasterSid,
         salespersonId,
-        dateFrom,
-        dateTo,
+        naiveDateFrom,
+        naiveDateTo,
         userId,
       ),
       // S7: Quotes pending approval
@@ -391,8 +391,8 @@ export class SalesManagerDashboardService {
         companyMasterSid,
         branchMasterSid,
         salespersonId,
-        dateFrom,
-        dateTo,
+        naiveDateFrom,
+        naiveDateTo,
         userId,
       ),
       // S8: Approved quotes no booking
@@ -428,8 +428,8 @@ export class SalesManagerDashboardService {
         companyMasterSid,
         branchMasterSid,
         salespersonId,
-        dateFrom,
-        dateTo,
+        naiveDateFrom,
+        naiveDateTo,
         userId,
       ),
       this.getKPIData(query),
@@ -598,7 +598,7 @@ export class SalesManagerDashboardService {
         qh."status" = 'A' AND 
         qh."CompanyMasterSid" = $1 AND 
         qh."BranchMasterSid" = $2 AND
-        qh."QuoteDate" >= $3::date AND
+        qh."QuoteDate" >= $5::date AND
         EXISTS (
           SELECT 1 FROM "UserMaster" scoped_um
           WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
@@ -606,7 +606,7 @@ export class SalesManagerDashboardService {
             AND scoped_um."isSalesperson" = '1'
             AND scoped_um."status" = 'A'
         ) AND
-        qh."QuoteDate" <= $4::date
+        qh."QuoteDate" <= $6::date
     ) AS "quoteCreated",
        
     (
@@ -629,8 +629,8 @@ export class SalesManagerDashboardService {
       WHERE 
         qh."CompanyMasterSid" = $1
         AND qh."BranchMasterSid" = $2
-        AND qh."QuoteDate" >= $3::date 
-        AND qh."QuoteDate" <= $4::date
+        AND qh."QuoteDate" >= $5::date
+        AND qh."QuoteDate" <= $6::date
         AND EXISTS (
           SELECT 1 FROM "UserMaster" scoped_um
           WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
@@ -794,8 +794,8 @@ export class SalesManagerDashboardService {
         WHERE COALESCE(eh."status", 'A') = 'A'
           AND eh."CompanyMasterSid" = $1 AND eh."BranchMasterSid" = $2
           AND eh."QuoteHeaderSid" IS NULL
-          AND ($3::date IS NULL OR eh."EnquiryDate" >= $3::date)
-          AND ($4::date IS NULL OR eh."EnquiryDate" <= $4::date)
+          AND ($5::date IS NULL OR eh."EnquiryDate" >= $5::date)
+          AND ($6::date IS NULL OR eh."EnquiryDate" <= $6::date)
           AND EXISTS (
             SELECT 1 FROM "UserMaster" scoped_um
             WHERE scoped_um."UserMasterSid" = eh."UserMasterSid"
@@ -809,8 +809,8 @@ export class SalesManagerDashboardService {
         SELECT qh."SalesmanSid" AS uid, COUNT(*) AS cnt
         FROM "QuoteHeader" qh
         WHERE qh."status" = 'A' AND qh."CompanyMasterSid" = $1 AND qh."BranchMasterSid" = $2
-          AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
-          AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
+          AND ($5::date IS NULL OR qh."QuoteDate" >= $5::date)
+          AND ($6::date IS NULL OR qh."QuoteDate" <= $6::date)
           AND EXISTS (
             SELECT 1 FROM "UserMaster" scoped_um
             WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
@@ -839,8 +839,8 @@ export class SalesManagerDashboardService {
         FROM "QuoteHeader" qh
         WHERE qh."status" = 'A' AND qh."BookingHeaderSid" IS NULL
           AND qh."CompanyMasterSid" = $1 AND qh."BranchMasterSid" = $2
-          AND ($3::date IS NULL OR qh."QuoteDate" >= $3::date)
-          AND ($4::date IS NULL OR qh."QuoteDate" <= $4::date)
+          AND ($5::date IS NULL OR qh."QuoteDate" >= $5::date)
+          AND ($6::date IS NULL OR qh."QuoteDate" <= $6::date)
           AND EXISTS (
             SELECT 1 FROM "UserMaster" scoped_um
             WHERE scoped_um."UserMasterSid" = qh."SalesmanSid"
