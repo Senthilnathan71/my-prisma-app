@@ -788,11 +788,11 @@ export class QuotationService {
                 }
 
                 const customerTypes: Record<string, string> = {};
+                customerTypes.Customer = 'isTrue';
                 if(ourLead?.preCustomerType){
                     const customerTypeKey = toCamelCase(ourLead?.preCustomerType);
                     if (customerTypeKey) {
                         customerTypes[customerTypeKey] = 'isTrue';
-                        customerTypes.customer = 'isTrue';
                     }
                 }
 
@@ -1844,10 +1844,17 @@ export class QuotationService {
             const activeRoutes = quote.quoteRoute ?? [];
             if (!activeRoutes.length) throw new BadRequestException('No routes found on this quotation');
 
-            /* ── Multiple routes: ask the user to pick one ── */
-            if (activeRoutes.length > 1 && !payload.QuoteRouteSid) {
+            // Only routes with at least one approved carrier and no existing booking are eligible
+            const eligibleRoutes = activeRoutes.filter(r =>
+                !r.BookingHeaderSid &&
+                r.quoteCarrier.some(c => c.ApprovalStatus === ApprovalStatus.Approved)
+            );
+            if (!eligibleRoutes.length) throw new BadRequestException('No routes with an approved carrier found. Please approve at least one carrier before creating a booking.');
+
+            /* ── Multiple eligible routes: ask the user to pick one ── */
+            if (eligibleRoutes.length > 1 && !payload.QuoteRouteSid) {
                 const allSids = new Set<number>();
-                for (const r of activeRoutes) {
+                for (const r of eligibleRoutes) {
                     [r.PORSid, r.POLSid, r.PODSid, r.FDPSid].forEach(s => s && allSids.add(s));
                 }
                 const allPorts = allSids.size ? await this._db.portMaster.findMany({
@@ -1858,28 +1865,25 @@ export class QuotationService {
 
                 return {
                     requiresSelection: true,
-                    routes: activeRoutes.map(r => ({
+                    routes: eligibleRoutes.map(r => ({
                         QuoteRouteSid: r.QuoteRouteSid,
                         POL: pm.get(r.POLSid) || null,
                         POD: pm.get(r.PODSid) || null,
                         departmentName: r.departmentMaster?.departmentName || null,
-                        carrier: r.quoteCarrier.find(c => c.ApprovalStatus === ApprovalStatus.Approved)?.CarrierName
-                            ?? r.quoteCarrier[0]?.CarrierName
-                            ?? null
+                        carrier: r.quoteCarrier.find(c => c.ApprovalStatus === ApprovalStatus.Approved)?.CarrierName ?? null
                     }))
                 };
             }
 
             /* ── Resolve the single or explicitly selected route ── */
             const approvedRoute = payload.QuoteRouteSid
-                ? activeRoutes.find(r => r.QuoteRouteSid === payload.QuoteRouteSid)
-                : activeRoutes[0];
+                ? eligibleRoutes.find(r => r.QuoteRouteSid === payload.QuoteRouteSid)
+                : eligibleRoutes[0];
             if (!approvedRoute) throw new BadRequestException('Selected route not found');
             if (approvedRoute.BookingHeaderSid) throw new BadRequestException('A booking already exists for this quotation');
 
             const approvedCarrier =
                 approvedRoute.quoteCarrier?.find(c => c.ApprovalStatus === ApprovalStatus.Approved)
-                ?? approvedRoute.quoteCarrier?.[0]
                 ?? null;
 
             if (!approvedCarrier) throw new BadRequestException('Cannot find Approved Carrier.');

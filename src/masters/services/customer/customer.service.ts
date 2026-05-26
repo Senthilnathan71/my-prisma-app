@@ -1793,14 +1793,16 @@ export class CustomerService {
      *  1. A branch is selected (CustomerBranchSid provided)
      *  2. The branch exists and is active for this customer
      *  3. The branch has a GST / VAT number on file
+     *  4. A SubledgerMaster record exists for this customer
+     *  5. The SubledgerMaster has DrCOAMasterSid mapped
      *
-     * Returns { valid: true } when all checks pass, or { valid: false, message } describing the first failed check.
+     * Returns { valid: true } when all checks pass, or { valid: false, message, errorType } describing the first failed check.
      */
     async validateCustomerForBooking(
         customerMasterSid: number,
-    ): Promise<{ valid: boolean; message: string }> {
+    ): Promise<{ valid: boolean; message: string; errorType: 'branch' | 'subledger_missing' | 'subledger_no_dr_coa' | null }> {
         if (!customerMasterSid) {
-            return { valid: false, message: 'Customer information is missing.' };
+            return { valid: false, message: 'Customer information is missing.', errorType: null };
         }
 
         const branch = await this._db.customerBranch.findFirst({
@@ -1812,10 +1814,36 @@ export class CustomerService {
             return {
                 valid: false,
                 message: 'Customer does not have a branch set up. Please add a branch before creating a booking.',
+                errorType: 'branch',
             };
         }
 
-        return { valid: true, message: '' };
+        const subledger = await this._db.subledgerMaster.findFirst({
+            where: {
+                SubledgerMappingSid: customerMasterSid,
+                SubledgerType: 'Customer',
+                Status: 'A',
+            },
+            select: { SubledgerMasterSid: true, DrCOAMasterSid: true },
+        });
+
+        if (!subledger) {
+            return {
+                valid: false,
+                message: 'No subledger account found for this customer. Please create a subledger mapping before proceeding.',
+                errorType: 'subledger_missing',
+            };
+        }
+
+        if (!subledger.DrCOAMasterSid) {
+            return {
+                valid: false,
+                message: 'The customer subledger account does not have a Debtor COA mapped. Please map the Debtor COA before proceeding.',
+                errorType: 'subledger_no_dr_coa',
+            };
+        }
+
+        return { valid: true, message: '', errorType: null };
     }
 
 }
