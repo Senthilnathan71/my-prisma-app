@@ -60,6 +60,35 @@ export class PortMasterController {
     return output;
   }
 
+  @ApiOperation({ summary: 'Get Backend Filtered Ports' })
+  @ApiCreatedResponse({
+    description: 'Get Backend Filtered Ports',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('filtered-list')
+  async getFilteredPorts(@Body() body: any) {
+    const output = new ResponseData();
+    try {
+      const ports = await this.portService.getFilteredPorts(body);
+      output.data = ports;
+      output.message = 'Filtered ports are successfully fetched';
+    } catch (error) {
+      this.logger.warn(`getFilteredPorts: ${JSON.stringify(error)}`);
+      output.status = false;
+
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnauthorizedException
+      ) {
+        output.message = error.message;
+      } else {
+        output.message = 'Internal Server Error';
+      }
+    }
+    return output;
+  }
+
   @ApiOperation({ summary: 'Port Creation' })
   @ApiCreatedResponse({
     description: 'Port Creation',
