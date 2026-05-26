@@ -15,6 +15,140 @@ export class PortService {
   logger: any;
   constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService) { }
 
+  private normalizeText(value: any): string {
+    return String(value ?? '').trim().toUpperCase();
+  }
+
+  private buildFilteredPortWhere(params: any, portFieldType: string): Prisma.PortMasterWhereInput {
+    const selectedOppositePort = (() => {
+      switch (portFieldType) {
+        case 'POO':
+          return params?.SelectedFPOD || params?.SelectedFPD;
+        case 'FPOD':
+        case 'FPD':
+          return params?.SelectedPOO;
+        case 'POL':
+          return params?.SelectedPOD;
+        case 'POD':
+          return params?.SelectedPOL;
+        default:
+          return null;
+      }
+    })();
+
+    const departmentType = this.normalizeText(params?.departmentType);
+    const shipmentType = this.normalizeText(params?.ShipmentType || params?.ExportImport);
+    const loginCountrySid = Number(params?.LoginCountryMasterSid || 0);
+    const isOriginField = portFieldType === 'POO' || portFieldType === 'POL';
+    const isDestinationField = portFieldType === 'POD' || portFieldType === 'FPOD' || portFieldType === 'FPD';
+    const shouldUseAllPorts = portFieldType === 'POO' || portFieldType === 'FPOD' || portFieldType === 'FPD';
+
+    const where: Prisma.PortMasterWhereInput = {
+      status: 'A',
+    };
+
+    if (!shouldUseAllPorts && departmentType === 'AIR') {
+      where.PortType = { equals: 'AIR', mode: 'insensitive' };
+    } else if (!shouldUseAllPorts && departmentType === 'SEA') {
+      where.PortType = { equals: 'SEA', mode: 'insensitive' };
+    }
+
+    if (
+      !shouldUseAllPorts &&
+      loginCountrySid &&
+      (departmentType === 'SEA' || departmentType === 'AIR') &&
+      (shipmentType === 'EXPORT' || shipmentType === 'IMPORT')
+    ) {
+      const shouldUseLoginCountry =
+        (shipmentType === 'EXPORT' && isOriginField) ||
+        (shipmentType === 'IMPORT' && isDestinationField);
+
+      where.CountryMasterSid = shouldUseLoginCountry
+        ? loginCountrySid
+        : { not: loginCountrySid };
+    }
+
+    if (selectedOppositePort) {
+      const selected = String(selectedOppositePort).trim();
+      where.NOT = Number.isFinite(Number(selected))
+        ? [
+            { PortMasterSid: Number(selected) },
+            { PortCode: { equals: selected, mode: 'insensitive' } },
+          ]
+        : { PortCode: { equals: selected, mode: 'insensitive' } };
+    }
+
+    return where;
+  }
+
+  async getFilteredPorts(params: any) {
+    const departmentMasterSid = Number(params?.DepartmentMasterSid || 0);
+    if (!departmentMasterSid) {
+      throw new BadRequestException('DepartmentMasterSid is required');
+    }
+
+    const department = await this._db.departmentMaster.findUnique({
+      where: { DepartmentMasterSid: departmentMasterSid },
+      select: {
+        departmentType: true,
+        ExportImport: true,
+      },
+    });
+
+    if (!department) {
+      throw new BadRequestException('Department not found');
+    }
+
+    const mergedParams = {
+      ...params,
+      departmentType: department.departmentType,
+      ExportImport: department.ExportImport,
+      ShipmentType: params?.ShipmentType || department.ExportImport,
+    };
+
+    const select = {
+      PortMasterSid: true,
+      PortCode: true,
+      PortName: true,
+      PortType: true,
+      CountryMasterSid: true,
+      countryMaster: { select: { countryName: true, countryCode: true } },
+    };
+
+    const orderBy = { PortName: 'asc' as const };
+    const formatPort = (port: any) => ({
+      ...port,
+      Country: port?.countryMaster?.countryName || '',
+    });
+    const formatPorts = (ports: any[]) => ports.map(formatPort);
+    const fieldType = this.normalizeText(params?.PortFieldType || 'ALL');
+    const fetchForField = (field: string) =>
+      this._db.portMaster.findMany({
+        where: this.buildFilteredPortWhere(mergedParams, field),
+        select,
+        orderBy,
+      });
+
+    if (fieldType && fieldType !== 'ALL') {
+      const normalizedField = fieldType === 'FPD' ? 'FPOD' : fieldType;
+      return formatPorts(await fetchForField(normalizedField));
+    }
+
+    const [POO, POL, POD, FPOD] = await Promise.all([
+      fetchForField('POO'),
+      fetchForField('POL'),
+      fetchForField('POD'),
+      fetchForField('FPOD'),
+    ]);
+
+    return {
+      POO: formatPorts(POO),
+      POL: formatPorts(POL),
+      POD: formatPorts(POD),
+      FPOD: formatPorts(FPOD),
+    };
+  }
+
   async createPort(payload) {
     // this.logger.warn(`createPortUser: ${payload}`);
 
