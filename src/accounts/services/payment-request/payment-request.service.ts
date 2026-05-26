@@ -246,6 +246,21 @@ export class PaymentRequestService {
 
     const skip = (Number(page) - 1) * Number(pageSize);
     const sortDirectionValue = sortDirection === 'asc' ? 'asc' : 'desc';
+
+    // Resolve date bounds from YearMasterSid when provided
+    let dateFrom: Date | null = null;
+    let dateTo: Date | null = null;
+    const resolvedYearSid = (params as any).YearMasterSid ?? params.yearMasterSid;
+    if (resolvedYearSid) {
+      const year = await this.db.yearMaster.findUnique({
+        where: { YearMasterSid: Number(resolvedYearSid) },
+        select: { StartDate: true, EndDate: true },
+      });
+      if (year) {
+        dateFrom = year.StartDate;
+        dateTo = year.EndDate;
+      }
+    }
     const validRootSortColumns = new Set([
       'PaymentRequestNumber',
       'PaymentRequestDate',
@@ -275,6 +290,7 @@ export class PaymentRequestService {
     const where: Prisma.PaymentRequestWhereInput = {
       CompanyMasterSid: Number(activeCompanyId),
       ...(activeBranchId ? { BranchMasterSid: Number(activeBranchId) } : {}),
+      ...(dateFrom && dateTo ? { PaymentRequestDate: { gte: dateFrom, lte: dateTo } } : {}),
       ...(search
         ? {
             OR: [
