@@ -955,7 +955,6 @@ model CustomerMaster {
   preCustomerMaster          PreCustomerMaster?      @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
   CustomerMilestone          CustomerMilestone[]
   CustomerSalesTeam          CustomerSalesTeam[]
-  externalFollowup           Followup[]
   hawbStock                  HawbStock[]
   houseJob                   HouseJob[]
   mawbStock                  MawbStock[]
@@ -2626,7 +2625,7 @@ model Followup {
   Public           String?       @default("N") @db.Char(1)
   sentEmail        String?       @default("N") @db.Char(1)
   deletedAt        Int?
-  ExternalUser     Int?
+  ExternalUser     String?       @db.VarChar(100)
   InternalUser     Int?
   IsCompleted      String?       @default("N") @db.Char(1)
   Subject          String?       @db.VarChar(200)
@@ -2634,7 +2633,6 @@ model Followup {
   CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   menuMaster       MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   internalUserMaster UserMaster? @relation(fields: [InternalUser], references: [UserMasterSid])
-  externalUserMaster CustomerMaster? @relation(fields: [ExternalUser], references: [CustomerMasterSid])
 }
 
 model ContainerActivity {
