@@ -396,6 +396,32 @@ export class FfUserMasterController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get All Users by Company' })
+    @ApiCreatedResponse({
+        description: 'Get All Users by Company',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('by-company/:companyId')
+    async getUsersByCompany(@Param('companyId', ParseIntPipe) companyId: number) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.ffUserMasterService.getAllFfUserByCompany(companyId);
+            this.logger.log(`Users by company fetched`);
+            resp.data = res;
+            resp.message = "Users by company are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Users by Company Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get All Salesperson' })
     @ApiCreatedResponse({
         description: 'Get All Salesperson',

@@ -18,27 +18,18 @@ export class FollowupService {
 
         try {
             const { followupCreate, mailContent, createdBy, updatedBy } = payload;
-            const followupDate = followupCreate.FollowupDate;
-            console.log(followupDate); 
-
-            const correctedDate = moment(followupDate)
-                .add(1, "day")
-                .startOf("day")
-                .toDate();
-
-            console.log(correctedDate);
 
             const followup = await this._db.followup.create({
                 data: {
                     ...followupCreate,
-                    FollowupDate: correctedDate,
+                    FollowupDate: new Date(followupCreate.FollowupDate),
                     FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
                     Public: followupCreate.Public ? 'Y' : 'N',
                     sentEmail: followupCreate.sentEmail ? 'Y' : 'N',
                     CreatedBy: createdBy,
                     UpdatedBy: updatedBy,
                 }
-            }); 
+            });
             if (followupCreate.sentEmail && followup.Status === "A" && mailContent) {
                 await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent)
                 await this.scheduleFollowupEmail(followup.FollowupSid, followupCreate.FollowupDate, mailContent);
@@ -165,45 +156,51 @@ export class FollowupService {
         }
     }
 
-        async getFollowupsByDocumentId(documentSid: number) {
+    async getFollowupsByDocumentId(documentSid: number, menuMasterSid?: number) {
         try {
-            const followups = await this._db.followup.findFirst({
+            const followups = await this._db.followup.findMany({
                 where: {
                     DocumentSid: documentSid,
-                    Status: 'A'
+                    Status: 'A',
+                    ...(menuMasterSid ? { MenuMasterSid: menuMasterSid } : {})
                 },
+                orderBy: { CreatedOn: 'desc' }
             });
-            
             return followups;
         } catch (error) {
             this.logger.error(`Error fetching followups by document ID: ${error.message}`);
+            throw error;
         }
     }
 
-    async updateFollowup(followupMasterSid: number, payload: any, user) {
+    async markFollowupCompleted(id: number, documentSid: number, menuMasterSid: number, isCompleted: string, updatedBy: string) {
+        return this._db.followup.updateMany({
+            where: { FollowupSid: id, DocumentSid: documentSid, MenuMasterSid: menuMasterSid },
+            data: { IsCompleted: isCompleted, UpdatedBy: updatedBy, UpdatedOn: new Date() }
+        });
+    }
 
-  const existing = await this._db.followup.findUnique({
-    where: { FollowupSid: followupMasterSid }
+    async updateFollowup(followupMasterSid: number, payload: any, user) {
+  const { followupCreate, mailContent, updatedBy } = payload;
+
+  const existing = await this._db.followup.findFirst({
+    where: {
+      FollowupSid: followupMasterSid,
+      ...(followupCreate.DocumentSid ? { DocumentSid: followupCreate.DocumentSid } : {}),
+      ...(followupCreate.MenuMasterSid ? { MenuMasterSid: followupCreate.MenuMasterSid } : {}),
+    }
   });
 
   if (!existing) {
     throw new NotFoundException('Followup does not exist');
   }
 
-  const { followupCreate, mailContent, updatedBy } = payload;
-
-  const parsedDate = this.parseNgbDate(followupCreate.FollowupDate);
-
-  const correctedDate = parsedDate
-    ? moment(parsedDate).add(1, 'day').startOf('day').toDate()
-    : undefined;
-
   try {
     const followup = await this._db.followup.update({
       where: { FollowupSid: followupMasterSid },
       data: {
         ...followupCreate,
-        FollowupDate: correctedDate,
+        FollowupDate: new Date(followupCreate.FollowupDate),
         FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
         Public: followupCreate.Public ? 'Y' : 'N',
         sentEmail: followupCreate.sentEmail ? 'Y' : 'N',
@@ -262,12 +259,4 @@ export class FollowupService {
         });
     }
 
-    private parseNgbDate(date: any): Date | null {
-  if (!date || typeof date !== 'object') return null;
-
-  const { year, month, day } = date;
-  if (!year || !month || !day) return null;
-
-  return new Date(year, month - 1, day);
-}
 }
