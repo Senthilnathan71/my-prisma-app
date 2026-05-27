@@ -282,8 +282,7 @@ model UserMaster {
   CustomerSalesTeamDoc               CustomerSalesTeam[]          @relation("DocPerson")
   CustomerSalesTeamSales             CustomerSalesTeam[]          @relation("Salesman")
   customerSupport                    CustomerSupport[]
-  followupInternal                   Followup[]                   @relation("InternalUser")
-  followupExternal                   Followup[]                   @relation("ExternalUser")
+  followupInternal                   Followup[]
   enquiryHeader                      EnquiryHeader[]
   preCustomerEventsLed               PreCustomerEvent[]           @relation("EventLeaderUser")
   shortCut                           ShortCut[]
@@ -768,7 +767,7 @@ model MeetingFollowup {
   MeetingNote           String             @db.VarChar(200)
   Remarks               String?            @db.VarChar(100)
   Status                String?            @default("A") @db.Char(1)
-  isCompleted           String?            @default("N") @db.Char(1)
+  IsCompleted           String?            @default("N") @db.Char(1)
   createdBy             String             @db.VarChar(100)
   createdOn             DateTime           @default(now()) @db.Timestamptz(6)
   deletedAt             DateTime?
@@ -956,6 +955,7 @@ model CustomerMaster {
   preCustomerMaster          PreCustomerMaster?      @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
   CustomerMilestone          CustomerMilestone[]
   CustomerSalesTeam          CustomerSalesTeam[]
+  externalFollowup           Followup[]
   hawbStock                  HawbStock[]
   houseJob                   HouseJob[]
   mawbStock                  MawbStock[]
@@ -2633,8 +2633,8 @@ model Followup {
   BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   menuMaster       MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-  internalUserMaster UserMaster? @relation("InternalUser", fields: [InternalUser], references: [UserMasterSid])
-  externalUserMaster UserMaster? @relation("ExternalUser", fields: [ExternalUser], references: [UserMasterSid])
+  internalUserMaster UserMaster? @relation(fields: [InternalUser], references: [UserMasterSid])
+  externalUserMaster CustomerMaster? @relation(fields: [ExternalUser], references: [CustomerMasterSid])
 }
 
 model ContainerActivity {
