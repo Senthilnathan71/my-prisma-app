@@ -240,6 +240,8 @@ model BranchMaster {
   numberSeriesCounter        NumberSeriesCounter[]
   VoucherPeriod              VoucherPeriod[]
   voucherMatchingExchangeJVs VoucherMatchingExchangeJV[]
+
+  @@index([status])
 }
 
 model UserMaster {
@@ -280,6 +282,8 @@ model UserMaster {
   CustomerSalesTeamDoc               CustomerSalesTeam[]          @relation("DocPerson")
   CustomerSalesTeamSales             CustomerSalesTeam[]          @relation("Salesman")
   customerSupport                    CustomerSupport[]
+  followupInternal                   Followup[]                   @relation("InternalUser")
+  followupExternal                   Followup[]                   @relation("ExternalUser")
   enquiryHeader                      EnquiryHeader[]
   preCustomerEventsLed               PreCustomerEvent[]           @relation("EventLeaderUser")
   shortCut                           ShortCut[]
@@ -560,6 +564,8 @@ model PortMaster {
   VoyageMasterDetailPOL VoyageMasterDetail[]  @relation("POL")
   VoyageMasterHeaderPOD VoyageMasterHeader[]  @relation("POD")
   VoyageMasterHeaderPOL VoyageMasterHeader[]  @relation("POL")
+
+  @@index([status])
 }
 
 model UnitMaster {
@@ -762,6 +768,7 @@ model MeetingFollowup {
   MeetingNote           String             @db.VarChar(200)
   Remarks               String?            @db.VarChar(100)
   Status                String?            @default("A") @db.Char(1)
+  isCompleted           String?            @default("N") @db.Char(1)
   createdBy             String             @db.VarChar(100)
   createdOn             DateTime           @default(now()) @db.Timestamptz(6)
   deletedAt             DateTime?
@@ -966,6 +973,10 @@ model CustomerMaster {
   tariffHeaderCarrier        TariffHeader[]          @relation("Carrier")
   voyageHeaderMasterCarrier  VoyageMasterHeader[]    @relation("Carrier")
   voyageHeaderMasterColoader VoyageMasterHeader[]    @relation("Coloader")
+
+  @@index([CompanyMasterSid])
+  @@index([CustomerType])
+  @@index([status])
 }
 
 model PackageTypeMaster {
@@ -1468,6 +1479,8 @@ model CustomerBranch {
   quoteHeader           QuoteHeader[]
   supplierTdsMapping    SupplierTdsMapping[]
   VoucherHeader         VoucherHeader[]
+
+  @@index([status])
 }
 
 model CusBranchContact {
@@ -2298,7 +2311,7 @@ model AttachDocument {
   FileName               String              @db.VarChar(100)
   ReceivedDate           DateTime?           @db.Date
   FollowupRequire        String?             @default("N") @db.Char(1)
-  FollowupDate           DateTime?           @db.Date
+  FollowupDate           DateTime?           @db.Timestamptz(6)
   Public                 String              @default("N") @db.Char(1)
   createdOn              DateTime            @default(now()) @db.Timestamptz(6)
   updatedOn              DateTime?           @updatedAt @db.Timestamptz(6)
@@ -2600,24 +2613,28 @@ model Followup {
   UpdatedBy        String?       @db.VarChar(100)
   Status           String?       @default("A") @db.Char(1)
   DocumentSid      Int?
+  MenuMasterSid    Int?
   AttachDocmentNo  String?       @db.VarChar(20)
   DocumentDate     DateTime?     @db.Date
   FileName         String?       @db.VarChar(30)
   Documenttype     String?       @db.VarChar(20)
   ReceivedDate     DateTime?     @db.Date
   FollowupRequire  String        @default("N") @db.Char(1)
-  FollowupDate     DateTime      @db.Date
+  FollowupDate     DateTime      @db.Timestamptz(6)
   FollowupAction   String        @db.VarChar(500)
   Remarks          String?       @db.VarChar(500)
   Public           String?       @default("N") @db.Char(1)
   sentEmail        String?       @default("N") @db.Char(1)
   deletedAt        Int?
-  ExternalUser     String?       @db.VarChar(200)
-  InternalUser     String?       @db.VarChar(200)
+  ExternalUser     Int?
+  InternalUser     Int?
   IsCompleted      String?       @default("N") @db.Char(1)
   Subject          String?       @db.VarChar(200)
   BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  menuMaster       MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  internalUserMaster UserMaster? @relation("InternalUser", fields: [InternalUser], references: [UserMasterSid])
+  externalUserMaster UserMaster? @relation("ExternalUser", fields: [ExternalUser], references: [UserMasterSid])
 }
 
 model ContainerActivity {

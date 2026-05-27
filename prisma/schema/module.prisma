@@ -56,6 +56,7 @@ model MenuMaster {
   costRevenueCharges      CostRevenueCharges[]
   customerBrEmail         CustomerBrEmail[]
   enquiryHeader           EnquiryHeader[]
+  followup                Followup[]
   houseJob                HouseJob[]
   MailConfigurationMaster MailConfigurationMaster[]
   MasterJob               MasterJob[]
