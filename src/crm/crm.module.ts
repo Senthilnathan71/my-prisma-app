@@ -10,6 +10,8 @@ import { QuotationService } from './services/quotation/quotation.service';
 import { PrecustomerController } from './controllers/precustomer/precustomer.controller';
 import { PrecustomerService } from './services/precustomer/precustomer.service';
 import { SettingsModule } from 'src/settings/settings.module';
+import { VoiceController } from './controllers/voice.controller';
+import { VoiceService } from './services/voice.service';
 
 @Module({
     imports: [SettingsModule],
@@ -20,6 +22,7 @@ import { SettingsModule } from 'src/settings/settings.module';
         PreCustomerMeetingService,
         BookingService,
         QuotationService,
+        VoiceService,
     ],
     controllers : [
         PrecustomerController,
@@ -27,6 +30,7 @@ import { SettingsModule } from 'src/settings/settings.module';
         PreCustomerMeetingController,
         BookingController,
         QuotationController,
+        VoiceController,
     ],
 })
 export class CrmModule {}
