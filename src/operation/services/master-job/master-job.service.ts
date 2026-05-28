@@ -7553,50 +7553,57 @@ console.log('Created product:', createdProduct);
   // ══════════════════════════════════════════════════════════════════════════
   const cargSheet = workbook.addWorksheet('HouseJobCargo');
   const cargHeaders = [
-    `${mblLabel} (Link)`,  // A — mandatory
-    `${hblLabel} (Link)`,  // B — mandatory
-    'CargoType',            // C
-    'ContainerType',        // D
-    'NoofContainers',       // E
-    'GoodsDescription',     // F
-    'MarksAndNumber',       // G
+    `${mblLabel} (Link)`,                        // A — mandatory
+    `${hblLabel} (Link)`,                        // B — mandatory
+    'CargoType',                                  // C
+    ...(isAir ? [] : ['ContainerType']),          // D (sea/road only)
+    'NoofContainers',                             // D(air) / E(sea)
+    'GoodsDescription',                           // E(air) / F(sea)
+    'MarksAndNumber',                             // F(air) / G(sea)
   ];
   cargSheet.addRow(cargHeaders);
   styleHeaderRow(cargSheet.getRow(1), 2);
-  cargSheet.addRow(['MBL-2024-001', isAir ? 'HAWB-001' : 'HBL-001', 'General', '', 0, 'General Cargo', '']);
+  cargSheet.addRow(
+    isAir
+      ? ['MBL-2024-001', 'HAWB-001', 'General', 0, 'General Cargo', '']
+      : ['MBL-2024-001', 'HBL-001',  'General', '', 0, 'General Cargo', '']
+  );
   styleExampleRows(cargSheet, 2, 1);
-  [18, 18, 14, 18, 14, 32, 20].forEach((w, i) => { cargSheet.getColumn(i + 1).width = w; });
+  (isAir ? [18, 18, 14, 14, 32, 20] : [18, 18, 14, 18, 14, 32, 20])
+    .forEach((w, i) => { cargSheet.getColumn(i + 1).width = w; });
 
   const cargDataStart = 3;
   applyDV(cargSheet, 'C', `"General,Haz,Reefer,Tanker,OOG"`, cargDataStart);
-  applyDV(cargSheet, 'D', dvRef('_ContainerTypes', ctCount), cargDataStart);
+  if (!isAir) {
+    applyDV(cargSheet, 'D', dvRef('_ContainerTypes', ctCount), cargDataStart);
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // SHEET 6 — HouseJobProduct (new fields + calculations)
   // ══════════════════════════════════════════════════════════════════════════
   const prodSheet = workbook.addWorksheet('HouseJobProduct');
   const prodHeaders = [
-    `${mblLabel} (Link)`,             // A
-    `${hblLabel} (Link)`,             // B
-    'HouseJobCargo# (1,2,3...)',       // C — 1-based cargo row number within this HBL
-    'Commodity',                       // D  mandatory
-    'ShippingBillNo',                  // E
-    'ShippingBillDate (YYYY-MM-DD)',   // F
-    'ExternalPkg',                     // G  mandatory
-    'ExternalQty (No of Pkg)',         // H  mandatory
-    'GrossWeight',                     // I  mandatory
-    'NetWeight',                       // J
-    'UOM',                             // K  dropdown: M, CM, Inch
-    'Length',                          // L
-    'Width',                           // M
-    'Height',                          // N
-    'Volumetric (auto-calc)',          // O
-    'CBM / Volume (auto-calc)',        // P
-    'CargoReceivedDate (YYYY-MM-DD)', // Q
-    'ReceivedQty',                     // R
-    'DamagedQty',                      // S
-    'DamageRemarks',                   // T
-    'ContainerNo',                     // U
+    `${mblLabel} (Link)`,              // A
+    `${hblLabel} (Link)`,              // B
+    'HouseJobCargo# (1,2,3...)',        // C — 1-based cargo row number within this HBL
+    'Commodity',                        // D  mandatory
+    'ShippingBillNo',                   // E
+    'ShippingBillDate (YYYY-MM-DD)',    // F
+    'ExternalPkg',                      // G  mandatory
+    'ExternalQty (No of Pkg)',          // H  mandatory
+    'GrossWeight',                      // I  mandatory
+    'NetWeight',                        // J
+    'UOM',                              // K  dropdown: M, CM, Inch
+    'Length',                           // L
+    'Width',                            // M
+    'Height',                           // N
+    'Volumetric (auto-calc)',           // O
+    'CBM / Volume (auto-calc)',         // P
+    'CargoReceivedDate (YYYY-MM-DD)',   // Q
+    'ReceivedQty',                      // R
+    'DamagedQty',                       // S
+    'DamageRemarks',                    // T
+    ...(isAir ? [] : ['ContainerNo']), // U (sea/road only)
   ];
   prodSheet.addRow(prodHeaders);
   styleHeaderRow(prodSheet.getRow(1), 4);
@@ -7650,52 +7657,54 @@ console.log('Created product:', createdProduct);
     '',
     '',
     '',
-    '',
+    ...(isAir ? [] : ['']),  // ContainerNo (sea/road only)
   ]);
   styleExampleRows(prodSheet, 2, 1);
 
-  [18, 18, 16, 28, 16, 22, 16, 16, 14, 12, 10, 10, 10, 10, 18, 18, 22, 14, 14, 18, 18]
-    .forEach((w, i) => { prodSheet.getColumn(i + 1).width = w; });
+  (isAir
+    ? [18, 18, 16, 28, 16, 22, 16, 16, 14, 12, 10, 10, 10, 10, 18, 18, 22, 14, 14, 18]
+    : [18, 18, 16, 28, 16, 22, 16, 16, 14, 12, 10, 10, 10, 10, 18, 18, 22, 14, 14, 18, 18]
+  ).forEach((w, i) => { prodSheet.getColumn(i + 1).width = w; });
 
   const prodDataStart = 3;
-applyDV(prodSheet, 'G', dvRef('_PackageTypes', pkgCount), prodDataStart);
-applyDV(prodSheet, 'K', `"M,CM,Inch"`, prodDataStart);
+  applyDV(prodSheet, 'G', dvRef('_PackageTypes', pkgCount), prodDataStart);
+  applyDV(prodSheet, 'K', `"M,CM,Inch"`, prodDataStart);
 
-for (let r = prodDataStart; r <= 5000; r++) {
-  // Volumetric (col O)
-prodSheet.getCell(`O${r}`).value = {
-  formula:
-    `=IF(AND(L${r}>0,M${r}>0,N${r}>0,H${r}>0),` +
-    `ROUND(IF(K${r}="M",   H${r}*(L${r}*100)*(M${r}*100)*(N${r}*100)/${isAir ? 6000 : 5000},` +
-    `IF(K${r}="Inch",H${r}*(L${r}*2.54)*(M${r}*2.54)*(N${r}*2.54)/${isAir ? 6000 : 5000},` +
-                    `H${r}*L${r}*M${r}*N${r}/${isAir ? 6000 : 5000})),3),"")`
-};
-
-// CBM (col P)
-prodSheet.getCell(`P${r}`).value = {
-  formula:
-    `=IF(AND(L${r}>0,M${r}>0,N${r}>0,H${r}>0),` +
-    `ROUND(IF(K${r}="M",   H${r}*L${r}*M${r}*N${r},` +
-    `IF(K${r}="Inch",H${r}*(L${r}*0.0254)*(M${r}*0.0254)*(N${r}*0.0254),` +
-                    `H${r}*L${r}*M${r}*N${r}/1000000)),3),"")`
-};
-
-  // Style calculated cells (light gold, locked-looking)
-  ['O', 'P'].forEach(col => {
-    const cell = prodSheet.getCell(`${col}${r}`);
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFDE7' } };
-    cell.font = { color: { argb: 'FF6B4E00' }, size: 9 };
-    cell.numFmt = '0.000';
-  });
-
-  ['F', 'Q'].forEach(col => {
-    prodSheet.getCell(`${col}${r}`).dataValidation = {
-      type: 'date', operator: 'between', allowBlank: true,
-      formulae: [new Date(2000, 0, 1), new Date(2099, 11, 31)],
-      showErrorMessage: true, errorTitle: 'Invalid Date', error: 'Use YYYY-MM-DD format',
+  for (let r = prodDataStart; r <= 5000; r++) {
+    // Volumetric (col O)
+    prodSheet.getCell(`O${r}`).value = {
+      formula:
+        `=IF(AND(L${r}>0,M${r}>0,N${r}>0,H${r}>0),` +
+        `ROUND(IF(K${r}="M",   H${r}*(L${r}*100)*(M${r}*100)*(N${r}*100)/${isAir ? 6000 : 5000},` +
+        `IF(K${r}="Inch",H${r}*(L${r}*2.54)*(M${r}*2.54)*(N${r}*2.54)/${isAir ? 6000 : 5000},` +
+                        `H${r}*L${r}*M${r}*N${r}/${isAir ? 6000 : 5000})),3),"")`
     };
-  });
-}
+
+    // CBM (col P)
+    prodSheet.getCell(`P${r}`).value = {
+      formula:
+        `=IF(AND(L${r}>0,M${r}>0,N${r}>0,H${r}>0),` +
+        `ROUND(IF(K${r}="M",   H${r}*L${r}*M${r}*N${r},` +
+        `IF(K${r}="Inch",H${r}*(L${r}*0.0254)*(M${r}*0.0254)*(N${r}*0.0254),` +
+                        `H${r}*L${r}*M${r}*N${r}/1000000)),3),"")`
+    };
+
+    // Style calculated cells (light gold, locked-looking)
+    ['O', 'P'].forEach(col => {
+      const cell = prodSheet.getCell(`${col}${r}`);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFDE7' } };
+      cell.font = { color: { argb: 'FF6B4E00' }, size: 9 };
+      cell.numFmt = '0.000';
+    });
+
+    ['F', 'Q'].forEach(col => {
+      prodSheet.getCell(`${col}${r}`).dataValidation = {
+        type: 'date', operator: 'between', allowBlank: true,
+        formulae: [new Date(2000, 0, 1), new Date(2099, 11, 31)],
+        showErrorMessage: true, errorTitle: 'Invalid Date', error: 'Use YYYY-MM-DD format',
+      };
+    });
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // SHEET 7 — HouseJobOthers
@@ -7751,13 +7760,16 @@ prodSheet.getCell(`P${r}`).value = {
     ['  • ChargeableWeight = max(GrossWeight, Volumetric) — calculated during import.'],
     ['  • NoOfPackage is summed from product ExternalQty values.'],
     ['  • One HBL can have multiple cargo rows — number them 1, 2, 3… in the product HouseJobCargo# column.'],
+    isAir ? null : ['  • ContainerType is not required for LCL shipments.'],
     [],
     ['HOUSEJOBPRODUCT RULES'],
     [`  • HouseJobCargo# column (1, 2, 3…) links each product to its parent cargo row in the ${hblLabel} group.`],
     ['  • If only one cargo row exists, use 1 for all products.'],
     ['  • Volumetric and CBM columns are calculated during import — you may leave them blank.'],
     ['  • CBM = Length × Width × Height × Qty (dimensions converted to metres first).'],
-    ['  • Volumetric (kg) = L(cm) × W(cm) × H(cm) × Qty ÷ 6000.'],
+    isAir
+      ? ['  • Volumetric (kg) = L(cm) × W(cm) × H(cm) × Qty ÷ 6000.']
+      : ['  • Volumetric (kg) = L(cm) × W(cm) × H(cm) × Qty ÷ 5000.'],
     ['  • UOM options: M (metres), CM (centimetres), Inch.'],
     [],
     ['LINKING RULES'],
@@ -7766,7 +7778,7 @@ prodSheet.getCell(`P${r}`).value = {
     [`  • One Cargo row can have multiple Products — all share the same ${hblLabel} and HouseJobCargo#.`],
     [],
     ['VALIDATION RULES'],
-    ['  • ContainerNumber must be 11 characters (4 uppercase letters + 7 digits).'],
+    isAir ? null : ['  • ContainerNumber must be 11 characters (4 uppercase letters + 7 digits).'],
     ['  • Gross Weight must be greater than Net Weight.'],
     [`  • ${mblLabel} must be unique per company.`],
     [`  • ${hblLabel} is required for each HouseJob row.`],
@@ -7824,7 +7836,7 @@ async parseMasterJobExcel(
   ] = await Promise.all([
     this._db.departmentMaster.findMany({
       where: { CompanyMasterSid: companyMasterSid, Status: 'A', departmentType: { in: deptTypeFilter } },
-      select: { DepartmentMasterSid: true, departmentName: true },
+      select: { DepartmentMasterSid: true, departmentName: true, ExportImport: true },
     }),
     this._db.portMaster.findMany({ where: { status: 'A' }, select: { PortMasterSid: true, PortCode: true, PortName: true } }),
     this._db.customerMaster.findMany({
@@ -7848,7 +7860,7 @@ async parseMasterJobExcel(
     }),
     this._db.incoMaster.findMany({
       where: { Status: 'A' },
-      select: { IncoMasterSid: true, IncoCode: true },
+      select: { IncoMasterSid: true, IncoCode: true, OceanFreight: true },
     }),
   ]);
 
@@ -7856,11 +7868,16 @@ async parseMasterJobExcel(
   const portByCode  = new Map(ports.map(p => [p.PortCode.trim().toLowerCase(), p]));
   const carrierMap  = new Map(carriers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
   const agentMap    = new Map(agents.map(a => [a.CustomerName.trim().toLowerCase(), a.CustomerMasterSid]));
-  const pkgMap = new Map(packageTypes.map(p => [p.UOMName.trim().toLowerCase(), p.UOMName]));
+  const pkgMap      = new Map(packageTypes.map(p => [p.UOMName.trim().toLowerCase(), p.UOMName]));
   const ctMap       = new Map(containerTypes.map(c => [c.ContainerName.trim().toLowerCase(), c.ContainerTypeMasterSid]));
   const cfsMap      = new Map(cfsCustomers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
   const customerMap = new Map(customers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
-  const incoMap     = new Map(incoTerms.map(i => [i.IncoCode.trim().toLowerCase(), i.IncoMasterSid]));
+  const incoMap     = new Map(
+    incoTerms.map(i => [
+      i.IncoCode.trim().toLowerCase(),
+      { sid: i.IncoMasterSid, freightTerms: i.OceanFreight ?? '' },
+    ])
+  );
 
   const resolvePort = (val: string | null) => {
     if (!val) return null;
@@ -7880,12 +7897,12 @@ async parseMasterJobExcel(
   const str = (v: any) => (v === null || v === undefined ? '' : String(v).trim());
   const num = (v: any) => (v === null || v === undefined || v === '' ? null : Number(v));
 
-  // ── Dimension conversion helpers (mirrors frontend logic) ─────────────────
+  // ── Dimension conversion helpers ──────────────────────────────────────────
   const toMetres = (val: number, uom: string): number => {
     switch (uom.trim().toUpperCase()) {
       case 'CM':   return val / 100;
       case 'INCH': return val * 0.0254;
-      default:     return val;  // M
+      default:     return val;
     }
   };
 
@@ -7893,34 +7910,34 @@ async parseMasterJobExcel(
     switch (uom.trim().toUpperCase()) {
       case 'M':    return val * 100;
       case 'INCH': return val * 2.54;
-      default:     return val;  // CM
+      default:     return val;
     }
   };
 
   const uomToCbm = (qty: number, l: number, w: number, h: number, uom: string): number => {
-  const u = uom.trim().toUpperCase();
-  if (u === 'M')    return qty * l * w * h;
-  if (u === 'INCH') return qty * (l * 0.0254) * (w * 0.0254) * (h * 0.0254);
-  return qty * l * w * h / 1_000_000;  // CM
-};
+    const u = uom.trim().toUpperCase();
+    if (u === 'M')    return qty * l * w * h;
+    if (u === 'INCH') return qty * (l * 0.0254) * (w * 0.0254) * (h * 0.0254);
+    return qty * l * w * h / 1_000_000;
+  };
 
-const uomToVolCubicCm = (qty: number, l: number, w: number, h: number, uom: string): number => {
-  const u = uom.trim().toUpperCase();
-  if (u === 'M')    return qty * (l * 100) * (w * 100) * (h * 100);
-  if (u === 'INCH') return qty * (l * 2.54) * (w * 2.54) * (h * 2.54);
-  return qty * l * w * h;  // CM already
-};
+  const uomToVolCubicCm = (qty: number, l: number, w: number, h: number, uom: string): number => {
+    const u = uom.trim().toUpperCase();
+    if (u === 'M')    return qty * (l * 100) * (w * 100) * (h * 100);
+    if (u === 'INCH') return qty * (l * 2.54) * (w * 2.54) * (h * 2.54);
+    return qty * l * w * h;
+  };
 
-const calcCBM = (qty: number, l: number, w: number, h: number, uom: string, digits = 3): number => {
-  if (qty <= 0 || l <= 0 || w <= 0 || h <= 0) return 0;
-  return parseFloat(uomToCbm(qty, l, w, h, uom).toFixed(digits));
-};
+  const calcCBM = (qty: number, l: number, w: number, h: number, uom: string, digits = 3): number => {
+    if (qty <= 0 || l <= 0 || w <= 0 || h <= 0) return 0;
+    return parseFloat(uomToCbm(qty, l, w, h, uom).toFixed(digits));
+  };
 
-const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: string, digits = 3): number => {
-  if (qty <= 0 || l <= 0 || w <= 0 || h <= 0) return 0;
-  const divisor = isAir ? 6000 : 5000;
-  return parseFloat((uomToVolCubicCm(qty, l, w, h, uom) / divisor).toFixed(digits));
-};
+  const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: string, digits = 3): number => {
+    if (qty <= 0 || l <= 0 || w <= 0 || h <= 0) return 0;
+    const divisor = isAir ? 6000 : 5000;
+    return parseFloat((uomToVolCubicCm(qty, l, w, h, uom) / divisor).toFixed(digits));
+  };
 
   const groupBy = (rows: any[][], keyIdx: number) => {
     const map = new Map<string, any[][]>();
@@ -7936,9 +7953,7 @@ const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: strin
   const containersByMbl = groupBy(ctRows,   0);
   const othersByMbl     = groupBy(otRows,   0);
   const houseJobsByMbl  = groupBy(hjRows,   0);
-  // cargo grouped by hblNo (col B)
   const cargoByHbl      = groupBy(cargRows, 1);
-  // products grouped by hblNo (col B)
   const productByHbl    = groupBy(prodRows, 1);
   const hjoByHbl        = groupBy(hjoRows,  1);
 
@@ -7983,7 +7998,7 @@ const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: strin
     if (!polRaw)        errs.push('POL is required');
     if (!podRaw)        errs.push('POD is required');
 
-    const dept    = deptName ? deptMap.get(deptName.toLowerCase()) : null;
+    const dept = deptName ? deptMap.get(deptName.toLowerCase()) : null;
     if (deptName && !dept) errs.push(`Department "${deptName}" not found`);
 
     const polPort = resolvePort(polRaw);
@@ -8069,8 +8084,11 @@ const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: strin
       if (delivAgentName && !delivAgentSid)  hErrs.push(`DeliveryAgent "${delivAgentName}" not found`);
       const origAgentSid  = origAgentName   ? agentMap.get(origAgentName.toLowerCase())    : null;
       if (origAgentName  && !origAgentSid)   hErrs.push(`OriginAgent "${origAgentName}" not found`);
-      const incoSid       = incoTermsVal    ? incoMap.get(incoTermsVal.toLowerCase())       : null;
-      if (incoTermsVal   && !incoSid)        hErrs.push(`IncoTerms "${incoTermsVal}" not found`);
+
+      const incoEntry        = incoTermsVal ? incoMap.get(incoTermsVal.toLowerCase()) : null;
+      const incoSid          = incoEntry?.sid          ?? null;
+      const incoFreightTerms = incoEntry?.freightTerms ?? '';
+      if (incoTermsVal && !incoSid) hErrs.push(`IncoTerms "${incoTermsVal}" not found`);
 
       const hjPoo = resolvePort(hjPooRaw);
       const hjFpd = resolvePort(hjFpdRaw);
@@ -8078,16 +8096,14 @@ const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: strin
       if (hjFpdRaw && !hjFpd) hErrs.push(`HouseJob FPD "${hjFpdRaw}" not found`);
 
       // ── Parse products for this HBL, group by HouseJobCargo# ─────────────
-      // Product column layout:
-      // A=0 mblLink | B=1 hblLink | C=2 cargoIndex(1-based) | D=3 commodity
+      // Product column layout (sea):
+      // A=0 mblLink | B=1 hblLink | C=2 cargoIndex | D=3 commodity
       // E=4 shippingBillNo | F=5 shippingBillDate | G=6 externalPkg | H=7 externalQty
       // I=8 grossWeight | J=9 netWeight | K=10 uom | L=11 length | M=12 width | N=13 height
-      // O=14 volumetric(optional) | P=15 cbm(optional) | Q=16 cargoRecDate
-      // R=17 receivedQty | S=18 damagedQty | T=19 damageRemarks | U=20 containerNo
-
+      // O=14 volumetric | P=15 cbm | Q=16 cargoRecDate | R=17 receivedQty
+      // S=18 damagedQty | T=19 damageRemarks | U=20 containerNo (sea only)
       const productRowsForHbl = productByHbl.get(hblNo.toLowerCase()) || [];
 
-      // Group product rows by their 1-based cargo index (col C)
       const productsByCargoIndex = new Map<number, any[][]>();
       for (const pRow of productRowsForHbl) {
         const cargoIdx = Math.max(1, Math.round(Number(pRow[2]) || 1));
@@ -8095,50 +8111,56 @@ const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: strin
         productsByCargoIndex.get(cargoIdx)!.push(pRow);
       }
 
-      // Determine how many cargo rows exist for this HBL
       const cargoRowsForHbl = cargoByHbl.get(hblNo.toLowerCase()) || [];
       const cargoCount = Math.max(
         cargoRowsForHbl.length,
         productsByCargoIndex.size > 0 ? Math.max(...productsByCargoIndex.keys()) : 0,
-        1  // always at least one cargo group
+        1
       );
 
       const cargos: any[] = [];
 
       for (let cargoIdx = 1; cargoIdx <= cargoCount; cargoIdx++) {
-        // Cargo sheet row for this index (0-based array access)
-        // HouseJobCargo column layout:
+        // HouseJobCargo column layout (sea):
         // A=0 mblLink | B=1 hblLink | C=2 cargoType | D=3 containerType
         // E=4 noofContainers | F=5 goodsDescription | G=6 marksAndNumber
+        //
+        // HouseJobCargo column layout (air — no ContainerType col):
+        // A=0 mblLink | B=1 hblLink | C=2 cargoType | D=3 noofContainers
+        // E=4 goodsDescription | F=5 marksAndNumber
         const cRow = cargoRowsForHbl[cargoIdx - 1] || [];
 
-        const ctName = str(cRow[3]);  // col D
-        const ctId   = ctName ? ctMap.get(ctName.toLowerCase()) : null;
-        if (ctName && !ctId) hErrs.push(`HouseJobCargo ${cargoIdx} ContainerType "${ctName}" not found`);
+        // Air has no ContainerType column — cols after CargoType shift left by 1.
+        // LCL shipments: column exists in sheet but ContainerType is not required/stored.
+        const isLCL      = shipmentTerms.toLowerCase().includes('lcl');
+        const ctColShift = isAir ? 0 : 1;
+        const ctName     = (isAir || isLCL) ? '' : str(cRow[3]);
+        const ctId       = ctName ? ctMap.get(ctName.toLowerCase()) : null;
+        if (!isAir && !isLCL && ctName && !ctId)
+          hErrs.push(`HouseJobCargo ${cargoIdx} ContainerType "${ctName}" not found`);
 
         // ── Parse products for this cargo index ─────────────────────────────
         const cargoProducts: any[] = [];
 
         for (const pRow of productsByCargoIndex.get(cargoIdx) || []) {
-          const prodName    = str(pRow[3]);   // col D: Commodity
-          const pkgTypeName = str(pRow[6]);   // col G: ExternalPkg
+          const prodName    = str(pRow[3]);
+          const pkgTypeName = str(pRow[6]);
           const pkgTypeCode = pkgTypeName ? pkgMap.get(pkgTypeName.toLowerCase()) : null;
-          const uomRaw      = str(pRow[10]) || 'CM';  // col K: UOM
-          const qty         = Number(pRow[7])  || 0;  // col H: ExternalQty
-          const grossWeight = Number(pRow[8])  || 0;  // col I
-          const netWeight   = Number(pRow[9])  || 0;  // col J
-          const length      = Number(pRow[11]) || 0;  // col L
-          const width       = Number(pRow[12]) || 0;  // col M
-          const height      = Number(pRow[13]) || 0;  // col N
+          const uomRaw      = str(pRow[10]) || 'CM';
+          const qty         = Number(pRow[7])  || 0;
+          const grossWeight = Number(pRow[8])  || 0;
+          const netWeight   = Number(pRow[9])  || 0;
+          const length      = Number(pRow[11]) || 0;
+          const width       = Number(pRow[12]) || 0;
+          const height      = Number(pRow[13]) || 0;
 
-          if (!prodName)                 hErrs.push(`Cargo ${cargoIdx}: Commodity is required`);
-          if (!qty)                      hErrs.push(`Cargo ${cargoIdx}: ExternalQty is required`);
-          if (!grossWeight)              hErrs.push(`Cargo ${cargoIdx}: GrossWeight is required`);
+          if (!prodName)                   hErrs.push(`Cargo ${cargoIdx}: Commodity is required`);
+          if (!qty)                        hErrs.push(`Cargo ${cargoIdx}: ExternalQty is required`);
+          if (!grossWeight)                hErrs.push(`Cargo ${cargoIdx}: GrossWeight is required`);
           if (pkgTypeName && !pkgTypeCode) hErrs.push(`Cargo ${cargoIdx}: PackageType "${pkgTypeName}" not found`);
 
-          // Calculate CBM and Volumetric (use spreadsheet values as fallback if provided)
-          const spreadsheetVolumetric = Number(pRow[14]) || 0;  // col O
-          const spreadsheetCBM        = Number(pRow[15]) || 0;  // col P
+          const spreadsheetVolumetric = Number(pRow[14]) || 0;
+          const spreadsheetCBM        = Number(pRow[15]) || 0;
 
           const cbm = (length > 0 && width > 0 && height > 0 && qty > 0)
             ? calcCBM(qty, length, width, height, uomRaw)
@@ -8166,7 +8188,7 @@ const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: strin
             ReceivedQty:      str(pRow[17]),
             DamageQty:        str(pRow[18]),
             DamageRemarks:    str(pRow[19]),
-            ContainerNo:      str(pRow[20]),
+            ContainerNo:      isAir ? '' : str(pRow[20]),
             IsHaz:            'N',
             ImcoClass:        '',
             UnNo:             '',
@@ -8195,11 +8217,11 @@ const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: strin
         );
 
         cargos.push({
-          CargoType:            str(cRow[2]) || 'General',  // col C
-          ContainerType:        ctId         || null,
-          NoofContainers:       Number(cRow[4]) || 0,        // col E
-          CommodityDescription: str(cRow[5]) || '',          // col F: GoodsDescription
-          MarksAndNumber:       str(cRow[6]) || '',          // col G
+          CargoType:            str(cRow[2]) || 'General',                  // col C — always index 2
+          ContainerType:        (isAir || isLCL) ? null : (ctId || null),
+          NoofContainers:       Number(cRow[3 + ctColShift]) || 0,          // col E(sea) / D(air)
+          CommodityDescription: str(cRow[4 + ctColShift])   || '',          // col F(sea) / E(air)
+          MarksAndNumber:       str(cRow[5 + ctColShift])   || '',          // col G(sea) / F(air)
           // Aggregated from products
           GrossWeight:          totalGrossWeight,
           NetWeight:            totalNetWeight,
@@ -8227,21 +8249,22 @@ const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: strin
           HBLNo:             hblNo,
           CustomerName:      customerName,
           CustomerAddress:   customerAddr,
-          CustomerMasterSid: customerSid   || null,
+          CustomerMasterSid: customerSid        || null,
           ShipperName:       shipperName,
           ShipperAddress:    shipperAddr,
           ConsigneeName:     consigneeName,
           ConsigneeAddress:  consigneeAddr,
           Notify:            notify,
           NotifyAddress:     notifyAddr,
-          DeliveryAgent:     delivAgentSid  || null,
+          DeliveryAgent:     delivAgentSid      || null,
           DeliveryAgentName: delivAgentName,
-          OriginAgent:       origAgentSid   || null,
+          OriginAgent:       origAgentSid       || null,
           OriginAgentName:   origAgentName,
           IncoTerms:         incoTermsVal,
-          IncoTermsSid:      incoSid        || null,
-          POO:               hjPoo?.PortCode || null,
-          FPD:               hjFpd?.PortCode || null,
+          IncoTermsSid:      incoSid            || null,
+          IncoFreightTerms:  incoFreightTerms,
+          POO:               hjPoo?.PortCode    || null,
+          FPD:               hjFpd?.PortCode    || null,
           cargo:             cargos,
           others: hjoData ? {
             CustomerRefNo:   str(hjoData[2]),
@@ -8261,6 +8284,7 @@ const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: strin
       mblNo,
       DepartmentMasterSid:     dept?.DepartmentMasterSid,
       DepartmentName:          deptName,
+      ExportImport:            dept?.ExportImport ?? '',
       MasterJobDate:           masterJobDate,
       MBLDate:                 mblDate,
       FreightPPCC:             freightPPCC,
@@ -8424,10 +8448,10 @@ async saveMasterJobExcel(
             Status:       'A',
           },
         });
-
+        const containerSidMap = new Map<string, number>();
         // Containers
         for (const ct of row.containers || []) {
-          await prisma.masterJobContainer.create({
+          const saved =await prisma.masterJobContainer.create({
             data: {
               MasterJobSid:    masterJob.MasterJobSid,
               ContainerType:   ct.ContainerType,
@@ -8438,6 +8462,9 @@ async saveMasterJobExcel(
               CreatedBy:       createdBy,
             },
           });
+          if (ct.ContainerNumber) {
+    containerSidMap.set(ct.ContainerNumber.toUpperCase(), saved.MasterJobContainerSid);
+  }
         }
 
         // MasterJobOthers
@@ -8445,9 +8472,9 @@ async saveMasterJobExcel(
           await prisma.masterJobOthers.create({
             data: {
               MasterJobSid: masterJob.MasterJobSid,
-              CFS:          row.others.CFSSid    || null,
-              CFSAddress:   row.others.CFSAddress || '',
-              AgentRef:     row.others.AgentRef   || '',
+              CFS:          row.others.CFSSid     || null,
+              CFSAddress:   row.others.CFSAddress  || '',
+              AgentRef:     row.others.AgentRef    || '',
               Status:       'A',
               CreatedBy:    createdBy,
             },
@@ -8491,9 +8518,9 @@ async saveMasterJobExcel(
               VoyageNo:            '',
               ETD:                 null,
               ETA:                 null,
-              FreightTerms:        '',
+              FreightTerms:        hj.IncoFreightTerms  || '',
               MovementType:        '',
-              JobType:             '',
+              JobType:             row.ExportImport     || '',
               NominatedBy:         'Self',
               Coload:              'N',
               InternalNote:        '',
@@ -8506,7 +8533,7 @@ async saveMasterJobExcel(
             },
           });
 
-          // Cargo rows — weights are pre-aggregated from products during parse
+          // Cargo rows
           for (const cargo of hj.cargo || []) {
             const cargoRecord = await prisma.houseJobCargo.create({
               data: {
@@ -8516,21 +8543,19 @@ async saveMasterJobExcel(
                 CargoType:            cargo.CargoType            || 'General',
                 ContainerType:        cargo.ContainerType        || null,
                 NoofContainers:       cargo.NoofContainers       || 0,
-                // Aggregated from products
-                GrossWeight:          cargo.GrossWeight           || 0,
-                NetWeight:            cargo.NetWeight             || 0,
-                Volume:               cargo.Volume                || 0,
-                Volumetric:           cargo.Volumetric            || 0,
-                ChargeableWeight:     cargo.ChargeableWeight      || 0,
-                NoOfPackage:          cargo.NoOfPackage           || 0,
-                // From cargo sheet columns
-                CommodityDescription: cargo.CommodityDescription  || '',
-                MarksAndNumber:       cargo.MarksAndNumber        || '',
-                ShipmentTerms:        cargo.ShipmentTerms         || '',
-                FreightTerms:         cargo.FreightTerms          || '',
-                MovementType:         cargo.MovementType          || '',
-                ModeOfTransport:      cargo.ModeOfTransport       || '',
-                StuffingAt:           cargo.StuffingAt            || 'Dock',
+                GrossWeight:          cargo.GrossWeight          || 0,
+                NetWeight:            cargo.NetWeight            || 0,
+                Volume:               cargo.Volume               || 0,
+                Volumetric:           cargo.Volumetric           || 0,
+                ChargeableWeight:     cargo.ChargeableWeight     || 0,
+                NoOfPackage:          cargo.NoOfPackage          || 0,
+                CommodityDescription: cargo.CommodityDescription || '',
+                MarksAndNumber:       cargo.MarksAndNumber       || '',
+                ShipmentTerms:        cargo.ShipmentTerms        || '',
+                FreightTerms:         cargo.FreightTerms         || '',
+                MovementType:         cargo.MovementType         || '',
+                ModeOfTransport:      cargo.ModeOfTransport      || '',
+                StuffingAt:           cargo.StuffingAt           || 'Dock',
                 status:               'A',
                 createdBy,
               },
@@ -8542,20 +8567,20 @@ async saveMasterJobExcel(
                 data: {
                   HouseJobSid:      houseJob.HouseJobSid,
                   HouseJobCargoSid: cargoRecord.HouseJobCargoSid,
-                  ProductName:      prod.ProductName    || '',
-                  ExternaPkg:       prod.ExternaPkg     || null,
+                  ProductName:      prod.ProductName      || '',
+                  ExternaPkg:       prod.ExternaPkg       || null,
                   ExternlQty:       String(prod.ExternlQty || ''),
-                  GrossWeight:      prod.GrossWeight    || 0,
-                  NetWeight:        prod.NetWeight      || 0,
-                  Volume:           prod.Volume         || 0,
-                  Volumetric:       prod.Volumetric     || 0,
+                  GrossWeight:      prod.GrossWeight      || 0,
+                  NetWeight:        prod.NetWeight        || 0,
+                  Volume:           prod.Volume           || 0,
+                  Volumetric:       prod.Volumetric       || 0,
                   IsHaz:            'N',
                   ImcoClass:        '',
                   UnNo:             '',
                   PkgGroup:         '',
-                  Length:           prod.Length         || 0,
-                  Width:            prod.Width          || 0,
-                  Height:           prod.Height         || 0,
+                  Length:           prod.Length           || 0,
+                  Width:            prod.Width            || 0,
+                  Height:           prod.Height           || 0,
                   HSCode:           '',
                   UomMasterSid:     null,
                   ShippingBillNo:   prod.ShippingBillNo   || '',
@@ -8563,13 +8588,16 @@ async saveMasterJobExcel(
                                       ? new Date(prod.ShippingBillDate) : null,
                   CargoRecDate:     prod.CargoRecDate
                                       ? new Date(prod.CargoRecDate)     : null,
-                  ReceivedQty:      prod.ReceivedQty    || '',
-                  DamageQty:        prod.DamageQty      || '',
-                  DamageRemarks:    prod.DamageRemarks  || '',
-                  ContainerNo:      prod.ContainerNo    || '',
-                  MarksAndNumber:   prod.MarksAndNumbers || '',
+                  ReceivedQty:      prod.ReceivedQty      || '',
+                  DamageQty:        prod.DamageQty        || '',
+                  DamageRemarks:    prod.DamageRemarks    || '',
+                  ContainerNo:      prod.ContainerNo      || '',
+                  MarksAndNumber:   prod.MarksAndNumbers  || '',
                   status:           'A',
                   createdBy,
+                  MasterJobContainerSid: prod.ContainerNo
+      ? (containerSidMap.get(prod.ContainerNo.toUpperCase()) ?? null)
+      : null,
                 },
               });
             }
