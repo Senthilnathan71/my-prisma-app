@@ -531,167 +531,6 @@ export class MasterJobController {
         return resp;
     }
 
-    @ApiOperation({ summary: 'Upload Excel file and parse Master Job + House Jobs data' })
-    @ApiCreatedResponse({
-        description: 'Parse Excel file and return preview data for validation',
-        type: ResponseData
-    })
-    @ApiConsumes('multipart/form-data')
-    @HttpCode(HttpStatus.OK)
-    @Post('bulk-upload/parse')
-    @UseInterceptors(FileInterceptor('file'))
-    async parseExcelFile(@UploadedFile() file: Express.Multer.File){
-        let resp = new ResponseData();
-        try {
-            this.logger.log(`Parsing Excel file for bulk upload`);
-
-            if (!file) {
-                throw new BadRequestException('No file uploaded');
-            }
-
-            // Validate file type
-            const allowedMimeTypes = [
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'application/vnd.ms-excel'
-            ];
-
-            if (!allowedMimeTypes.includes(file.mimetype)) {
-                throw new BadRequestException('Invalid file type. Only Excel files (.xlsx, .xls) are allowed');
-            }
-
-            // Validate file size (5MB max)
-            if (file.size > 5 * 1024 * 1024) {
-                throw new BadRequestException('File size exceeds 5MB limit');
-            }
-
-            // Parse Excel file
-            const { masterJob, houseJobs, errors } = this.excelParserService.parseExcelFile(file.buffer);
-
-            if (errors && errors.length > 0) {
-                resp.status = false;
-                resp.message = 'Excel file has validation errors';
-                resp.data = { errors };
-                return resp;
-            }
-
-            this.logger.debug(`Parsed Excel successfully: Master Job and ${houseJobs.length} House Jobs`);
-
-            resp.message = 'Excel file parsed successfully';
-            resp.data = {
-                masterJob,
-                houseJobs,
-                totalHouseJobs: houseJobs.length
-            };
-
-        } catch (error) {
-            resp.status = false;
-            this.logger.warn(`Error parsing Excel file: ${JSON.stringify(error)}, ${error}`);
-            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
-                resp.message = error.message;
-            } else {
-                resp.message = 'Internal Server Error';
-            }
-        }
-        return resp;
-    }
-
-    @ApiOperation({ summary: 'Process bulk upload and create Master Job with House Jobs' })
-    @ApiCreatedResponse({
-        description: 'Create Master Job and House Jobs from parsed data',
-        type: ResponseData
-    })
-    @HttpCode(HttpStatus.CREATED)
-    @Post('bulk-upload/process')
-    async processBulkUpload(@Body() payload: any){
-        let resp = new ResponseData();
-        try {
-            this.logger.log(`Processing bulk upload: ${JSON.stringify(payload)}`);
-
-            const { masterJob, houseJobs, containers, voyages, connections, others, companyMasterSid, branchMasterSid, createdBy } = payload;
-
-            if (!masterJob || !houseJobs || houseJobs.length === 0) {
-                throw new BadRequestException('Invalid payload: Master Job and House Jobs data required');
-            }
-
-            // Validate the data
-            const validationErrors = await this.masterJobService.validateBulkUploadData(
-                masterJob,
-                houseJobs,
-                companyMasterSid,
-                containers,
-                voyages,
-                connections,
-                others
-            );
-
-            if (validationErrors && validationErrors.length > 0) {
-                resp.status = false;
-                resp.message = 'Validation failed';
-                resp.data = { errors: validationErrors };
-                return resp;
-            }
-
-            // Process bulk upload
-            const result = await this.masterJobService.processBulkUpload(
-                masterJob,
-                houseJobs,
-                companyMasterSid,
-                branchMasterSid,
-                createdBy,
-                containers,
-                voyages,
-                connections,
-                others
-            );
-
-            this.logger.debug(`Bulk upload processed: ${JSON.stringify(result)}`);
-
-            // Check if service returned an error (e.g., duplicate MBL Number)
-            if (result && typeof result === 'object' && 'status' in result && result.status === false) {
-                resp.status = false;
-                resp.message = (result as any).message;
-                resp.data = (result as any).data;
-            } else {
-                resp.message = 'Master Job and House Jobs created successfully';
-                resp.data = result;
-            }
-
-        } catch (error) {
-            resp.status = false;
-            this.logger.warn(`Error processing bulk upload: ${JSON.stringify(error)}, ${error}`);
-            if(error instanceof BadRequestException || error instanceof UnauthorizedException){
-                resp.message = error.message;
-            } else {
-                resp.message = 'Internal Server Error';
-            }
-        }
-        return resp;
-    }
-
-    @ApiOperation({ summary: 'Download Excel template for bulk upload' })
-    @ApiCreatedResponse({
-        description: 'Download Excel template with sample data',
-    })
-    @HttpCode(HttpStatus.OK)
-    @Get('bulk-upload/template')
-    async downloadTemplate(@Res() res: Response){
-        try {
-            this.logger.log(`Generating Excel template for bulk upload`);
-
-            const buffer = await this.excelParserService.generateTemplate();
-
-            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            res.setHeader('Content-Disposition', 'attachment; filename=Master_Job_Upload_Template.xlsx');
-            res.send(buffer);
-
-        } catch (error) {
-            this.logger.warn(`Error generating template: ${JSON.stringify(error)}, ${error}`);
-            res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
-                status: false,
-                message: 'Error generating template'
-            });
-        }
-    }
 
     /**
      * Get report data for specified report type
@@ -1139,6 +978,136 @@ async processProductUpload(@Body() payload: any) {
             data: null
         };
     }
+}
+
+// ─── DOWNLOAD TEMPLATE ────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Download Master Job / Master Air Waybill Excel template' })
+@HttpCode(HttpStatus.OK)
+@Get('template')
+async downloadMasterJobTemplate(
+  @Query('CompanyMasterSid') CompanyMasterSid: number,
+  @Query('screenType') screenType: 'masterjob' | 'masterairwaybill' = 'masterjob',
+  @Res() res: Response
+) {
+  try {
+    this.logger.log(`Generating Excel template for master job upload`);
+    const buffer = await this.masterJobService.generateMasterJobTemplate(
+      Number(CompanyMasterSid),
+      screenType
+    );
+    const filename = screenType === 'masterairwaybill'
+      ? 'MasterAirWaybill_Upload_Template.xlsx'
+      : 'MasterJob_Upload_Template.xlsx';
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${filename}`);
+    res.send(buffer);
+  } catch (error) {
+    this.logger.warn(`Error generating master job template: ${JSON.stringify(error)}, ${error}`);
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ status: false, message: 'Error generating template' });
+  }
+}
+
+// ─── STEP 1: PARSE ────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Parse & validate Master Job Excel — does NOT save to DB' })
+@ApiConsumes('multipart/form-data')
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/parse')
+@UseInterceptors(FileInterceptor('file'))
+async parseMasterJobExcel(
+  @UploadedFile() file: Express.Multer.File,
+  @Body('CompanyMasterSid') CompanyMasterSid: string,
+  @Body('screenType') screenType: 'masterjob' | 'masterairwaybill' = 'masterjob',
+) {
+  const resp = new ResponseData();
+  try {
+    if (!file) throw new BadRequestException('No file uploaded');
+
+    const allowedMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    if (!allowedMimeTypes.includes(file.mimetype))
+      throw new BadRequestException('Invalid file type. Only .xlsx or .xls allowed');
+
+    if (file.size > 10 * 1024 * 1024)
+      throw new BadRequestException('File size exceeds 10MB limit');
+
+    if (!CompanyMasterSid)
+      throw new BadRequestException('CompanyMasterSid is required');
+
+    const result = await this.masterJobService.parseMasterJobExcel(
+      file.buffer,
+      Number(CompanyMasterSid),
+      screenType
+    );
+
+    const hasValid = result.validRows.length > 0;
+
+    resp.status = true;
+    resp.message = hasValid
+      ? `Parsed successfully. ${result.validRows.length} valid, ${result.invalidRows.length} invalid.`
+      : 'No valid rows found. Please fix the errors and re-upload.';
+    resp.data = result;
+
+  } catch (error) {
+    resp.status = false;
+    this.logger.warn(`Error parsing master job Excel: ${JSON.stringify(error)}, ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
+}
+
+// ─── STEP 2: SAVE ─────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Save validated Master Job rows to DB' })
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/save')
+async saveMasterJobExcel(
+  @Body() payload: {
+    validRows: any[];
+    CompanyMasterSid: number;
+    BranchMasterSid: number;
+    MenuMasterSid: number;
+    createdBy: string;
+  }
+) {
+  const resp = new ResponseData();
+  try {
+    const { validRows, CompanyMasterSid, BranchMasterSid, MenuMasterSid, createdBy } = payload;
+
+    if (!validRows?.length)
+      throw new BadRequestException('No valid rows to save');
+
+    if (!CompanyMasterSid)
+      throw new BadRequestException('CompanyMasterSid is required');
+
+    if (!BranchMasterSid)
+      throw new BadRequestException('BranchMasterSid is required');
+
+    if (!createdBy)
+      throw new BadRequestException('createdBy is required');
+
+    const result = await this.masterJobService.saveMasterJobExcel(
+      validRows,
+      Number(CompanyMasterSid),
+      Number(BranchMasterSid),
+      Number(MenuMasterSid) || 0,
+      createdBy
+    );
+
+    resp.status = true;
+    resp.message = `Import complete. ${result.created} created, ${result.skipped} skipped.`;
+    resp.data = result;
+
+  } catch (error) {
+    resp.status = false;
+    this.logger.warn(`Error saving master job Excel: ${JSON.stringify(error)}, ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
 }
 }
 
