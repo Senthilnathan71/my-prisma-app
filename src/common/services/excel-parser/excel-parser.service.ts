@@ -191,8 +191,8 @@ export class ExcelParserService {
         CommodityDescription: this.getStringValue(row['Commodity Description']),
         MarksandNumber: this.getStringValue(row['Marks and Number']),
         Haz: this.getBooleanValue(row['Hazardous (Y/N)']),
-        DestinationAgentName: this.getStringValue(row['Destination Agent Name']),
-        DestinationAgentAddress: this.getStringValue(row['Destination Agent Address']),
+        DestinationAgentName: this.getStringValue(row['Destination Agent']) || this.getStringValue(row['Destination Agent Name']),
+        DestinationAgentAddress: this.getStringValue(row['Agent Address']) || this.getStringValue(row['Destination Agent Address']),
         DGBookingDate: this.parseDateValue(row['DG Booking Date']),
         DGApprovedDate: this.parseDateValue(row['DG Approved Date']),
       };
@@ -625,9 +625,8 @@ return {
   /**
    * Generate Excel template for download with dropdown support
    */
-  async generateTemplate(): Promise<Buffer> {
+  async generateTemplate(menuName?: string, companyMasterSid?: number): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
-    const DROPDOWN_ROWS = 100; // Apply dropdown validation to rows 2-100
 
     // ===== CREATE MAIN DATA SHEETS FIRST =====
 
@@ -653,12 +652,27 @@ return {
     ]);
     this.styleHeaderRow(masterJobSheet);
     this.setColumnWidths(masterJobSheet, masterJobHeaders.length, 15);
-    // Apply dropdowns to Master Job
-    this.applyDropdownValidation(masterJobSheet, 'D', 2, DROPDOWN_ROWS, "'Master Data'!$A$2:$A$5"); // Department
-    this.applyDropdownValidation(masterJobSheet, 'E', 2, DROPDOWN_ROWS, "'Master Data'!$B$2:$B$3"); // Freight PP/CC
-    this.applyDropdownValidation(masterJobSheet, 'O', 2, DROPDOWN_ROWS, "'Master Data'!$G$2:$G$8"); // Shipment Terms
-    this.applyDropdownValidation(masterJobSheet, 'P', 2, DROPDOWN_ROWS, "'Master Data'!$C$2:$C$5"); // BL Release Type
-    this.applyDropdownValidation(masterJobSheet, 'X', 2, DROPDOWN_ROWS, "'Master Data'!$E$2:$E$3"); // Haz
+    const departmentRef = await this.createDepartmentSheet(workbook, menuName, companyMasterSid);
+    if (departmentRef.lastRow >= 2) {
+      this.applyDropdownValidation(
+        masterJobSheet,
+        'D',
+        2,
+        1000,
+        `'Departments'!$A$2:$A$${departmentRef.lastRow}`
+      );
+    }
+    const destinationAgentRef = await this.createDestinationAgentSheet(workbook, companyMasterSid);
+    if (destinationAgentRef.lastRow >= 2) {
+      this.applyDropdownValidation(
+        masterJobSheet,
+        'F',
+        2,
+        1000,
+        `'DestinationAgents'!$A$2:$A$${destinationAgentRef.lastRow}`
+      );
+      this.applyDestinationAgentAddressFormula(masterJobSheet, 2, 1000, destinationAgentRef.lastRow);
+    }
 
     // 2. Master Voyages Sheet
     const masterVoyagesSheet = workbook.addWorksheet('Master Voyages');
@@ -694,8 +708,6 @@ return {
     ]);
     this.styleHeaderRow(masterOthersSheet);
     this.setColumnWidths(masterOthersSheet, masterOthersHeaders.length, 15);
-    // Apply dropdown for Coload
-    this.applyDropdownValidation(masterOthersSheet, 'Q', 2, DROPDOWN_ROWS, "'Master Data'!$F$2:$F$3"); // Coload
 
     // 4. Container Sheet
     const containerSheet = workbook.addWorksheet('Container');
@@ -716,9 +728,6 @@ return {
     ]);
     this.styleHeaderRow(containerSheet);
     this.setColumnWidths(containerSheet, containerHeaders.length, 15);
-    // Apply dropdowns
-    this.applyDropdownValidation(containerSheet, 'B', 2, DROPDOWN_ROWS, "'Container Data'!$A$2:$A$9"); // Container Type
-    this.applyDropdownValidation(containerSheet, 'H', 2, DROPDOWN_ROWS, "'Container Data'!$B$2:$B$4"); // Package Type
 
     // 5. House Job Sheet
     const houseJobSheet = workbook.addWorksheet('House Job');
@@ -747,10 +756,6 @@ return {
     ]);
     this.styleHeaderRow(houseJobSheet);
     this.setColumnWidths(houseJobSheet, houseJobHeaders.length, 15);
-    // Apply dropdowns
-    this.applyDropdownValidation(houseJobSheet, 'S', 2, DROPDOWN_ROWS, "'House Data'!$H$2:$H$12"); // Inco Terms
-    this.applyDropdownValidation(houseJobSheet, 'T', 2, DROPDOWN_ROWS, "'House Data'!$D$2:$D$3"); // Freight PP/CC
-    this.applyDropdownValidation(houseJobSheet, 'AB', 2, DROPDOWN_ROWS, "'House Data'!$B$2:$B$5"); // Release Type
 
     // 6. House Cargo Sheet
     const houseCargoSheet = workbook.addWorksheet('House Cargo');
@@ -767,13 +772,6 @@ return {
     ]);
     this.styleHeaderRow(houseCargoSheet);
     this.setColumnWidths(houseCargoSheet, houseCargoHeaders.length, 15);
-    // Apply dropdowns
-    this.applyDropdownValidation(houseCargoSheet, 'B', 2, DROPDOWN_ROWS, "'House Data'!$J$2:$J$6"); // Cargo Type
-    this.applyDropdownValidation(houseCargoSheet, 'C', 2, DROPDOWN_ROWS, "'Container Data'!$A$2:$A$9"); // Container Type
-    this.applyDropdownValidation(houseCargoSheet, 'J', 2, DROPDOWN_ROWS, "'House Data'!$E$2:$E$9"); // Movement Type
-    this.applyDropdownValidation(houseCargoSheet, 'K', 2, DROPDOWN_ROWS, "'House Data'!$A$2:$A$5"); // Mode of Transport
-    this.applyDropdownValidation(houseCargoSheet, 'L', 2, DROPDOWN_ROWS, "'House Data'!$F$2:$F$3"); // Stuffing At
-    this.applyDropdownValidation(houseCargoSheet, 'M', 2, DROPDOWN_ROWS, "'House Data'!$C$2:$C$8"); // Shipment Terms
 
     // 7. House Product Sheet
     const houseProductSheet = workbook.addWorksheet('House Product');
@@ -789,22 +787,29 @@ return {
     ]);
     this.styleHeaderRow(houseProductSheet);
     this.setColumnWidths(houseProductSheet, houseProductHeaders.length, 15);
-    // Apply dropdown
-    this.applyDropdownValidation(houseProductSheet, 'E', 2, DROPDOWN_ROWS, "'House Data'!$K$2:$K$5"); // External Pkg
-
-    // ===== CREATE REFERENCE SHEETS AT THE END =====
-
-    // Master Data Reference Sheet
-    const masterDataSheet = workbook.addWorksheet('Master Data');
-    this.createMasterDataSheet(masterDataSheet);
-
-    // Container Data Reference Sheet
-    const containerDataSheet = workbook.addWorksheet('Container Data');
-    this.createContainerDataSheet(containerDataSheet);
-
-    // House Data Reference Sheet
-    const houseDataSheet = workbook.addWorksheet('House Data');
-    this.createHouseDataSheet(houseDataSheet);
+    // 8. House Job Others Sheet
+    const houseJobOthersSheet = workbook.addWorksheet('House Others');
+    const houseJobOthersHeaders = [
+      'Shipment Number', 'CustomerRefNo', 'OperationUser', 'DocumentationUser',
+      'CustomerServiceuser', 'NotifyParty', 'NotifyPartyAddress', 'CHAName',
+      'PickupMode', 'YardCFS', 'LocalTransport', 'OverseasTransport',
+      'OverseasClearance', 'PickupPlace', 'PickupDate', 'PickupAddress',
+      'DeliveryPlace', 'DeliveryDate', 'DeliveryAddress', 'CargoCurrency',
+      'CargoValue', 'DeliveryMode', 'ExternalRemarks', 'SwitchBL',
+      'TransporterName', 'Forwarder', 'ForwarderAddress', 'Coloader'
+    ];
+    houseJobOthersSheet.addRow(houseJobOthersHeaders);
+    houseJobOthersSheet.addRow([
+      'SHIP-001', 'CREF-001', 'Ops User', 'Doc User',
+      'CS User', 'Notify Party Name', 'Notify Party Address', 'CHA Company',
+      'Road', 'Chennai CFS', 'ABC Local Transport', 'XYZ Overseas Transport',
+      'Global Clearance', 'Pickup Warehouse', '2025-01-10', '123 Pickup Street',
+      'Delivery Dock', '2025-01-18', '789 Delivery Avenue', 'USD',
+      50000, 'Door Delivery', 'External note', 'N',
+      'Transporter Co', 'Forwarder Co', 'Forwarder Address', 'Coloader Co'
+    ]);
+    this.styleHeaderRow(houseJobOthersSheet);
+    this.setColumnWidths(houseJobOthersSheet, houseJobOthersHeaders.length, 15);
 
     // Generate buffer
     const buffer = await workbook.xlsx.writeBuffer();
@@ -934,8 +939,86 @@ return {
     this.styleReferenceSheet(sheet);
   }
 
+  private async createDestinationAgentSheet(workbook: ExcelJS.Workbook, companyMasterSid?: number): Promise<{ lastRow: number }> {
+    const sheet = workbook.addWorksheet('DestinationAgents');
+    sheet.state = 'veryHidden';
+    sheet.addRow(['CustomerName', 'CustomerMasterSid', 'CustomerAddress1']);
+
+    const allowedTypes = ['vendor', 'transporter', 'agent'];
+    const agents = await this.db.customerMaster.findMany({
+      where: {
+        status: 'A',
+        ...(companyMasterSid ? { CompanyMasterSid: companyMasterSid } : {}),
+        OR: allowedTypes.map(type => ({
+          CustomerType: { path: [type], equals: 'isTrue' }
+        }))
+      },
+      select: {
+        CustomerMasterSid: true,
+        CustomerName: true,
+        CustomerAddress1: true,
+        CustomerType: true
+      },
+      orderBy: { CustomerName: 'asc' }
+    });
+
+    for (const agent of agents) {
+      sheet.addRow([agent.CustomerName || '', agent.CustomerMasterSid, agent.CustomerAddress1 || '']);
+    }
+
+    return { lastRow: agents.length + 1 };
+  }
+
+  private async createDepartmentSheet(workbook: ExcelJS.Workbook, menuName?: string, companyMasterSid?: number): Promise<{ lastRow: number }> {
+    const sheet = workbook.addWorksheet('Departments');
+    sheet.state = 'veryHidden';
+    sheet.addRow(['DepartmentName', 'DepartmentMasterSid', 'DepartmentType']);
+
+    const normalizedMenuName = String(menuName || '').replace(/[\s_-]/g, '').toLowerCase();
+    const departmentTypes = normalizedMenuName === 'masterairwaybill'
+      ? ['Air']
+      : ['Sea', 'Road', 'Transport', 'Others'];
+
+    const departments = await this.db.departmentMaster.findMany({
+      where: {
+        Status: 'A',
+        ...(companyMasterSid ? { CompanyMasterSid: companyMasterSid } : {}),
+        departmentType: { in: departmentTypes }
+      },
+      select: {
+        departmentName: true,
+        DepartmentMasterSid: true,
+        departmentType: true
+      },
+      orderBy: { departmentName: 'asc' }
+    });
+
+    for (const department of departments) {
+      sheet.addRow([
+        department.departmentName || '',
+        department.DepartmentMasterSid,
+        department.departmentType || ''
+      ]);
+    }
+
+    return { lastRow: departments.length + 1 };
+  }
+
+  private applyDestinationAgentAddressFormula(
+    worksheet: ExcelJS.Worksheet,
+    startRow: number,
+    endRow: number,
+    destinationAgentLastRow: number
+  ): void {
+    for (let row = startRow; row <= endRow; row++) {
+      worksheet.getCell(`G${row}`).value = {
+        formula: `IFERROR(VLOOKUP(F${row},DestinationAgents!$A$2:$C$${destinationAgentLastRow},3,FALSE),"")`
+      };
+    }
+  }
+
   /**
- * Apply dropdown data validation to a column range
+* Apply dropdown data validation to a column range
  */
 private applyDropdownValidation(
     worksheet: ExcelJS.Worksheet,
