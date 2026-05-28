@@ -7885,13 +7885,21 @@ async parseMasterJobExcel(
     return portByCode.get(code) || null;
   };
 
+  const formatLocalDate = (date: Date): string | null => {
+    if (isNaN(date.getTime())) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const parseDate = (val: any): string | null => {
     if (!val) return null;
-    if (val instanceof Date) return val.toISOString().split('T')[0];
+    if (val instanceof Date) return formatLocalDate(val);
     const s = String(val).trim();
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
     const d = new Date(s);
-    return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   };
 
   const str = (v: any) => (v === null || v === undefined ? '' : String(v).trim());
