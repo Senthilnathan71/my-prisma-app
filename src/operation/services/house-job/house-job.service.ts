@@ -1215,9 +1215,17 @@ export class HouseJobService {
             }
 
             const costRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
+            const transhipmentBooking = ourHouseJob.TranshipmentBookingSid
+                ? await this._db.bookingHeader.findUnique({
+                    where: { BookingHeaderSid: ourHouseJob.TranshipmentBookingSid },
+                    select: { BookingHeaderSid: true, BookingNo: true }
+                })
+                : null;
 
             return {
                 ...ourHouseJob,
+                TranshipmentBookingNo: transhipmentBooking?.BookingNo || '',
+                transhipmentBooking,
                 houseJobCargo: ourHouseJob.Cargo?.map((cargo: any) => ({
                     ...cargo,
                     products: cargo.products || []

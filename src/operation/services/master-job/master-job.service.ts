@@ -1713,6 +1713,7 @@ export class MasterJobService {
                             HouseJobProxy: true,
                             Others: true,
                             JobType:true,
+                            TranshipmentBookingSid: true,
                             HouseJobSid: true,
                             MenuMasterSid: true,
                             CompanyMasterSid: true,
@@ -1775,8 +1776,17 @@ export class MasterJobService {
                         }
                     });
 
+                    const transhipmentBooking = houseJob.TranshipmentBookingSid
+                        ? await prisma.bookingHeader.findUnique({
+                            where: { BookingHeaderSid: houseJob.TranshipmentBookingSid },
+                            select: { BookingHeaderSid: true, BookingNo: true }
+                        })
+                        : null;
+
                     return {
                         ...houseJob,
+                        TranshipmentBookingNo: transhipmentBooking?.BookingNo || '',
+                        transhipmentBooking,
                         costRevenueCharges
                     };
                 })
@@ -1796,6 +1806,33 @@ export class MasterJobService {
                     }
                 }
             })
+            const transhipmentBookingIds = allShipments
+                .map((shipment: any) => shipment.TranshipmentBookingSid)
+                .filter((bookingSid: any) => !!bookingSid);
+            const transhipmentBookings = transhipmentBookingIds.length
+                ? await prisma.bookingHeader.findMany({
+                    where: {
+                        BookingHeaderSid: { in: transhipmentBookingIds }
+                    },
+                    select: {
+                        BookingHeaderSid: true,
+                        BookingNo: true
+                    }
+                })
+                : [];
+            const transhipmentBookingBySid = new Map(
+                transhipmentBookings.map((booking: any) => [booking.BookingHeaderSid, booking])
+            );
+            const enrichedAllShipments = allShipments.map((shipment: any) => {
+                const transhipmentBooking = shipment.TranshipmentBookingSid
+                    ? transhipmentBookingBySid.get(shipment.TranshipmentBookingSid) || null
+                    : null;
+                return {
+                    ...shipment,
+                    TranshipmentBookingNo: transhipmentBooking?.BookingNo || '',
+                    transhipmentBooking
+                };
+            });
            
             
             // Calculate totals from all house job cargo
@@ -1987,7 +2024,7 @@ export class MasterJobService {
                 containers : enrichedContainers || [],
                 aggregatedTotals, // Add aggregated totals
                 CutOffDate,
-                allShipments,
+                allShipments: enrichedAllShipments,
                 houseJob: houseJobWithCharges,
                 costRevenueCharges: allCostRevenueCharges,
                 containerActivities: allActivities,

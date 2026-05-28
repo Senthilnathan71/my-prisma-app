@@ -20,6 +20,8 @@ export class CreateServiceJobDto {
     HBLDate?: Date;
     ShipmentNo?: string;
     JobType?: string;
+    VesselName?: string;
+    VoyageNo?: string;
     ETD?: Date;
     ETA?: Date;
 
@@ -63,6 +65,8 @@ export class UpdateServiceJobDto {
     HBLNo?: string;
     HBLDate?: Date;
     ShipmentNo?: string;
+    VesselName?: string;
+    VoyageNo?: string;
     ETD?: Date;
     ETA?: Date;
     CustomerBranchSid: number;
@@ -237,18 +241,6 @@ export class ServiceJobService {
                 throw new BadRequestException('Failed to create the master job component.');
             }
 
-            const masterJobVoyage = (etdDate || etaDate)
-                ? await prisma.masterJobVoyage.create({
-                    data: {
-                        MasterJobSid: masterJob.MasterJobSid,
-                        ETD: etdDate,
-                        ETA: etaDate,
-                        Status: 'A',
-                        CreatedBy: mainPayload.createdBy,
-                    },
-                })
-                : null;
-
             // Create the HouseJob
             const houseJob = await prisma.houseJob.create({
                 data: {
@@ -269,6 +261,8 @@ export class ServiceJobService {
                     ConsigneeName: mainPayload.ConsigneeName,
                     ConsigneeAddress: mainPayload.ConsigneeAddress,
                     JobType: mainPayload.JobType || null,
+                    VesselName: mainPayload.VesselName || null,
+                    VoyageNo: mainPayload.VoyageNo || null,
                     HBLDate: mainPayload.HBLDate || null,
                     HBLNo: finalHBLNo,
                     POL: mainPayload.POL || "",
@@ -445,7 +439,6 @@ export class ServiceJobService {
             return {
                 ...houseJob,
                 masterJob,
-                masterJobVoyage,
                 Cargo: createdCargo,
                 Others: createdOthers,
                 costRevenueCharges: createdCharges,
@@ -512,6 +505,9 @@ export class ServiceJobService {
         const { houseJobCargo, houseJobOthers, costRevenueCharges, milestones, ...mainPayload } = payload;
 
         return this._db.$transaction(async (prisma) => {
+            const etdDate = payload.ETD ? new Date(payload.ETD) : null;
+            const etaDate = payload.ETA ? new Date(payload.ETA) : null;
+
             // 1. Fetch existing HouseJob
             const department = await prisma.departmentMaster.findUnique({
                 where: { DepartmentMasterSid: mainPayload.DepartmentMasterSid },
@@ -556,6 +552,21 @@ export class ServiceJobService {
                 });
             }
 
+            if (existingHouseJob.MasterJobSid) {
+                await prisma.masterJob.update({
+                    where: { MasterJobSid: existingHouseJob.MasterJobSid },
+                    data: {
+                        MBLDate: payload.MBLDate ? new Date(payload.MBLDate) : undefined,
+                        FreightPPCC: mainPayload.FreightPPCC || "Prepaid",
+                        POL: mainPayload.POL || "",
+                        POD: mainPayload.POD || "",
+                        Status: mainPayload.status || 'A',
+                        UpdatedBy: payload.updatedBy,
+                        UpdatedOn: new Date(),
+                    },
+                });
+
+            }
 
             const houseJobUpdateData: any = {
                 CustomerMasterSid: mainPayload.CustomerMasterSid,
@@ -568,6 +579,13 @@ export class ServiceJobService {
                 ConsigneeAddress: mainPayload.ConsigneeAddress,
                 POL: mainPayload.POL || "",
                 POD: mainPayload.POD || "",
+                VesselName: mainPayload.VesselName || null,
+                VoyageNo: mainPayload.VoyageNo || null,
+                ETD: etdDate,
+                ETA: etaDate,
+                MBLDate: payload.MBLDate ? new Date(payload.MBLDate) : null,
+                HBLDate: payload.HBLDate ? new Date(payload.HBLDate) : null,
+                JobType: mainPayload.JobType || null,
                 FreightTerms: mainPayload.FreightPPCC || "Prepaid",
                 status: mainPayload.status || 'A',
                 updatedBy: payload.updatedBy,
