@@ -13,6 +13,8 @@ import { NumberSeriesService } from 'src/settings/services/number-series/number-
 import { MilestoneCode, MilestoneCategory, getDefaultMilestoneCodes, getMilestoneByCode } from './milestone-registry';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
+import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 
 interface searchMasterJob {
     search: string,
@@ -591,7 +593,7 @@ export class MasterJobService {
                     FreightPPCC: payload.FreightPPCC || 'Prepaid',
                     DestinationAgent: payload.DestinationAgent,
                     DestinationAgentName: payload.DestinationAgentName,
-                    DestinationAgentAddress: payload.DestinationAgentAddress?.substring(0, 20) || '',
+                    DestinationAgentAddress: payload.DestinationAgentAddress || '',
                     MBLNo: assignedMBLNo,
                     MBLDate: resolvedJobDate,
                     BLReleaseType: payload.BLReleaseType,
@@ -1713,6 +1715,7 @@ export class MasterJobService {
                             HouseJobProxy: true,
                             Others: true,
                             JobType:true,
+                            TranshipmentBookingSid: true,
                             HouseJobSid: true,
                             MenuMasterSid: true,
                             CompanyMasterSid: true,
@@ -1775,8 +1778,17 @@ export class MasterJobService {
                         }
                     });
 
+                    const transhipmentBooking = houseJob.TranshipmentBookingSid
+                        ? await prisma.bookingHeader.findUnique({
+                            where: { BookingHeaderSid: houseJob.TranshipmentBookingSid },
+                            select: { BookingHeaderSid: true, BookingNo: true }
+                        })
+                        : null;
+
                     return {
                         ...houseJob,
+                        TranshipmentBookingNo: transhipmentBooking?.BookingNo || '',
+                        transhipmentBooking,
                         costRevenueCharges
                     };
                 })
@@ -1796,6 +1808,33 @@ export class MasterJobService {
                     }
                 }
             })
+            const transhipmentBookingIds = allShipments
+                .map((shipment: any) => shipment.TranshipmentBookingSid)
+                .filter((bookingSid: any) => !!bookingSid);
+            const transhipmentBookings = transhipmentBookingIds.length
+                ? await prisma.bookingHeader.findMany({
+                    where: {
+                        BookingHeaderSid: { in: transhipmentBookingIds }
+                    },
+                    select: {
+                        BookingHeaderSid: true,
+                        BookingNo: true
+                    }
+                })
+                : [];
+            const transhipmentBookingBySid = new Map(
+                transhipmentBookings.map((booking: any) => [booking.BookingHeaderSid, booking])
+            );
+            const enrichedAllShipments = allShipments.map((shipment: any) => {
+                const transhipmentBooking = shipment.TranshipmentBookingSid
+                    ? transhipmentBookingBySid.get(shipment.TranshipmentBookingSid) || null
+                    : null;
+                return {
+                    ...shipment,
+                    TranshipmentBookingNo: transhipmentBooking?.BookingNo || '',
+                    transhipmentBooking
+                };
+            });
            
             
             // Calculate totals from all house job cargo
@@ -1987,7 +2026,7 @@ export class MasterJobService {
                 containers : enrichedContainers || [],
                 aggregatedTotals, // Add aggregated totals
                 CutOffDate,
-                allShipments,
+                allShipments: enrichedAllShipments,
                 houseJob: houseJobWithCharges,
                 costRevenueCharges: allCostRevenueCharges,
                 containerActivities: allActivities,
@@ -2116,7 +2155,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     FreightPPCC: payload.FreightPPCC,
                     DestinationAgent: payload.DestinationAgent,
                     DestinationAgentName: payload.DestinationAgentName,
-                    DestinationAgentAddress: payload.DestinationAgentAddress?.substring(0, 20) || '',
+                    DestinationAgentAddress: payload.DestinationAgentAddress || '',
                     MBLNo: payload.MBLNo,
                     MBLDate: payload.MBLDate ? new Date(payload.MBLDate) : null,
                     BLReleaseType: payload.BLReleaseType,
@@ -4312,843 +4351,7 @@ private async updateMasterJobTotals(masterJobSid: number): Promise<void> {
     throw error;
   }
 }
-    /**
-     * Process bulk upload from Excel file
-     */
-    async processBulkUpload(
-        masterJobData: any,
-        houseJobsData: any[],
-        companyMasterSid: number,
-        branchMasterSid: number,
-        createdBy: string,
-        containers?: any[],
-        voyages?: any[],
-        connections?: any[],
-        others?: any
-    ) {
-        try {
-            // Perform lookups before transaction
-            // 1. Lookup Department by name
-            if (masterJobData.Department) {
-                const department = await this.lookupDepartmentByName(masterJobData.Department, companyMasterSid);
-                if (department) {
-                    masterJobData.DepartmentMasterSid = department.DepartmentMasterSid;
-                }
-            }
-
-            // 2. Lookup Destination Agent by name
-            if (masterJobData.DestinationAgentName) {
-                const destinationAgent = await this.lookupCustomerByName(masterJobData.DestinationAgentName, companyMasterSid);
-                if (destinationAgent) {
-                    masterJobData.DestinationAgent = destinationAgent.CustomerMasterSid;
-                }
-            }
-
-            // 3. Lookup customers/shippers/agents for each house job
-            for (const houseJob of houseJobsData) {
-                // Lookup Customer
-                if (houseJob.CustomerName) {
-                    const customer = await this.lookupCustomerByName(houseJob.CustomerName, companyMasterSid);
-                    if (customer) {
-                        houseJob.CustomerMasterSid = customer.CustomerMasterSid;
-                    }
-                }
-
-                // Lookup Shipper (in customer table)
-                if (houseJob.ShipperName) {
-                    const shipper = await this.lookupCustomerByName(houseJob.ShipperName, companyMasterSid);
-                    if (shipper) {
-                        houseJob.ShipperSid = shipper.CustomerMasterSid;
-                    }
-                }
-
-                // Lookup Consignee (in customer table)
-                if (houseJob.ConsigneeName) {
-                    const consignee = await this.lookupCustomerByName(houseJob.ConsigneeName, companyMasterSid);
-                    if (consignee) {
-                        houseJob.ConsigneeSid = consignee.CustomerMasterSid;
-                    }
-                }
-
-                // Lookup Agent
-                if (houseJob.AgentName) {
-                    const agent = await this.lookupCustomerByName(houseJob.AgentName, companyMasterSid);
-                    if (agent) {
-                        houseJob.DestinationAgent = agent.CustomerMasterSid;
-                    }
-                }
-            }
-
-            // Check for duplicate MBL Number
-            if (masterJobData.MBLNo) {
-                const isDuplicate = await this.checkDuplicateMBLNumber(
-                    masterJobData.MBLNo,
-                    companyMasterSid,
-                    masterJobData.DepartmentMasterSid
-                );
-
-                if (isDuplicate) {
-                    return {
-                        status: false,
-                        message: this.buildDuplicateMblMessage(
-                            this.getMblDisplayLabel({ departmentType: masterJobData.departmentType, ExportImport: masterJobData.ExportImport }),
-                            masterJobData.MBLNo
-                        ),
-                        data: null
-                    };
-                }
-            }
-
-            const result = await this._db.$transaction(async (prisma) => {
-                // Helper function to parse date strings to Date objects
-                const parseDate = (dateValue: any): Date | null => {
-    if (!dateValue) return null;
-    if (dateValue instanceof Date) return dateValue;
-    if (typeof dateValue === 'string') {
-        const date = new Date(dateValue);
-        return isNaN(date.getTime()) ? null : date;
-    }
-    return null;
-};
-
-                // Generate Master Job Number
-                const dateString = moment().format('YYYYMMDD');
-                const count = await prisma.masterJob.count({
-                    where: { MasterJobNumber: { contains: dateString } }
-                });
-                const masterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-
-                // Helper function to parse numeric values
-                const parseNumeric = (value: any): number | undefined => {
-                    if (value === null || value === undefined || value === '') return undefined;
-                    const num = Number(value);
-                    return isNaN(num) ? undefined : num;
-                };
-
-                const parseInteger = (value: any): number | undefined => {
-                    if (value === null || value === undefined || value === '') return undefined;
-                    const num = parseInt(value, 10);
-                    return isNaN(num) ? undefined : num;
-                };
-
-                // Create Master Job
-                const masterJobPayload = {
-                    MasterJobNumber: masterJobNumber,
-                    MasterJobDate: parseDate(masterJobData.MasterJobDate) || new Date(),
-                    CreatedBy: createdBy,
-                    status: 'A',
-                    CompanyMasterSid: companyMasterSid,
-                    BranchMasterSid: branchMasterSid,
-                    DepartmentMasterSid: masterJobData.DepartmentMasterSid,
-                    FreightPPCC: masterJobData.FreightPPCC || 'Prepaid',
-                    DestinationAgent: masterJobData.DestinationAgent,
-                    DestinationAgentName: masterJobData.DestinationAgentName,
-                    DestinationAgentAddress: masterJobData.DestinationAgentAddress?.substring(0, 300) || '',
-                    MBLNo: masterJobData.MBLNo || masterJobNumber,
-                    MBLDate: parseDate(masterJobData.MBLDate) || new Date(),
-                    BLReleaseType: masterJobData.BLReleaseType,
-                    NoofOriginal: masterJobData.NoofOriginal || 3,
-                    OriginAgent: masterJobData.OriginAgent,
-                    POO: masterJobData.POO || '',
-                    POL: masterJobData.POL,
-                    POD: masterJobData.POD,
-                    FPD: masterJobData.FPD || '',
-                    POLTerminal: masterJobData.POLTerminal?.substring(0, 100) || '',
-                    PODTerminal: masterJobData.PODTerminal?.substring(0, 100) || '',
-                    MovementType: masterJobData.MovementType,
-                    ShipmentTerms: masterJobData.ShipmentTerms,
-                    PkgType: parseInteger(masterJobData.PkgType),
-                    NoOfPkg: parseInteger(masterJobData.NoOfPkg),
-                    WeightIn: masterJobData.WeightIn,
-                    GrossWeight: parseNumeric(masterJobData.GrossWeight),
-                    NetWeight: parseNumeric(masterJobData.NetWeight),
-                    ChargeableWeight: parseNumeric(masterJobData.ChargeableWeight),
-                    Volume: parseNumeric(masterJobData.Volume),
-                    Haz: masterJobData.Haz,
-                    JobStatus: masterJobData.JobStatus || undefined,
-                    DGBookingDate: parseDate(masterJobData.DGBookingDate),
-                    DGApprovedDate: parseDate(masterJobData.DGApprovedDate),
-                    SiCutoffDate: parseDate(masterJobData.SiCutoffDate),
-                    PortCutoffDate: parseDate(masterJobData.PortCutoffDate),
-                    CommodityDescription: masterJobData.CommodityDescription|| '',
-                    MarksandNumber: masterJobData.MarksandNumber|| '',
-                    MenuMasterSid: masterJobData.MenuMasterSid,
-                    TsPortSid: masterJobData.TsPortSid,
-                };
-
-                const createdMasterJob = await prisma.masterJob.create({
-                    data: masterJobPayload
-                });
-
-                // Create Master Job Voyages
-                if (voyages && voyages.length > 0) {
-                    for (const voyage of voyages) {
-                        await prisma.masterJobVoyage.create({
-                            data: {
-                                MasterJobSid: createdMasterJob.MasterJobSid,
-                                VoyageMasterSid: voyage.VoyageMasterSid,
-                                VesselName: voyage.VesselName,
-                                VoyageNo: voyage.VoyageNo,
-                                ETD: parseDate(voyage.ETD),
-                                ETA: parseDate(voyage.ETA),
-                                ATA: parseDate(voyage.ATA),
-                                ATD: parseDate(voyage.ATD),
-                                DestinationATA: parseDate(voyage.DestinationATA),
-                                CarrierSid: voyage.CarrierSid,
-                                CarrierName: voyage.CarrierName,
-                                Status: 'A'
-                            }
-                        });
-                    }
-                }
-
-                // Create Master Job Containers
-                if (containers && containers.length > 0) {
-                    for (const container of containers) {
-                        await prisma.masterJobContainer.create({
-                            data: {
-                                MasterJobSid: createdMasterJob.MasterJobSid,
-                                ContainerType: container.ContainerType,
-                                ContainerNumber: container.ContainerNumber,
-                                LineSeal: container.LineSeal,
-                                CustomsSeal: container.CustomsSeal,
-                                HsCode: container.HsCode,
-                                CommodityDescription: container.CommodityDescription,
-                                PkgType: container.PkgType,
-                                NoOfPkg: container.NoOfPkg,
-                                GrossWeight: container.GrossWeight,
-                                NetWeight: container.NetWeight,
-                                ChargeableWeight: container.ChargeableWeight,
-                                Volume: container.Volume,
-                                IsSoc: container.IsSoc,
-                                IsHaz: container.IsHaz,
-                                CreatedBy: createdBy,
-                                Status: 'A'
-                            }
-                        });
-                    }
-                }
-
-                // Create Master Job Connections
-                if (connections && connections.length > 0) {
-                    for (const connection of connections) {
-                        await prisma.masterJobConnection.create({
-                            data: {
-                                MasterJobSid: createdMasterJob.MasterJobSid,
-                                Mode: connection.Mode,
-                                POL: connection.POL,
-                                POD: connection.POD,
-                                VesselName: connection.VesselName,
-                                VoyageNo: connection.VoyageNo,
-                                ETD: parseDate(connection.ETD),
-                                ETA: parseDate(connection.ETA),
-                                ATD: parseDate(connection.ATD),
-                                ATA: parseDate(connection.ATA),
-                                Remarks: connection.Remarks,
-                                Status: 'A',
-                                CreatedBy: createdBy,
-                                CreatedOn: new Date()
-                            }
-                        });
-                    }
-                }
-
-                // Create Master Job Others
-                if (others) {
-                    await prisma.masterJobOthers.create({
-                        data: {
-                            MasterJobSid: createdMasterJob.MasterJobSid,
-                            CreatedBy: createdBy,
-                            Status: 'A',
-                            Yard: others.Yard,
-                            YardAddress: others.YardAddress,
-                            Transporter: others.Transporter,
-                            HandlingInformation: others.HandlingInformation,
-                            InternalNote: others.InternalNote,
-                            CFS: others.CFS,
-                            CFSAddress: others.CFSAddress,
-                            CarrierRef: others.CarrierRef,
-                            AgentRef: others.AgentRef,
-                            StuffingStartDate: parseDate(others.StuffingStartDate),
-                            StuffingEndDate: parseDate(others.StuffingEndDate),
-                            CurrencyCode: others.CurrencyCode,
-                            SellExchangeRate: others.SellExchangeRate,
-                            AgentExchangeRate: others.AgentExchangeRate,
-                            Coload: others.Coload,
-                            CoLoader: others.CoLoader,
-                            ExportDoNo: others.ExportDoNo,
-                            JobtoSubjob: others.JobtoSubjob
-                        }
-                    });
-                }
-
-                // Lookup HouseJob Menu
-                const houseJobMenu = await prisma.menuConfig.findFirst({
-                    where: {
-                        ModelName: 'HouseJob'
-                    }
-                });
-                if (!houseJobMenu) {
-                    throw new Error('HouseJob Menu not found in menu configuration');
-                }
-
-                // Create House Jobs
-                const createdHouseJobs: Array<{ HouseJobSid: number; BookingNo: string; HBLNo: string | null }> = [];
-
-                for (let i = 0; i < houseJobsData.length; i++) {
-                    const houseJobData = houseJobsData[i];
-
-                    // Generate House Job/Booking Number
-                    const houseJobCount = await prisma.houseJob.count({
-                        where: { BookingNo: { contains: dateString } }
-                    });
-                    const bookingNo = `HJ-${dateString}-${(houseJobCount + i + 1).toString().padStart(3, '0')}`;
-
-                    // Create House Job
-                    const houseJobPayload = {
-                        MasterJobSid: createdMasterJob.MasterJobSid,
-                        CompanyMasterSid: companyMasterSid,
-                        BranchMasterSid: branchMasterSid,
-                        DepartmentMasterSid: masterJobData.DepartmentMasterSid,
-                        ShipmentNo: houseJobData.ShipmentNo,
-                        BookingNo: bookingNo,
-                        HBLNo: houseJobData.HBLNo || bookingNo,
-                        CustomerMasterSid: houseJobData.CustomerMasterSid,
-                        CustomerName: houseJobData.CustomerName,
-                        CustomerAddress: houseJobData.CustomerAddress,
-                        IncoTerms: houseJobData.IncoTerms,
-                        DestinationAgent: houseJobData.DestinationAgent,
-                        AgentName: houseJobData.AgentName,
-                        AgentAddress: houseJobData.AgentAddress,
-                        ShipperName: houseJobData.ShipperName,
-                        ShipperAddress: houseJobData.ShipperAddress,
-                        ConsigneeName: houseJobData.ConsigneeName,
-                        ConsigneeAddress: houseJobData.ConsigneeAddress,
-                        ShipmentType: houseJobData.ShipmentType,
-                        NominatedBy: houseJobData.NominatedBy,
-                        POL: houseJobData.POL,
-                        POD: houseJobData.POD,
-                        FPD: houseJobData.FPD,
-                        POO: houseJobData.POO,
-                        ETD: parseDate(houseJobData.ETD),
-                        ETA: parseDate(houseJobData.ETA),
-                        MovementType: houseJobData.MovementType,
-                        Notify: houseJobData.Notify,
-                        NotifyAddress: houseJobData.NotifyAddress,
-                        createdBy: createdBy,
-                        status: 'A',
-                        createdOn: new Date(),
-                        MenuMasterSid: houseJobMenu.MenuMasterSid,
-                        CustomerBranchSid: houseJobData.CustomerBranchSid
-                    };
-
-                    const createdHouseJob = await prisma.houseJob.create({
-                        data: houseJobPayload
-                    });
-
-                    // Create House Job Cargo and Products
-                    const cargoGroups = Array.isArray(houseJobData.cargo)
-                        ? houseJobData.cargo
-                        : [];
-                    const flatProducts = Array.isArray(houseJobData.products)
-                        ? houseJobData.products
-                        : [];
-
-                    if (cargoGroups.length > 0) {
-                        for (const cargo of cargoGroups) {
-                            const createdCargo = await prisma.houseJobCargo.create({
-                                data: {
-                                    HouseJobSid: createdHouseJob.HouseJobSid,
-                                    CompanyMasterSid: companyMasterSid,
-                                    BranchMasterSid: branchMasterSid,
-                                    CargoType: cargo.CargoType,
-                                    ContainerType: cargo.ContainerType,
-                                    GrossWeight: cargo.GrossWeight,
-                                    NetWeight: cargo.NetWeight,
-                                    Volume: cargo.Volume,
-                                    Volumetric: cargo.Volumetric,
-                                    ChargeableWeight: cargo.ChargeableWeight,
-                                    PackageType: cargo.PackageType,
-                                    NoOfPackage: cargo.NoOfPackage,
-                                    FreightAmount: cargo.FreightAmount,
-                                    ShipmentTerms: cargo.ShipmentTerms,
-                                    FreightTerms: cargo.FreightTerms,
-                                    ModeOfTransport: cargo.ModeOfTransport,
-                                    MovementType: cargo.MovementType,
-                                    NoofContainers: cargo.NoofContainers,
-                                    Qty: cargo.Qty,
-                                    StuffingAt: cargo.StuffingAt,
-                                    CommodityDescription: cargo.CommodityDescription,
-                                    MarksAndNumber: cargo.MarksAndNumber,
-                                    createdBy: createdBy,
-                                    status: 'A'
-                                }
-                            });
-
-                            const cargoProducts = Array.isArray(cargo.products) ? cargo.products : [];
-                            for (const product of cargoProducts) {
-                                await prisma.houseJobProduct.create({
-                                    data: {
-                                        HouseJobSid: createdHouseJob.HouseJobSid,
-                                        HouseJobCargoSid: createdCargo.HouseJobCargoSid,
-                                        ProductName: product.ProductName,
-                                        ProductDescription: product.ProductDescription,
-                                        ShippingBillNo: product.ShippingBillNo,
-                                        ShippingBillDate: product.ShippingBillDate,
-                                        ExternaPkg: product.ExternaPkg,
-                                        ExternlQty: product.ExternlQty,
-                                        InternalPkg: product.InternalPkg,
-                                        InternalQty: product.InternalQty,
-                                        GrossWeight: product.GrossWeight,
-                                        NetWeight: product.NetWeight,
-                                        Volume: product.Volume,
-                                        Height: product.Height,
-                                        ImcoClass: product.ImcoClass,
-                                        IsHaz: product.IsHaz,
-                                        Length: product.Length,
-                                        PkgGroup: product.PkgGroup,
-                                        UnNo: product.UnNo,
-                                        Width: product.Width,
-                                        MarksAndNumber: product.MarksAndNumber,
-                                        ContainerNo: product.ContainerNo,
-                                        createdBy: createdBy,
-                                        status: 'A'
-                                    }
-                                });
-                            }
-                        }
-                    } else if (flatProducts.length > 0) {
-                        for (const product of flatProducts) {
-                            await prisma.houseJobProduct.create({
-                                data: {
-                                    HouseJobSid: createdHouseJob.HouseJobSid,
-                                    ProductName: product.ProductName,
-                                    ProductDescription: product.ProductDescription,
-                                    ShippingBillNo: product.ShippingBillNo,
-                                    ShippingBillDate: product.ShippingBillDate,
-                                    ExternaPkg: product.ExternaPkg,
-                                    ExternlQty: product.ExternlQty,
-                                    InternalPkg: product.InternalPkg,
-                                    InternalQty: product.InternalQty,
-                                    GrossWeight: product.GrossWeight,
-                                    NetWeight: product.NetWeight,
-                                    Volume: product.Volume,
-                                    Height: product.Height,
-                                    ImcoClass: product.ImcoClass,
-                                    IsHaz: product.IsHaz,
-                                    Length: product.Length,
-                                    PkgGroup: product.PkgGroup,
-                                    UnNo: product.UnNo,
-                                    Width: product.Width,
-                                    MarksAndNumber: product.MarksAndNumber,
-                                    ContainerNo: product.ContainerNo,
-                                    createdBy: createdBy,
-                                    status: 'A'
-                                }
-                            });
-                        }
-                    }
-
-                    // Create House Job Connections
-                    if (houseJobData.connections && houseJobData.connections.length > 0) {
-                        for (const connection of houseJobData.connections) {
-                            await prisma.houseJobConnection.create({
-                                data: {
-                                    HouseJobSid: createdHouseJob.HouseJobSid,
-                                    Mode: connection.Mode,
-                                    POL: connection.POL,
-                                    POD: connection.POD,
-                                    VesselName: connection.VesselName,
-                                    VoyageNo: connection.VoyageNo,
-                                    ETD: connection.ETD,
-                                    ETA: connection.ETA,
-                                    Remarks: connection.Remarks,
-                                    createdBy: createdBy,
-                                    status: 'A'
-                                }
-                            });
-                        }
-                    }
-
-                    // Create House Job Others
-                    if (houseJobData.others) {
-                        await prisma.houseJobOthers.create({
-                            data: {
-                                HouseJobSid: createdHouseJob.HouseJobSid,
-                                CustomerRefNo: houseJobData.others.CustomerRefNo,
-                                OperationUser: houseJobData.others.OperationUser,
-                                DocumentationUser: houseJobData.others.DocumentationUser,
-                                CustomerServiceuser: houseJobData.others.CustomerServiceuser,
-                                NotifyParty: houseJobData.others.NotifyParty,
-                                NotifyPartyAddress: houseJobData.others.NotifyPartyAddress,
-                                CHAName: houseJobData.others.CHAName,
-                                PickupMode: houseJobData.others.PickupMode,
-                                YardCFS: houseJobData.others.YardCFS,
-                                LocalTransport: houseJobData.others.LocalTransport,
-                                OverseasTransport: houseJobData.others.OverseasTransport,
-                                OverseasClearance: houseJobData.others.OverseasClearance,
-                                PickupPlace: houseJobData.others.PickupPlace,
-                                PickupDate: houseJobData.others.PickupDate,
-                                PickupAddress: houseJobData.others.PickupAddress,
-                                DeliveryPlace: houseJobData.others.DeliveryPlace,
-                                DeliveryDate: houseJobData.others.DeliveryDate,
-                                DeliveryAddress: houseJobData.others.DeliveryAddress,
-                                CargoCurrency: houseJobData.others.CargoCurrency,
-                                CargoValue: houseJobData.others.CargoValue,
-                                DeliveryMode: houseJobData.others.DeliveryMode,
-                                ExternalRemarks: houseJobData.others.ExternalRemarks,
-                                SwitchBL: houseJobData.others.SwitchBL,
-                                TransporterName: houseJobData.others.TransporterName,
-                                Forwarder: houseJobData.others.Forwarder,
-                                ForwarderAddress: houseJobData.others.ForwarderAddress,
-                                Coloader: houseJobData.others.Coloader,
-                                createdBy: createdBy,
-                                status: 'A'
-                            }
-                        });
-                    }
-
-                    createdHouseJobs.push({
-                        HouseJobSid: createdHouseJob.HouseJobSid,
-                        BookingNo: createdHouseJob.BookingNo,
-                        HBLNo: createdHouseJob.HBLNo
-                    });
-                }
-
-                return {
-                    masterJobSid: createdMasterJob.MasterJobSid,
-                    masterJobNumber: createdMasterJob.MasterJobNumber,
-                    houseJobs: createdHouseJobs
-                };
-            });
-
-            return result;
-        } catch (error) {
-            this.logger.error(`Error processing bulk upload: ${error.message}`, error.stack);
-            throw error;
-        }
-    }
-
-    /**
-     * Validate bulk upload data
-     */
-    async validateBulkUploadData(
-        masterJobData: any,
-        houseJobsData: any[],
-        companyMasterSid?: number,
-        containers?: any[],
-        voyages?: any[],
-        connections?: any[],
-        others?: any
-    ) {
-        const errors: any[] = [];
-
-        // Validate Master Job required fields
-        // 1. Validate Department
-        if (!masterJobData.Department) {
-            errors.push({
-                field: 'Department',
-                message: 'Department is required',
-                sheet: 'Master Job',
-                row: 2
-            });
-        } else if (companyMasterSid) {
-            const department = await this.lookupDepartmentByName(masterJobData.Department, companyMasterSid);
-            if (!department) {
-                errors.push({
-                    field: 'Department',
-                    message: `Department '${masterJobData.Department}' not found in master data`,
-                    sheet: 'Master Job',
-                    row: 2
-                });
-            }
-        }
-
-        // 2. Validate Port Codes
-        if (!masterJobData.POL) {
-            errors.push({
-                field: 'POL (Port Code)',
-                message: 'Port of Loading is required',
-                sheet: 'Master Job',
-                row: 2
-            });
-        } else {
-            const port = await this.lookupPortByCode(masterJobData.POL);
-            if (!port) {
-                errors.push({
-                    field: 'POL (Port Code)',
-                    message: `Port code '${masterJobData.POL}' not found in master data`,
-                    sheet: 'Master Job',
-                    row: 2
-                });
-            }
-        }
-
-        if (!masterJobData.POD) {
-            errors.push({
-                field: 'POD (Port Code)',
-                message: 'Port of Discharge is required',
-                sheet: 'Master Job',
-                row: 2
-            });
-        } else {
-            const port = await this.lookupPortByCode(masterJobData.POD);
-            if (!port) {
-                errors.push({
-                    field: 'POD (Port Code)',
-                    message: `Port code '${masterJobData.POD}' not found in master data`,
-                    sheet: 'Master Job',
-                    row: 2
-                });
-            }
-        }
-
-        // Validate POO and FPD if provided
-        if (masterJobData.POO) {
-            const port = await this.lookupPortByCode(masterJobData.POO);
-            if (!port) {
-                errors.push({
-                    field: 'POO (Port Code)',
-                    message: `Port code '${masterJobData.POO}' not found in master data`,
-                    sheet: 'Master Job',
-                    row: 2
-                });
-            }
-        }
-
-        if (masterJobData.FPD) {
-            const port = await this.lookupPortByCode(masterJobData.FPD);
-            if (!port) {
-                errors.push({
-                    field: 'FPD (Port Code)',
-                    message: `Port code '${masterJobData.FPD}' not found in master data`,
-                    sheet: 'Master Job',
-                    row: 2
-                });
-            }
-        }
-
-        // 3. Validate Destination Agent if provided
-        if (masterJobData.DestinationAgentName && companyMasterSid) {
-            const agent = await this.lookupCustomerByName(masterJobData.DestinationAgentName, companyMasterSid);
-            // if (!agent) {
-            //     errors.push({
-            //         field: 'Destination Agent Name',
-            //         message: `Destination agent '${masterJobData.DestinationAgentName}' not found in customer master`,
-            //         sheet: 'Master Job',
-            //         row: 2
-            //     });
-            // }
-        }
-
-        // Validate House Jobs
-        if (!houseJobsData || houseJobsData.length === 0) {
-            errors.push({
-                field: 'HouseJobs',
-                message: 'At least one House Job is required',
-                sheet: 'House Jobs'
-            });
-        } else {
-            for (let i = 0; i < houseJobsData.length; i++) {
-                const houseJob = houseJobsData[i];
-                const rowNum = i + 2;
-
-                // Validate Customer Name
-                // if (!houseJob.CustomerName) {
-                //     errors.push({
-                //         field: 'Customer Name',
-                //         message: 'Customer Name is required',
-                //         sheet: 'House Jobs',
-                //         row: rowNum
-                //     });
-                // } else if (companyMasterSid) {
-                //     const customer = await this.lookupCustomerByName(houseJob.CustomerName, companyMasterSid);
-                //     if (!customer) {
-                //         errors.push({
-                //             field: 'Customer Name',
-                //             message: `Customer '${houseJob.CustomerName}' not found in customer master`,
-                //             sheet: 'House Jobs',
-                //             row: rowNum
-                //         });
-                //     }
-                // }
-
-                // Validate Shipper Name if provided
-                // if (houseJob.ShipperName && companyMasterSid) {
-                //     const shipper = await this.lookupCustomerByName(houseJob.ShipperName, companyMasterSid);
-                //     if (!shipper) {
-                //         errors.push({
-                //             field: 'Shipper Name',
-                //             message: `Shipper '${houseJob.ShipperName}' not found in customer master`,
-                //             sheet: 'House Jobs',
-                //             row: rowNum
-                //         });
-                //     }
-                // }
-
-                // Validate Consignee Name if provided
-                // if (houseJob.ConsigneeName && companyMasterSid) {
-                //     const consignee = await this.lookupCustomerByName(houseJob.ConsigneeName, companyMasterSid);
-                //     if (!consignee) {
-                //         errors.push({
-                //             field: 'Consignee Name',
-                //             message: `Consignee '${houseJob.ConsigneeName}' not found in customer master`,
-                //             sheet: 'House Jobs',
-                //             row: rowNum
-                //         });
-                //     }
-                // }
-
-                // Validate Agent Name if provided
-                // if (houseJob.AgentName && companyMasterSid) {
-                //     const agent = await this.lookupCustomerByName(houseJob.AgentName, companyMasterSid);
-                //     if (!agent) {
-                //         errors.push({
-                //             field: 'Agent Name',
-                //             message: `Agent '${houseJob.AgentName}' not found in customer master`,
-                //             sheet: 'House Jobs',
-                //             row: rowNum
-                //         });
-                //     }
-                // }
-
-                // Validate Port Codes
-                // if (!houseJob.POL) {
-                //     errors.push({
-                //         field: 'POL (Port Code)',
-                //         message: 'Port of Loading is required',
-                //         sheet: 'House Jobs',
-                //         row: rowNum
-                //     });
-                // } else {
-                //     const port = await this.lookupPortByCode(houseJob.POL);
-                //     if (!port) {
-                //         errors.push({
-                //             field: 'POL (Port Code)',
-                //             message: `Port code '${houseJob.POL}' not found in master data`,
-                //             sheet: 'House Jobs',
-                //             row: rowNum
-                //         });
-                //     }
-                // }
-
-                // if (!houseJob.POD) {
-                //     errors.push({
-                //         field: 'POD (Port Code)',
-                //         message: 'Port of Discharge is required',
-                //         sheet: 'House Jobs',
-                //         row: rowNum
-                //     });
-                // } else {
-                //     const port = await this.lookupPortByCode(houseJob.POD);
-                //     if (!port) {
-                //         errors.push({
-                //             field: 'POD (Port Code)',
-                //             message: `Port code '${houseJob.POD}' not found in master data`,
-                //             sheet: 'House Jobs',
-                //             row: rowNum
-                //         });
-                //     }
-                // }
-
-                // Validate POO and FPD if provided
-                // if (houseJob.POO) {
-                //     const port = await this.lookupPortByCode(houseJob.POO);
-                //     if (!port) {
-                //         errors.push({
-                //             field: 'POO (Port Code)',
-                //             message: `Port code '${houseJob.POO}' not found in master data`,
-                //             sheet: 'House Jobs',
-                //             row: rowNum
-                //         });
-                //     }
-                // }
-
-                // if (houseJob.FPD) {
-                //     const port = await this.lookupPortByCode(houseJob.FPD);
-                //     if (!port) {
-                //         errors.push({
-                //             field: 'FPD (Port Code)',
-                //             message: `Port code '${houseJob.FPD}' not found in master data`,
-                //             sheet: 'House Jobs',
-                //             row: rowNum
-                //         });
-                //     }
-                // }
-            }
-        }
-
-        return errors;
-    }
-
-    /**
-     * Lookup Department by name (case-insensitive)
-     */
-    async lookupDepartmentByName(departmentName: string, companyMasterSid: number): Promise<any> {
-        if (!departmentName) {
-            return null;
-        }
-
-        const department = await this._db.departmentMaster.findFirst({
-            where: {
-                departmentName: {
-                    equals: departmentName.trim(),
-                    mode: 'insensitive'
-                },
-                CompanyMasterSid: companyMasterSid,
-                Status: 'A'
-            }
-        });
-
-        return department;
-    }
-
-    /**
-     * Lookup Port by port code
-     */
-    async lookupPortByCode(portCode: string): Promise<any> {
-        if (!portCode) {
-            return null;
-        }
-
-        const port = await this._db.portMaster.findFirst({
-            where: {
-                PortCode: {
-                    equals: portCode.trim(),
-                    mode: 'insensitive'
-                },
-                status: 'A'
-            }
-        });
-
-        return port;
-    }
-
-    /**
-     * Lookup Customer by name (case-insensitive)
-     */
-    async lookupCustomerByName(customerName: string, companyMasterSid: number): Promise<any> {
-        if (!customerName) {
-            return null;
-        }
-
-        const customer = await this._db.customerMaster.findFirst({
-            where: {
-                CustomerName: {
-                    equals: customerName.trim(),
-                    mode: 'insensitive'
-                },
-                CompanyMasterSid: companyMasterSid,
-                status: 'A'
-            }
-        });
-
-        return customer;
-    }
-
-    /**
-     * Check if MBL Number already exists for the company
-     */
+   
     async checkDuplicateMBLNumber(
         mblNo: string,
         companyMasterSid: number,
@@ -8022,34 +7225,1465 @@ console.log('Created product:', createdProduct);
             };
         });
     }
+
+
+   async generateMasterJobTemplate(
+  companyMasterSid: number,
+  screenType: 'masterjob' | 'masterairwaybill' = 'masterjob'
+): Promise<Buffer> {
+  const ExcelJS = require('exceljs');
+  const workbook = new ExcelJS.Workbook();
+
+  const isAir = screenType === 'masterairwaybill';
+  const label = isAir ? 'Master Air Waybill' : 'Master Job';
+  const mblLabel = isAir ? 'MAWB No' : 'MBL No';
+
+  const deptTypeFilter = isAir ? ['Air'] : ['Sea', 'Road', 'Transport', 'Others'];
+
+  const [
+    departments, ports, carriers, agents, packageTypes,
+    containerTypes, currencies, uoms, cfsCustomers, customers, incoTerms,
+  ] = await Promise.all([
+    this._db.departmentMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, Status: 'A', departmentType: { in: deptTypeFilter } },
+      select: { DepartmentMasterSid: true, departmentName: true, departmentType: true, ExportImport: true, FCLLCL: true },
+    }),
+    this._db.portMaster.findMany({
+      where: { status: 'A' },
+      select: { PortMasterSid: true, PortCode: true, PortName: true },
+      orderBy: { PortCode: 'asc' },
+    }),
+    this._db.customerMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['carrier'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
+      select: { CustomerMasterSid: true, CustomerName: true },
+      orderBy: { CustomerName: 'asc' },
+    }),
+    this._db.customerMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['agent'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
+      select: { CustomerMasterSid: true, CustomerName: true },
+      orderBy: { CustomerName: 'asc' },
+    }),
+    this._db.uOMMaster.findMany({ where: { UOMType: 'P', status: 'A' }, select: { UOMMasterSid: true, UOMName: true } }),
+    this._db.containerTypeMaster.findMany({ where: { status: 'A' }, select: { ContainerTypeMasterSid: true, ContainerName: true } }),
+    this._db.currencyMaster.findMany({ select: { CurrencyMasterSid: true, currencyCode: true } }),
+    this._db.uOMMaster.findMany({ where: { UOMType: 'C', status: 'A' }, select: { UOMMasterSid: true, UOMCode: true, UOMName: true } }),
+    this._db.customerMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['cFS'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
+      select: { CustomerMasterSid: true, CustomerName: true },
+      orderBy: { CustomerName: 'asc' },
+    }),
+    this._db.customerMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['customer'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
+      select: { CustomerMasterSid: true, CustomerName: true },
+      orderBy: { CustomerName: 'asc' },
+    }),
+    this._db.incoMaster.findMany({
+      where: { Status: 'A' },
+      select: { IncoMasterSid: true, IncoCode: true },
+      orderBy: { IncoCode: 'asc' },
+    }),
+  ]);
+
+  const portOptions = ports.map(p => `${p.PortCode} - ${p.PortName}`);
+
+  const styleHeaderRow = (row: any, mandatoryCount: number) => {
+    row.height = 22;
+    row.eachCell((cell: any, colNo: number) => {
+      const isMandatory = colNo <= mandatoryCount;
+      cell.font = { bold: true, color: { argb: isMandatory ? 'FFCC0000' : 'FF6B6B00' }, size: 10 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isMandatory ? 'FFFFE5E5' : 'FFFFFBE6' } };
+      cell.border = {
+        bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
+        top: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+        left: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+        right: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+      };
+      cell.alignment = { vertical: 'middle', wrapText: false };
+    });
+  };
+
+  const styleExampleRows = (sheet: any, startRow: number, count: number) => {
+    for (let r = startRow; r < startRow + count; r++) {
+      sheet.getRow(r).eachCell((cell: any) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2FB' } };
+        cell.font = { italic: true, color: { argb: 'FF555577' }, size: 9 };
+      });
+    }
+  };
+
+  const applyDV = (sheet: any, col: string, refFormula: string, startRow: number, endRow = 5000) => {
+    for (let r = startRow; r <= endRow; r++) {
+      sheet.getCell(`${col}${r}`).dataValidation = {
+        type: 'list', allowBlank: true, formulae: [refFormula],
+        showErrorMessage: true, errorTitle: 'Invalid value', error: 'Select from dropdown',
+      };
+    }
+  };
+
+  const addRefSheet = (name: string, values: string[]) => {
+    const ws = workbook.addWorksheet(name);
+    values.forEach(v => ws.addRow([v]));
+    ws.state = 'veryHidden';
+    return ws;
+  };
+
+  addRefSheet('_Departments', departments.map(d => d.departmentName));
+  addRefSheet('_Ports', portOptions);
+  addRefSheet('_Carriers', carriers.map(c => c.CustomerName));
+  addRefSheet('_Agents', agents.map(a => a.CustomerName));
+  addRefSheet('_PackageTypes', packageTypes.map(p => p.UOMName));
+  addRefSheet('_ContainerTypes', containerTypes.map(c => c.ContainerName));
+  addRefSheet('_Currencies', currencies.map(c => c.currencyCode));
+  addRefSheet('_WeightIn', ['Kg(s)', 'LB(s)', 'Tonne(s)']);
+  addRefSheet('_FreightPPCC', ['Prepaid', 'Collect']);
+  addRefSheet('_BLReleaseType', ['Original', 'Express', 'Surrendered', 'Sea WayBill']);
+  addRefSheet('_MovementType', ['CY-CFS', 'CFS-FO', 'CFS-CY', 'CFS-CFS', 'FO-FI', 'Door-Door', 'CY-Door', 'CY-FO']);
+  addRefSheet('_YesNo', ['Y', 'N']);
+  addRefSheet('_Status', ['Active', 'Suspended']);
+  addRefSheet('_JobStatus', ['Job Generated', 'Open', 'Sailed', 'Closed']);
+  addRefSheet('_ShipmentTerms', ['FCL/FCL', 'FCL/LCL', 'LCL/FCL', 'LCL/LCL', 'LTL', 'FTL', 'FTL HH']);
+  addRefSheet('_CFS', cfsCustomers.map(c => c.CustomerName));
+  addRefSheet('_Customers', customers.map(c => c.CustomerName));
+  addRefSheet('_IncoTerms', incoTerms.map(i => i.IncoCode));
+  addRefSheet('_UOM', ['M', 'CM', 'Inch']);
+
+  const cfsCount      = cfsCustomers.length;
+  const deptCount     = departments.length;
+  const portCount     = portOptions.length;
+  const carrierCount  = carriers.length;
+  const agentCount    = agents.length;
+  const pkgCount      = packageTypes.length;
+  const ctCount       = containerTypes.length;
+  const currCount     = currencies.length;
+  const customerCount = customers.length;
+  const incoCount     = incoTerms.length;
+
+  const dvRef = (sheet: string, count: number) =>
+    count > 0 ? `'${sheet}'!$A$1:$A$${count}` : `'${sheet}'!$A$1`;
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 1 — MasterJob
+  // ══════════════════════════════════════════════════════════════════════════
+  const mjSheet = workbook.addWorksheet('MasterJob');
+  const mjMandatory = 5;
+  const mjHeaders = [
+    'DepartmentName',
+    `${mblLabel}`,
+    'MasterJobDate (YYYY-MM-DD)',
+    'MBLDate (YYYY-MM-DD)',
+    'FreightPP/CC',
+    'DestinationAgentName',
+    'DestinationAgentAddress',
+    'BLReleaseType',
+    'NoofOriginal',
+    'POO (PortCode)',
+    'POL (PortCode)',
+    'POD (PortCode)',
+    'FPOD (PortCode)',
+    'VesselName',
+    'VoyageNo',
+    'ETD (YYYY-MM-DD)',
+    'ETA (YYYY-MM-DD)',
+    'CarrierName',
+    'ShipmentTerms',
+    'MarksandNumber',
+    'CommodityDescription',
+  ];
+
+  mjSheet.addRow(mjHeaders);
+  styleHeaderRow(mjSheet.getRow(1), mjMandatory);
+
+  [8, 9, 11, 12].forEach(colNo => {
+    const cell = mjSheet.getRow(1).getCell(colNo);
+    cell.font  = { bold: true, color: { argb: 'FFCC0000' }, size: 10 };
+    cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+    cell.border = {
+      bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
+      top:    { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+      left:   { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+      right:  { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+    };
+    cell.alignment = { vertical: 'middle', wrapText: false };
+  });
+
+  const mjEx1 = [
+    departments[0]?.departmentName || 'FCL Export',
+    'MBL-2024-001',
+    '2024-01-15',
+    '2024-01-15',
+    'Prepaid',
+    '',
+    '',
+    'Original',
+    3,
+    '',
+    'INNSA - Nhava Sheva',
+    'USLAX - Los Angeles',
+    '',
+    'VESSEL ONE',
+    'V001',
+    '2024-01-20',
+    '2024-02-10',
+    carriers[0]?.CustomerName || '',
+    'FCL/FCL',
+    '',
+    'General Cargo',
+  ];
+  mjSheet.addRow(mjEx1);
+  styleExampleRows(mjSheet, 2, 1);
+
+  [24, 20, 28, 28, 14, 24, 28, 16, 12, 20, 20, 20, 20, 22, 14, 16, 16, 24, 16, 20, 28]
+    .forEach((w, i) => { mjSheet.getColumn(i + 1).width = w; });
+
+  const mjDataStart = 3;
+  applyDV(mjSheet, 'A', dvRef('_Departments', deptCount), mjDataStart);
+  applyDV(mjSheet, 'E', dvRef('_FreightPPCC', 2), mjDataStart);
+  applyDV(mjSheet, 'F', dvRef('_Agents', agentCount), mjDataStart);
+  applyDV(mjSheet, 'H', dvRef('_BLReleaseType', 4), mjDataStart);
+  applyDV(mjSheet, 'J', dvRef('_Ports', portCount), mjDataStart);
+  applyDV(mjSheet, 'K', dvRef('_Ports', portCount), mjDataStart);
+  applyDV(mjSheet, 'L', dvRef('_Ports', portCount), mjDataStart);
+  applyDV(mjSheet, 'M', dvRef('_Ports', portCount), mjDataStart);
+  applyDV(mjSheet, 'R', dvRef('_Carriers', carrierCount), mjDataStart);
+  applyDV(mjSheet, 'S', dvRef('_ShipmentTerms', 7), mjDataStart);
+
+  for (let r = mjDataStart; r <= 5000; r++) {
+    ['C', 'D', 'P', 'Q'].forEach(col => {
+      mjSheet.getCell(`${col}${r}`).dataValidation = {
+        type: 'date', operator: 'between', allowBlank: true,
+        formulae: [new Date(2000, 0, 1), new Date(2099, 11, 31)],
+        showErrorMessage: true, errorTitle: 'Invalid Date', error: 'Use YYYY-MM-DD format',
+      };
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 2 — MasterJobContainers (sea only)
+  // ══════════════════════════════════════════════════════════════════════════
+  if (!isAir) {
+    const ctSheet = workbook.addWorksheet('MasterJobContainers');
+    ctSheet.addRow([`${mblLabel} (Link)`, 'ContainerType', 'ContainerNumber', 'LineSeal', 'CustomsSeal']);
+    styleHeaderRow(ctSheet.getRow(1), 3);
+    ctSheet.addRow(['MBL-2024-001', containerTypes[0]?.ContainerName || '20FT', 'ABCU1234567', 'SEAL001', '']);
+    styleExampleRows(ctSheet, 2, 1);
+    [18, 18, 16, 12, 12].forEach((w, i) => { ctSheet.getColumn(i + 1).width = w; });
+
+    const ctDataStart = 3;
+    applyDV(ctSheet, 'B', dvRef('_ContainerTypes', ctCount), ctDataStart);
+    for (let r = ctDataStart; r <= 5000; r++) {
+      ctSheet.getCell(`C${r}`).dataValidation = {
+        type: 'textLength', operator: 'lessThanOrEqual', allowBlank: true,
+        formulae: [11], showErrorMessage: true,
+        errorTitle: 'Invalid Container Number', error: 'Container Number must be 11 characters (e.g. ABCU1234567)',
+      };
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 3 — MasterJobOthers
+  // ══════════════════════════════════════════════════════════════════════════
+  const otherSheet = workbook.addWorksheet('MasterJobOthers');
+  const otherHeaders = [
+    `${mblLabel} (Link)`,
+    'CFS',
+    'CFSAddress',
+    'Haz (Y/N)',
+    'ATA (YYYY-MM-DD)',
+    'ATD (YYYY-MM-DD)',
+    'AgentRef',
+    'OriginAgent',
+  ];
+  otherSheet.addRow(otherHeaders);
+  styleHeaderRow(otherSheet.getRow(1), 1);
+  otherSheet.addRow(['MBL-2024-001', '', '', 'N', '', '', '', '']);
+  styleExampleRows(otherSheet, 2, 1);
+  [18, 22, 28, 12, 18, 18, 16, 24].forEach((w, i) => { otherSheet.getColumn(i + 1).width = w; });
+
+  const otDataStart = 3;
+  applyDV(otherSheet, 'D', dvRef('_YesNo', 2), otDataStart);
+  applyDV(otherSheet, 'H', dvRef('_Agents', agentCount), otDataStart);
+  applyDV(otherSheet, 'B', dvRef('_CFS', cfsCount), otDataStart);
+
+  for (let r = otDataStart; r <= 5000; r++) {
+    ['E', 'F'].forEach(col => {
+      otherSheet.getCell(`${col}${r}`).dataValidation = {
+        type: 'date', operator: 'between', allowBlank: true,
+        formulae: [new Date(2000, 0, 1), new Date(2099, 11, 31)],
+        showErrorMessage: true, errorTitle: 'Invalid Date', error: 'Use YYYY-MM-DD format',
+      };
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 4 — HouseJob
+  // ══════════════════════════════════════════════════════════════════════════
+  const hjSheet = workbook.addWorksheet('HouseJob');
+  const hblLabel = isAir ? 'HAWB No' : 'HBL No';
+
+  const hjMandatory = 2;
+  const hjHeaders = [
+    `${mblLabel} (Link)`,
+    `${hblLabel}`,
+    'CustomerName',
+    'CustomerAddress',
+    'ShipperName',
+    'ShipperAddress',
+    'ConsigneeName',
+    'ConsigneeAddress',
+    'Notify',
+    'NotifyAddress',
+    'DeliveryAgent',
+    'OriginAgent',
+    'IncoTerms',
+    'POO (PortCode)',
+    'FPD (PortCode)',
+  ];
+
+  hjSheet.addRow(hjHeaders);
+  styleHeaderRow(hjSheet.getRow(1), hjMandatory);
+
+  [5, 7].forEach(colNo => {
+    const cell = hjSheet.getRow(1).getCell(colNo);
+    cell.font  = { bold: true, color: { argb: 'FFCC0000' }, size: 10 };
+    cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+    cell.border = {
+      bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
+      top:    { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+      left:   { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+      right:  { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+    };
+    cell.alignment = { vertical: 'middle', wrapText: false };
+  });
+
+  hjSheet.addRow([
+    'MBL-2024-001',
+    isAir ? 'HAWB-001' : 'HBL-001',
+    customers[0]?.CustomerName || '',
+    '',
+    'SHIPPER CO',
+    '',
+    'CONSIGNEE CO',
+    '',
+    '',
+    '',
+    agents[0]?.CustomerName || '',
+    agents[0]?.CustomerName || '',
+    incoTerms[0]?.IncoCode  || 'CIF',
+    '',
+    '',
+  ]);
+  styleExampleRows(hjSheet, 2, 1);
+
+  [18, 16, 24, 28, 24, 28, 24, 28, 24, 24, 22, 22, 14, 20, 20]
+    .forEach((w, i) => { hjSheet.getColumn(i + 1).width = w; });
+
+  const hjDataStart = 3;
+  applyDV(hjSheet, 'C', dvRef('_Customers', customerCount), hjDataStart);
+  applyDV(hjSheet, 'K', dvRef('_Agents', agentCount),       hjDataStart);
+  applyDV(hjSheet, 'L', dvRef('_Agents', agentCount),       hjDataStart);
+  applyDV(hjSheet, 'M', dvRef('_IncoTerms', incoCount),     hjDataStart);
+  applyDV(hjSheet, 'N', dvRef('_Ports', portCount),         hjDataStart);
+  applyDV(hjSheet, 'O', dvRef('_Ports', portCount),         hjDataStart);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 5 — HouseJobCargo (simplified — weights auto-calculated from products)
+  // ══════════════════════════════════════════════════════════════════════════
+  const cargSheet = workbook.addWorksheet('HouseJobCargo');
+  const cargHeaders = [
+    `${mblLabel} (Link)`,                        // A — mandatory
+    `${hblLabel} (Link)`,                        // B — mandatory
+    'CargoType',                                  // C
+    ...(isAir ? [] : ['ContainerType']),          // D (sea/road only)
+    'NoofContainers',                             // D(air) / E(sea)
+    'GoodsDescription',                           // E(air) / F(sea)
+    'MarksAndNumber',                             // F(air) / G(sea)
+  ];
+  cargSheet.addRow(cargHeaders);
+  styleHeaderRow(cargSheet.getRow(1), 2);
+  cargSheet.addRow(
+    isAir
+      ? ['MBL-2024-001', 'HAWB-001', 'General', 0, 'General Cargo', '']
+      : ['MBL-2024-001', 'HBL-001',  'General', '', 0, 'General Cargo', '']
+  );
+  styleExampleRows(cargSheet, 2, 1);
+  (isAir ? [18, 18, 14, 14, 32, 20] : [18, 18, 14, 18, 14, 32, 20])
+    .forEach((w, i) => { cargSheet.getColumn(i + 1).width = w; });
+
+  const cargDataStart = 3;
+  applyDV(cargSheet, 'C', `"General,Haz,Reefer,Tanker,OOG"`, cargDataStart);
+  if (!isAir) {
+    applyDV(cargSheet, 'D', dvRef('_ContainerTypes', ctCount), cargDataStart);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 6 — HouseJobProduct (new fields + calculations)
+  // ══════════════════════════════════════════════════════════════════════════
+  const prodSheet = workbook.addWorksheet('HouseJobProduct');
+  const prodHeaders = [
+    `${mblLabel} (Link)`,              // A
+    `${hblLabel} (Link)`,              // B
+    'HouseJobCargo# (1,2,3...)',        // C — 1-based cargo row number within this HBL
+    'Commodity',                        // D  mandatory
+    'ShippingBillNo',                   // E
+    'ShippingBillDate (YYYY-MM-DD)',    // F
+    'ExternalPkg',                      // G  mandatory
+    'ExternalQty (No of Pkg)',          // H  mandatory
+    'GrossWeight',                      // I  mandatory
+    'NetWeight',                        // J
+    'UOM',                              // K  dropdown: M, CM, Inch
+    'Length',                           // L
+    'Width',                            // M
+    'Height',                           // N
+    'Volumetric (auto-calc)',           // O
+    'CBM / Volume (auto-calc)',         // P
+    'CargoReceivedDate (YYYY-MM-DD)',   // Q
+    'ReceivedQty',                      // R
+    'DamagedQty',                       // S
+    'DamageRemarks',                    // T
+    ...(isAir ? [] : ['ContainerNo']), // U (sea/road only)
+  ];
+  prodSheet.addRow(prodHeaders);
+  styleHeaderRow(prodSheet.getRow(1), 4);
+
+  // Mark GrossWeight (col 9) mandatory red
+  [9].forEach(colNo => {
+    const cell = prodSheet.getRow(1).getCell(colNo);
+    cell.font  = { bold: true, color: { argb: 'FFCC0000' }, size: 10 };
+    cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+    cell.border = {
+      bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
+      top:    { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+      left:   { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+      right:  { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+    };
+    cell.alignment = { vertical: 'middle', wrapText: false };
+  });
+
+  // Mark Volumetric (col 15) and CBM (col 16) as calculated (gold bg)
+  [15, 16].forEach(colNo => {
+    const cell = prodSheet.getRow(1).getCell(colNo);
+    cell.font  = { bold: true, color: { argb: 'FF6B4E00' }, size: 10 };
+    cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9E0' } };
+    cell.border = {
+      bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
+      top:    { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+      left:   { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+      right:  { style: 'thin',   color: { argb: 'FFAAAAAA' } },
+    };
+    cell.alignment = { vertical: 'middle', wrapText: false };
+  });
+
+  prodSheet.addRow([
+    'MBL-2024-001',
+    isAir ? 'HAWB-001' : 'HBL-001',
+    1,
+    'Electronic Components',
+    '',
+    '',
+    'CTN',
+    10,
+    500,
+    480,
+    'CM',
+    60,
+    40,
+    30,
+    '',   // volumetric: leave blank, parser calculates
+    '',   // cbm: leave blank, parser calculates
+    '',
+    '',
+    '',
+    '',
+    ...(isAir ? [] : ['']),  // ContainerNo (sea/road only)
+  ]);
+  styleExampleRows(prodSheet, 2, 1);
+
+  (isAir
+    ? [18, 18, 16, 28, 16, 22, 16, 16, 14, 12, 10, 10, 10, 10, 18, 18, 22, 14, 14, 18]
+    : [18, 18, 16, 28, 16, 22, 16, 16, 14, 12, 10, 10, 10, 10, 18, 18, 22, 14, 14, 18, 18]
+  ).forEach((w, i) => { prodSheet.getColumn(i + 1).width = w; });
+
+  const prodDataStart = 3;
+  applyDV(prodSheet, 'G', dvRef('_PackageTypes', pkgCount), prodDataStart);
+  applyDV(prodSheet, 'K', `"M,CM,Inch"`, prodDataStart);
+
+  for (let r = prodDataStart; r <= 5000; r++) {
+    // Volumetric (col O)
+    prodSheet.getCell(`O${r}`).value = {
+      formula:
+        `=IF(AND(L${r}>0,M${r}>0,N${r}>0,H${r}>0),` +
+        `ROUND(IF(K${r}="M",   H${r}*(L${r}*100)*(M${r}*100)*(N${r}*100)/${isAir ? 6000 : 5000},` +
+        `IF(K${r}="Inch",H${r}*(L${r}*2.54)*(M${r}*2.54)*(N${r}*2.54)/${isAir ? 6000 : 5000},` +
+                        `H${r}*L${r}*M${r}*N${r}/${isAir ? 6000 : 5000})),3),"")`
+    };
+
+    // CBM (col P)
+    prodSheet.getCell(`P${r}`).value = {
+      formula:
+        `=IF(AND(L${r}>0,M${r}>0,N${r}>0,H${r}>0),` +
+        `ROUND(IF(K${r}="M",   H${r}*L${r}*M${r}*N${r},` +
+        `IF(K${r}="Inch",H${r}*(L${r}*0.0254)*(M${r}*0.0254)*(N${r}*0.0254),` +
+                        `H${r}*L${r}*M${r}*N${r}/1000000)),3),"")`
+    };
+
+    // Style calculated cells (light gold, locked-looking)
+    ['O', 'P'].forEach(col => {
+      const cell = prodSheet.getCell(`${col}${r}`);
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFDE7' } };
+      cell.font = { color: { argb: 'FF6B4E00' }, size: 9 };
+      cell.numFmt = '0.000';
+    });
+
+    ['F', 'Q'].forEach(col => {
+      prodSheet.getCell(`${col}${r}`).dataValidation = {
+        type: 'date', operator: 'between', allowBlank: true,
+        formulae: [new Date(2000, 0, 1), new Date(2099, 11, 31)],
+        showErrorMessage: true, errorTitle: 'Invalid Date', error: 'Use YYYY-MM-DD format',
+      };
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // SHEET 7 — HouseJobOthers
+  // ══════════════════════════════════════════════════════════════════════════
+  const hjoSheet = workbook.addWorksheet('HouseJobOthers');
+  const hjoHeaders = [
+    `${mblLabel} (Link)`,
+    `${hblLabel} (Link)`,
+    'CustomerRefNo',
+    'CFS',
+    'DeliveryPlace',
+    'DeliveryAddress',
+    'ExternalNote',
+  ];
+  hjoSheet.addRow(hjoHeaders);
+  styleHeaderRow(hjoSheet.getRow(1), 2);
+  hjoSheet.addRow(['MBL-2024-001', isAir ? 'HAWB-001' : 'HBL-001', 'CUST-REF-001', '', '', '', '']);
+  styleExampleRows(hjoSheet, 2, 1);
+  [18, 18, 20, 22, 22, 28, 32].forEach((w, i) => { hjoSheet.getColumn(i + 1).width = w; });
+
+  const hjoDataStart = 3;
+  applyDV(hjoSheet, 'D', dvRef('_CFS', cfsCount), hjoDataStart);
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // INSTRUCTIONS SHEET
+  // ══════════════════════════════════════════════════════════════════════════
+  const inst = workbook.addWorksheet('Instructions');
+  const instRows = [
+    [`${label} Bulk Upload Template — Instructions`],
+    [],
+    ['SHEET OVERVIEW'],
+    [`  MasterJob              — One row per ${label}. ${mblLabel} is the unique link key.`],
+    isAir ? null : [`  MasterJobContainers    — Container rows linked to MasterJob via ${mblLabel}`],
+    ['  MasterJobOthers        — Additional info for each MasterJob'],
+    [`  HouseJob               — House jobs linked to MasterJob via ${mblLabel}.`],
+    [`  HouseJobCargo          — Cargo rows linked to HouseJob via ${hblLabel}. Weights are auto-calculated from products.`],
+    [`  HouseJobProduct        — Products linked to a specific cargo row via ${hblLabel} + HouseJobCargo# column.`],
+    ['  HouseJobOthers         — Additional info for each HouseJob'],
+    [],
+    ['HOW TO USE'],
+    ['  1. Fill MasterJob sheet first. MasterJobNumber is auto-generated — do not add it.'],
+    [`  2. Use the same ${mblLabel} in Containers, Others, and HouseJob sheets to link rows.`],
+    [`  3. Use the same ${hblLabel} in Cargo, Product, and HouseJobOthers to link to the correct house job.`],
+    ['  4. Use HouseJobCargo# (1, 2, 3…) in the Product sheet to link each product to its parent cargo row.'],
+    ['  5. Dropdowns are provided for validated fields. Do not type values outside the dropdown list.'],
+    ['  6. Red header = mandatory field. Yellow header = optional. Gold header = auto-calculated.'],
+    ['  7. Example rows (row 2) are for reference — they will be ignored during import.'],
+    ['  8. Date columns accept YYYY-MM-DD format only.'],
+    [],
+    ['HOUSEJOBCARGO RULES'],
+    ['  • Weight fields (GrossWeight, NetWeight, CBM, Volumetric, ChargeableWeight) are NOT in the sheet.'],
+    ['  • They are automatically summed from all products linked to that cargo row.'],
+    ['  • ChargeableWeight = max(GrossWeight, Volumetric) — calculated during import.'],
+    ['  • NoOfPackage is summed from product ExternalQty values.'],
+    ['  • One HBL can have multiple cargo rows — number them 1, 2, 3… in the product HouseJobCargo# column.'],
+    isAir ? null : ['  • ContainerType is not required for LCL shipments.'],
+    [],
+    ['HOUSEJOBPRODUCT RULES'],
+    [`  • HouseJobCargo# column (1, 2, 3…) links each product to its parent cargo row in the ${hblLabel} group.`],
+    ['  • If only one cargo row exists, use 1 for all products.'],
+    ['  • Volumetric and CBM columns are calculated during import — you may leave them blank.'],
+    ['  • CBM = Length × Width × Height × Qty (dimensions converted to metres first).'],
+    isAir
+      ? ['  • Volumetric (kg) = L(cm) × W(cm) × H(cm) × Qty ÷ 6000.']
+      : ['  • Volumetric (kg) = L(cm) × W(cm) × H(cm) × Qty ÷ 5000.'],
+    ['  • UOM options: M (metres), CM (centimetres), Inch.'],
+    [],
+    ['LINKING RULES'],
+    [`  • One ${label} can have multiple House Jobs — all share the same ${mblLabel}.`],
+    [`  • One House Job can have multiple Cargo rows — use ${hblLabel} + HouseJobCargo# to link products.`],
+    [`  • One Cargo row can have multiple Products — all share the same ${hblLabel} and HouseJobCargo#.`],
+    [],
+    ['VALIDATION RULES'],
+    isAir ? null : ['  • ContainerNumber must be 11 characters (4 uppercase letters + 7 digits).'],
+    ['  • Gross Weight must be greater than Net Weight.'],
+    [`  • ${mblLabel} must be unique per company.`],
+    [`  • ${hblLabel} is required for each HouseJob row.`],
+    ['  • Shipper and Consignee are required for each HouseJob.'],
+    ['  • CustomerName, DeliveryAgent, OriginAgent and IncoTerms must match existing master data.'],
+  ].filter(r => r !== null);
+
+  instRows.forEach(r => inst.addRow(r));
+  inst.getRow(1).font = { bold: true, size: 13 };
+  inst.getColumn(1).width = 90;
+
+  workbook.views = [{ activeTab: 0 }];
+
+  const buf = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buf);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP 1: PARSE EXCEL
+// ─────────────────────────────────────────────────────────────────────────────
+async parseMasterJobExcel(
+  buffer: Buffer,
+  companyMasterSid: number,
+  screenType: 'masterjob' | 'masterairwaybill' = 'masterjob'
+): Promise<{
+  validRows: any[];
+  invalidRows: any[];
+  summary: { total: number; valid: number; invalid: number };
+}> {
+  const XLSX = require('xlsx');
+  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
 
+  const getRows = (sheetPartial: string, skipRows: number): any[][] => {
+    const name = wb.SheetNames.find(n => n.toLowerCase().includes(sheetPartial.toLowerCase()));
+    if (!name) return [];
+    const all: any[][] = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, defval: null, raw: false });
+    all.splice(0, skipRows);
+    return all.filter(r => r.some(cell => cell !== null && cell !== ''));
+  };
 
+  const mjRows   = getRows('masterjob',       2);
+  const ctRows   = getRows('masterjobc',      2);
+  const otRows   = getRows('masterjobother',  2);
+  const hjRows   = getRows('housejob',        2);
+  const cargRows = getRows('housejobcargo',   2);
+  const prodRows = getRows('housejobproduct', 2);
+  const hjoRows  = getRows('housejobother',   2);
 
+  const isAir = screenType === 'masterairwaybill';
+  const deptTypeFilter = isAir ? ['Air'] : ['Sea', 'Road', 'Transport', 'Others'];
 
+  const [
+    departments, ports, carriers, agents, packageTypes,
+    containerTypes, currencies, cfsCustomers, customers, incoTerms,
+  ] = await Promise.all([
+    this._db.departmentMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, Status: 'A', departmentType: { in: deptTypeFilter } },
+      select: { DepartmentMasterSid: true, departmentName: true, ExportImport: true },
+    }),
+    this._db.portMaster.findMany({ where: { status: 'A' }, select: { PortMasterSid: true, PortCode: true, PortName: true } }),
+    this._db.customerMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['carrier'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
+      select: { CustomerMasterSid: true, CustomerName: true },
+    }),
+    this._db.customerMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['agent'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
+      select: { CustomerMasterSid: true, CustomerName: true },
+    }),
+    this._db.uOMMaster.findMany({ where: { UOMType: 'P', status: 'A' }, select: { UOMMasterSid: true, UOMName: true } }),
+    this._db.containerTypeMaster.findMany({ where: { status: 'A' }, select: { ContainerTypeMasterSid: true, ContainerName: true } }),
+    this._db.currencyMaster.findMany({ select: { CurrencyMasterSid: true, currencyCode: true } }),
+    this._db.customerMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['cFS'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
+      select: { CustomerMasterSid: true, CustomerName: true },
+    }),
+    this._db.customerMaster.findMany({
+      where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['customer'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
+      select: { CustomerMasterSid: true, CustomerName: true },
+    }),
+    this._db.incoMaster.findMany({
+      where: { Status: 'A' },
+      select: { IncoMasterSid: true, IncoCode: true, OceanFreight: true },
+    }),
+  ]);
 
+  const deptMap     = new Map(departments.map(d => [d.departmentName.trim().toLowerCase(), d]));
+  const portByCode  = new Map(ports.map(p => [p.PortCode.trim().toLowerCase(), p]));
+  const carrierMap  = new Map(carriers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
+  const agentMap    = new Map(agents.map(a => [a.CustomerName.trim().toLowerCase(), a.CustomerMasterSid]));
+  const pkgMap      = new Map(packageTypes.map(p => [p.UOMName.trim().toLowerCase(), p.UOMName]));
+  const ctMap       = new Map(containerTypes.map(c => [c.ContainerName.trim().toLowerCase(), c.ContainerTypeMasterSid]));
+  const cfsMap      = new Map(cfsCustomers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
+  const customerMap = new Map(customers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
+  const incoMap     = new Map(
+    incoTerms.map(i => [
+      i.IncoCode.trim().toLowerCase(),
+      { sid: i.IncoMasterSid, freightTerms: i.OceanFreight ?? '' },
+    ])
+  );
 
+  const resolvePort = (val: string | null) => {
+    if (!val) return null;
+    const code = val.trim().split(' ')[0].toLowerCase();
+    return portByCode.get(code) || null;
+  };
 
+  const formatLocalDate = (date: Date): string | null => {
+    if (isNaN(date.getTime())) return null;
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
+  const parseDate = (val: any): string | null => {
+    if (!val) return null;
+    if (val instanceof Date) return formatLocalDate(val);
+    const s = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+    const d = new Date(s);
+    return formatLocalDate(d);
+  };
 
+  const str = (v: any) => (v === null || v === undefined ? '' : String(v).trim());
+  const num = (v: any) => (v === null || v === undefined || v === '' ? null : Number(v));
 
+  // ── Dimension conversion helpers ──────────────────────────────────────────
+  const toMetres = (val: number, uom: string): number => {
+    switch (uom.trim().toUpperCase()) {
+      case 'CM':   return val / 100;
+      case 'INCH': return val * 0.0254;
+      default:     return val;
+    }
+  };
 
+  const toCm = (val: number, uom: string): number => {
+    switch (uom.trim().toUpperCase()) {
+      case 'M':    return val * 100;
+      case 'INCH': return val * 2.54;
+      default:     return val;
+    }
+  };
 
+  const uomToCbm = (qty: number, l: number, w: number, h: number, uom: string): number => {
+    const u = uom.trim().toUpperCase();
+    if (u === 'M')    return qty * l * w * h;
+    if (u === 'INCH') return qty * (l * 0.0254) * (w * 0.0254) * (h * 0.0254);
+    return qty * l * w * h / 1_000_000;
+  };
 
+  const uomToVolCubicCm = (qty: number, l: number, w: number, h: number, uom: string): number => {
+    const u = uom.trim().toUpperCase();
+    if (u === 'M')    return qty * (l * 100) * (w * 100) * (h * 100);
+    if (u === 'INCH') return qty * (l * 2.54) * (w * 2.54) * (h * 2.54);
+    return qty * l * w * h;
+  };
 
+  const calcCBM = (qty: number, l: number, w: number, h: number, uom: string, digits = 3): number => {
+    if (qty <= 0 || l <= 0 || w <= 0 || h <= 0) return 0;
+    return parseFloat(uomToCbm(qty, l, w, h, uom).toFixed(digits));
+  };
 
+  const calcVolumetric = (qty: number, l: number, w: number, h: number, uom: string, digits = 3): number => {
+    if (qty <= 0 || l <= 0 || w <= 0 || h <= 0) return 0;
+    const divisor = isAir ? 6000 : 5000;
+    return parseFloat((uomToVolCubicCm(qty, l, w, h, uom) / divisor).toFixed(digits));
+  };
 
+  const groupBy = (rows: any[][], keyIdx: number) => {
+    const map = new Map<string, any[][]>();
+    rows.forEach(r => {
+      const key = str(r[keyIdx]).toLowerCase();
+      if (!key) return;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(r);
+    });
+    return map;
+  };
 
+  const containersByMbl = groupBy(ctRows,   0);
+  const othersByMbl     = groupBy(otRows,   0);
+  const houseJobsByMbl  = groupBy(hjRows,   0);
+  const cargoByHbl      = groupBy(cargRows, 1);
+  const productByHbl    = groupBy(prodRows, 1);
+  const hjoByHbl        = groupBy(hjoRows,  1);
 
+  const seenMblNos = new Set<string>();
+  const validRows: any[]   = [];
+  const invalidRows: any[] = [];
 
+  for (let i = 0; i < mjRows.length; i++) {
+    const row    = mjRows[i];
+    const rowNum = i + 3;
+    const errs: string[] = [];
 
+    const deptName      = str(row[0]);
+    const mblNo         = str(row[1]);
+    const masterJobDate = parseDate(row[2]);
+    const mblDate       = parseDate(row[3]);
+    const freightPPCC   = str(row[4]) || 'Prepaid';
+    const destAgentName = str(row[5]);
+    const destAgentAddr = str(row[6]);
+    const blReleaseType = str(row[7]) || 'Original';
+    const noofOriginal  = row[8];
+    const pooRaw        = str(row[9]);
+    const polRaw        = str(row[10]);
+    const podRaw        = str(row[11]);
+    const fpdRaw        = str(row[12]);
+    const vesselName    = str(row[13]);
+    const voyageNo      = str(row[14]);
+    const etd           = parseDate(row[15]);
+    const eta           = parseDate(row[16]);
+    const carrierName   = str(row[17]);
+    const shipmentTerms = str(row[18]);
+    const marksandNumber= str(row[19]);
+    const commodityDesc = str(row[20]);
 
+    if (!deptName)      errs.push('DepartmentName is required');
+    if (!mblNo)         errs.push(`${isAir ? 'MAWB' : 'MBL'} No is required`);
+    if (!masterJobDate) errs.push('MasterJobDate is required (YYYY-MM-DD)');
+    if (!mblDate)       errs.push('MBLDate is required (YYYY-MM-DD)');
+    if (!freightPPCC || !['Prepaid', 'Collect'].includes(freightPPCC))
+      errs.push('FreightPP/CC must be Prepaid or Collect');
+    if (!blReleaseType) errs.push('BLReleaseType is required');
+    if (!polRaw)        errs.push('POL is required');
+    if (!podRaw)        errs.push('POD is required');
 
+    const dept = deptName ? deptMap.get(deptName.toLowerCase()) : null;
+    if (deptName && !dept) errs.push(`Department "${deptName}" not found`);
 
+    const polPort = resolvePort(polRaw);
+    const podPort = resolvePort(podRaw);
+    const pooPort = resolvePort(pooRaw);
+    const fpdPort = resolvePort(fpdRaw);
 
+    if (polRaw && !polPort) errs.push(`POL port "${polRaw}" not found`);
+    if (podRaw && !podPort) errs.push(`POD port "${podRaw}" not found`);
+    if (polPort && podPort && polPort.PortCode === podPort.PortCode)
+      errs.push('POL and POD cannot be the same port');
 
+    if (mblNo && seenMblNos.has(mblNo.toLowerCase()))
+      errs.push(`Duplicate ${isAir ? 'MAWB' : 'MBL'} No "${mblNo}" in file`);
+    if (mblNo) seenMblNos.add(mblNo.toLowerCase());
 
+    const carrierId   = carrierName   ? carrierMap.get(carrierName.toLowerCase())   : null;
+    if (carrierName   && !carrierId)   errs.push(`Carrier "${carrierName}" not found`);
+    const destAgentId = destAgentName ? agentMap.get(destAgentName.toLowerCase())   : null;
+    if (destAgentName && !destAgentId) errs.push(`Destination Agent "${destAgentName}" not found`);
 
+    // ── Containers ──────────────────────────────────────────────────────────
+    const containers: any[]    = [];
+    const containerErrs: any[] = [];
+    const seenContainerNos     = new Set<string>();
 
+    for (const cRow of containersByMbl.get(mblNo.toLowerCase()) || []) {
+      const cErrs: string[] = [];
+      const ctName      = str(cRow[1]);
+      const ctId        = ctName ? ctMap.get(ctName.toLowerCase()) : null;
+      if (!ctName)       cErrs.push('ContainerType is required');
+      else if (!ctId)    cErrs.push(`ContainerType "${ctName}" not found`);
 
+      const containerNo = str(cRow[2]).toUpperCase();
+      if (!containerNo)                               cErrs.push('ContainerNumber is required');
+      else if (!/^[A-Z]{4}\d{7}$/.test(containerNo)) cErrs.push('ContainerNumber must be 4 letters + 7 digits');
+      else if (seenContainerNos.has(containerNo))     cErrs.push(`Duplicate ContainerNumber "${containerNo}"`);
+      if (containerNo) seenContainerNos.add(containerNo);
+
+      if (cErrs.length) containerErrs.push({ containerNo, errors: cErrs });
+      else containers.push({
+        ContainerType:   ctId,
+        ContainerNumber: containerNo,
+        LineSeal:        str(cRow[3]),
+        CustomsSeal:     str(cRow[4]),
+      });
+    }
+
+    // ── HouseJobs ────────────────────────────────────────────────────────────
+    const houseJobs: any[] = [];
+    const hjErrs: any[]    = [];
+
+    for (const hRow of houseJobsByMbl.get(mblNo.toLowerCase()) || []) {
+      const hErrs: string[] = [];
+
+      // HouseJob column layout:
+      // A=0 mblLink | B=1 hblNo | C=2 customerName | D=3 customerAddress
+      // E=4 shipperName | F=5 shipperAddress | G=6 consigneeName | H=7 consigneeAddress
+      // I=8 notify | J=9 notifyAddress | K=10 deliveryAgent | L=11 originAgent
+      // M=12 incoTerms | N=13 poo | O=14 fpd
+      const hblNo         = str(hRow[1]);
+      const customerName  = str(hRow[2]);
+      const customerAddr  = str(hRow[3]);
+      const shipperName   = str(hRow[4]);
+      const shipperAddr   = str(hRow[5]);
+      const consigneeName = str(hRow[6]);
+      const consigneeAddr = str(hRow[7]);
+      const notify        = str(hRow[8]);
+      const notifyAddr    = str(hRow[9]);
+      const delivAgentName= str(hRow[10]);
+      const origAgentName = str(hRow[11]);
+      const incoTermsVal  = str(hRow[12]);
+      const hjPooRaw      = str(hRow[13]);
+      const hjFpdRaw      = str(hRow[14]);
+
+      if (!hblNo)         hErrs.push(`${isAir ? 'HAWB' : 'HBL'} No is required`);
+      if (!shipperName)   hErrs.push('ShipperName is required');
+      if (!consigneeName) hErrs.push('ConsigneeName is required');
+
+      const customerSid   = customerName   ? customerMap.get(customerName.toLowerCase())   : null;
+      if (customerName   && !customerSid)   hErrs.push(`Customer "${customerName}" not found`);
+      const delivAgentSid = delivAgentName  ? agentMap.get(delivAgentName.toLowerCase())   : null;
+      if (delivAgentName && !delivAgentSid)  hErrs.push(`DeliveryAgent "${delivAgentName}" not found`);
+      const origAgentSid  = origAgentName   ? agentMap.get(origAgentName.toLowerCase())    : null;
+      if (origAgentName  && !origAgentSid)   hErrs.push(`OriginAgent "${origAgentName}" not found`);
+
+      const incoEntry        = incoTermsVal ? incoMap.get(incoTermsVal.toLowerCase()) : null;
+      const incoSid          = incoEntry?.sid          ?? null;
+      const incoFreightTerms = incoEntry?.freightTerms ?? '';
+      if (incoTermsVal && !incoSid) hErrs.push(`IncoTerms "${incoTermsVal}" not found`);
+
+      const hjPoo = resolvePort(hjPooRaw);
+      const hjFpd = resolvePort(hjFpdRaw);
+      if (hjPooRaw && !hjPoo) hErrs.push(`HouseJob POO "${hjPooRaw}" not found`);
+      if (hjFpdRaw && !hjFpd) hErrs.push(`HouseJob FPD "${hjFpdRaw}" not found`);
+
+      // ── Parse products for this HBL, group by HouseJobCargo# ─────────────
+      // Product column layout (sea):
+      // A=0 mblLink | B=1 hblLink | C=2 cargoIndex | D=3 commodity
+      // E=4 shippingBillNo | F=5 shippingBillDate | G=6 externalPkg | H=7 externalQty
+      // I=8 grossWeight | J=9 netWeight | K=10 uom | L=11 length | M=12 width | N=13 height
+      // O=14 volumetric | P=15 cbm | Q=16 cargoRecDate | R=17 receivedQty
+      // S=18 damagedQty | T=19 damageRemarks | U=20 containerNo (sea only)
+      const productRowsForHbl = productByHbl.get(hblNo.toLowerCase()) || [];
+
+      const productsByCargoIndex = new Map<number, any[][]>();
+      for (const pRow of productRowsForHbl) {
+        const cargoIdx = Math.max(1, Math.round(Number(pRow[2]) || 1));
+        if (!productsByCargoIndex.has(cargoIdx)) productsByCargoIndex.set(cargoIdx, []);
+        productsByCargoIndex.get(cargoIdx)!.push(pRow);
+      }
+
+      const cargoRowsForHbl = cargoByHbl.get(hblNo.toLowerCase()) || [];
+      const cargoCount = Math.max(
+        cargoRowsForHbl.length,
+        productsByCargoIndex.size > 0 ? Math.max(...productsByCargoIndex.keys()) : 0,
+        1
+      );
+
+      const cargos: any[] = [];
+
+      for (let cargoIdx = 1; cargoIdx <= cargoCount; cargoIdx++) {
+        // HouseJobCargo column layout (sea):
+        // A=0 mblLink | B=1 hblLink | C=2 cargoType | D=3 containerType
+        // E=4 noofContainers | F=5 goodsDescription | G=6 marksAndNumber
+        //
+        // HouseJobCargo column layout (air — no ContainerType col):
+        // A=0 mblLink | B=1 hblLink | C=2 cargoType | D=3 noofContainers
+        // E=4 goodsDescription | F=5 marksAndNumber
+        const cRow = cargoRowsForHbl[cargoIdx - 1] || [];
+
+        // Air has no ContainerType column — cols after CargoType shift left by 1.
+        // LCL shipments: column exists in sheet but ContainerType is not required/stored.
+        const isLCL      = shipmentTerms.toLowerCase().includes('lcl');
+        const ctColShift = isAir ? 0 : 1;
+        const ctName     = (isAir || isLCL) ? '' : str(cRow[3]);
+        const ctId       = ctName ? ctMap.get(ctName.toLowerCase()) : null;
+        if (!isAir && !isLCL && ctName && !ctId)
+          hErrs.push(`HouseJobCargo ${cargoIdx} ContainerType "${ctName}" not found`);
+
+        // ── Parse products for this cargo index ─────────────────────────────
+        const cargoProducts: any[] = [];
+
+        for (const pRow of productsByCargoIndex.get(cargoIdx) || []) {
+          const prodName    = str(pRow[3]);
+          const pkgTypeName = str(pRow[6]);
+          const pkgTypeCode = pkgTypeName ? pkgMap.get(pkgTypeName.toLowerCase()) : null;
+          const uomRaw      = str(pRow[10]) || 'CM';
+          const qty         = Number(pRow[7])  || 0;
+          const grossWeight = Number(pRow[8])  || 0;
+          const netWeight   = Number(pRow[9])  || 0;
+          const length      = Number(pRow[11]) || 0;
+          const width       = Number(pRow[12]) || 0;
+          const height      = Number(pRow[13]) || 0;
+
+          if (!prodName)                   hErrs.push(`Cargo ${cargoIdx}: Commodity is required`);
+          if (!qty)                        hErrs.push(`Cargo ${cargoIdx}: ExternalQty is required`);
+          if (!grossWeight)                hErrs.push(`Cargo ${cargoIdx}: GrossWeight is required`);
+          if (pkgTypeName && !pkgTypeCode) hErrs.push(`Cargo ${cargoIdx}: PackageType "${pkgTypeName}" not found`);
+
+          const spreadsheetVolumetric = Number(pRow[14]) || 0;
+          const spreadsheetCBM        = Number(pRow[15]) || 0;
+
+          const cbm = (length > 0 && width > 0 && height > 0 && qty > 0)
+            ? calcCBM(qty, length, width, height, uomRaw)
+            : spreadsheetCBM;
+
+          const volumetric = (length > 0 && width > 0 && height > 0 && qty > 0)
+            ? calcVolumetric(qty, length, width, height, uomRaw)
+            : spreadsheetVolumetric;
+
+          cargoProducts.push({
+            ProductName:      prodName,
+            ExternaPkg:       pkgTypeCode   || null,
+            ExternlQty:       String(qty),
+            GrossWeight:      grossWeight,
+            NetWeight:        netWeight,
+            Volume:           cbm,
+            Volumetric:       volumetric,
+            Length:           length,
+            Width:            width,
+            Height:           height,
+            UomRaw:           uomRaw,
+            ShippingBillNo:   str(pRow[4]),
+            ShippingBillDate: parseDate(pRow[5]),
+            CargoRecDate:     parseDate(pRow[16]),
+            ReceivedQty:      str(pRow[17]),
+            DamageQty:        str(pRow[18]),
+            DamageRemarks:    str(pRow[19]),
+            ContainerNo:      isAir ? '' : str(pRow[20]),
+            IsHaz:            'N',
+            ImcoClass:        '',
+            UnNo:             '',
+            PkgGroup:         '',
+            HSCode:           '',
+            MarksAndNumbers:  '',
+          });
+        }
+
+        // ── Aggregate cargo-level totals from products ───────────────────────
+        const totalGrossWeight = parseFloat(
+          cargoProducts.reduce((s, p) => s + (Number(p.GrossWeight) || 0), 0).toFixed(3)
+        );
+        const totalNetWeight = parseFloat(
+          cargoProducts.reduce((s, p) => s + (Number(p.NetWeight) || 0), 0).toFixed(3)
+        );
+        const totalVolume = parseFloat(
+          cargoProducts.reduce((s, p) => s + (Number(p.Volume) || 0), 0).toFixed(3)
+        );
+        const totalVolumetric = parseFloat(
+          cargoProducts.reduce((s, p) => s + (Number(p.Volumetric) || 0), 0).toFixed(3)
+        );
+        const totalNoOfPackage = cargoProducts.reduce((s, p) => s + (Number(p.ExternlQty) || 0), 0);
+        const chargeableWeight = parseFloat(
+          Math.max(totalGrossWeight, totalVolumetric).toFixed(3)
+        );
+
+        cargos.push({
+          CargoType:            str(cRow[2]) || 'General',                  // col C — always index 2
+          ContainerType:        (isAir || isLCL) ? null : (ctId || null),
+          NoofContainers:       Number(cRow[3 + ctColShift]) || 0,          // col E(sea) / D(air)
+          CommodityDescription: str(cRow[4 + ctColShift])   || '',          // col F(sea) / E(air)
+          MarksAndNumber:       str(cRow[5 + ctColShift])   || '',          // col G(sea) / F(air)
+          // Aggregated from products
+          GrossWeight:          totalGrossWeight,
+          NetWeight:            totalNetWeight,
+          Volume:               totalVolume,
+          Volumetric:           totalVolumetric,
+          ChargeableWeight:     chargeableWeight,
+          NoOfPackage:          totalNoOfPackage,
+          // Defaults
+          ShipmentTerms:        null,
+          FreightTerms:         null,
+          MovementType:         null,
+          ModeOfTransport:      null,
+          StuffingAt:           'Dock',
+          products:             cargoProducts,
+        });
+      }
+
+      // ── HouseJobOthers ───────────────────────────────────────────────────
+      const hjoData = hjoByHbl.get(hblNo.toLowerCase())?.[0] || null;
+
+      if (hErrs.length) {
+        hjErrs.push({ hblNo, errors: hErrs });
+      } else {
+        houseJobs.push({
+          HBLNo:             hblNo,
+          CustomerName:      customerName,
+          CustomerAddress:   customerAddr,
+          CustomerMasterSid: customerSid        || null,
+          ShipperName:       shipperName,
+          ShipperAddress:    shipperAddr,
+          ConsigneeName:     consigneeName,
+          ConsigneeAddress:  consigneeAddr,
+          Notify:            notify,
+          NotifyAddress:     notifyAddr,
+          DeliveryAgent:     delivAgentSid      || null,
+          DeliveryAgentName: delivAgentName,
+          OriginAgent:       origAgentSid       || null,
+          OriginAgentName:   origAgentName,
+          IncoTerms:         incoTermsVal,
+          IncoTermsSid:      incoSid            || null,
+          IncoFreightTerms:  incoFreightTerms,
+          POO:               hjPoo?.PortCode    || null,
+          FPD:               hjFpd?.PortCode    || null,
+          cargo:             cargos,
+          others: hjoData ? {
+            CustomerRefNo:   str(hjoData[2]),
+            CFS:             str(hjoData[3]),
+            DeliveryPlace:   str(hjoData[4]),
+            DeliveryAddress: str(hjoData[5]),
+            ExternalNote:    str(hjoData[6]),
+          } : null,
+        });
+      }
+    }
+
+    const others = othersByMbl.get(mblNo.toLowerCase())?.[0];
+
+    const rowResult = {
+      rowNum,
+      mblNo,
+      DepartmentMasterSid:     dept?.DepartmentMasterSid,
+      DepartmentName:          deptName,
+      ExportImport:            dept?.ExportImport ?? '',
+      MasterJobDate:           masterJobDate,
+      MBLDate:                 mblDate,
+      FreightPPCC:             freightPPCC,
+      DestinationAgent:        destAgentId,
+      DestinationAgentName:    destAgentName,
+      DestinationAgentAddress: destAgentAddr,
+      BLReleaseType:           blReleaseType,
+      NoofOriginal:            noofOriginal ?? 3,
+      POO:                     pooPort?.PortCode,
+      POL:                     polPort?.PortCode,
+      POD:                     podPort?.PortCode,
+      FPD:                     fpdPort?.PortCode,
+      VesselName:              vesselName,
+      VoyageNo:                voyageNo,
+      ETD:                     etd,
+      ETA:                     eta,
+      CarrierName:             carrierName,
+      CarrierSid:              carrierId,
+      ShipmentTerms:           shipmentTerms,
+      MarksandNumber:          marksandNumber,
+      CommodityDescription:    commodityDesc,
+      Status:                  'A',
+      JobStatus:               'Job Generated',
+      containers,
+      others: others ? {
+        CFS:            str(others[1]),
+        CFSSid:         others[1] ? (cfsMap.get(str(others[1]).toLowerCase()) ?? null) : null,
+        CFSAddress:     str(others[2]),
+        Haz:            str(others[3]).toUpperCase() === 'Y' ? 'Y' : 'N',
+        ATA:            parseDate(others[4]),
+        ATD:            parseDate(others[5]),
+        AgentRef:       str(others[6]),
+        OriginAgent:    str(others[7]),
+        OriginAgentSid: others[7] ? (agentMap.get(str(others[7]).toLowerCase()) ?? null) : null,
+      } : null,
+      houseJobs,
+      containerErrors: containerErrs,
+      houseJobErrors:  hjErrs,
+    };
+
+    const allErrors = [
+      ...errs,
+      ...containerErrs.flatMap((e: any) => e.errors.map((m: string) => `Container ${e.containerNo}: ${m}`)),
+      ...hjErrs.flatMap((e: any) => e.errors.map((m: string) => `HouseJob ${e.hblNo || '?'}: ${m}`)),
+    ];
+
+    if (allErrors.length) {
+      invalidRows.push({ ...rowResult, errors: allErrors });
+    } else {
+      validRows.push(rowResult);
+    }
+  }
+
+  return {
+    validRows,
+    invalidRows,
+    summary: {
+      total:   validRows.length + invalidRows.length,
+      valid:   validRows.length,
+      invalid: invalidRows.length,
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP 2: SAVE
+// ─────────────────────────────────────────────────────────────────────────────
+async saveMasterJobExcel(
+  validRows: any[],
+  companyMasterSid: number,
+  branchMasterSid: number,
+  menuMasterSid: number,
+  createdBy: string
+): Promise<{ created: number; skipped: number; errors: any[] }> {
+  let created = 0, skipped = 0;
+  const errors: any[] = [];
+
+  for (const row of validRows) {
+    try {
+      const dup = await this._db.masterJob.findFirst({
+        where: { MBLNo: { equals: row.mblNo, mode: 'insensitive' }, CompanyMasterSid: companyMasterSid, Status: 'A' },
+      });
+      if (dup) {
+        errors.push({ mblNo: row.mblNo, message: `MBL/MAWB No "${row.mblNo}" already exists — skipped` });
+        skipped++;
+        continue;
+      }
+
+      const dept = await this._db.departmentMaster.findFirst({
+        where: { DepartmentMasterSid: row.DepartmentMasterSid },
+        select: { departmentType: true, ExportImport: true },
+      });
+
+      const menuId = menuMasterSid || await this.menuMasterService.getMenuSidByName(
+        dept?.departmentType?.toUpperCase() === 'AIR' ? 'Master Air Waybill' : 'Master Job'
+      );
+
+      const [polPort, podPort] = await Promise.all([
+        row.POL ? this._db.portMaster.findFirst({ where: { PortCode: row.POL }, select: { PortMasterSid: true } }) : null,
+        row.POD ? this._db.portMaster.findFirst({ where: { PortCode: row.POD }, select: { PortMasterSid: true } }) : null,
+      ]);
+
+      const jobDate = row.MasterJobDate ? new Date(row.MasterJobDate) : new Date();
+      let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
+        companyMasterSid, branchMasterSid, menuId, row.DepartmentMasterSid,
+        jobDate, polPort?.PortMasterSid, podPort?.PortMasterSid
+      );
+      if (!generatedMasterJobNumber) {
+        const { format } = require('date-fns');
+        const ds  = format(jobDate, 'yyyyMMdd');
+        const cnt = await this._db.masterJob.count({ where: { MasterJobNumber: { contains: ds } } });
+        generatedMasterJobNumber = `MASTER-${ds}-${String(cnt + 1).padStart(3, '0')}`;
+      }
+
+      await this._db.$transaction(async (prisma) => {
+        const houseJobMenuId = await this.resolveHouseJobMenuSid(dept?.departmentType);
+
+        const masterJob = await prisma.masterJob.create({
+          data: {
+            MasterJobNumber:         generatedMasterJobNumber,
+            MasterJobDate:           jobDate,
+            CompanyMasterSid:        companyMasterSid,
+            BranchMasterSid:         branchMasterSid,
+            DepartmentMasterSid:     row.DepartmentMasterSid,
+            MenuMasterSid:           menuId,
+            MBLNo:                   row.mblNo,
+            MBLDate:                 row.MBLDate ? new Date(row.MBLDate) : jobDate,
+            FreightPPCC:             row.FreightPPCC             || 'Prepaid',
+            BLReleaseType:           row.BLReleaseType           || 'Original',
+            NoofOriginal:            Number(row.NoofOriginal)    || 3,
+            DestinationAgent:        row.DestinationAgent        || null,
+            DestinationAgentName:    row.DestinationAgentName    || '',
+            DestinationAgentAddress: row.DestinationAgentAddress || '',
+            POO:                     row.POO                     || '',
+            POL:                     row.POL                     || '',
+            POD:                     row.POD                     || '',
+            FPD:                     row.FPD                     || '',
+            ShipmentTerms:           row.ShipmentTerms           || '',
+            MarksandNumber:          row.MarksandNumber          || '',
+            CommodityDescription:    row.CommodityDescription    || '',
+            Status:                  'A',
+            JobStatus:               'Job Generated',
+            CreatedBy:               createdBy,
+            Haz:                     row.others?.Haz             || 'N',
+            OriginAgent:             row.others?.OriginAgentSid  || null,
+          },
+        });
+
+        // Voyage
+        await prisma.masterJobVoyage.create({
+          data: {
+            MasterJobSid: masterJob.MasterJobSid,
+            VesselName:   row.VesselName  || '',
+            VoyageNo:     row.VoyageNo    || '',
+            CarrierName:  row.CarrierName || '',
+            CarrierSid:   row.CarrierSid  || null,
+            ETD:          row.ETD ? new Date(row.ETD) : null,
+            ETA:          row.ETA ? new Date(row.ETA) : null,
+            ATA:          row.others?.ATA ? new Date(row.others.ATA) : null,
+            ATD:          row.others?.ATD ? new Date(row.others.ATD) : null,
+            Status:       'A',
+          },
+        });
+        const containerSidMap = new Map<string, number>();
+        // Containers
+        for (const ct of row.containers || []) {
+          const saved =await prisma.masterJobContainer.create({
+            data: {
+              MasterJobSid:    masterJob.MasterJobSid,
+              ContainerType:   ct.ContainerType,
+              ContainerNumber: ct.ContainerNumber,
+              LineSeal:        ct.LineSeal    || '',
+              CustomsSeal:     ct.CustomsSeal || '',
+              Status:          'A',
+              CreatedBy:       createdBy,
+            },
+          });
+          if (ct.ContainerNumber) {
+    containerSidMap.set(ct.ContainerNumber.toUpperCase(), saved.MasterJobContainerSid);
+  }
+        }
+
+        // MasterJobOthers
+        if (row.others) {
+          await prisma.masterJobOthers.create({
+            data: {
+              MasterJobSid: masterJob.MasterJobSid,
+              CFS:          row.others.CFSSid     || null,
+              CFSAddress:   row.others.CFSAddress  || '',
+              AgentRef:     row.others.AgentRef    || '',
+              Status:       'A',
+              CreatedBy:    createdBy,
+            },
+          });
+        }
+
+        // HouseJobs
+        for (const hj of row.houseJobs || []) {
+          const hblNo = hj.HBLNo || '';
+
+          const houseJob = await prisma.houseJob.create({
+            data: {
+              MasterJobSid:        masterJob.MasterJobSid,
+              HBLNo:               hblNo,
+              HBLDate:             hj.HBLDate ? new Date(hj.HBLDate) : jobDate,
+              CompanyMasterSid:    companyMasterSid,
+              BranchMasterSid:     branchMasterSid,
+              DepartmentMasterSid: row.DepartmentMasterSid,
+              MenuMasterSid:       houseJobMenuId,
+              POL:                 row.POL         || '',
+              POD:                 row.POD         || '',
+              CarrierName:         row.CarrierName || '',
+              CarrierSid:          row.CarrierSid  || null,
+              MBLNo:               masterJob.MBLNo,
+              MBLDate:             masterJob.MBLDate,
+              CustomerName:        hj.CustomerName      || '',
+              CustomerAddress:     hj.CustomerAddress   || '',
+              CustomerMasterSid:   hj.CustomerMasterSid || null,
+              ShipperName:         hj.ShipperName       || '',
+              ShipperAddress:      hj.ShipperAddress    || '',
+              ConsigneeName:       hj.ConsigneeName     || '',
+              ConsigneeAddress:    hj.ConsigneeAddress  || '',
+              Notify:              hj.Notify            || '',
+              NotifyAddress:       hj.NotifyAddress     || '',
+              DestinationAgent:    hj.DeliveryAgent     || null,
+              AgentName:           hj.OriginAgentName   || '',
+              IncoTerms:           hj.IncoTerms         || '',
+              POO:                 hj.POO               || '',
+              FPD:                 hj.FPD               || '',
+              VesselName:          '',
+              VoyageNo:            '',
+              ETD:                 null,
+              ETA:                 null,
+              FreightTerms:        hj.IncoFreightTerms  || '',
+              MovementType:        '',
+              JobType:             row.ExportImport     || '',
+              NominatedBy:         'Self',
+              Coload:              'N',
+              InternalNote:        '',
+              GeneralNote:         '',
+              BookingNo:           '',
+              HouseStatus:         'Job Generated',
+              status:              'A',
+              BookingStatus:       'Job Generated',
+              createdBy,
+            },
+          });
+
+          // Cargo rows
+          for (const cargo of hj.cargo || []) {
+            const cargoRecord = await prisma.houseJobCargo.create({
+              data: {
+                HouseJobSid:          houseJob.HouseJobSid,
+                CompanyMasterSid:     companyMasterSid,
+                BranchMasterSid:      branchMasterSid,
+                CargoType:            cargo.CargoType            || 'General',
+                ContainerType:        cargo.ContainerType        || null,
+                NoofContainers:       cargo.NoofContainers       || 0,
+                GrossWeight:          cargo.GrossWeight          || 0,
+                NetWeight:            cargo.NetWeight            || 0,
+                Volume:               cargo.Volume               || 0,
+                Volumetric:           cargo.Volumetric           || 0,
+                ChargeableWeight:     cargo.ChargeableWeight     || 0,
+                NoOfPackage:          cargo.NoOfPackage          || 0,
+                CommodityDescription: cargo.CommodityDescription || '',
+                MarksAndNumber:       cargo.MarksAndNumber       || '',
+                ShipmentTerms:        cargo.ShipmentTerms        || '',
+                FreightTerms:         cargo.FreightTerms         || '',
+                MovementType:         cargo.MovementType         || '',
+                ModeOfTransport:      cargo.ModeOfTransport      || '',
+                StuffingAt:           cargo.StuffingAt           || 'Dock',
+                status:               'A',
+                createdBy,
+              },
+            });
+
+            // Products under this cargo
+            for (const prod of cargo.products || []) {
+              await prisma.houseJobProduct.create({
+                data: {
+                  HouseJobSid:      houseJob.HouseJobSid,
+                  HouseJobCargoSid: cargoRecord.HouseJobCargoSid,
+                  ProductName:      prod.ProductName      || '',
+                  ExternaPkg:       prod.ExternaPkg       || null,
+                  ExternlQty:       String(prod.ExternlQty || ''),
+                  GrossWeight:      prod.GrossWeight      || 0,
+                  NetWeight:        prod.NetWeight        || 0,
+                  Volume:           prod.Volume           || 0,
+                  Volumetric:       prod.Volumetric       || 0,
+                  IsHaz:            'N',
+                  ImcoClass:        '',
+                  UnNo:             '',
+                  PkgGroup:         '',
+                  Length:           prod.Length           || 0,
+                  Width:            prod.Width            || 0,
+                  Height:           prod.Height           || 0,
+                  HSCode:           '',
+                  UomMasterSid:     null,
+                  ShippingBillNo:   prod.ShippingBillNo   || '',
+                  ShippingBillDate: prod.ShippingBillDate
+                                      ? new Date(prod.ShippingBillDate) : null,
+                  CargoRecDate:     prod.CargoRecDate
+                                      ? new Date(prod.CargoRecDate)     : null,
+                  ReceivedQty:      prod.ReceivedQty      || '',
+                  DamageQty:        prod.DamageQty        || '',
+                  DamageRemarks:    prod.DamageRemarks    || '',
+                  ContainerNo:      prod.ContainerNo      || '',
+                  MarksAndNumber:   prod.MarksAndNumbers  || '',
+                  status:           'A',
+                  createdBy,
+                  MasterJobContainerSid: prod.ContainerNo
+      ? (containerSidMap.get(prod.ContainerNo.toUpperCase()) ?? null)
+      : null,
+                },
+              });
+            }
+          }
+
+          // HouseJobOthers
+          if (hj.others) {
+            await prisma.houseJobOthers.create({
+              data: {
+                HouseJobSid:        houseJob.HouseJobSid,
+                CustomerRefNo:      hj.others.CustomerRefNo   || '',
+                YardCFS:            hj.others.CFS             || '',
+                DeliveryPlace:      hj.others.DeliveryPlace   || '',
+                DeliveryDate:       hj.others.DeliveryDate    || '',
+                DeliveryAddress:    hj.others.DeliveryAddress || '',
+                CargoCurrency:      hj.others.CargoCurrency   || '',
+                CargoValue:         hj.others.CargoValue      || 0,
+                InternalNote:       hj.others.ExternalNote    || '',
+                NotifyParty:        '',
+                NotifyPartyAddress: '',
+                CHAName:            '',
+                PickupPlace:        '',
+                PickupAddress:      '',
+                ReleaseType:        '',
+                Notify2:            '',
+                NotifyAddress2:     '',
+                status:             'A',
+                createdBy,
+              },
+            });
+          }
+        }
+      }, { timeout: 120000 });
+
+      created++;
+    } catch (err: any) {
+      errors.push({ mblNo: row.mblNo, message: err.message || 'DB error during save' });
+      skipped++;
+    }
+  }
+
+  return { created, skipped, errors };
+}
+}

@@ -762,7 +762,7 @@ model MeetingFollowup {
   BranchMasterSid       Int
   DepartmentMasterSid   Int?
   OpportunitySector     String?            @db.VarChar(20)
-  FollowupDate          DateTime           @db.Date
+  FollowupDate          DateTime
   FollowupNote          String             @db.VarChar(200)
   MeetingNote           String             @db.VarChar(200)
   Remarks               String?            @db.VarChar(100)

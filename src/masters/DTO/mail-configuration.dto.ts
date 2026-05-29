@@ -1,4 +1,5 @@
 import {
+    IsArray,
     IsInt,
     IsNotEmpty,
     IsOptional,
@@ -15,6 +16,10 @@ export class CreateMailConfigurationDto {
     @IsInt()
     @IsNotEmpty()
     CompanyMasterSid: number;
+
+    @IsArray()
+    @IsOptional()
+    CompanyMasterSids?: number[];
 
     @IsInt()
     @IsNotEmpty()
@@ -66,7 +71,6 @@ export class CreateMailConfigurationDto {
     @IsNotEmpty()
     @MaxLength(50)
     Trigger: string;
-
 
     @IsString()
     @IsOptional()

@@ -14,45 +14,114 @@ export class MailConfigurationService {
         private logger: Logger
     ) {}
 
+    private resolveTargetCompanySids(input: any, fallbackCompanySid?: number): number[] {
+        const rawCompanySids: any[] =
+            (input?.CompanyMasterSids?.length
+                ? input.CompanyMasterSids
+                : [input?.CompanyMasterSid ?? fallbackCompanySid]) || [];
+
+        const companySids: number[] = Array.from(
+            new Set<number>(
+                rawCompanySids
+                    .map((sid: any) => Number(sid))
+                    .filter((sid: number) => Number.isFinite(sid) && sid > 0)
+            )
+        );
+
+        return companySids;
+    }
+
+    private buildMailConfigData(dto: any, userEmail: string, isUpdate = false): Prisma.MailConfigurationMasterUncheckedCreateInput {
+        const data: any = {
+            Sno: Number(dto.Sno),
+            MailName: String(dto.MailName || '').trim(),
+            MenuMasterSid: Number(dto.MenuMasterSid),
+            MailSubject: String(dto.MailSubject || ''),
+            MailBody: String(dto.MailBody || ''),
+            ToEmailidFrom: dto.ToEmailidFrom || '',
+            CcEmailidFrom: dto.CcEmailidFrom || '',
+            AttachmentRequire: dto.AttachmentRequire || 'Y',
+            AutoPopup: dto.AutoPopup || 'P',
+            Action: dto.Action,
+            Trigger: dto.Trigger,
+            UpdateFields: Array.isArray(dto.UpdateFields) ? dto.UpdateFields : []
+        };
+
+        if (isUpdate) {
+            data.UpdatedBy = userEmail;
+            data.UpdatedOn = new Date();
+        } else {
+            data.CreatedBy = userEmail;
+        }
+
+        return data;
+    }
+
+    private async findDuplicateCompanies(companySids: number[], menuMasterSid: number, tx: any = this._db) {
+        const prisma: any = tx;
+        return prisma.mailConfigurationMaster.findMany({
+            where: {
+                CompanyMasterSid: { in: companySids },
+                MenuMasterSid: Number(menuMasterSid),
+                Status: 'A',
+            },
+            select: {
+                CompanyMasterSid: true,
+                CompanyMaster: {
+                    select: {
+                        companyName: true,
+                    },
+                },
+            },
+        });
+    }
+
     async create(dto: CreateMailConfigurationDto, userEmail: string) {
         try {
-            // Check for duplicate MailName within the same company
-            const existing = await this._db.mailConfigurationMaster.findFirst({
-                where: {
-                    CompanyMasterSid: dto.CompanyMasterSid,
-                    MailName: {
-                        equals: dto.MailName.trim(),
-                        mode: 'insensitive',
-                    },
-                    Status: 'A',
-                },
-            });
+            const targetCompanySids = this.resolveTargetCompanySids(dto);
+            const normalizedMailName = String(dto.MailName || '').trim();
+            const menuMasterSid = Number(dto.MenuMasterSid);
 
-            if (existing) {
-                throw new BadRequestException(
-                    'Mail configuration with this name already exists for the company.'
-                );
+            if (targetCompanySids.length === 0) {
+                throw new BadRequestException('At least one company must be selected.');
+            }
+            if (!normalizedMailName) {
+                throw new BadRequestException('MailName is required.');
+            }
+            if (!menuMasterSid) {
+                throw new BadRequestException('MenuMasterSid is required.');
             }
 
-            const createdRecord = await this._db.mailConfigurationMaster.create({
-                data: {
-                    CompanyMasterSid: dto.CompanyMasterSid,
-                    Sno: dto.Sno,
-                    Action:dto.Action,
-                    Trigger: dto.Trigger,
-                    MailName: dto.MailName.trim(),
-                    MenuMasterSid: dto.MenuMasterSid,
-                    MailSubject: dto.MailSubject,
-                    MailBody: dto.MailBody,
-                    ToEmailidFrom: dto.ToEmailidFrom || '',
-                    CcEmailidFrom: dto.CcEmailidFrom || '',
-                    AttachmentRequire: dto.AttachmentRequire || 'Y',
-                    AutoPopup: dto.AutoPopup || 'P',
-                    CreatedBy: userEmail,
-                },
+            const createdRecords = await this._db.$transaction(async (prisma) => {
+                const duplicateConfigs = await this.findDuplicateCompanies(
+                    targetCompanySids,
+                    menuMasterSid,
+                    prisma
+                );
+                if (duplicateConfigs.length) {
+                    const duplicateCompanyNames = duplicateConfigs
+                        .map((item: any) => item.CompanyMaster?.companyName || item.CompanyMasterSid)
+                        .join(', ');
+                    throw new BadRequestException(
+                        `Mail configuration already exists for this menu in: ${duplicateCompanyNames}`
+                    );
+                }
+
+                const results: any[] = [];
+                for (const companySid of targetCompanySids) {
+                    const createData: any = this.buildMailConfigData(
+                        { ...dto, MailName: normalizedMailName, MenuMasterSid: menuMasterSid },
+                        userEmail,
+                        false
+                    );
+                    createData.CompanyMasterSid = companySid;
+                    const createdRecord = await prisma.mailConfigurationMaster.create({ data: createData });
+                    results.push(createdRecord);
+                }
+                return results;
             });
 
-            return createdRecord;
+            return createdRecords[0];
         } catch (error) {
             this.logger.warn(`MailConfiguration create error: ${error}`);
             throw error;
@@ -63,13 +132,12 @@ export class MailConfigurationService {
         try {
             const records = await this._db.mailConfigurationMaster.findMany({
                 where: {
-                    CompanyMasterSid,
                     Status: 'A',
                 },
                 include: {
                     MenuMaster: {
                         select: {
-                            MenuName:true
+                            MenuName: true
                         },
                     },
                     CompanyMaster: {
@@ -83,7 +151,44 @@ export class MailConfigurationService {
                 },
             });
 
-            return records;
+            const groupedMap = new Map<string, any>();
+
+            for (const record of records) {
+                const key = [
+                    record.Sno,
+                    record.MailName,
+                    record.MenuMasterSid,
+                    record.MailSubject,
+                    record.MailBody,
+                    record.ToEmailidFrom,
+                    record.CcEmailidFrom,
+                    record.AttachmentRequire,
+                    record.AutoPopup,
+                    record.Action,
+                    record.Trigger,
+                    JSON.stringify(record.UpdateFields || []),
+                    record.Status,
+                ].join('||');
+
+                if (!groupedMap.has(key)) {
+                    groupedMap.set(key, {
+                        ...record,
+                        CompanyMasterSids: [Number(record.CompanyMasterSid)].filter(Boolean),
+                    });
+                } else {
+                    const existing = groupedMap.get(key);
+                    const nextSids = Array.from(new Set([
+                        ...(existing.CompanyMasterSids || []),
+                        Number(record.CompanyMasterSid)
+                    ].filter(Boolean)));
+                    existing.CompanyMasterSids = nextSids;
+                    if (Number(record.CompanyMasterSid) === Number(CompanyMasterSid)) {
+                        existing.CompanyMasterSid = Number(CompanyMasterSid);
+                    }
+                }
+            }
+
+            return Array.from(groupedMap.values());
         } catch (error) {
             this.logger.warn(`MailConfiguration findAll error: ${error}`);
             throw error;
@@ -138,44 +243,55 @@ export class MailConfigurationService {
                 );
             }
 
-            // Check for duplicate MailName if updating
-            if (dto.MailName) {
-                const duplicate = await this._db.mailConfigurationMaster.findFirst({
-                    where: {
-                        CompanyMasterSid: existing.CompanyMasterSid,
-                        MailName: {
-                            equals: dto.MailName.trim(),
-                            mode: 'insensitive',
-                        },
-                        MailConfigurationMasterSid: {
-                            not: id,
-                        },
-                        Status: 'A',
+            const nextMenuMasterSid = Number((dto as any).MenuMasterSid ?? existing.MenuMasterSid);
+            const duplicate = await this._db.mailConfigurationMaster.findFirst({
+                where: {
+                    CompanyMasterSid: existing.CompanyMasterSid,
+                    MenuMasterSid: nextMenuMasterSid,
+                    MailConfigurationMasterSid: {
+                        not: id,
                     },
-                });
+                    Status: 'A',
+                },
+            });
 
-                if (duplicate) {
-                    throw new BadRequestException(
-                        'Mail configuration with this name already exists.'
-                    );
-                }
+            if (duplicate) {
+                throw new BadRequestException(
+                    'Mail configuration already exists for this company and menu.'
+                );
             }
 
-            const { CompanyMasterSid, MenuMasterSid, ...updateData } = dto as any;
+            const updateData = this.buildMailConfigData(
+                {
+                    ...existing,
+                    ...dto,
+                    Sno: dto.Sno ?? existing.Sno,
+                    MailName: dto.MailName ?? existing.MailName,
+                    MenuMasterSid: dto.MenuMasterSid ?? existing.MenuMasterSid,
+                    MailSubject: dto.MailSubject ?? existing.MailSubject,
+                    MailBody: dto.MailBody ?? existing.MailBody,
+                    ToEmailidFrom: dto.ToEmailidFrom ?? existing.ToEmailidFrom,
+                    CcEmailidFrom: dto.CcEmailidFrom ?? existing.CcEmailidFrom,
+                    AttachmentRequire: dto.AttachmentRequire ?? existing.AttachmentRequire,
+                    AutoPopup: dto.AutoPopup ?? existing.AutoPopup,
+                    Action: (dto as any).Action ?? existing.Action,
+                    Trigger: (dto as any).Trigger ?? existing.Trigger,
+                    UpdateFields: (dto as any).UpdateFields ?? existing.UpdateFields
+                },
+                userEmail,
+                true
+            ) as any;
+
+            if (dto.Status) {
+                updateData.Status = dto.Status;
+            }
+            updateData.CompanyMasterSid = existing.CompanyMasterSid;
 
             const updatedRecord = await this._db.mailConfigurationMaster.update({
                 where: {
                     MailConfigurationMasterSid: id,
                 },
-                data: {
-                    ...updateData,
-                    MailName: dto.MailName?.trim(),
-                    UpdatedBy: userEmail,
-                    UpdatedOn: new Date(),
-                    ...(MenuMasterSid && {
-                        MenuMaster: { connect: { MenuMasterSid: Number(MenuMasterSid) } },
-                    }),
-                },
+                data: updateData,
             });
 
             return updatedRecord;
@@ -184,7 +300,6 @@ export class MailConfigurationService {
             throw error;
         }
     }
-
     async softDelete(id: number, userEmail: string) {
         try {
             const existing = await this._db.mailConfigurationMaster.findUnique({
@@ -323,3 +438,4 @@ export class MailConfigurationService {
         }
     }
 }
+
