@@ -58,17 +58,35 @@ export class AttachDocumentService {
         try {
             return await this._db.$transaction(async (tx) => {
                 // 1️⃣ Create AttachDocumentGroup
-                const group = await tx.attachDocumentGroup.create({
-                    data: {
-                        CompanyMasterSid: Number(uploadDto.CompanyMasterSid),
-                        BranchMasterSid: Number(uploadDto.BranchMasterSid),
+                let group = await tx.attachDocumentGroup.findFirst({
+                    where: {
                         MenuMasterSid: Number(uploadDto.MenuMasterSid),
-                        MenuName: menuName,
                         DocumentSid: Number(uploadDto.DocumentSid),
-                        Remarks: uploadDto.EdocRemarks || '',
-                        createdBy: uploadDto.CreatedBy || 'system',
                     },
                 });
+
+                if (group) {
+                    group = await tx.attachDocumentGroup.update({
+                        where: { AttachDocumentGroupSid: group.AttachDocumentGroupSid },
+                        data: {
+                            Remarks: uploadDto.EdocRemarks || group.Remarks || '',
+                            updatedBy: uploadDto.CreatedBy || 'system',
+                            updatedOn: new Date(),
+                        },
+                    });
+                } else {
+                    group = await tx.attachDocumentGroup.create({
+                        data: {
+                            CompanyMasterSid: Number(uploadDto.CompanyMasterSid),
+                            BranchMasterSid: Number(uploadDto.BranchMasterSid),
+                            MenuMasterSid: Number(uploadDto.MenuMasterSid),
+                            MenuName: menuName,
+                            DocumentSid: Number(uploadDto.DocumentSid),
+                            Remarks: uploadDto.EdocRemarks || '',
+                            createdBy: uploadDto.CreatedBy || 'system',
+                        },
+                    });
+                }
 
                 console.log('✅ Group created:', group.AttachDocumentGroupSid);
 
@@ -202,8 +220,8 @@ export class AttachDocumentService {
     ) {
         const UPLOAD_EDOC_PATH = this.configService.get('UPLOAD_EDOC_PATH');
         const savedFiles: string[] = [];
+        let renamedFile: { from: string; to: string } | null = null;
 
-        // 1️⃣ Fetch existing document OUTSIDE transaction (read-only)
         const exist: any = await this._db.attachDocument.findUnique({
             where: { AttachDocumentSid },
             include: { attachGroup: true },
@@ -212,8 +230,6 @@ export class AttachDocumentService {
         if (!exist) {
             throw new BadRequestException(`Attach Document with id ${AttachDocumentSid} not found`);
         }
-
-        console.log('✅ Found existing document:', AttachDocumentSid);
 
         const folderPath = path.join(
             UPLOAD_EDOC_PATH,
@@ -225,7 +241,15 @@ export class AttachDocumentService {
             fs.mkdirSync(folderPath, { recursive: true });
         }
 
-        // 2️⃣ Determine which uploaded files are new (duplicate check OUTSIDE transaction)
+        const hasPayload = (key: string) => Object.prototype.hasOwnProperty.call(payload, key);
+        const payloadValue = (key: string, fallback: any = undefined) =>
+            hasPayload(key) ? payload[key] : fallback;
+        const documentType = payload.DocumentType || payload.Documenttype || exist.DocumentType;
+        const requestedFileName = payload.FileName
+            ? this.buildFileName(payload.FileName, documentType)
+            : exist.FileName;
+        const requestedFilePath = path.join(folderPath, requestedFileName);
+
         const newFiles: { file: Express.Multer.File; filePath: string }[] = [];
         if (files && files.length > 0) {
             for (const file of files) {
@@ -237,18 +261,19 @@ export class AttachDocumentService {
                 });
                 if (!existingFile) {
                     newFiles.push({ file, filePath: path.join(folderPath, file.originalname) });
-                } else {
-                    console.log('⚠️ File already exists, skipping:', file.originalname);
                 }
             }
         }
 
-        // 3️⃣ Write new files to disk BEFORE opening transaction so disk I/O never holds a DB lock
         try {
             for (const { file, filePath } of newFiles) {
                 fs.writeFileSync(filePath, file.buffer);
                 savedFiles.push(filePath);
-                console.log('✅ New file saved:', file.originalname);
+            }
+
+            if (requestedFileName !== exist.FileName && fs.existsSync(exist.FilePath)) {
+                fs.renameSync(exist.FilePath, requestedFilePath);
+                renamedFile = { from: exist.FilePath, to: requestedFilePath };
             }
         } catch (error) {
             for (const filePath of savedFiles) {
@@ -258,29 +283,47 @@ export class AttachDocumentService {
                     console.error('Failed to delete file during rollback:', filePath, unlinkError);
                 }
             }
+            if (renamedFile && fs.existsSync(renamedFile.to)) {
+                try {
+                    fs.renameSync(renamedFile.to, renamedFile.from);
+                } catch (renameError) {
+                    console.error('Failed to rollback renamed file:', renamedFile, renameError);
+                }
+            }
             throw error;
         }
 
-        // 4️⃣ Transaction contains only fast DB writes — no I/O
         try {
             return await this._db.$transaction(async (tx) => {
-                // Update existing document fields
                 const updatedDoc = await tx.attachDocument.update({
                     where: { AttachDocumentSid },
                     data: {
+                        AttachDocmentNo: payloadValue('AttachDocmentNo', exist.AttachDocmentNo),
                         DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : exist.DocumentDate,
+                        FileName: requestedFileName,
+                        DocumentType: documentType,
+                        FilePath: requestedFilePath,
                         ReceivedDate: payload.ReceivedDate ? new Date(payload.ReceivedDate) : exist.ReceivedDate,
                         SentDate: payload.SentDate ? new Date(payload.SentDate) : exist.SentDate,
-                        FollowupRequire: payload.FollowupRequired || exist.FollowupRequire,
+                        FollowupRequire: payloadValue('FollowupRequired', exist.FollowupRequire),
                         FollowupDate: payload.FollowupDate ? new Date(payload.FollowupDate) : exist.FollowupDate,
-                        updatedBy: payload.updatedBy || 'system',
+                        Public: payloadValue('Public', exist.Public),
+                        status: payloadValue('EdocStatus', exist.status),
+                        updatedBy: payload.updatedBy || payload.CreatedBy || 'system',
                         updatedOn: new Date(),
                     },
                 });
 
-                console.log('✅ Document updated:', AttachDocumentSid);
+                await tx.attachDocumentGroup.update({
+                    where: { AttachDocumentGroupSid: exist.AttachDocumentGroupSid },
+                    data: {
+                        Remarks: payloadValue('EdocRemarks', exist.attachGroup.Remarks),
+                        status: payloadValue('EdocStatus', exist.attachGroup.status),
+                        updatedBy: payload.updatedBy || payload.CreatedBy || 'system',
+                        updatedOn: new Date(),
+                    },
+                });
 
-                // Insert records for new files (already written to disk above)
                 for (const { file, filePath } of newFiles) {
                     await tx.attachDocument.create({
                         data: {
@@ -288,22 +331,19 @@ export class AttachDocumentService {
                             FileName: file.originalname,
                             FilePath: filePath,
                             DocumentType: path.extname(file.originalname).substring(1),
-                            AttachDocmentNo: exist.AttachDocmentNo,
+                            AttachDocmentNo: payloadValue('AttachDocmentNo', exist.AttachDocmentNo),
                             DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : exist.DocumentDate,
                             ReceivedDate: payload.ReceivedDate ? new Date(payload.ReceivedDate) : exist.ReceivedDate,
                             SentDate: payload.SentDate ? new Date(payload.SentDate) : exist.SentDate,
-                            FollowupRequire: payload.FollowupRequired || exist.FollowupRequire,
+                            FollowupRequire: payloadValue('FollowupRequired', exist.FollowupRequire),
                             FollowupDate: payload.FollowupDate ? new Date(payload.FollowupDate) : exist.FollowupDate,
-                            Public: payload.Public || exist.Public,
-                            status: 'A',
-                            createdBy: payload.updatedBy || 'system',
+                            Public: payloadValue('Public', exist.Public),
+                            status: payloadValue('EdocStatus', 'A'),
+                            createdBy: payload.updatedBy || payload.CreatedBy || 'system',
                         },
                     });
-
-                    console.log('✅ New file record created:', file.originalname);
                 }
 
-                // Follow-up logic
                 if (payload.FollowupRequired === 'Y') {
                     const existingFollowup = await tx.followup.findFirst({
                         where: { AttachDocmentNo: exist.AttachDocmentNo },
@@ -313,80 +353,89 @@ export class AttachDocumentService {
                         await tx.followup.update({
                             where: { FollowupSid: existingFollowup.FollowupSid },
                             data: {
-                                FollowupAction: payload.FollowupAction || existingFollowup.FollowupAction,
+                                AttachDocmentNo: payloadValue('AttachDocmentNo', existingFollowup.AttachDocmentNo),
+                                DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : existingFollowup.DocumentDate,
+                                FileName: requestedFileName,
+                                Documenttype: documentType,
+                                ReceivedDate: payload.ReceivedDate ? new Date(payload.ReceivedDate) : existingFollowup.ReceivedDate,
+                                FollowupRequire: payload.FollowupRequired,
+                                FollowupAction: payloadValue('FollowupAction', existingFollowup.FollowupAction),
                                 FollowupDate: payload.FollowupDate ? new Date(payload.FollowupDate) : existingFollowup.FollowupDate,
-                                Remarks: payload.FollowupRemarks || existingFollowup.Remarks,
-                                Public: payload.Public || existingFollowup.Public || 'N',
-                                sentEmail: payload.sentEmail || existingFollowup.sentEmail || 'N',
-                                Status: payload.FollowupStatus || existingFollowup.Status,
-                                UpdatedBy: payload.updatedBy || 'system',
+                                Remarks: payloadValue('FollowupRemarks', existingFollowup.Remarks),
+                                Public: payloadValue('Public', existingFollowup.Public || 'N'),
+                                sentEmail: payloadValue('sentEmail', existingFollowup.sentEmail || 'N'),
+                                Status: payloadValue('FollowupStatus', existingFollowup.Status),
+                                UpdatedBy: payload.updatedBy || payload.CreatedBy || 'system',
                                 UpdatedOn: new Date(),
                             },
                         });
-
-                        console.log('✅ Followup updated:', existingFollowup.FollowupSid);
                     } else {
                         await tx.followup.create({
                             data: {
                                 CompanyMasterSid: exist.attachGroup.CompanyMasterSid,
                                 BranchMasterSid: exist.attachGroup.BranchMasterSid,
                                 DocumentSid: exist.attachGroup.DocumentSid,
-                                AttachDocmentNo: exist.AttachDocmentNo,
-                                DocumentDate: exist.DocumentDate,
-                                FileName: exist.FileName,
-                                Documenttype: exist.DocumentType,
-                                ReceivedDate: exist.ReceivedDate,
+                                AttachDocmentNo: payloadValue('AttachDocmentNo', exist.AttachDocmentNo),
+                                DocumentDate: payload.DocumentDate ? new Date(payload.DocumentDate) : exist.DocumentDate,
+                                FileName: requestedFileName,
+                                Documenttype: documentType,
+                                ReceivedDate: payload.ReceivedDate ? new Date(payload.ReceivedDate) : exist.ReceivedDate,
                                 FollowupRequire: 'Y',
-                                FollowupDate: payload.FollowupDate ? new Date(payload.FollowupDate) : '',
+                                FollowupDate: payload.FollowupDate ? new Date(payload.FollowupDate) : new Date(),
                                 FollowupAction: payload.FollowupAction || '',
                                 Remarks: payload.FollowupRemarks || '',
                                 Public: payload.Public || 'N',
                                 sentEmail: payload.sentEmail || 'N',
-                                Status: payload.FollowupStatus || 'P',
-                                CreatedBy: payload.updatedBy || 'system',
+                                Status: payload.FollowupStatus || 'A',
+                                CreatedBy: payload.updatedBy || payload.CreatedBy || 'system',
                             },
                         });
-
-                        console.log('✅ Followup created');
                     }
                 } else if (payload.FollowupRequired === 'N') {
                     await tx.followup.updateMany({
                         where: { AttachDocmentNo: exist.AttachDocmentNo },
-                        data: { Status: 'S' },
+                        data: {
+                            FollowupRequire: 'N',
+                            Status: payloadValue('FollowupStatus', 'S'),
+                            UpdatedBy: payload.updatedBy || payload.CreatedBy || 'system',
+                            UpdatedOn: new Date(),
+                        },
                     });
-
-                    console.log('✅ Followup marked as skipped');
                 }
 
-                // 5️⃣ Email sending (async, outside transaction)
                 if (payload.sentEmail === 'Y') {
                     this.sendUpdateEmailAsync(updatedDoc, payload, folderPath, files, exist).catch(err => {
-                        console.error('❌ Email sending failed:', err);
+                        console.error('Email sending failed:', err);
                     });
                 }
 
                 return { message: 'Document updated successfully', data: updatedDoc };
             });
-
         } catch (error) {
-            console.error('❌ Update transaction failed, rolling back files:', error);
-
-            // Rollback newly saved files
             for (const filePath of savedFiles) {
                 try {
-                    if (fs.existsSync(filePath)) {
-                        fs.unlinkSync(filePath);
-                        console.log('🗑️ Rolled back file:', filePath);
-                    }
+                    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
                 } catch (unlinkError) {
                     console.error('Failed to delete file during rollback:', filePath, unlinkError);
                 }
             }
-
+            if (renamedFile && fs.existsSync(renamedFile.to)) {
+                try {
+                    fs.renameSync(renamedFile.to, renamedFile.from);
+                } catch (renameError) {
+                    console.error('Failed to rollback renamed file:', renamedFile, renameError);
+                }
+            }
             throw error;
         }
     }
 
+    private buildFileName(fileName: string, documentType?: string): string {
+        if (!documentType || path.extname(fileName)) {
+            return fileName;
+        }
+        return `${fileName}.${documentType}`;
+    }
     private async sendUpdateEmailAsync(
         updatedDoc: any,
         payload: any,
@@ -434,20 +483,30 @@ export class AttachDocumentService {
             });
             if (!menu) throw new BadRequestException(`MenuMaster not found for ID ${menuMasterSid}`);
 
-            const folderPath = path.join(UPLOAD_EDOC_PATH, menu.MenuName, String(documentSid));
-            if (!fs.existsSync(folderPath)) throw new BadRequestException(`Folder not found: ${folderPath}`);
+            const numericDocumentSid = Number(documentSid);
+            if (!Number.isFinite(numericDocumentSid)) {
+                throw new BadRequestException(`DocumentSid must be a valid number`);
+            }
+            const folderPath = path.join(UPLOAD_EDOC_PATH, menu.MenuName, String(numericDocumentSid));
 
             // 2️⃣ Find group and related files
-            const group = await this._db.attachDocumentGroup.findFirst({
-                where: { MenuMasterSid: Number(menuMasterSid), DocumentSid: documentSid },
+            const groups = await this._db.attachDocumentGroup.findMany({
+                where: { MenuMasterSid: Number(menuMasterSid), DocumentSid: numericDocumentSid },
                 include: {
-                    attachFiles: true, // includes all related files
+                    attachFiles: {
+                        where: {
+                            status: { in: ['A', 'S'] },
+                        },
+                    },
                 },
+                orderBy: { AttachDocumentGroupSid: 'asc' },
             });
+            const group = groups[0];
 
             if (!group) {
                 throw new Error("Document group not found");
             }
+            group.attachFiles = groups.flatMap(item => item.attachFiles || []);
 
             // Extract all AttachDocumentSids
             const attachDocSids:any = group.attachFiles.map(file => file.AttachDocmentNo);
@@ -455,7 +514,7 @@ export class AttachDocumentService {
             const followups = await this._db.followup.findMany({
                 where: {
                     AttachDocmentNo: { in: attachDocSids },
-                    DocumentSid: documentSid,
+                    DocumentSid: numericDocumentSid,
                 },
             });
 
@@ -466,7 +525,7 @@ export class AttachDocumentService {
             }
 
             // 3️⃣ Optionally, read actual folder contents to verify physical files
-            const filesOnDisk = fs.readdirSync(folderPath);
+            const filesOnDisk = fs.existsSync(folderPath) ? fs.readdirSync(folderPath) : [];
 
             return {
                 group,

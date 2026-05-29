@@ -84,13 +84,19 @@ async updateAttachDocumentById(
 @ApiOperation({ summary: 'Fetch Attach Document by Folder Structure' })
 @ApiCreatedResponse({ description: 'Fetch Attach Document by Folder Structure', type: ResponseData })
 @HttpCode(HttpStatus.OK)
-async fetchAttachDocumentByFolder(@Body() body: { menuMasterSid: number; DocumentSid: number }) {
+async fetchAttachDocumentByFolder(@Body() body: any) {
   const resp = new ResponseData();
   try {
-    const { menuMasterSid, DocumentSid } = body;
-    this.logger.log(`Fetching AttachDocument for MenuMasterSid: ${menuMasterSid}, DocumentSid: ${DocumentSid}`);
+    const menuMasterSid = Number(body.menuMasterSid ?? body.MenuMasterSid);
+    const documentSid = Number(body.DocumentSid ?? body.documentSid);
 
-    const result = await this.attachDocumentService.fetchAttachDocumentByFolder(menuMasterSid, DocumentSid);
+    if (!menuMasterSid || !documentSid) {
+      throw new BadRequestException('Missing required fields: menuMasterSid or DocumentSid');
+    }
+
+    this.logger.log(`Fetching AttachDocument for MenuMasterSid: ${menuMasterSid}, DocumentSid: ${documentSid}`);
+
+    const result = await this.attachDocumentService.fetchAttachDocumentByFolder(menuMasterSid, documentSid);
 
     resp.data = result;
     resp.message = 'Attach Document successfully fetched from folder structure';
