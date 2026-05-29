@@ -913,7 +913,7 @@ export class HouseJobService {
 
                 // Create House Job BOE
                 const finalHouseJobBOE: any[] = [];
-                const houseJobBOEPayload = payload.houseJobBOE || [];
+                const houseJobBOEPayload = (payload.houseJobBOE || []).filter((boe) => this.hasBoeValue(boe));
                 if (houseJobBOEPayload.length > 0) {
                     for (const boe of houseJobBOEPayload) {
                         const createdBOE = await prisma.houseJobBOE.create({
@@ -1771,7 +1771,7 @@ export class HouseJobService {
                 finalCharges.push(createdCharge || updatedCharge);
             }
             const finalHouseJobBOE: any[] = [];
-            const houseJobBOEPayload = payload.houseJobBOE || [];
+            const houseJobBOEPayload = (payload.houseJobBOE || []).filter((boe) => this.hasBoeValue(boe));
 
             if (houseJobBOEPayload.length > 0) {
                 for (const boe of houseJobBOEPayload) {
@@ -2611,6 +2611,32 @@ private async recalculateMasterJobTotals(
       Volume: Number(totals.Volume.toFixed(3)),
       UpdatedOn: new Date()
     }
+  });
+}
+
+private hasBoeValue(boe: any): boolean {
+  const fields = [
+    'HouseJobBOESid',
+    'DeclarationNo',
+    'BOENo',
+    'BOEDate',
+    'BOEValue',
+    'BOEInvoiceValue',
+    'GrossWeight',
+    'Volume',
+    'TransactionType',
+    'Amount',
+    'ProcessDate',
+    'ReceivedDate',
+    'AckNumber',
+    'AckDate',
+    'AckStatus',
+    'Remarks'
+  ];
+
+  return fields.some((field) => {
+    const value = boe?.[field];
+    return value !== null && value !== undefined && String(value).trim() !== '';
   });
 }
 
