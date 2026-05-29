@@ -5,16 +5,59 @@ import { SchedulerService } from '../scheduler/scheduler.service';
 import * as moment from 'moment-timezone';
 
 @Injectable()
-export class FollowupService {
+export class FollowupService implements OnModuleInit {
 
     constructor(
-        private _db: DatabaseService, 
-        private emailService: EmailService, 
+        private _db: DatabaseService,
+        private emailService: EmailService,
         private logger: Logger,
         private schedulerService : SchedulerService
     ) { }
 
-    async createFollowup(payload: any,user) {
+    async onModuleInit() {
+        await this.rescheduleUnfinishedFollowupEmails();
+    }
+
+    private async rescheduleUnfinishedFollowupEmails() {
+        try {
+            const pending = await this._db.followup.findMany({
+                where: {
+                    sentEmail: 'Y',
+                    Status: 'A',
+                    ReceivedDate: null,
+                    FollowupDate: { gt: new Date() },
+                },
+            });
+
+            for (const followup of pending) {
+                let emailTo = '';
+                if (followup.InternalUser) {
+                    const user = await this._db.userMaster.findUnique({
+                        where: { UserMasterSid: followup.InternalUser },
+                        select: { userEmail: true },
+                    });
+                    emailTo = user?.userEmail || '';
+                } else if (followup.ExternalUser) {
+                    emailTo = followup.ExternalUser;
+                }
+
+                const mailContent = {
+                    EmailTo: emailTo,
+                    EmailCC: '',
+                    Subject: followup.Subject || 'Follow Up Reminder',
+                    Mailbody: followup.Remarks || '',
+                };
+
+                await this.scheduleFollowupEmail(followup.FollowupSid, followup.FollowupDate, mailContent);
+            }
+
+            this.logger.log(`Rescheduled ${pending.length} pending followup email job(s) on startup`);
+        } catch (error) {
+            this.logger.error(`Failed to reschedule followup emails on startup: ${error.message}`);
+        }
+    }
+
+    async createFollowup(payload: any, user) {
 
         try {
             const { followupCreate, mailContent, createdBy, updatedBy } = payload;
@@ -22,7 +65,7 @@ export class FollowupService {
             const followup = await this._db.followup.create({
                 data: {
                     ...followupCreate,
-                    FollowupDate: new Date(followupCreate.FollowupDate),
+                    FollowupDate: followupCreate.FollowupDate,
                     FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
                     Public: followupCreate.Public ? 'Y' : 'N',
                     sentEmail: followupCreate.sentEmail ? 'Y' : 'N',
@@ -31,8 +74,8 @@ export class FollowupService {
                 }
             });
             if (followupCreate.sentEmail && followup.Status === "A" && mailContent) {
-                await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent)
-                await this.scheduleFollowupEmail(followup.FollowupSid, followupCreate.FollowupDate, mailContent);
+                await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent);
+                await this.scheduleFollowupEmail(followup.FollowupSid, followup.FollowupDate, mailContent);
             }
 
             return followup;
@@ -45,9 +88,8 @@ export class FollowupService {
     async scheduleFollowupEmail(followupId: number, followupDate: Date, mailContent: any) {
         const jobName = `followup-${followupId}`;
 
-        const followupDateTime = new Date(followupDate);
-        const cronExpression = `${followupDateTime.getMinutes()} ${followupDateTime.getHours()} ${followupDateTime.getDate()} ${followupDateTime.getMonth() + 1} *`;
-
+        const followupDateTime = followupDate;
+        const cronExpression = `${followupDateTime.getUTCMinutes()} ${followupDateTime.getUTCHours()} ${followupDateTime.getUTCDate()} ${followupDateTime.getUTCMonth() + 1} *`;
 
         this.schedulerService.addCronJob(
             jobName,
@@ -55,7 +97,8 @@ export class FollowupService {
             async () => {
                 await this.sendSpecificFollowupEmail(followupId, mailContent);
                 this.schedulerService.removeCronJob(jobName);
-            }
+            },
+            'UTC'
         );
 
         this.logger.log(`Scheduled email job for followup ${followupId} at ${followupDate}`);
@@ -67,7 +110,7 @@ export class FollowupService {
                 where: { FollowupSid: followupId }
             });
 
-            if(!followup) {
+            if (!followup) {
                 throw new BadRequestException('Followup not found');
             }
 
@@ -161,7 +204,7 @@ export class FollowupService {
             const followups = await this._db.followup.findMany({
                 where: {
                     DocumentSid: documentSid,
-                    Status: 'A',
+                    Status: { in: ['A', 'S'] },
                     ...(menuMasterSid ? { MenuMasterSid: menuMasterSid } : {})
                 },
                 orderBy: { CreatedOn: 'desc' }
@@ -181,58 +224,52 @@ export class FollowupService {
     }
 
     async updateFollowup(followupMasterSid: number, payload: any, user) {
-  const { followupCreate, mailContent, updatedBy } = payload;
+        const { followupCreate, mailContent, updatedBy } = payload;
 
-  const existing = await this._db.followup.findFirst({
-    where: {
-      FollowupSid: followupMasterSid,
-      ...(followupCreate.DocumentSid ? { DocumentSid: followupCreate.DocumentSid } : {}),
-      ...(followupCreate.MenuMasterSid ? { MenuMasterSid: followupCreate.MenuMasterSid } : {}),
+        const existing = await this._db.followup.findFirst({
+            where: {
+                FollowupSid: followupMasterSid,
+                ...(followupCreate.DocumentSid ? { DocumentSid: followupCreate.DocumentSid } : {}),
+                ...(followupCreate.MenuMasterSid ? { MenuMasterSid: followupCreate.MenuMasterSid } : {}),
+            }
+        });
+
+        if (!existing) {
+            throw new NotFoundException('Followup does not exist');
+        }
+
+        try {
+            const followup = await this._db.followup.update({
+                where: { FollowupSid: followupMasterSid },
+                data: {
+                    ...followupCreate,
+                    FollowupDate: new Date(followupCreate.FollowupDate),
+                    FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
+                    Public: followupCreate.Public ? 'Y' : 'N',
+                    sentEmail: followupCreate.sentEmail ? 'Y' : 'N',
+                    UpdatedBy: updatedBy,
+                    UpdatedOn: new Date()
+                }
+            });
+
+            // Only send if not already sent
+            if (
+                followupCreate.sentEmail &&
+                followup.Status === 'A' &&
+                mailContent &&
+                !existing.ReceivedDate
+            ) {
+                await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent);
+                await this.scheduleFollowupEmail(followup.FollowupSid, followup.FollowupDate, mailContent);
+            }
+
+            return followup;
+
+        } catch (error) {
+            this.logger.error(`Error updating followup: ${error.message}`);
+            throw new BadRequestException(error.message);
+        }
     }
-  });
-
-  if (!existing) {
-    throw new NotFoundException('Followup does not exist');
-  }
-
-  try {
-    const followup = await this._db.followup.update({
-      where: { FollowupSid: followupMasterSid },
-      data: {
-        ...followupCreate,
-        FollowupDate: new Date(followupCreate.FollowupDate),
-        FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
-        Public: followupCreate.Public ? 'Y' : 'N',
-        sentEmail: followupCreate.sentEmail ? 'Y' : 'N',
-        UpdatedBy: updatedBy,
-        UpdatedOn: new Date()
-      }
-    });
-
-    // 🔒 Only send if not already sent
-    if (
-      followupCreate.sentEmail &&
-      followup.Status === 'A' &&
-      mailContent &&
-      !existing.ReceivedDate
-    ) {
-      await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent);
-      await this.scheduleFollowupEmail(
-        followup.FollowupSid,
-        followupCreate.FollowupDate,
-        mailContent
-      );
-    }
-
-    return followup;
-
-  } catch (error) {
-    this.logger.error(`Error updating followup: ${error.message}`);
-    throw new BadRequestException(error.message);
-  }
-}
-
-
 
     async softDelete(id: number) {
         const existingfollowup = await this._db.followup.findUnique({

@@ -45,6 +45,41 @@ export const getClientIp = (req: any): string => {
 };
 
 
+// ── Branch Timezone Helpers ──────────────────────────────────────────────────
+
+export function normalizeTimezoneOffset(offset?: string | null): string {
+  if (!offset) return '+00:00';
+  let value = String(offset).trim();
+  if (!value) return '+00:00';
+  if (!['+', '-'].includes(value[0])) value = `+${value}`;
+  const match = value.match(/^([+-])(\d{1,2})(?::?(\d{2}))?$/);
+  if (!match) return '+00:00';
+  const sign = match[1];
+  const hours = match[2].padStart(2, '0');
+  const minutes = match[3] || '00';
+  return `${sign}${hours}:${minutes}`;
+}
+
+export function getOffsetMinutes(offset: string): number {
+  const match = offset.match(/^([+-])(\d{2}):(\d{2})$/);
+  if (!match) return 0;
+  const sign = match[1] === '-' ? -1 : 1;
+  return sign * (Number(match[2]) * 60 + Number(match[3]));
+}
+
+/**
+ * Converts a raw UTC-midnight Date (the datepicker's chosen calendar date)
+ * to the UTC instant that represents midnight in the given branch timezone.
+ *
+ * Example: rawDate = 2026-05-28T00:00:00Z, timeZone = "+05:30" (IST)
+ *   → 2026-05-27T18:30:00.000Z  (= midnight 28 May in IST)
+ */
+export function branchMidnightToUtc(rawDate: Date, timeZone?: string | null): Date {
+  const offset = normalizeTimezoneOffset(timeZone);
+  const offsetMs = getOffsetMinutes(offset) * 60_000;
+  return new Date(rawDate.getTime() - offsetMs);
+}
+
 export function parseDateFromString(input: string): Date | null {
   const parts = input.trim().split('-');
   if (parts.length !== 3) return null;
