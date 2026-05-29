@@ -161,6 +161,13 @@ export class InvoiceService {
                   houseJobProduct: {
                     some: { status: 'A' }
                   }
+                },
+                include: {
+                  containerType: {
+                    select: {
+                      ContainerIsoCode: true,
+                    }
+                  }
                 }
               }
             }
@@ -196,6 +203,7 @@ export class InvoiceService {
                 },
                 select:{
                   BOENo:true,
+                  DeclarationNo:true,
                 }
               }
             }
