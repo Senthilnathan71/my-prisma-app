@@ -8633,8 +8633,8 @@ async saveMasterJobExcel(
                                       ? new Date(prod.ShippingBillDate) : null,
                   CargoRecDate:     prod.CargoRecDate
                                       ? new Date(prod.CargoRecDate)     : null,
-                  ReceivedQty:      prod.ReceivedQty      || '',
-                  DamageQty:        prod.DamageQty        || '',
+                  ReceivedQty:      prod.ReceivedQty      || 0,
+                  DamageQty:        prod.DamageQty        || 0,
                   DamageRemarks:    prod.DamageRemarks    || '',
                   ContainerNo:      prod.ContainerNo      || '',
                   MarksAndNumber:   prod.MarksAndNumbers  || '',
