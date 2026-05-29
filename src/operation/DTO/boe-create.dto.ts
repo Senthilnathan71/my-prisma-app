@@ -10,6 +10,8 @@ export class CreateBoeDto {
   @IsOptional() @IsDateString() BOEDate?: string;
   @IsOptional() BOEValue?: number;
   @IsOptional() BOEInvoiceValue?: number;
+  @IsOptional() GrossWeight?: number;
+  @IsOptional() Volume?: number;
   @IsOptional() TransactionType?: string;
   @IsOptional() Amount?: number;
   @IsOptional() @IsDateString() ProcessDate?: string;
