@@ -196,16 +196,17 @@ export class SalesDashboardService {
       ),
       this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
-        FROM "PreCustomerMeeting" pcmm
+        FROM "MeetingFollowup" mf
+        INNER JOIN "PreCustomerMeeting" pcmm
+          ON mf."PreCustomerMeetingSid" = pcmm."PreCustomerMeetingSid"
         WHERE
-          pcmm."followUpDate" IS NOT NULL
-          AND pcmm."status" = 'A'
-          AND pcmm."CompanyMasterSid" = $1
-          AND pcmm."BranchMasterSid" = $2
+          mf."Status" = 'A'
+          AND COALESCE(mf."IsCompleted", 'N') != 'Y'
+          AND mf."CompanyMasterSid" = $1
+          AND mf."BranchMasterSid" = $2
           AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-          AND ($4::timestamp IS NULL OR pcmm."followUpDate" >= $4::timestamp)
-          AND ($5::timestamp IS NULL OR pcmm."followUpDate" <= $5::timestamp)
-          AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')`,
+          AND ($4::timestamp IS NULL OR mf."FollowupDate" >= $4::timestamp)
+          AND ($5::timestamp IS NULL OR mf."FollowupDate" <= $5::timestamp)`,
         companyMasterSid,
         branchMasterSid,
         salespersonId,
@@ -906,22 +907,21 @@ export class SalesDashboardService {
       [
         `pcm."preCustomerName"`,
         `cm."CustomerName"`,
-        `pcmm."meetingType"`,
-        `pcmm."followUpNote"`,
-        `um."userName"`,
+        `mf."FollowupNote"`,
       ],
       baseParams.length + 1,
     );
 
     const dataSql = `
       SELECT
+        mf."MeetingFollowupSid",
+        mf."FollowupDate" AS "followUpDate",
+        mf."FollowupNote" AS "followUpNote",
+        mf."MeetingNote" AS "meetingNote",
         pcmm."PreCustomerMeetingSid",
         pcmm."meetingDate",
         pcmm."meetingType",
         pcmm."meetingStatus",
-        pcmm."meetingNote",
-        pcmm."followUpDate",
-        pcmm."followUpNote",
         pcmm."leadAssignTo",
         pcmm."LeadOrCustomer",
         pcm."PreCustomerMasterSid",
@@ -931,11 +931,13 @@ export class SalesDashboardService {
         cm."CustomerName",
         um."userName" AS "salespersonName",
         CASE
-          WHEN pcmm."followUpDate" < CURRENT_DATE THEN 'Overdue'
-          WHEN pcmm."followUpDate" = CURRENT_DATE THEN 'Due Today'
+          WHEN mf."FollowupDate"::date < CURRENT_DATE THEN 'Overdue'
+          WHEN mf."FollowupDate"::date = CURRENT_DATE THEN 'Due Today'
           ELSE 'Upcoming'
         END AS "followUpStatus"
-      FROM "PreCustomerMeeting" pcmm
+      FROM "MeetingFollowup" mf
+      INNER JOIN "PreCustomerMeeting" pcmm
+        ON mf."PreCustomerMeetingSid" = pcmm."PreCustomerMeetingSid"
       LEFT JOIN "PreCustomerMaster" pcm
         ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
       LEFT JOIN "CustomerMaster" cm
@@ -943,35 +945,33 @@ export class SalesDashboardService {
       LEFT JOIN "UserMaster" um
         ON pcmm."leadAssignTo" = um."UserMasterSid"
       WHERE
-        pcmm."followUpDate" IS NOT NULL
-        AND pcmm."status" = 'A'
-        AND pcmm."CompanyMasterSid" = $1
-        AND pcmm."BranchMasterSid" = $2
+        mf."Status" = 'A'
+        AND COALESCE(mf."IsCompleted", 'N') != 'Y'
+        AND mf."CompanyMasterSid" = $1
+        AND mf."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-        AND ($4::timestamp IS NULL OR pcmm."followUpDate" >= $4::timestamp)
-        AND ($5::timestamp IS NULL OR pcmm."followUpDate" <= $5::timestamp)
-        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+        AND ($4::timestamp IS NULL OR mf."FollowupDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR mf."FollowupDate" <= $5::timestamp)
         ${search.clause}
-      ORDER BY pcmm."followUpDate" ASC`;
+      ORDER BY mf."FollowupDate" ASC`;
 
     const countSql = `
       SELECT COUNT(*) AS "count"
-      FROM "PreCustomerMeeting" pcmm
+      FROM "MeetingFollowup" mf
+      INNER JOIN "PreCustomerMeeting" pcmm
+        ON mf."PreCustomerMeetingSid" = pcmm."PreCustomerMeetingSid"
       LEFT JOIN "PreCustomerMaster" pcm
         ON pcmm."PreCustomerMasterSid" = pcm."PreCustomerMasterSid"
       LEFT JOIN "CustomerMaster" cm
         ON pcmm."CustomerMasterSid" = cm."CustomerMasterSid"
-      LEFT JOIN "UserMaster" um
-        ON pcmm."leadAssignTo" = um."UserMasterSid"
       WHERE
-        pcmm."followUpDate" IS NOT NULL
-        AND pcmm."status" = 'A'
-        AND pcmm."CompanyMasterSid" = $1
-        AND pcmm."BranchMasterSid" = $2
+        mf."Status" = 'A'
+        AND COALESCE(mf."IsCompleted", 'N') != 'Y'
+        AND mf."CompanyMasterSid" = $1
+        AND mf."BranchMasterSid" = $2
         AND ($3::int IS NULL OR pcmm."leadAssignTo" = $3)
-        AND ($4::timestamp IS NULL OR pcmm."followUpDate" >= $4::timestamp)
-        AND ($5::timestamp IS NULL OR pcmm."followUpDate" <= $5::timestamp)
-        AND pcmm."meetingStatus" NOT IN ('Completed', 'Confirmed')
+        AND ($4::timestamp IS NULL OR mf."FollowupDate" >= $4::timestamp)
+        AND ($5::timestamp IS NULL OR mf."FollowupDate" <= $5::timestamp)
         ${search.clause}`;
 
     return this.executePagedQuery<any>(
@@ -982,6 +982,13 @@ export class SalesDashboardService {
       params.page,
       params.pageSize,
     );
+  }
+
+  async completeMeetingFollowup(meetingFollowupSid: number, updatedBy: string) {
+    return this.db.meetingFollowup.update({
+      where: { MeetingFollowupSid: meetingFollowupSid },
+      data: { IsCompleted: 'Y', updatedBy, updatedOn: new Date() },
+    });
   }
 
   private async getMeetingsNotConvertedPage(query: SalesDashboardQueryDto): Promise<PagedResult<any>> {
@@ -2222,4 +2229,5 @@ export class SalesDashboardService {
       total: days0to7 + days7to30 + days30to60 + days60plus,
     };
   }
+
 }

@@ -75,3 +75,43 @@ export class SalesDashboardQueryDto {
   @IsIn(['none', 'range'])
   meetingDateFilter?: 'none' | 'range';
 }
+
+export class DashboardFollowupsQueryDto {
+  @ApiProperty({ required: true })
+  @IsNumber()
+  @Type(() => Number)
+  companyMasterSid: number;
+
+  @ApiProperty({ required: true })
+  @IsNumber()
+  @Type(() => Number)
+  branchMasterSid: number;
+
+  @ApiProperty({ required: false, enum: ['our', 'created'], default: 'our' })
+  @IsOptional()
+  @IsIn(['our', 'created'])
+  mode?: 'our' | 'created';
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  menuMasterSid?: number;
+
+  @ApiProperty({ required: false, enum: ['overdue', 'today', 'upcoming'] })
+  @IsOptional()
+  @IsIn(['overdue', 'today', 'upcoming'])
+  followUpStatus?: 'overdue' | 'today' | 'upcoming';
+
+  @ApiProperty({ required: false, default: 1 })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  page?: number;
+
+  @ApiProperty({ required: false, default: 10 })
+  @IsOptional()
+  @IsNumber()
+  @Type(() => Number)
+  pageSize?: number;
+}
