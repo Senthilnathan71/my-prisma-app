@@ -1,4 +1,5 @@
-import { Controller, Get, Query, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Patch, Query, Param, ParseIntPipe } from '@nestjs/common';
+import { UserData } from 'src/common/decorators/user.decorator';
 import { ApiTags } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -47,4 +48,22 @@ export class SalesDashboardController {
     resp.data = await this.salesDashboardService.getFunnelJourneys(query);
     return resp;
   }
+
+  @Auth()
+  @Patch('sales-dashboard/followup/complete/:id')
+  async completeMeetingFollowup(
+    @Param('id', ParseIntPipe) id: number,
+    @UserData() user: any,
+  ) {
+    const resp = new ResponseData();
+    try {
+      resp.data = await this.salesDashboardService.completeMeetingFollowup(id, user?.userEmail || 'system');
+      resp.message = 'Followup marked as completed';
+    } catch (error) {
+      resp.status = false;
+      resp.message = 'Internal Server Error';
+    }
+    return resp;
+  }
+
 }

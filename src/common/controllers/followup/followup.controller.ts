@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
@@ -69,23 +69,57 @@ export class FollowupController {
         return output
     }
 
-    @ApiOperation({ summary: 'Get followup By Id' })
+    @ApiOperation({ summary: 'Get followups By Document Id' })
     @ApiCreatedResponse({
-        description: 'Get followup By Id',
+        description: 'Get followups By Document Id',
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
     @Get('fetch/:id')
-    async getFollowupsByDocumentId(@Param('id', ParseIntPipe) DocumentSid: number) {
+    async getFollowupsByDocumentId(
+        @Param('id', ParseIntPipe) DocumentSid: number,
+        @Query('menuMasterSid') menuMasterSidStr?: string
+    ) {
         const output = new ResponseData;
-        try{ 
-            const followup = await this.followupService.getFollowupsByDocumentId(DocumentSid)
-            this.logger.log(`getfollowupId: ${JSON.stringify(DocumentSid)}`)
-            output.data = followup
+        try {
+            const menuMasterSid = menuMasterSidStr ? Number(menuMasterSidStr) : undefined;
+            const followup = await this.followupService.getFollowupsByDocumentId(DocumentSid, menuMasterSid);
+            this.logger.log(`getfollowupId: ${JSON.stringify(DocumentSid)}`);
+            output.data = followup;
         } catch (error) {
-            this.logger.warn(`getfollowupById: ${JSON.stringify(error)}`)
+            this.logger.warn(`getfollowupById: ${JSON.stringify(error)}`);
             output.status = false;
-            output.message = error
+            output.message = error;
+        }
+        return output;
+    }
+
+    @ApiOperation({ summary: 'Mark followup as Completed/Incomplete' })
+    @ApiCreatedResponse({
+        description: 'Mark followup as Completed/Incomplete',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Patch('mark-completed/:id')
+    async markFollowupCompleted(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() body: { documentSid: number; menuMasterSid: number; isCompleted: string; updatedBy: string }
+    ) {
+        let output = new ResponseData();
+        try {
+            const result = await this.followupService.markFollowupCompleted(
+                id, body.documentSid, body.menuMasterSid, body.isCompleted, body.updatedBy
+            );
+            output.data = result;
+            output.message = 'Followup updated successfully';
+        } catch (error) {
+            this.logger.warn(`markFollowupCompleted error: ${JSON.stringify(error), error}`);
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
         }
         return output;
     }

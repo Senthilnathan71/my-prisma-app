@@ -10,8 +10,8 @@ export class SchedulerService {
         private logger: Logger
     ) { }
 
-    addCronJob(name: string, cronTime: string, callback: () => void) {
-        const job = new CronJob(cronTime, callback);
+    addCronJob(name: string, cronTime: string, callback: () => void, timeZone?: string) {
+        const job = new CronJob(cronTime, callback, null, false, timeZone);
         this.schedulerRegistry.addCronJob(name, job);
         job.start();
         this.logger.log(`Job ${name} added!`);

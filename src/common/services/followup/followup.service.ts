@@ -5,43 +5,77 @@ import { SchedulerService } from '../scheduler/scheduler.service';
 import * as moment from 'moment-timezone';
 
 @Injectable()
-export class FollowupService {
+export class FollowupService implements OnModuleInit {
 
     constructor(
-        private _db: DatabaseService, 
-        private emailService: EmailService, 
+        private _db: DatabaseService,
+        private emailService: EmailService,
         private logger: Logger,
         private schedulerService : SchedulerService
     ) { }
 
-    async createFollowup(payload: any,user) {
+    async onModuleInit() {
+        await this.rescheduleUnfinishedFollowupEmails();
+    }
+
+    private async rescheduleUnfinishedFollowupEmails() {
+        try {
+            const pending = await this._db.followup.findMany({
+                where: {
+                    sentEmail: 'Y',
+                    Status: 'A',
+                    ReceivedDate: null,
+                    FollowupDate: { gt: new Date() },
+                },
+            });
+
+            for (const followup of pending) {
+                let emailTo = '';
+                if (followup.InternalUser) {
+                    const user = await this._db.userMaster.findUnique({
+                        where: { UserMasterSid: followup.InternalUser },
+                        select: { userEmail: true },
+                    });
+                    emailTo = user?.userEmail || '';
+                } else if (followup.ExternalUser) {
+                    emailTo = followup.ExternalUser;
+                }
+
+                const mailContent = {
+                    EmailTo: emailTo,
+                    EmailCC: '',
+                    Subject: followup.Subject || 'Follow Up Reminder',
+                    Mailbody: followup.Remarks || '',
+                };
+
+                await this.scheduleFollowupEmail(followup.FollowupSid, followup.FollowupDate, mailContent);
+            }
+
+            this.logger.log(`Rescheduled ${pending.length} pending followup email job(s) on startup`);
+        } catch (error) {
+            this.logger.error(`Failed to reschedule followup emails on startup: ${error.message}`);
+        }
+    }
+
+    async createFollowup(payload: any, user) {
 
         try {
             const { followupCreate, mailContent, createdBy, updatedBy } = payload;
-            const followupDate = followupCreate.FollowupDate;
-            console.log(followupDate); 
-
-            const correctedDate = moment(followupDate)
-                .add(1, "day")
-                .startOf("day")
-                .toDate();
-
-            console.log(correctedDate);
 
             const followup = await this._db.followup.create({
                 data: {
                     ...followupCreate,
-                    FollowupDate: correctedDate,
+                    FollowupDate: followupCreate.FollowupDate,
                     FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
                     Public: followupCreate.Public ? 'Y' : 'N',
                     sentEmail: followupCreate.sentEmail ? 'Y' : 'N',
                     CreatedBy: createdBy,
                     UpdatedBy: updatedBy,
                 }
-            }); 
+            });
             if (followupCreate.sentEmail && followup.Status === "A" && mailContent) {
-                await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent)
-                await this.scheduleFollowupEmail(followup.FollowupSid, followupCreate.FollowupDate, mailContent);
+                await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent);
+                await this.scheduleFollowupEmail(followup.FollowupSid, followup.FollowupDate, mailContent);
             }
 
             return followup;
@@ -54,9 +88,8 @@ export class FollowupService {
     async scheduleFollowupEmail(followupId: number, followupDate: Date, mailContent: any) {
         const jobName = `followup-${followupId}`;
 
-        const followupDateTime = new Date(followupDate);
-        const cronExpression = `${followupDateTime.getMinutes()} ${followupDateTime.getHours()} ${followupDateTime.getDate()} ${followupDateTime.getMonth() + 1} *`;
-
+        const followupDateTime = followupDate;
+        const cronExpression = `${followupDateTime.getUTCMinutes()} ${followupDateTime.getUTCHours()} ${followupDateTime.getUTCDate()} ${followupDateTime.getUTCMonth() + 1} *`;
 
         this.schedulerService.addCronJob(
             jobName,
@@ -64,7 +97,8 @@ export class FollowupService {
             async () => {
                 await this.sendSpecificFollowupEmail(followupId, mailContent);
                 this.schedulerService.removeCronJob(jobName);
-            }
+            },
+            'UTC'
         );
 
         this.logger.log(`Scheduled email job for followup ${followupId} at ${followupDate}`);
@@ -76,7 +110,7 @@ export class FollowupService {
                 where: { FollowupSid: followupId }
             });
 
-            if(!followup) {
+            if (!followup) {
                 throw new BadRequestException('Followup not found');
             }
 
@@ -165,77 +199,77 @@ export class FollowupService {
         }
     }
 
-        async getFollowupsByDocumentId(documentSid: number) {
+    async getFollowupsByDocumentId(documentSid: number, menuMasterSid?: number) {
         try {
-            const followups = await this._db.followup.findFirst({
+            const followups = await this._db.followup.findMany({
                 where: {
                     DocumentSid: documentSid,
-                    Status: 'A'
+                    Status: { in: ['A', 'S'] },
+                    ...(menuMasterSid ? { MenuMasterSid: menuMasterSid } : {})
                 },
+                orderBy: { CreatedOn: 'desc' }
             });
-            
             return followups;
         } catch (error) {
             this.logger.error(`Error fetching followups by document ID: ${error.message}`);
+            throw error;
         }
     }
 
-    async updateFollowup(followupMasterSid: number, payload: any, user) {
-
-  const existing = await this._db.followup.findUnique({
-    where: { FollowupSid: followupMasterSid }
-  });
-
-  if (!existing) {
-    throw new NotFoundException('Followup does not exist');
-  }
-
-  const { followupCreate, mailContent, updatedBy } = payload;
-
-  const parsedDate = this.parseNgbDate(followupCreate.FollowupDate);
-
-  const correctedDate = parsedDate
-    ? moment(parsedDate).add(1, 'day').startOf('day').toDate()
-    : undefined;
-
-  try {
-    const followup = await this._db.followup.update({
-      where: { FollowupSid: followupMasterSid },
-      data: {
-        ...followupCreate,
-        FollowupDate: correctedDate,
-        FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
-        Public: followupCreate.Public ? 'Y' : 'N',
-        sentEmail: followupCreate.sentEmail ? 'Y' : 'N',
-        UpdatedBy: updatedBy,
-        UpdatedOn: new Date()
-      }
-    });
-
-    // 🔒 Only send if not already sent
-    if (
-      followupCreate.sentEmail &&
-      followup.Status === 'A' &&
-      mailContent &&
-      !existing.ReceivedDate
-    ) {
-      await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent);
-      await this.scheduleFollowupEmail(
-        followup.FollowupSid,
-        followupCreate.FollowupDate,
-        mailContent
-      );
+    async markFollowupCompleted(id: number, documentSid: number, menuMasterSid: number, isCompleted: string, updatedBy: string) {
+        return this._db.followup.updateMany({
+            where: { FollowupSid: id, DocumentSid: documentSid, MenuMasterSid: menuMasterSid },
+            data: { IsCompleted: isCompleted, UpdatedBy: updatedBy, UpdatedOn: new Date() }
+        });
     }
 
-    return followup;
+    async updateFollowup(followupMasterSid: number, payload: any, user) {
+        const { followupCreate, mailContent, updatedBy } = payload;
 
-  } catch (error) {
-    this.logger.error(`Error updating followup: ${error.message}`);
-    throw new BadRequestException(error.message);
-  }
-}
+        const existing = await this._db.followup.findFirst({
+            where: {
+                FollowupSid: followupMasterSid,
+                ...(followupCreate.DocumentSid ? { DocumentSid: followupCreate.DocumentSid } : {}),
+                ...(followupCreate.MenuMasterSid ? { MenuMasterSid: followupCreate.MenuMasterSid } : {}),
+            }
+        });
 
+        if (!existing) {
+            throw new NotFoundException('Followup does not exist');
+        }
 
+        try {
+            const followup = await this._db.followup.update({
+                where: { FollowupSid: followupMasterSid },
+                data: {
+                    ...followupCreate,
+                    FollowupDate: new Date(followupCreate.FollowupDate),
+                    FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
+                    Public: followupCreate.Public ? 'Y' : 'N',
+                    sentEmail: followupCreate.sentEmail ? 'Y' : 'N',
+                    UpdatedBy: updatedBy,
+                    UpdatedOn: new Date()
+                }
+            });
+
+            // Only send if not already sent
+            if (
+                followupCreate.sentEmail &&
+                followup.Status === 'A' &&
+                mailContent &&
+                !existing.ReceivedDate
+            ) {
+                await this.sendSpecificFollowupEmail(followup.FollowupSid, mailContent);
+                await this.scheduleFollowupEmail(followup.FollowupSid, followup.FollowupDate, mailContent);
+            }
+
+            return followup;
+
+        } catch (error) {
+            this.logger.error(`Error updating followup: ${error.message}`);
+            throw new BadRequestException(error.message);
+        }
+    }
 
     async softDelete(id: number) {
         const existingfollowup = await this._db.followup.findUnique({
@@ -262,12 +296,4 @@ export class FollowupService {
         });
     }
 
-    private parseNgbDate(date: any): Date | null {
-  if (!date || typeof date !== 'object') return null;
-
-  const { year, month, day } = date;
-  if (!year || !month || !day) return null;
-
-  return new Date(year, month - 1, day);
-}
 }

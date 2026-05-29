@@ -5,18 +5,22 @@ import { SalesDashboardController } from './controllers/sales-dashboard/sales-da
 import { SalesDashboardService } from './services/sales-dashboard/sales-dashboard.service';
 import { SalesManagerDashboardController } from './controllers/sales-manager-dashboard/sales-manager-dashboard.controller';
 import { SalesManagerDashboardService } from './services/sales-manager-dashboard/sales-manager-dashboard.service';
+import { DashboardFollowupController } from './controllers/dashboard-followup/dashboard-followup.controller';
+import { DashboardFollowupService } from './services/dashboard-followup/dashboard-followup.service';
 import { SettingsModule } from 'src/settings/settings.module';
 
 
 @Module({
-  imports: [SettingsModule,EmailModule],
+  imports: [SettingsModule, EmailModule],
   controllers: [
-    SalesDashboardController, 
-    SalesManagerDashboardController
+    SalesDashboardController,
+    SalesManagerDashboardController,
+    DashboardFollowupController,
   ],
   providers: [
-    SalesDashboardService, 
-    SalesManagerDashboardService
+    SalesDashboardService,
+    SalesManagerDashboardService,
+    DashboardFollowupService,
   ],
 })
 export class DashboardModule { }

@@ -922,6 +922,22 @@ export class FfUserMasterService {
         }
     }
 
+    async getAllFfUserByCompany(companyId: number) {
+        try {
+            return await this._db.userMaster.findMany({
+                where: {
+                    status: 'A',
+                    userCompanyMaster: {
+                        some: { CompanyMasterSid: companyId, GiveAccess: 'Y', status: 'A' }
+                    }
+                },
+                omit: { userPassword: true }
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async getAllSalesperson(CompanyMasterSid: number) {
         try {
             const allSalespersons = await this._db.userMaster.findMany({
