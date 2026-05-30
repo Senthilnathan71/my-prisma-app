@@ -27,22 +27,22 @@ interface ShipmentMilestoneDTO {
 }
 
 interface TariffBookingPayload {
-  EffectiveDate: Date | string;        // required – tariff effective from
-  ExpiredDate: Date | string;          // required – tariff valid until
-  DepartmentMasterSid: number;         // required – department
-  POLSid: number;                      // required – Port of Loading
-  PODSid: number;                      // required – Port of Discharge
-  CompanyMasterSid: number;            // required – company
-  BranchMasterSid: number;             // required – branch
+    EffectiveDate: Date | string;        // required – tariff effective from
+    ExpiredDate: Date | string;          // required – tariff valid until
+    DepartmentMasterSid: number;         // required – department
+    POLSid: number;                      // required – Port of Loading
+    PODSid: number;                      // required – Port of Discharge
+    CompanyMasterSid: number;            // required – company
+    BranchMasterSid: number;             // required – branch
 
-  // ------- Optional filters --------
-  PORSid?: number;                     // Port of Origin
-  FPODSid?: number;                    // Final Port of Discharge
-  Carrier?: number;                    // Carrier customer id
-  AgentSid?: number;                    // Agent id
-  IncoTerms?: string;                  // e.g., "FOB", "CIF"
-  CargoType?: string;                  // e.g., "FCL", "LCL"
-  ContainerType?: number;
+    // ------- Optional filters --------
+    PORSid?: number;                     // Port of Origin
+    FPODSid?: number;                    // Final Port of Discharge
+    Carrier?: number;                    // Carrier customer id
+    AgentSid?: number;                    // Agent id
+    IncoTerms?: string;                  // e.g., "FOB", "CIF"
+    CargoType?: string;                  // e.g., "FCL", "LCL"
+    ContainerType?: number;
 }
 
 
@@ -200,8 +200,8 @@ export class BookingService {
                 status: 'A'
             }
 
-            if(payload.isEditMode){
-                whereClause.BookingHeaderSid = { not : payload.BookingHeaderSid }
+            if (payload.isEditMode) {
+                whereClause.BookingHeaderSid = { not: payload.BookingHeaderSid }
             }
 
             const existingRecord = await this._db.bookingHeader.findFirst({
@@ -228,16 +228,16 @@ export class BookingService {
             // let numberSeriesMenuId = payload.NumberSeriesMenuMasterSid || payload.MenuMasterSid;
             // if (!numberSeriesMenuId) {
             let numberSeriesMenuId;
-                const bookingMenu = await this._db.menuMaster.findFirst({
-                    where: {
-                        OR: [
-                            { MenuCode: 'BKN' }
-                            // { MenuName: { contains: 'booking', mode: 'insensitive' } }
-                        ],
-                        status: { in: ['A', 'S'] }
-                    }
-                });
-                numberSeriesMenuId = bookingMenu?.MenuMasterSid;
+            const bookingMenu = await this._db.menuMaster.findFirst({
+                where: {
+                    OR: [
+                        { MenuCode: 'BKN' }
+                        // { MenuName: { contains: 'booking', mode: 'insensitive' } }
+                    ],
+                    status: { in: ['A', 'S'] }
+                }
+            });
+            numberSeriesMenuId = bookingMenu?.MenuMasterSid;
             // ================= RESOLVE JOB DATE FIRST =================
             let resolvedJobDate: Date = payload.BookingDateTime
                 ? new Date(payload.BookingDateTime)
@@ -259,7 +259,7 @@ export class BookingService {
                     }
                 }
             }
-                this.logger.log(`[NumberSeries] Menu lookup result: ${JSON.stringify(bookingMenu)}`);
+            this.logger.log(`[NumberSeries] Menu lookup result: ${JSON.stringify(bookingMenu)}`);
             // }
             this.logger.log(`[NumberSeries] Final numberSeriesMenuId: ${numberSeriesMenuId}`);
 
@@ -306,22 +306,22 @@ export class BookingService {
                 this.logger.warn(`BookingNo truncated from ${BookingNo.length} chars: ${BookingNo}`);
                 BookingNo = BookingNo.substring(0, 50);
             } // Log the data object being inserted to find the too-long column
-       const bookingData = {
-           CompanyMasterSid: payload.CompanyMasterSid,
-           BranchMasterSid: payload.BranchMasterSid,
-           MenuMasterSid: payload.MenuMasterSid,
-           BookingNo: BookingNo,
-           JobType: payload.JobType,
-           VoyageNo: payload.VoyageNo,
-           MovementType: payload.MovementType,
-           ShipmentType: payload.ShipmentType,
-           IncoTerms: payload.IncoTerms,
-           CustomerName: payload.CustomerName,
-           ShipperName: payload.ShipperName,
-           ConsigneeName: payload.ConsigneeName,
-       };
-       this.logger.log(`[BookingData] Insert payload: ${JSON.stringify(bookingData)}`);
-       this.logger.log(`[BookingData] Field lengths - JobType: ${payload.JobType?.length}, VoyageNo:
+            const bookingData = {
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                MenuMasterSid: payload.MenuMasterSid,
+                BookingNo: BookingNo,
+                JobType: payload.JobType,
+                VoyageNo: payload.VoyageNo,
+                MovementType: payload.MovementType,
+                ShipmentType: payload.ShipmentType,
+                IncoTerms: payload.IncoTerms,
+                CustomerName: payload.CustomerName,
+                ShipperName: payload.ShipperName,
+                ConsigneeName: payload.ConsigneeName,
+            };
+            this.logger.log(`[BookingData] Insert payload: ${JSON.stringify(bookingData)}`);
+            this.logger.log(`[BookingData] Field lengths - JobType: ${payload.JobType?.length}, VoyageNo:
 ${payload.VoyageNo?.length}, MovementType: ${payload.MovementType?.length}, ShipmentType:
 ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
 
@@ -392,7 +392,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     }
                 })
 
-                return {...createBookingHeader}
+                return { ...createBookingHeader }
             })
             const croPayload = payload.bookingCro ?? {};
             const croData = {
@@ -407,13 +407,13 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                 NoteToYard: croPayload.NoteToYard,
                 NoteToShipper: croPayload.NoteToShipper,
                 CreatedBy: payload.createdBy,
-                
+
             }
             let createdCro = await this._db.bookingCro.create({
-    data: croData
-}).catch(err => {
-    throw new InternalServerErrorException('Something went wrong while creating booking CRO', err)
-})
+                data: croData
+            }).catch(err => {
+                throw new InternalServerErrorException('Something went wrong while creating booking CRO', err)
+            })
             /**
                 |--------------------------------------------------
                 |  Step 2 : Create Booking Cargos
@@ -558,55 +558,55 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                 |--------------------------------------------------
             */
             let allRates: any[] = (payload.bookingRates || []).map(
-                (rate,index) => {
+                (rate, index) => {
                     return {
-                    BookingHeaderSid: bookingHeader.BookingHeaderSid,
-                    CompanyMasterSid: payload.CompanyMasterSid,
-                    BranchMasterSid: payload.BranchMasterSid,
-                    CreatedBy: payload.createdBy,
+                        BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        CreatedBy: payload.createdBy,
 
-                    SerialNumber: (index + 1) || null,
-                    ChargeMasterSid: rate.ChargeMasterSid,
-                    ChargeDescription: rate.ChargeDescription,
+                        SerialNumber: (index + 1) || null,
+                        ChargeMasterSid: rate.ChargeMasterSid,
+                        ChargeDescription: rate.ChargeDescription,
 
-                    ChargeUomSid: rate.ChargeUomSid || null,
-                    RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
-                    CostChargeUomSid: rate.CostChargeUomSid || null,
+                        ChargeUomSid: rate.ChargeUomSid || null,
+                        RevenueChargeUomSid: rate.RevenueChargeUomSid || null,
+                        CostChargeUomSid: rate.CostChargeUomSid || null,
 
-                    NoOfUnit: Number(rate.NoOfUnit) || null,
-                    RevenueNumberOfUnit: Number(rate.RevenueNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
-                    CostNumberOfUnit: Number(rate.CostNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
+                        NoOfUnit: Number(rate.NoOfUnit) || null,
+                        RevenueNumberOfUnit: Number(rate.RevenueNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
+                        CostNumberOfUnit: Number(rate.CostNumberOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
 
-                    
-                    // Revenue Section
-                    RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid || null,
-                    RevenueExchangeRate: rate.RevenueExchangeRate ? Number(rate.RevenueExchangeRate) : null,
-                    RevenueRate: rate.RevenueRate ? Number(rate.RevenueRate) : null,
-                    RevenueAmount: Number(rate.RevenueAmount || 0),
-                    RevenueLocalAmount: Number(rate.RevenueLocalAmount || 0),
-                    RevenueDrCr: rate.RevenueDrCr || 'C',
-                    CustomerMasterSid: rate.RevenueCustomerMasterSid,
-                    CustomerBranchSid: rate.RevenueCustomerBranchSid,
-                    RevenuePrepaidCollect: rate.RevenuePrepaidCollect || 'Prepaid',
-                    
-                    // Cost Section
-                    CostCurrencyMasterSid: rate.CostCurrencyMasterSid || null,
-                    CostExchangeRate: rate.CostExchangeRate ? Number(rate.CostExchangeRate) : null,
-                    CostRate: rate.CostRate ? Number(rate.CostRate) : null,
-                    CostAmount: Number(rate.CostAmount || 0),
-                    CostLocalAmount: Number(rate.CostLocalAmount || 0),
-                    CostDrCr: rate.CostDrCr || 'D',
-                    AgentMasterSid: rate.CostAgentMasterSid || null,
-                    AgentBranchSid: rate.CostAgentBranchSid || null,
-                    CostPrepaidCollect: rate.CostPrepaidCollect || 'Prepaid',
-                    
-                    
-                    // PrepaidCollect: rate.PrepaidCollect || null,
-                    QuoteChargeSid: rate.QuoteChargeSid || null,
-                    TariffDetailSid: rate.TariffDetailSid || null,
-                    Remarks: rate.Remarks || null,
-                    Status: 'A'
-                }
+
+                        // Revenue Section
+                        RevenueCurrencyMasterSid: rate.RevenueCurrencyMasterSid || null,
+                        RevenueExchangeRate: rate.RevenueExchangeRate ? Number(rate.RevenueExchangeRate) : null,
+                        RevenueRate: rate.RevenueRate ? Number(rate.RevenueRate) : null,
+                        RevenueAmount: Number(rate.RevenueAmount || 0),
+                        RevenueLocalAmount: Number(rate.RevenueLocalAmount || 0),
+                        RevenueDrCr: rate.RevenueDrCr || 'C',
+                        CustomerMasterSid: rate.RevenueCustomerMasterSid,
+                        CustomerBranchSid: rate.RevenueCustomerBranchSid,
+                        RevenuePrepaidCollect: rate.RevenuePrepaidCollect || 'Prepaid',
+
+                        // Cost Section
+                        CostCurrencyMasterSid: rate.CostCurrencyMasterSid || null,
+                        CostExchangeRate: rate.CostExchangeRate ? Number(rate.CostExchangeRate) : null,
+                        CostRate: rate.CostRate ? Number(rate.CostRate) : null,
+                        CostAmount: Number(rate.CostAmount || 0),
+                        CostLocalAmount: Number(rate.CostLocalAmount || 0),
+                        CostDrCr: rate.CostDrCr || 'D',
+                        AgentMasterSid: rate.CostAgentMasterSid || null,
+                        AgentBranchSid: rate.CostAgentBranchSid || null,
+                        CostPrepaidCollect: rate.CostPrepaidCollect || 'Prepaid',
+
+
+                        // PrepaidCollect: rate.PrepaidCollect || null,
+                        QuoteChargeSid: rate.QuoteChargeSid || null,
+                        TariffDetailSid: rate.TariffDetailSid || null,
+                        Remarks: rate.Remarks || null,
+                        Status: 'A'
+                    }
                 }
             )
 
@@ -656,7 +656,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
 
                     // 1. ALWAYS update the specific QuoteRoute with BookingHeaderSid
                     if (quoteRouteSid) {
-                        
+
 
                         await this._db.quoteRoute.update({
                             where: {
@@ -670,7 +670,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                             }
                         });
 
-                    } 
+                    }
 
                     // 2. Update QuoteHeader.BookingHeaderSid ONLY if it's null (first booking)
                     const quoteHeader = await this._db.quoteHeader.findUnique({
@@ -679,7 +679,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     });
 
                     if (!quoteHeader?.BookingHeaderSid) {
-                       
+
 
                         await this._db.quoteHeader.update({
                             where: { QuoteHeaderSid: bookingHeader.QuotationHeaderSid },
@@ -695,7 +695,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     this.logger.error(`[Booking] Failed to update Quote/Route with BookingHeaderSid: ${error.message}`);
 
                 }
-            }        
+            }
 
             return {
                 bookingHeader,
@@ -738,15 +738,15 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     bookingCargo: { where: { status: 'A' } },
                     bookingProduct: { where: { status: 'A' } },
                     bookingOthers: { where: { status: 'A' } },
-                     bookingCro: true,
+                    bookingCro: true,
                     bookingConnection: { where: { status: 'A' } },
-                    houseJob : {
-                        where :{
-                            status : 'A'
+                    houseJob: {
+                        where: {
+                            status: 'A'
                         },
-                        select : {
-                            HouseJobSid : true,
-                            HBLNo : true,
+                        select: {
+                            HouseJobSid: true,
+                            HBLNo: true,
                         }
                     }
                 }
@@ -807,7 +807,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
 
             return {
                 ...ourBooking,
-                bookingCargo: cargosWithProducts, 
+                bookingCargo: cargosWithProducts,
                 bookingRates: respectiveCostRevenueCharges,
                 voyageDetails
             }
@@ -818,18 +818,18 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
 
     async updateBookingById(BookingHeaderSid: number, payload: any) {
         try {
-            const result =  await this._db.$transaction(async (prisma) => {
+            const result = await this._db.$transaction(async (prisma) => {
                 /**
                     |--------------------------------------------------
                     |   Step 1 : Update Booking Header
                     |--------------------------------------------------
                 */
-                const updatedBooking:any = await prisma.bookingHeader.update({
+                const updatedBooking: any = await prisma.bookingHeader.update({
                     where: {
                         BookingHeaderSid: BookingHeaderSid
                     },
                     data: {
-                        BookingDateTime : payload.BookingDateTime,
+                        BookingDateTime: payload.BookingDateTime,
                         CustomerName: payload.CustomerName,
                         CustomerAddress: payload.CustomerAddress,
                         CustomerBranchSid: payload.CustomerBranchSid,
@@ -1113,47 +1113,47 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                         }
                     })
                 }
-                    
+
                 /**
  * |--------------------------------------------------
  * |   Step 4.5 : Update Booking CRO
  * |--------------------------------------------------
  */
-let finalBookingCro;
-const croPayload = payload.bookingCro ?? {};
+                let finalBookingCro;
+                const croPayload = payload.bookingCro ?? {};
 
-if (!croPayload?.BookingCroSid) {
-    finalBookingCro = await prisma.bookingCro.create({
-        data: {
-            CompanyMasterSid: payload.CompanyMasterSid,
-            BranchMasterSid: payload.BranchMasterSid,
-            BookingHeaderSid: updatedBooking.BookingHeaderSid,
-            CreatedBy: payload.updatedBy,
-            OnHireRef: croPayload.OnHireRef || null,
-            ReleaseOrderDate: croPayload.ReleaseOrderDate || null,
-            ValidityDate: croPayload.ValidityDate || null,
-            Transporter: croPayload.Transporter || null,
-            EmptyYard: croPayload.EmptyYard || null,
-            NoteToYard: croPayload.NoteToYard || null,
-            NoteToShipper: croPayload.NoteToShipper || null
-        }
-    })
-} else {
-    finalBookingCro = await prisma.bookingCro.update({
-        where: { BookingCroSid: croPayload.BookingCroSid },
-        data: {
-            OnHireRef: croPayload.OnHireRef || null,
-            ReleaseOrderDate: croPayload.ReleaseOrderDate || null,
-            ValidityDate: croPayload.ValidityDate || null,
-            Transporter: croPayload.Transporter || null,
-            EmptyYard: croPayload.EmptyYard || null,
-            NoteToYard: croPayload.NoteToYard || null,
-            NoteToShipper: croPayload.NoteToShipper || null,
-            UpdatedBy: payload.updatedBy,
-            UpdatedOn: new Date()
-        }
-    })
-}
+                if (!croPayload?.BookingCroSid) {
+                    finalBookingCro = await prisma.bookingCro.create({
+                        data: {
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            BranchMasterSid: payload.BranchMasterSid,
+                            BookingHeaderSid: updatedBooking.BookingHeaderSid,
+                            CreatedBy: payload.updatedBy,
+                            OnHireRef: croPayload.OnHireRef || null,
+                            ReleaseOrderDate: croPayload.ReleaseOrderDate || null,
+                            ValidityDate: croPayload.ValidityDate || null,
+                            Transporter: croPayload.Transporter || null,
+                            EmptyYard: croPayload.EmptyYard || null,
+                            NoteToYard: croPayload.NoteToYard || null,
+                            NoteToShipper: croPayload.NoteToShipper || null
+                        }
+                    })
+                } else {
+                    finalBookingCro = await prisma.bookingCro.update({
+                        where: { BookingCroSid: croPayload.BookingCroSid },
+                        data: {
+                            OnHireRef: croPayload.OnHireRef || null,
+                            ReleaseOrderDate: croPayload.ReleaseOrderDate || null,
+                            ValidityDate: croPayload.ValidityDate || null,
+                            Transporter: croPayload.Transporter || null,
+                            EmptyYard: croPayload.EmptyYard || null,
+                            NoteToYard: croPayload.NoteToYard || null,
+                            NoteToShipper: croPayload.NoteToShipper || null,
+                            UpdatedBy: payload.updatedBy,
+                            UpdatedOn: new Date()
+                        }
+                    })
+                }
 
                 /**
                     |--------------------------------------------------
@@ -1230,8 +1230,8 @@ if (!croPayload?.BookingCroSid) {
                                 CostChargeUomSid: rate.CostChargeUomSid || null,
 
                                 NoOfUnit: Number(rate.NoOfUnit) || null,
-                                RevenueNumberOfUnit: Number(rate.RevenueNumberOfUnit) ||  Number(rate.NoOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
-                                CostNumberOfUnit: Number(rate.CostNumberOfUnit) ||  Number(rate.NoOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
+                                RevenueNumberOfUnit: Number(rate.RevenueNumberOfUnit) || Number(rate.NoOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
+                                CostNumberOfUnit: Number(rate.CostNumberOfUnit) || Number(rate.NoOfUnit) || null, // This field has Decimal(4,3) - not used for main quantity
 
 
                                 // Revenue Section
@@ -1408,37 +1408,37 @@ if (!croPayload?.BookingCroSid) {
             const result = await this._db.$transaction(async (prisma) => {
                 const deletedBooking = await prisma.bookingHeader.update({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
+                    data: { status: 'D', updatedBy: updatedBy, updatedOn: new Date() }
                 })
 
                 const deletedCargos = await prisma.bookingCargo.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
+                    data: { status: 'D', updatedBy: updatedBy, updatedOn: new Date() }
                 })
                 const deletedProducts = await prisma.bookingProduct.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
+                    data: { status: 'D', updatedBy: updatedBy, updatedOn: new Date() }
                 })
                 const deletedOthers = await prisma.bookingOthers.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
+                    data: { status: 'D', updatedBy: updatedBy, updatedOn: new Date() }
                 })
                 const deletedCro = await prisma.bookingCro.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
                     data: {
                         UpdatedBy: updatedBy,
                         UpdatedOn: new Date()
-                       
+
                     }
                 })
-                
+
                 const deletedConnections = await prisma.bookingConnection.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
+                    data: { status: 'D', updatedBy: updatedBy, updatedOn: new Date() }
                 })
                 const deletedRates = await prisma.bookingRates.updateMany({
                     where: { BookingHeaderSid: BookingHeaderSid },
-                    data: { Status: 'D' , UpdatedBy: updatedBy, UpdatedOn: new Date()}
+                    data: { Status: 'D', UpdatedBy: updatedBy, UpdatedOn: new Date() }
                 })
 
                 return {
@@ -1536,8 +1536,8 @@ if (!croPayload?.BookingCroSid) {
             ...(pod ? { POD: String(pod) } : {}),
             ...(Object.keys(dateRange).length ? { [dateField]: dateRange } : {}),
             ...(search && {
-                OR: [ 
-                   
+                OR: [
+
                     { BookingNo: { contains: search, mode: 'insensitive' } },
                     { departmentMaster: { departmentName: { contains: search, mode: 'insensitive' } } },
                     { CustomerName: { contains: search, mode: 'insensitive' } },
@@ -1546,9 +1546,9 @@ if (!croPayload?.BookingCroSid) {
                     { FPD: { contains: search, mode: 'insensitive' } },
                     { VesselName: { contains: search, mode: 'insensitive' } },
                     { VoyageNo: { contains: search, mode: 'insensitive' } },
-                    { houseJob : { masterJob : { MasterJobNumber : { contains : search , mode : 'insensitive'}}}},
+                    { houseJob: { masterJob: { MasterJobNumber: { contains: search, mode: 'insensitive' } } } },
                     ...(salesmanIds.length ? [{ SalesmanSid: { in: salesmanIds } }] : []),
-                    { BookingStatus : {contains : search , mode : 'insensitive'}},
+                    { BookingStatus: { contains: search, mode: 'insensitive' } },
                     ...(shipmentNosByMilestone.length ? [{ ShipmentNo: { in: shipmentNosByMilestone } }] : []),
                 ],
             }),
@@ -1565,25 +1565,25 @@ if (!croPayload?.BookingCroSid) {
                     { BookingDateTime: 'desc' },
                     { BookingHeaderSid: 'desc' }
                 ],
-                include : {
-                    departmentMaster : {
-                        select : {
-                            DepartmentMasterSid : true,
-                            departmentName : true,
-                            departmentType : true
+                include: {
+                    departmentMaster: {
+                        select: {
+                            DepartmentMasterSid: true,
+                            departmentName: true,
+                            departmentType: true
                         }
                     },
-                    houseJob : {
-                        include : {
-                            masterJob : {
-                                select : {
-                                    MasterJobSid : true,
-                                    MasterJobNumber : true
+                    houseJob: {
+                        include: {
+                            masterJob: {
+                                select: {
+                                    MasterJobSid: true,
+                                    MasterJobNumber: true
                                 }
                             }
                         },
-                        where : {
-                            status : 'A'
+                        where: {
+                            status: 'A'
                         }
                     }
                 }
@@ -1596,7 +1596,7 @@ if (!croPayload?.BookingCroSid) {
          */
         items = await Promise.all(
             items.map(async (item) => {
-                const [ salesman] = await Promise.all([
+                const [salesman] = await Promise.all([
 
                     item.SalesmanSid !== null ?
                         this.globalConfigService.getMasterData('user_master', item.SalesmanSid) :
@@ -1634,7 +1634,7 @@ if (!croPayload?.BookingCroSid) {
         try {
             const deletedBookingProducts = await this._db.bookingProduct.update({
                 where: { BookingProductSid },
-                data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
+                data: { status: 'D', updatedBy: updatedBy, updatedOn: new Date() }
             })
             return deletedBookingProducts;
         } catch (error) {
@@ -1646,7 +1646,7 @@ if (!croPayload?.BookingCroSid) {
         try {
             const deletedBookingConnection = await this._db.bookingConnection.update({
                 where: { BookingConnectionSid: BookingConnectionSid },
-                data: { status: 'D' , updatedBy: updatedBy, updatedOn: new Date()}
+                data: { status: 'D', updatedBy: updatedBy, updatedOn: new Date() }
             })
             return deletedBookingConnection;
         } catch (error) {
@@ -1675,7 +1675,7 @@ if (!croPayload?.BookingCroSid) {
 
             const deletedBookingConnection = await this._db.bookingRates.update({
                 where: { BookingRatesSid: BookingRateSid },
-                data: { Status: 'D' , UpdatedBy: updatedBy, UpdatedOn: new Date()}
+                data: { Status: 'D', UpdatedBy: updatedBy, UpdatedOn: new Date() }
             })
             return deletedBookingConnection;
         } catch (error) {
@@ -1917,11 +1917,11 @@ if (!croPayload?.BookingCroSid) {
                             CustomerBranchSid: true,
                             Address: true,
                             StateMasterSid: true,
-                            CityMasterSid : true,
-                            Zip_PostBox : true,
-                            GSTNo : true,
-                            Registered : true,
-                            CustomerGstType : true,
+                            CityMasterSid: true,
+                            Zip_PostBox: true,
+                            GSTNo: true,
+                            Registered: true,
+                            CustomerGstType: true,
                         }
                     },
                     costVoucherHeader: {
@@ -1974,8 +1974,8 @@ if (!croPayload?.BookingCroSid) {
                     });
                     enrichments.customerBranch = {
                         ...rate.customerBranch,
-                        stateMaster : state,
-                        cityMaster : city
+                        stateMaster: state,
+                        cityMaster: city
                     };
                 }
 
@@ -1989,18 +1989,18 @@ if (!croPayload?.BookingCroSid) {
                             chargeName: true,
                             HSNSAC: true,
                             chargeTaxMaster: {
-                                where : {
-                                    Status : 'A'
+                                where: {
+                                    Status: 'A'
                                 },
                                 select: {
                                     ChargeTaxMasterSid: true,
-                                    hssacMaster : {
-                                        select : {
-                                            HSSACMasterSid : true,
-                                            HSSACCode : true,
-                                            TaxRate : true,
-                                            TaxType : true,
-                                            TaxGroupSid : true,
+                                    hssacMaster: {
+                                        select: {
+                                            HSSACMasterSid: true,
+                                            HSSACCode: true,
+                                            TaxRate: true,
+                                            TaxType: true,
+                                            TaxGroupSid: true,
                                         }
                                     }
                                 }
@@ -2032,7 +2032,8 @@ if (!croPayload?.BookingCroSid) {
                 if (rate.CostCurrencyMasterSid) {
                     const currency = await this._db.currencyMaster.findUnique({
                         where: { CurrencyMasterSid: rate.CostCurrencyMasterSid },
-                        select: { CurrencyMasterSid: true, currencyCode: true, currencyName: true,
+                        select: {
+                            CurrencyMasterSid: true, currencyCode: true, currencyName: true,
                             countryMaster: {
                                 select: {
                                     CountryMasterSid: true,
@@ -2040,7 +2041,7 @@ if (!croPayload?.BookingCroSid) {
                                     countryCode: true
                                 }
                             },
-                         }
+                        }
                     });
                     enrichments.CostCurrencyMaster = currency;
                 }
@@ -2054,7 +2055,7 @@ if (!croPayload?.BookingCroSid) {
                             CustomerName: true,
                             CustomerAddress1: true,
                             CustomerAddress2: true,
-                            PanType: true,  
+                            PanType: true,
                             CountryMasterSid: true,
                             countryMaster: {
                                 select: {
@@ -2063,34 +2064,34 @@ if (!croPayload?.BookingCroSid) {
                                 }
                             }
                         },
-                        
-                        
+
+
                     });
                     enrichments.AgentMaster = agent;
                 }
-                if(rate.AgentBranchSid){
-                            const agentBranch = await this._db.customerBranch.findUnique({
-                                where: { CustomerBranchSid: rate.AgentBranchSid },
+                if (rate.AgentBranchSid) {
+                    const agentBranch = await this._db.customerBranch.findUnique({
+                        where: { CustomerBranchSid: rate.AgentBranchSid },
+                        select: {
+                            CustomerBranchSid: true,
+                            Address: true,
+                            StateMasterSid: true,
+                            CityMasterSid: true,
+                            Zip_PostBox: true,
+                            GSTNo: true,
+                            Registered: true,
+                            CustomerGstType: true,
+                            stateMaster: {
                                 select: {
-                                    CustomerBranchSid: true,
-                                    Address: true,
                                     StateMasterSid: true,
-                                    CityMasterSid: true,
-                                    Zip_PostBox: true,
-                                    GSTNo: true,
-                                    Registered: true,
-                                    CustomerGstType: true,
-                                    stateMaster: {
-                                        select: {
-                                            StateMasterSid: true,
-                                            stateName: true,
-                                            IsUnionTerritory: true,
-                                        }
-                                    }
+                                    stateName: true,
+                                    IsUnionTerritory: true,
                                 }
-                            });
-                            enrichments.AgentBranch = agentBranch;
+                            }
                         }
+                    });
+                    enrichments.AgentBranch = agentBranch;
+                }
 
                 // Add revenue voucher type details
                 if (rate.RevenueVoucherTypeMasterSid) {
@@ -2166,27 +2167,27 @@ if (!croPayload?.BookingCroSid) {
                     //     status: "A",
                     //     CustomerBranch: { some: {} }
                     // },
-                     where: {
-                    CompanyMasterSid: payload.CompanyMasterSid,
-                    status: 'A',
-                    CustomerBranch: { some: {} },
-                    AND: [
-                        { CustomerType: { path: ['customer'], equals: 'isTrue' } },
-                        { CustomerType: { path: ['carrier'], equals: 'isFalse' } }
-                    ]
-                },
+                    where: {
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        status: 'A',
+                        CustomerBranch: { some: {} },
+                        AND: [
+                            { CustomerType: { path: ['customer'], equals: 'isTrue' } },
+                            { CustomerType: { path: ['carrier'], equals: 'isFalse' } }
+                        ]
+                    },
                     select: {
                         CustomerMasterSid: true,
                         CustomerName: true,
                         PanType: true,
-                        countryMaster:{
-                            where:{
-                                status:'A'
+                        countryMaster: {
+                            where: {
+                                status: 'A'
                             },
-                            select:{
-                               CountryMasterSid: true,
-                               countryName: true,
-                               countryCode: true
+                            select: {
+                                CountryMasterSid: true,
+                                countryName: true,
+                                countryCode: true
                             }
                         },
                         CustomerBranch: {
@@ -2248,10 +2249,10 @@ if (!croPayload?.BookingCroSid) {
                     BranchName: branch.BranchName,
                     Address: branch.Address,
                     Email: branch.Email,
-                    GSTNo:branch.GSTNo,
-                    PanType:customer.PanType,
-                    CountryMasterSid:customer.countryMaster,
-                    
+                    GSTNo: branch.GSTNo,
+                    PanType: customer.PanType,
+                    CountryMasterSid: customer.countryMaster,
+
                 }))
                 return cusBranches;
             })
@@ -2274,7 +2275,7 @@ if (!croPayload?.BookingCroSid) {
                 })
             );
 
-            return { customers : formattedCustomerList, salesmans: processedSalesmans, shippers, consignees, agents: processedAgents, carriers, forwarder, notify ,yards:yard,cfs};
+            return { customers: formattedCustomerList, salesmans: processedSalesmans, shippers, consignees, agents: processedAgents, carriers, forwarder, notify, yards: yard, cfs };
         } catch (error) {
             console.error('Error fetching Customer Related Lookups:', error);
             return {
@@ -2286,8 +2287,8 @@ if (!croPayload?.BookingCroSid) {
                 carriers: [],
                 forwarder: [],
                 notify: [],
-                yard:[],
-                cFS:[],
+                yard: [],
+                cFS: [],
             };
         }
     }
@@ -2323,12 +2324,12 @@ if (!croPayload?.BookingCroSid) {
                     currencyName: true,
                     currencyCode: true,
                     countryMaster: {
-                                select: {
-                                    CountryMasterSid: true,
-                                    countryName: true,
-                                    countryCode: true
-                                }
-                            },
+                        select: {
+                            CountryMasterSid: true,
+                            countryName: true,
+                            countryCode: true
+                        }
+                    },
                 }
             })
             return allContainerTypes;
@@ -2345,7 +2346,7 @@ if (!croPayload?.BookingCroSid) {
                     select: {
                         ProductMasterSId: true,
                         ProductName: true,
-                        ProductCode : true,
+                        ProductCode: true,
                         IMOClass: true,
                         ProductType: true,
                         UNNo: true,
@@ -2372,7 +2373,7 @@ if (!croPayload?.BookingCroSid) {
                     select: {
                         UOMMasterSid: true,
                         UOMName: true,
-                        UOMCode : true
+                        UOMCode: true
                     },
                 }),
 
@@ -2400,7 +2401,7 @@ if (!croPayload?.BookingCroSid) {
                 select: {
                     MilestoneMasterSid: true,
                     MilestoneName: true,
-                    MilestoneCode : true,
+                    MilestoneCode: true,
                     AutoCapture: true,
                     DepartmentMasterSid: true,
                     Remarks: true
@@ -2466,15 +2467,15 @@ if (!croPayload?.BookingCroSid) {
                     },
                 }),
                 this._db.voucherHeader.findMany({
-                    where:{Status:'A'},
-                    select:{
-                        VoucherHeaderSid:true,
-                        VoucherNumber:true
+                    where: { Status: 'A' },
+                    select: {
+                        VoucherHeaderSid: true,
+                        VoucherNumber: true
                     }
                 })
 
             ]);
-            return { charges, uoms, docTypes, Vouchers}
+            return { charges, uoms, docTypes, Vouchers }
         } catch (error) {
             console.error('Error fetching Rate Lookups:', error);
             return {
@@ -2560,1755 +2561,1798 @@ if (!croPayload?.BookingCroSid) {
 
 
 
-    
 
-async getTariffByBookingDetails(payload:TariffBookingPayload) {
-  try {
-    // ---------- 1️⃣  First Priority Search: Dynamic WHERE clause with all optional filters ----------
-    const whereWithOptionalFilters: any = {
-      EffectiveDate: { lte: new Date(payload.EffectiveDate) },
-      ExpiredOn:     { gte: new Date(payload.ExpiredDate) },
-      status : 'A',
-      tariffHeader: {
-        DepartmentMasterSid: payload.DepartmentMasterSid,
-        POLSid: payload.POLSid,
-        PODSid: payload.PODSid,
-        CompanyMasterSid: payload.CompanyMasterSid,
-        status : 'A'
-      },
-    };
 
-    // Track if we have optional filters
-    let hasOptionalFilters = false;
+    async getTariffByBookingDetails(payload: TariffBookingPayload) {
+        try {
+            // ---------- 1️⃣  First Priority Search: Dynamic WHERE clause with all optional filters ----------
+            const whereWithOptionalFilters: any = {
+                EffectiveDate: { lte: new Date(payload.EffectiveDate) },
+                ExpiredOn: { gte: new Date(payload.ExpiredDate) },
+                status: 'A',
+                tariffHeader: {
+                    DepartmentMasterSid: payload.DepartmentMasterSid,
+                    POLSid: payload.POLSid,
+                    PODSid: payload.PODSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    status: 'A'
+                },
+            };
 
-    // optional filters – add only if provided in payload
-    if (payload.PORSid) {
-        whereWithOptionalFilters.tariffHeader.POOSid = payload.PORSid;
-        hasOptionalFilters = true;
-    } else {
-        whereWithOptionalFilters.tariffHeader.POOSid = null;
-        hasOptionalFilters = true;
+            // Track if we have optional filters
+            let hasOptionalFilters = false;
+
+            // optional filters – add only if provided in payload
+            if (payload.PORSid) {
+                whereWithOptionalFilters.tariffHeader.POOSid = payload.PORSid;
+                hasOptionalFilters = true;
+            } else {
+                whereWithOptionalFilters.tariffHeader.POOSid = null;
+                hasOptionalFilters = true;
+            }
+
+            if (payload.FPODSid) {
+                whereWithOptionalFilters.tariffHeader.FDCSid = payload.FPODSid;
+                hasOptionalFilters = true;
+            } else {
+                whereWithOptionalFilters.tariffHeader.FDCSid = null;
+                hasOptionalFilters = true;
+            }
+
+            if (payload.Carrier) {
+                whereWithOptionalFilters.tariffHeader.Carrier = payload.Carrier;
+                hasOptionalFilters = true;
+            } else {
+                whereWithOptionalFilters.tariffHeader.Carrier = null;
+                hasOptionalFilters = true;
+            }
+            if (payload.AgentSid) {
+                whereWithOptionalFilters.tariffHeader.AgentSid = payload.AgentSid;
+                hasOptionalFilters = true;
+            } else {
+                whereWithOptionalFilters.tariffHeader.AgentSid = null;
+                hasOptionalFilters = true;
+            }
+
+            if (payload.IncoTerms) {
+                whereWithOptionalFilters.tariffHeader.IncoTerms = payload.IncoTerms;
+                hasOptionalFilters = true;
+            } else {
+                whereWithOptionalFilters.tariffHeader.IncoTerms = null;
+                hasOptionalFilters = true;
+            }
+
+            if (payload.CargoType) {
+                whereWithOptionalFilters.CargoType = payload.CargoType;
+                hasOptionalFilters = true;
+            }
+
+            if (payload.ContainerType) {
+                whereWithOptionalFilters.OR = [
+                    { ContainerType: payload.ContainerType },
+                    { ContainerType: null }
+                ]
+                hasOptionalFilters = true;
+            }
+
+            const includeClause = {
+                tariffHeader: true,               // to see Dept/POL/POD etc.
+                currencyMasterBuy: true,          // buy currency details
+                currencyMasterSale: true,         // sale currency details
+                companyMaster: true,              // company if linked
+                UOMMaster: true                   // unit of measure
+            };
+
+            // ---------- 2️⃣  Fetch tariff details with all filters ----------
+            let allTariffDetails = await this._db.tariffDetail.findMany({
+                where: whereWithOptionalFilters,
+                include: includeClause
+            });
+
+            let isStandardRate = false;
+
+            // ---------- 3️⃣  Fallback to Standard Rate if no results and optional filters were used ----------
+            if (allTariffDetails.length === 0 && hasOptionalFilters) {
+                this.logger.log('No tariff found with optional filters, falling back to standard rate search');
+
+                // Build standard rate query (only mandatory fields)
+                const whereStandardRate: any = {
+                    status: 'A',
+                    CargoType: payload.CargoType,
+                    EffectiveDate: { lte: new Date(payload.EffectiveDate) },
+                    ExpiredOn: { gte: new Date(payload.ExpiredDate) },
+                    tariffHeader: {
+                        status: 'A',
+                        DepartmentMasterSid: payload.DepartmentMasterSid,
+                        POLSid: payload.POLSid,
+                        PODSid: payload.PODSid,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        POOSid: null,
+                        FDCSid: null,
+                        Carrier: null,
+                        AgentSid: null,
+                        IncoTerms: null,
+                    }
+                };
+
+                allTariffDetails = await this._db.tariffDetail.findMany({
+                    where: whereStandardRate,
+                    include: includeClause
+                });
+
+                if (allTariffDetails.length > 0) {
+                    isStandardRate = true;
+                    this.logger.log(`Found ${allTariffDetails.length} standard rates`);
+                }
+            }
+
+            // ---------- 4️⃣  If still no results, return empty array ----------
+            if (allTariffDetails.length === 0) {
+                this.logger.log('No tariff details found for the given criteria');
+                return [];
+            }
+
+            // ---------- 5️⃣  Enrich each tariff detail ----------
+            const enrichedDetails = await Promise.all(
+                allTariffDetails.map(async (detail) => {
+                    const company = payload.CompanyMasterSid
+                        ? await this._db.companyMaster.findUnique({
+                            where: { CompanyMasterSid: payload.CompanyMasterSid },
+                        })
+                        : null;
+
+                    const toCurrencyId = company?.CurrencyMasterSid;
+                    const toCurrency = toCurrencyId
+                        ? await this.globalConfigService.getMasterData('currency_master', toCurrencyId)
+                        : null;
+
+                    const costFromCurrency = detail.currencyMasterBuy;
+                    const revenueFromCurrency = detail.currencyMasterSale;
+
+                    const costExchangeRate = toCurrency
+                        ? (costFromCurrency.currencyCode === toCurrency.currencyCode
+                            ? 1
+                            : (await this.currencyExchangeService.getExchangeRate({
+                                CompanyMasterSid: payload.CompanyMasterSid || detail.CompanyMasterSid!,
+                                BranchMasterSid: payload.BranchMasterSid,
+                                fromCurrencyCode: costFromCurrency.currencyCode,
+                                toCurrencyCode: toCurrency.currencyCode,
+                                EffectiveFrom: new Date(payload.EffectiveDate),
+                                segment: 'cost'
+                            }) || 1))
+                        : null;
+
+                    const revenueExchangeRate = toCurrency
+                        ? (revenueFromCurrency.currencyCode === toCurrency.currencyCode
+                            ? 1
+                            : (await this.currencyExchangeService.getExchangeRate({
+                                CompanyMasterSid: payload.CompanyMasterSid || detail.CompanyMasterSid!,
+                                BranchMasterSid: payload.BranchMasterSid,
+                                fromCurrencyCode: costFromCurrency.currencyCode,
+                                toCurrencyCode: toCurrency.currencyCode,
+                                EffectiveFrom: new Date(payload.EffectiveDate),
+                                segment: 'revenue'
+                            }) || 1))
+                        : null;
+
+                    return {
+                        ...detail,
+                        costExchangeRate,
+                        revenueExchangeRate,
+                        isStandardRate, // Flag to indicate if this is a standard rate
+                    };
+                })
+            );
+
+            // ---------- 6️⃣  Return enriched array ----------
+            return enrichedDetails;
+        } catch (error) {
+            throw error;
+        }
     }
 
-    if (payload.FPODSid) {
-      whereWithOptionalFilters.tariffHeader.FDCSid = payload.FPODSid;
-      hasOptionalFilters = true;
-    } else {
-        whereWithOptionalFilters.tariffHeader.FDCSid = null;
-        hasOptionalFilters = true;
+    async getBookingARAPData(BookingHeaderSid: number) {
+        try {
+            const arapData = await this._db.voucherHeader.findMany({
+                where: {
+                    BookingHeaderSid: BookingHeaderSid,
+                    Status: 'A'
+                },
+                select: {
+                    CompanyMasterSid: true,
+                    BookingHeaderSid: true,
+                    VoucherHeaderSid: true,
+                    VoucherNumber: true,
+                    VoucherDate: true,
+                    HouseNumber: true,
+                    MasterNumber: true,
+                    CurrencyCode: true,
+                    Amount: true,
+                    LocalAmount: true,
+                    PostStatus: true,
+                    voucherTypeMaster: {
+                        select: {
+                            DocumentTypeCode: true
+                        }
+                    }
+                },
+                orderBy: {
+                    VoucherDate: 'desc'
+                }
+            });
+
+            return arapData.map((item: any) => ({
+                CompanyMasterSid: item.CompanyMasterSid,
+                BookingHeaderSid: item.BookingHeaderSid,
+                VoucherHeaderSid: item.VoucherHeaderSid,
+                VoucherNumber: item.VoucherNumber,
+                VoucherDate: item.VoucherDate,
+                HBLNo: item.HouseNumber || '-',
+                MBLNo: item.MasterNumber || '-',
+                DocumentTypeCode: item.voucherTypeMaster?.DocumentTypeCode || '',
+                CurrencyCode: item.CurrencyCode,
+                Amount: Number(item.Amount) || 0,
+                LocalAmount: Number(item.LocalAmount) || 0,
+                PostStatus: item.PostStatus || 'U'
+            }));
+        } catch (error) {
+            this.logger.error(`Error fetching AR/AP data: ${error.message}`);
+            throw new InternalServerErrorException('Failed to fetch AR/AP data');
+        }
     }
 
-    if (payload.Carrier) {
-      whereWithOptionalFilters.tariffHeader.Carrier = payload.Carrier;
-      hasOptionalFilters = true;
-    } else {
-        whereWithOptionalFilters.tariffHeader.Carrier = null;
-        hasOptionalFilters = true;
-    }
-    if (payload.AgentSid) {
-      whereWithOptionalFilters.tariffHeader.AgentSid = payload.AgentSid;
-      hasOptionalFilters = true;
-    } else {
-        whereWithOptionalFilters.tariffHeader.AgentSid = null;
-        hasOptionalFilters = true;
-    }
+    // ─────────────────────────────────────────────────────────────────────────────
+    // generateBookingTemplate
+    // ─────────────────────────────────────────────────────────────────────────────
+    async generateBookingTemplate(companyMasterSid: number): Promise<Buffer> {
+        const ExcelJS = require('exceljs');
+        const workbook = new ExcelJS.Workbook();
 
-    if (payload.IncoTerms) {
-      whereWithOptionalFilters.tariffHeader.IncoTerms = payload.IncoTerms;
-      hasOptionalFilters = true;
-    } else {
-        whereWithOptionalFilters.tariffHeader.IncoTerms = null;
-        hasOptionalFilters = true;
-    }
+        // ── Fetch lookup data ─────────────────────────────────────────────────────
+        const [
+            departments, ports, carriers, agents, customers,
+            containerTypes, packageTypes, incoTerms, currencies, imcos, uoms, salesPersons,
+        ] = await Promise.all([
+            this._db.departmentMaster.findMany({
+                where: { CompanyMasterSid: companyMasterSid, Status: 'A' },
+                select: {
+                    DepartmentMasterSid: true,
+                    departmentName: true,
+                    departmentType: true,
+                    ExportImport: true,
+                    FCLLCL: true,
+                },
+            }),
+            this._db.portMaster.findMany({
+                where: { status: 'A' },
+                select: { PortMasterSid: true, PortCode: true, PortName: true },
+                orderBy: { PortCode: 'asc' },
+            }),
+            this._db.customerMaster.findMany({
+                where: {
+                    CompanyMasterSid: companyMasterSid,
+                    status: 'A',
+                    CustomerType: { path: ['carrier'], equals: 'isTrue' },
+                    CustomerBranch: { some: {} },
+                },
+                select: { CustomerMasterSid: true, CustomerName: true },
+                orderBy: { CustomerName: 'asc' },
+            }),
+            this._db.customerMaster.findMany({
+                where: {
+                    CompanyMasterSid: companyMasterSid,
+                    status: 'A',
+                    CustomerType: { path: ['agent'], equals: 'isTrue' },
+                    CustomerBranch: { some: {} },
+                },
+                select: { CustomerMasterSid: true, CustomerName: true },
+                orderBy: { CustomerName: 'asc' },
+            }),
+            this._db.customerMaster.findMany({
+                where: {
+                    CompanyMasterSid: companyMasterSid,
+                    status: 'A',
+                    CustomerType: { path: ['customer'], equals: 'isTrue' },
+                    CustomerBranch: { some: {} },
+                },
+                select: { CustomerMasterSid: true, CustomerName: true },
+                orderBy: { CustomerName: 'asc' },
+            }),
+            this._db.containerTypeMaster.findMany({
+                where: { status: 'A' },
+                select: { ContainerTypeMasterSid: true, ContainerName: true },
+            }),
+            this._db.uOMMaster.findMany({
+                where: { UOMType: 'P', status: 'A' },
+                select: { UOMMasterSid: true, UOMName: true },
+            }),
+            this._db.incoMaster.findMany({
+                where: { Status: 'A' },
+                select: { IncoMasterSid: true, IncoCode: true },
+                orderBy: { IncoCode: 'asc' },
+            }),
+            this._db.currencyMaster.findMany({
+                select: { CurrencyMasterSid: true, currencyCode: true },
+            }),
+            this._db.imcoMaster.findMany({
+                where: { status: 'A' },
+                select: { ImcoMasterSid: true, ImcoName: true },
+            }),
+            this._db.uOMMaster.findMany({
+                where: { status: 'A' },
+                select: { UOMMasterSid: true, UOMName: true },
+            }),
+            this._db.userMaster.findMany({
+                where: {
+                    userCompanyMaster: {
+                        some: {
+                            CompanyMasterSid: companyMasterSid,
+                            GiveAccess: 'Y',
+                            status: 'A',
+                        },
+                    },
+                    isSalesperson: '1',
+                    status: 'A',
+                },
+                select: { UserMasterSid: true, userName: true },
+                orderBy: { userName: 'asc' },
+            }),
+        ]);
 
-    if (payload.CargoType) {
-      whereWithOptionalFilters.CargoType = payload.CargoType;
-      hasOptionalFilters = true;
-    }
-    
-    if (payload.ContainerType) {
-      whereWithOptionalFilters.OR = [
-        { ContainerType : payload.ContainerType },
-        { ContainerType : null }
-      ]
-      hasOptionalFilters = true;
-    }
+        const portOptions = ports.map((p: any) => `${p.PortCode} - ${p.PortName}`);
 
-    const includeClause = {
-      tariffHeader: true,               // to see Dept/POL/POD etc.
-      currencyMasterBuy: true,          // buy currency details
-      currencyMasterSale: true,         // sale currency details
-      companyMaster: true,              // company if linked
-      UOMMaster: true                   // unit of measure
-    };
+        // ── Helpers ───────────────────────────────────────────────────────────────
+        const styleHeaderRow = (row: any, mandatoryCount: number) => {
+            row.height = 22;
+            row.eachCell((cell: any, colNo: number) => {
+                const isMandatory = colNo <= mandatoryCount;
+                cell.font = {
+                    bold: true,
+                    color: { argb: isMandatory ? 'FFCC0000' : 'FF6B6B00' },
+                    size: 10,
+                };
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: isMandatory ? 'FFFFE5E5' : 'FFFFFBE6' },
+                };
+                cell.border = {
+                    bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
+                    top: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+                    left: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+                    right: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+                };
+                cell.alignment = { vertical: 'middle', wrapText: false };
+            });
+        };
 
-    // ---------- 2️⃣  Fetch tariff details with all filters ----------
-    let allTariffDetails = await this._db.tariffDetail.findMany({
-      where: whereWithOptionalFilters,
-      include: includeClause
-    });
+        const markMandatoryCols = (sheet: any, colNumbers: number[]) => {
+            colNumbers.forEach(colNo => {
+                const cell = sheet.getRow(1).getCell(colNo);
+                cell.font = { bold: true, color: { argb: 'FFCC0000' }, size: 10 };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+                cell.border = {
+                    bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
+                    top: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+                    left: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+                    right: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+                };
+                cell.alignment = { vertical: 'middle', wrapText: false };
+            });
+        };
 
-    let isStandardRate = false;
+        const styleExampleRow = (sheet: any, rowNum: number) => {
+            sheet.getRow(rowNum).eachCell((cell: any) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2FB' } };
+                cell.font = { italic: true, color: { argb: 'FF555577' }, size: 9 };
+            });
+        };
 
-    // ---------- 3️⃣  Fallback to Standard Rate if no results and optional filters were used ----------
-    if (allTariffDetails.length === 0 && hasOptionalFilters) {
-      this.logger.log('No tariff found with optional filters, falling back to standard rate search');
-
-      // Build standard rate query (only mandatory fields)
-        const whereStandardRate: any = {
-            status : 'A',
-            CargoType : payload.CargoType,
-            EffectiveDate: { lte: new Date(payload.EffectiveDate) },
-            ExpiredOn: { gte: new Date(payload.ExpiredDate) },
-            tariffHeader: {
-                status : 'A',
-                DepartmentMasterSid: payload.DepartmentMasterSid,
-                POLSid: payload.POLSid,
-                PODSid: payload.PODSid,
-                CompanyMasterSid: payload.CompanyMasterSid,
-                POOSid: null,
-                FDCSid: null,
-                Carrier: null,
-                AgentSid: null,
-                IncoTerms: null,
+        const applyDV = (
+            sheet: any,
+            col: string,
+            formulae: string,
+            startRow: number,
+            endRow = 5000,
+        ) => {
+            for (let r = startRow; r <= endRow; r++) {
+                sheet.getCell(`${col}${r}`).dataValidation = {
+                    type: 'list',
+                    allowBlank: true,
+                    formulae: [formulae],
+                    showErrorMessage: true,
+                    errorTitle: 'Invalid value',
+                    error: 'Select from the dropdown list',
+                };
             }
         };
 
-      allTariffDetails = await this._db.tariffDetail.findMany({
-        where: whereStandardRate,
-        include: includeClause
-      });
-
-      if (allTariffDetails.length > 0) {
-        isStandardRate = true;
-        this.logger.log(`Found ${allTariffDetails.length} standard rates`);
-      }
-    }
-
-    // ---------- 4️⃣  If still no results, return empty array ----------
-    if (allTariffDetails.length === 0) {
-      this.logger.log('No tariff details found for the given criteria');
-      return [];
-    }
-
-    // ---------- 5️⃣  Enrich each tariff detail ----------
-    const enrichedDetails = await Promise.all(
-      allTariffDetails.map(async (detail) => {
-        const company = payload.CompanyMasterSid
-          ? await this._db.companyMaster.findUnique({
-              where: { CompanyMasterSid: payload.CompanyMasterSid },
-            })
-          : null;
-
-        const toCurrencyId = company?.CurrencyMasterSid;
-        const toCurrency = toCurrencyId
-          ? await this.globalConfigService.getMasterData('currency_master', toCurrencyId)
-          : null;
-
-        const costFromCurrency = detail.currencyMasterBuy;
-        const revenueFromCurrency = detail.currencyMasterSale;
-
-        const costExchangeRate = toCurrency
-          ? (costFromCurrency.currencyCode === toCurrency.currencyCode
-              ? 1
-                : (await this.currencyExchangeService.getExchangeRate({
-                    CompanyMasterSid: payload.CompanyMasterSid ||  detail.CompanyMasterSid!,
-                    BranchMasterSid: payload.BranchMasterSid ,
-                    fromCurrencyCode: costFromCurrency.currencyCode,
-                    toCurrencyCode: toCurrency.currencyCode,
-                    EffectiveFrom : new Date(payload.EffectiveDate),
-                    segment: 'cost'
-                }) || 1))
-          : null;
-
-        const revenueExchangeRate = toCurrency
-          ? (revenueFromCurrency.currencyCode === toCurrency.currencyCode
-              ? 1
-                : (await this.currencyExchangeService.getExchangeRate({
-                    CompanyMasterSid: payload.CompanyMasterSid || detail.CompanyMasterSid!,
-                    BranchMasterSid: payload.BranchMasterSid,
-                    fromCurrencyCode: costFromCurrency.currencyCode,
-                    toCurrencyCode: toCurrency.currencyCode,
-                    EffectiveFrom: new Date(payload.EffectiveDate),
-                    segment: 'revenue'
-                }) || 1))
-          : null;
-
-        return {
-          ...detail,
-          costExchangeRate,
-          revenueExchangeRate,
-          isStandardRate, // Flag to indicate if this is a standard rate
+        const applyDateDV = (sheet: any, col: string, startRow: number, endRow = 5000) => {
+            for (let r = startRow; r <= endRow; r++) {
+                sheet.getCell(`${col}${r}`).dataValidation = {
+                    type: 'date',
+                    operator: 'between',
+                    allowBlank: true,
+                    formulae: [new Date(2000, 0, 1), new Date(2099, 11, 31)],
+                    showErrorMessage: true,
+                    errorTitle: 'Invalid Date',
+                    error: 'Use YYYY-MM-DD format',
+                };
+            }
         };
-      })
-    );
 
-    // ---------- 6️⃣  Return enriched array ----------
-    return enrichedDetails;
-  } catch (error) {
-    throw error;
-  }
-}
+        const addRefSheet = (name: string, values: string[]) => {
+            const ws = workbook.addWorksheet(name);
+            values.forEach((v: string) => ws.addRow([v]));
+            ws.state = 'veryHidden';
+            return ws;
+        };
 
- async getBookingARAPData(BookingHeaderSid: number) {
-    try {
-        const arapData = await this._db.voucherHeader.findMany({
-            where: {
-                BookingHeaderSid: BookingHeaderSid,
-                Status: 'A'
-            },
-            select: {
-                CompanyMasterSid: true,
-                BookingHeaderSid: true,
-                VoucherHeaderSid: true,
-                VoucherNumber: true,
-                VoucherDate: true,
-                HouseNumber: true,
-                MasterNumber: true,
-                CurrencyCode: true,
-                Amount: true,
-                LocalAmount: true,
-                PostStatus: true,
-                voucherTypeMaster: {
-                    select: {
-                        DocumentTypeCode: true
+        const dvRef = (sheet: string, count: number) =>
+            count > 0 ? `'${sheet}'!$A$1:$A$${count}` : `'${sheet}'!$A$1`;
+
+        // ── Reference sheets ──────────────────────────────────────────────────────
+        addRefSheet('_Departments', departments.map((d: any) => d.departmentName));
+        addRefSheet('_Ports', portOptions);
+        addRefSheet('_Carriers', carriers.map((c: any) => c.CustomerName));
+        addRefSheet('_Agents', agents.map((a: any) => a.CustomerName));
+        addRefSheet('_Customers', customers.map((c: any) => c.CustomerName));
+        addRefSheet('_ContainerTypes', containerTypes.map((c: any) => c.ContainerName));
+        addRefSheet('_PackageTypes', packageTypes.map((p: any) => p.UOMName));
+        addRefSheet('_IncoTerms', incoTerms.map((i: any) => i.IncoCode));
+        addRefSheet('_Currencies', currencies.map((c: any) => c.currencyCode));
+        addRefSheet('_IMCO', imcos.map((i: any) => i.ImcoName));
+        addRefSheet('_SalesPersons', salesPersons.map((s: any) => s.userName));
+        addRefSheet('_FreightTerms', ['Prepaid', 'Collect']);
+        addRefSheet('_CargoType', ['General', 'Haz', 'Reefer', 'Tanker', 'OOG']);
+        addRefSheet('_YesNo', ['Y', 'N']);
+        addRefSheet('_BookingStatus', ['Booked', 'Cargo Received', 'Stuffed']);
+        addRefSheet('_MovementType', ['CY-CFS', 'CFS-FO', 'CFS-CY', 'CFS-CFS', 'FO-FI', 'Door-Door', 'CY-Door', 'CY-FO']);
+        addRefSheet('_ShipmentTerms', ['FCL/FCL', 'FCL/LCL', 'LCL/FCL', 'LCL/LCL', 'LTL', 'FTL', 'FTL HH']);
+        addRefSheet('_UOM', ['M', 'CM', 'Inch']);
+        addRefSheet('_ReleaseType', ['Original', 'Sea Way BL', 'Express', 'Draft']);
+        addRefSheet('_ModeOfTransport', ['Sea', 'Air', 'Road', 'Rail', 'Courier']);
+
+        const deptCount = departments.length;
+        const portCount = portOptions.length;
+        const carrierCount = carriers.length;
+        const agentCount = agents.length;
+        const customerCount = customers.length;
+        const ctCount = containerTypes.length;
+        const pkgCount = packageTypes.length;
+        const incoCount = incoTerms.length;
+        const currCount = currencies.length;
+        const imcoCount = imcos.length;
+        const spCount = salesPersons.length;
+
+        // ══════════════════════════════════════════════════════
+        // SHEET 1 — Booking (header)
+        // ══════════════════════════════════════════════════════
+        const bkSheet = workbook.addWorksheet('Booking');
+
+        const bkHeaders = [
+            'TempBookingRef',               // A - mandatory
+            'BookingDate (YYYY-MM-DD)',     // B - mandatory
+            'DepartmentName',               // C - mandatory
+            'CustomerName',                 // D - mandatory
+            'CustomerAddress',              // E - mandatory
+            'ShipperName',                  // F
+            'ShipperAddress',               // G
+            'ConsigneeName',                // H
+            'ConsigneeAddress',             // I
+            'NotifyName',                   // J
+            'NotifyAddress',                // K
+            'DestinationAgent',             // L
+            'AgentAddress',                 // M
+            'CarrierName',                  // N
+            'SalesPerson',                  // O
+            'IncoTerms',                    // P - mandatory
+            'POO (PortCode)',               // Q
+            'POL (PortCode)',               // R - mandatory
+            'POD (PortCode)',               // S - mandatory
+            'FPOD (PortCode)',              // T
+            'VesselName',                   // U
+            'VoyageNo',                     // V
+            'ETD (YYYY-MM-DD)',             // W
+            'ETA (YYYY-MM-DD)',             // X
+            'Coload (Y/N)',                 // Y
+        ];
+
+        bkSheet.addRow(bkHeaders);
+        styleHeaderRow(bkSheet.getRow(1), 5);
+        markMandatoryCols(bkSheet, [16, 18, 19]);
+
+        bkSheet.addRow([
+            'BKN-001',
+            '2024-01-15',
+            departments[0]?.departmentName || 'FCL Export',
+            customers[0]?.CustomerName || 'ABC Exports Ltd',
+            'Customer Address Line 1',
+            'Shipper Co.',
+            '456 Shipper St, Mumbai',
+            'Consignee Co.',
+            '789 Consignee Ave, LA',
+            'Same as Consignee',
+            '789 Consignee Ave, LA',
+            agents[0]?.CustomerName || 'US Agent LLC',
+            'Agent Address Line 1',
+            carriers[0]?.CustomerName || 'MSC',
+            salesPersons[0]?.userName || '',
+            incoTerms[0]?.IncoCode || 'CIF',
+            '',
+            'INNSA - Nhava Sheva',
+            'USLAX - Los Angeles',
+            '',
+            'MSC ANNA',
+            'V001E',
+            '2024-01-20',
+            '2024-02-10',
+            'N',
+        ]);
+        styleExampleRow(bkSheet, 2);
+
+        [16, 18, 22, 24, 28, 24, 28, 24, 28, 22, 24, 24, 28, 22, 20, 14, 18, 20, 20, 18, 22, 14, 18, 18, 12]
+            .forEach((w: number, i: number) => { bkSheet.getColumn(i + 1).width = w; });
+
+        const bkStart = 3;
+        applyDateDV(bkSheet, 'B', bkStart);
+        applyDV(bkSheet, 'C', dvRef('_Departments', deptCount), bkStart);
+        applyDV(bkSheet, 'D', dvRef('_Customers', customerCount), bkStart);
+        applyDV(bkSheet, 'L', dvRef('_Agents', agentCount), bkStart);
+        applyDV(bkSheet, 'N', dvRef('_Carriers', carrierCount), bkStart);
+        applyDV(bkSheet, 'O', dvRef('_SalesPersons', spCount), bkStart);
+        applyDV(bkSheet, 'P', dvRef('_IncoTerms', incoCount), bkStart);
+        applyDV(bkSheet, 'Q', dvRef('_Ports', portCount), bkStart);
+        applyDV(bkSheet, 'R', dvRef('_Ports', portCount), bkStart);
+        applyDV(bkSheet, 'S', dvRef('_Ports', portCount), bkStart);
+        applyDV(bkSheet, 'T', dvRef('_Ports', portCount), bkStart);
+        applyDV(bkSheet, 'Y', dvRef('_YesNo', 2), bkStart);
+        applyDateDV(bkSheet, 'W', bkStart);
+        applyDateDV(bkSheet, 'X', bkStart);
+
+        // ══════════════════════════════════════════════════════
+        // SHEET 2 — BookingCargo
+        // ══════════════════════════════════════════════════════
+        // Column layout (8 columns A–H):
+        // A  TempBookingRef (Link)   - mandatory
+        // B  CargoType               - mandatory
+        // C  ContainerType           (FCL only; leave blank for LCL/Air)
+        // D  NoofContainers          (Sea only — FCL & LCL; leave blank for Air)
+        // E  MovementType
+        // F  ModeOfTransport
+        // G  StuffingAt
+        // H  ShipmentTerms
+        //
+        // NOTE: GrossWeight, NetWeight, Volume, Volumetric, ChargeableWeight, and
+        //       NoOfPackage are NOT entered by the user — computed server-side from
+        //       the linked product rows (NoOfPackage = sum of product NoofPackage).
+        const cgSheet = workbook.addWorksheet('BookingCargo');
+
+        const cgHeaders = [
+            'TempBookingRef (Link)',    // A - mandatory
+            'CargoType',               // B - mandatory
+            'ContainerType',           // C (FCL only — leave blank for LCL/Air)
+            'NoofContainers',          // D (Sea only — FCL & LCL; leave blank for Air)
+            'MovementType',            // E
+            'ModeOfTransport',         // F
+            'StuffingAt',              // G
+            'ShipmentTerms',           // H
+        ];
+
+        cgSheet.addRow(cgHeaders);
+        styleHeaderRow(cgSheet.getRow(1), 2);
+
+        cgSheet.addRow([
+            'BKN-001',
+            'General',
+            containerTypes[0]?.ContainerName || '20FT',
+            1,
+            'CY-CFS',
+            'Sea',
+            'Dock',
+            'FCL/FCL',
+        ]);
+        styleExampleRow(cgSheet, 2);
+
+        [18, 14, 18, 14, 18, 18, 14, 16]
+            .forEach((w: number, i: number) => { cgSheet.getColumn(i + 1).width = w; });
+
+        const cgStart = 3;
+        applyDV(cgSheet, 'B', dvRef('_CargoType', 5), cgStart);
+        applyDV(cgSheet, 'C', dvRef('_ContainerTypes', ctCount), cgStart);
+        applyDV(cgSheet, 'E', dvRef('_MovementType', 8), cgStart);
+        applyDV(cgSheet, 'F', dvRef('_ModeOfTransport', 5), cgStart);
+        applyDV(cgSheet, 'G', `"Dock,Factory"`, cgStart);
+        applyDV(cgSheet, 'H', dvRef('_ShipmentTerms', 7), cgStart);
+
+        // ══════════════════════════════════════════════════════
+        // SHEET 3 — BookingProduct
+        // ══════════════════════════════════════════════════════
+        // Column layout (20 columns A–T):
+        // A  TempBookingRef (Link)           - mandatory
+        // B  CargoIndex (1,2,3...)           - mandatory
+        // C  Commodity                       - mandatory
+        // D  ShippingBillNo
+        // E  ShippingBillDate (YYYY-MM-DD)
+        // F  ExternalPkg                     - mandatory
+        // G  NoofPackage (No of Pkg)         - mandatory
+        // H  UOM (M / CM / Inch)
+        // I  Length
+        // J  Width
+        // K  Height
+        // L  Volumetric (auto-calc)
+        // M  CBM / Volume (auto-calc)
+        // N  GrossWeight                     - mandatory
+        // O  NetWeight
+        // P  CargoRecDate (YYYY-MM-DD)
+        // Q  IsHaz (Y/N)
+        // R  ImcoClass
+        // S  UnNo
+        // T  PkgGroup
+        const prSheet = workbook.addWorksheet('BookingProduct');
+
+        const prHeaders = [
+            'TempBookingRef (Link)',         // A - mandatory
+            'CargoIndex (1,2,3...)',         // B - mandatory
+            'Commodity',                    // C - mandatory
+            'ShippingBillNo',               // D
+            'ShippingBillDate (YYYY-MM-DD)',// E
+            'ExternalPkg',                  // F - mandatory
+            'NoofPackage (No of Pkg)',       // G - mandatory
+            'UOM',                          // H (M / CM / Inch)
+            'Length',                       // I
+            'Width',                        // J
+            'Height',                       // K
+            'Volumetric (auto-calc)',        // L
+            'CBM / Volume (auto-calc)',      // M
+            'GrossWeight',                  // N - mandatory
+            'NetWeight',                    // O
+            'CargoRecDate (YYYY-MM-DD)',    // P
+            'IsHaz (Y/N)',                  // Q
+            'ImcoClass',                    // R
+            'UnNo',                         // S
+            'PkgGroup',                     // T
+        ];
+
+        prSheet.addRow(prHeaders);
+        // A–C mandatory (cols 1–3), F–G mandatory (cols 6–7), N mandatory (col 14)
+        styleHeaderRow(prSheet.getRow(1), 3);          // A–C red
+        markMandatoryCols(prSheet, [6, 7, 14]);        // F, G, N also red
+
+        // Mark Volumetric (col 12) and CBM (col 13) as auto-calculated gold
+        [12, 13].forEach(colNo => {
+            const cell = prSheet.getRow(1).getCell(colNo);
+            cell.font = { bold: true, color: { argb: 'FF6B4E00' }, size: 10 };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9E0' } };
+            cell.border = {
+                bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
+                top: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+                left: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+                right: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+            };
+            cell.alignment = { vertical: 'middle', wrapText: false };
+        });
+
+        prSheet.addRow([
+            'BKN-001', 1,                          // A TempBookingRef, B CargoIndex
+            'Electronic Components',               // C Commodity
+            'SB-001', '',                          // D ShippingBillNo, E ShippingBillDate
+            'CTN', 10,                             // F ExternalPkg, G NoofPackage
+            'CM', 60, 40, 30, '', '',              // H UOM, I-K dims, L-M auto
+            500, 480,                              // N GrossWeight, O NetWeight
+            '', 'N', '', '', '',                   // P CargoRecDate, Q-T haz fields
+        ]);
+        styleExampleRow(prSheet, 2);
+
+        [18, 14, 28, 16, 22, 16, 16, 10, 10, 10, 10, 18, 18, 14, 12, 22, 12, 18, 14, 14]
+            .forEach((w: number, i: number) => { prSheet.getColumn(i + 1).width = w; });
+
+        const prStart = 3;
+        applyDV(prSheet, 'F', dvRef('_PackageTypes', pkgCount), prStart);  // ExternalPkg
+        applyDV(prSheet, 'H', `"M,CM,Inch"`, prStart);                     // UOM
+        applyDateDV(prSheet, 'E', prStart);                                  // ShippingBillDate
+        applyDateDV(prSheet, 'P', prStart);                                  // CargoRecDate
+        applyDV(prSheet, 'Q', dvRef('_YesNo', 2), prStart);                // IsHaz
+        applyDV(prSheet, 'R', dvRef('_IMCO', imcoCount), prStart);         // ImcoClass
+
+        // ── Auto-calculated formulas for Volumetric (L) and CBM / Volume (M) ─────
+        //
+        // These match the frontend VolumetricAndCbmCalculationService exactly:
+        //
+        //  CBM (M):
+        //    UOM=M    → qty * L * W * H
+        //    UOM=CM   → qty * L * W * H / 1,000,000
+        //    UOM=Inch → qty * (L*0.0254) * (W*0.0254) * (H*0.0254)
+        //
+        //  Volumetric (L) — uses SAME cm³ intermediate:
+        //    convert all to cm first:
+        //      M    → dim * 100
+        //      Inch → dim * 2.54
+        //      CM   → dim (no change)
+        //    then: qty * cmL * cmW * cmH / divisor
+        //      LCL divisor = 5000   (lclVolumetricDivisor)
+        //      AIR divisor = 6000   (airVolumetricDivisor)
+        //    Because the template cannot know the shipment type per row, we use the
+        //    LCL divisor (5000) as the default.  The server re-calculates with the
+        //    correct divisor on import.
+        //
+        // Col references for row r:
+        //   G = NoofPackage (qty)
+        //   H = UOM
+        //   I = Length
+        //   J = Width
+        //   K = Height
+        for (let r = prStart; r <= 5000; r++) {
+            // ── CBM formula (col M) ──────────────────────────────────────────────────
+            prSheet.getCell(`M${r}`).value = {
+                formula:
+                    `=IF(AND(I${r}>0,J${r}>0,K${r}>0,G${r}>0),` +
+                    `ROUND(IF(H${r}="M",   G${r}*I${r}*J${r}*K${r},` +
+                    `IF(H${r}="Inch",G${r}*(I${r}*0.0254)*(J${r}*0.0254)*(K${r}*0.0254),` +
+                    `G${r}*I${r}*J${r}*K${r}/1000000)),3),"")`
+            };
+
+            // ── Volumetric formula (col L) — LCL divisor 5000 ───────────────────────
+            // cmL/cmW/cmH: M→*100, Inch→*2.54, CM→unchanged
+            prSheet.getCell(`L${r}`).value = {
+                formula:
+                    `=IF(AND(I${r}>0,J${r}>0,K${r}>0,G${r}>0),` +
+                    `ROUND(` +
+                    `G${r}*` +
+                    `IF(H${r}="M",I${r}*100,IF(H${r}="Inch",I${r}*2.54,I${r}))*` +
+                    `IF(H${r}="M",J${r}*100,IF(H${r}="Inch",J${r}*2.54,J${r}))*` +
+                    `IF(H${r}="M",K${r}*100,IF(H${r}="Inch",K${r}*2.54,K${r}))/5000` +
+                    `,3),"")`
+            };
+
+            ['L', 'M'].forEach(col => {
+                const cell = prSheet.getCell(`${col}${r}`);
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFDE7' } };
+                cell.font = { color: { argb: 'FF6B4E00' }, size: 9 };
+                cell.numFmt = '0.000';
+            });
+        }
+
+        // ══════════════════════════════════════════════════════
+        // SHEET 4 — BookingOthers
+        // ══════════════════════════════════════════════════════
+        const otSheet = workbook.addWorksheet('BookingOthers');
+
+        const otHeaders = [
+            'TempBookingRef (Link)',             // A - mandatory
+            'CustomerRefNo',                    // B
+            'YardCFS',                          // C
+            'ReleaseType',                      // D
+            'Forwarder',                        // E
+            'ForwarderAddress',                 // F
+            'Notify2',                          // G
+            'NotifyAddress2',                   // H
+            'Coloader',                         // I
+            'PickupPlace',                      // J
+            'PickupAddress',                    // K
+            'DeliveryPlace',                    // L
+            'DeliveryDate (YYYY-MM-DD)',        // M
+            'DeliveryAddress',                  // N
+            'CargoCurrency',                   // O
+            'CargoValue',                       // P
+            'CarrierBookingRef',                // Q
+            'CarrierBookingDate (YYYY-MM-DD)', // R
+            'SwitchBL (Y/N)',                  // S
+            'BacktoBack (Y/N)',                // T
+            'CHAName',                          // U
+            'ExternalRemarks',                  // V
+        ];
+
+        otSheet.addRow(otHeaders);
+        styleHeaderRow(otSheet.getRow(1), 1);
+
+        otSheet.addRow([
+            'BKN-001',
+            'CREF-001', '', 'Original',
+            '', '', '', '', '', '', '', '', '', '',
+            'USD', '', '', '', 'N', 'N', '', '',
+        ]);
+        styleExampleRow(otSheet, 2);
+
+        [18, 18, 22, 14, 24, 28, 22, 24, 24, 22, 22, 22, 22, 22, 14, 14, 22, 22, 12, 12, 22, 28]
+            .forEach((w: number, i: number) => { otSheet.getColumn(i + 1).width = w; });
+
+        const otStart = 3;
+        applyDV(otSheet, 'D', dvRef('_ReleaseType', 4), otStart);
+        applyDV(otSheet, 'E', dvRef('_Agents', agentCount), otStart);
+        applyDV(otSheet, 'O', dvRef('_Currencies', currCount), otStart);
+        applyDV(otSheet, 'S', dvRef('_YesNo', 2), otStart);
+        applyDV(otSheet, 'T', dvRef('_YesNo', 2), otStart);
+        applyDateDV(otSheet, 'M', otStart);
+        applyDateDV(otSheet, 'R', otStart);
+
+        // ══════════════════════════════════════════════════════
+        // INSTRUCTIONS SHEET
+        // ══════════════════════════════════════════════════════
+        const inst = workbook.addWorksheet('Instructions');
+        const instRows = [
+            ['Booking Bulk Upload Template — Instructions'],
+            [],
+            ['SHEET OVERVIEW'],
+            ['  Booking         — One row per booking. TempBookingRef (col A) is your own short unique ID (e.g. BKN-001).'],
+            ['                    Columns: TempBookingRef, BookingDate, DepartmentName, CustomerName, CustomerAddress,'],
+            ['                    ShipperName, ShipperAddress, ConsigneeName, ConsigneeAddress, NotifyName, NotifyAddress,'],
+            ['                    DestinationAgent, AgentAddress, CarrierName, SalesPerson, IncoTerms,'],
+            ['                    POO, POL, POD, FPOD, VesselName, VoyageNo, ETD, ETA, Coload.'],
+            ['  BookingCargo    — Cargo rows. Col A (TempBookingRef) must match a value in Booking col A.'],
+            ['                    Columns: TempBookingRef, CargoType, ContainerType, NoofContainers,'],
+            ['                    MovementType, ModeOfTransport, StuffingAt, ShipmentTerms.'],
+            ['                    GrossWeight/NetWeight/Volume/Volumetric/ChargeableWeight/NoOfPackage are'],
+            ['                    computed automatically from the linked product rows — do not enter them here.'],
+            ['                    NoOfPackage = sum of NoofPackage across all linked BookingProduct rows.'],
+            ['  BookingProduct  — Product rows. Col A (TempBookingRef) + Col B (CargoIndex) link to the parent cargo row.'],
+            ['                    Columns (in order): TempBookingRef, CargoIndex, Commodity, ShippingBillNo,'],
+            ['                    ShippingBillDate, ExternalPkg, NoofPackage, UOM, Length, Width, Height,'],
+            ['                    Volumetric (auto), CBM/Volume (auto), GrossWeight, NetWeight, CargoRecDate,'],
+            ['                    IsHaz, ImcoClass, UnNo, PkgGroup.'],
+            ['  BookingOthers   — One row per booking. Col A (TempBookingRef) must match Booking col A.'],
+            [],
+            ['TEMPBOOKINGREF — THE LINK KEY'],
+            ['  • TempBookingRef is a file-scoped reference you create (e.g. BKN-001, BKN-002).'],
+            ['  • It must be unique within the Booking sheet.'],
+            ['  • Use the SAME TempBookingRef in BookingCargo, BookingProduct, and BookingOthers col A to link rows.'],
+            ['  • The real BookingNo is auto-generated by the system on import. TempBookingRef is discarded after save.'],
+            [],
+            ['HOW TO USE'],
+            ['  1. Fill the Booking sheet. Give each row a unique TempBookingRef (col A) and a BookingDate (col B).'],
+            ['  2. In BookingCargo, set col A = TempBookingRef of the parent booking row.'],
+            ['  3. In BookingProduct, set col A = TempBookingRef and col B = CargoIndex (1, 2, 3...) of the cargo row.'],
+            ['  4. In BookingOthers, set col A = TempBookingRef of the parent booking row (one row per booking).'],
+            ['  5. Example rows (row 2) are for reference and will be ignored during import.'],
+            ['  6. Dropdowns are provided for validated fields — do not type values outside the list.'],
+            ['  7. Red column header = mandatory. Yellow = optional. Gold = auto-calculated (Volumetric / CBM).'],
+            ['  8. Date columns accept YYYY-MM-DD format only.'],
+            [],
+            ['PRODUCT COLUMN ORDER (BookingProduct sheet)'],
+            ['  A  TempBookingRef (Link)      — mandatory'],
+            ['  B  CargoIndex (1,2,3...)      — mandatory; links product to its cargo row'],
+            ['  C  Commodity                  — mandatory'],
+            ['  D  ShippingBillNo'],
+            ['  E  ShippingBillDate'],
+            ['  F  ExternalPkg                — mandatory; select from dropdown'],
+            ['  G  NoofPackage (No of Pkg)    — mandatory; number of packages for this product line'],
+            ['  H  UOM                        — M / CM / Inch (default CM)'],
+            ['  I  Length'],
+            ['  J  Width'],
+            ['  K  Height'],
+            ['  L  Volumetric                 — auto-calculated (LCL divisor 5000; re-calculated server-side)'],
+            ['  M  CBM / Volume               — auto-calculated'],
+            ['  N  GrossWeight                — mandatory'],
+            ['  O  NetWeight'],
+            ['  P  CargoRecDate'],
+            ['  Q  IsHaz (Y/N)'],
+            ['  R  ImcoClass'],
+            ['  S  UnNo'],
+            ['  T  PkgGroup'],
+            [],
+            ['CARGO AGGREGATION RULES'],
+            ['  • NoOfPackage on a cargo row = SUM of NoofPackage across all linked BookingProduct rows.'],
+            ['  • GrossWeight, NetWeight, Volume (CBM), Volumetric = SUM of respective product fields.'],
+            ['  • ChargeableWeight = MAX(GrossWeight, Volumetric) for the cargo.'],
+            ['  • These fields are NOT entered in BookingCargo — they are computed on import.'],
+            [],
+            ['CBM / VOLUMETRIC CALCULATION RULES'],
+            ['  CBM  (col M):'],
+            ['    UOM = M    → Qty × L × W × H'],
+            ['    UOM = CM   → Qty × L × W × H ÷ 1,000,000'],
+            ['    UOM = Inch → Qty × (L×0.0254) × (W×0.0254) × (H×0.0254)'],
+            ['  Volumetric (col L) — intermediate in cm³, then divide by divisor:'],
+            ['    Convert dims to cm: M→×100, Inch→×2.54, CM unchanged'],
+            ['    Volumetric = Qty × cmL × cmW × cmH ÷ divisor'],
+            ['    Divisor: LCL = 5000 | AIR = 6000 (server re-calculates with correct divisor on import).'],
+            [],
+            ['DEPARTMENT & JOBTYPE RULES'],
+            ['  • The JobType (Export/Import) is automatically derived from the selected DepartmentName.'],
+            [],
+            ['CARGO FIELD RULES'],
+            ['  • ContainerType: required for FCL departments only. Leave blank for LCL and Air.'],
+            ['  • NoofContainers: required for Sea departments (FCL and LCL). Leave blank for Air.'],
+            [],
+            ['INCOTERMS & FREIGHT TERMS'],
+            ['  • FreightTerms is auto-patched from the selected IncoTerms OceanFreight value on import.'],
+            [],
+            ['VALIDATION RULES'],
+            ['  • TempBookingRef must be unique within the Booking sheet.'],
+            ['  • TempBookingRef in child sheets must match an existing row in the Booking sheet.'],
+            ['  • POL and POD cannot be the same port.'],
+            ['  • CustomerName, Department, IncoTerms, and port codes must match existing master data.'],
+            ['  • SalesPerson must match an active salesperson for this company.'],
+            ['  • IsHaz = Y requires ImcoClass to be filled.'],
+            ['  • GrossWeight must be >= NetWeight.'],
+        ];
+        instRows.forEach((r: any) => inst.addRow(r));
+        inst.getRow(1).font = { bold: true, size: 13 };
+        inst.getColumn(1).width = 110;
+
+        workbook.views = [{ activeTab: 0 }];
+
+        const buf = await workbook.xlsx.writeBuffer();
+        return Buffer.from(buf);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // parseBookingExcel
+    // ─────────────────────────────────────────────────────────────────────────────
+    async parseBookingExcel(
+        buffer: Buffer,
+        companyMasterSid: number,
+        branchMasterSid: number,
+    ): Promise<{
+        validRows: any[];
+        invalidRows: any[];
+        warnings: string[];
+        summary: { total: number; valid: number; invalid: number };
+    }> {
+        const XLSX = require('xlsx');
+        const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+
+        // ── Sheet readers ─────────────────────────────────────────────────────────
+        const getRows = (exactName: string, skipRows: number): any[][] => {
+            const name = wb.SheetNames.find((n: string) =>
+                n.toLowerCase() === exactName.toLowerCase(),
+            );
+            if (!name) return [];
+            const all: any[][] = XLSX.utils.sheet_to_json(wb.Sheets[name], {
+                header: 1,
+                defval: null,
+                raw: false,
+            });
+            all.splice(0, skipRows);
+            return all.filter((r: any[]) => r.some((cell: any) => cell !== null && cell !== ''));
+        };
+
+        const bkRows = getRows('Booking', 2);
+        const cgRows = getRows('BookingCargo', 2);
+        const prRows = getRows('BookingProduct', 2);
+        const otRows = getRows('BookingOthers', 2);
+
+        // ── Fetch lookup data ─────────────────────────────────────────────────────
+        const [
+            departments, ports, carriers, agents, customers,
+            containerTypes, packageTypes, incoTerms, currencies, imcos, salesPersons,
+        ] = await Promise.all([
+            this._db.departmentMaster.findMany({
+                where: { CompanyMasterSid: companyMasterSid, Status: 'A' },
+                select: {
+                    DepartmentMasterSid: true,
+                    departmentName: true,
+                    departmentType: true,
+                    ExportImport: true,
+                    FCLLCL: true,
+                },
+            }),
+            this._db.portMaster.findMany({
+                where: { status: 'A' },
+                select: { PortMasterSid: true, PortCode: true, PortName: true },
+            }),
+            this._db.customerMaster.findMany({
+                where: {
+                    CompanyMasterSid: companyMasterSid,
+                    status: 'A',
+                    CustomerType: { path: ['carrier'], equals: 'isTrue' },
+                    CustomerBranch: { some: {} },
+                },
+                select: { CustomerMasterSid: true, CustomerName: true },
+            }),
+            this._db.customerMaster.findMany({
+                where: {
+                    CompanyMasterSid: companyMasterSid,
+                    status: 'A',
+                    CustomerType: { path: ['agent'], equals: 'isTrue' },
+                    CustomerBranch: { some: {} },
+                },
+                select: { CustomerMasterSid: true, CustomerName: true },
+            }),
+            this._db.customerMaster.findMany({
+                where: {
+                    CompanyMasterSid: companyMasterSid,
+                    status: 'A',
+                    CustomerType: { path: ['customer'], equals: 'isTrue' },
+                    CustomerBranch: { some: {} },
+                },
+                select: { CustomerMasterSid: true, CustomerName: true },
+            }),
+            this._db.containerTypeMaster.findMany({
+                where: { status: 'A' },
+                select: { ContainerTypeMasterSid: true, ContainerName: true },
+            }),
+            this._db.uOMMaster.findMany({
+                where: { UOMType: 'P', status: 'A' },
+                select: { UOMMasterSid: true, UOMName: true },
+            }),
+            this._db.incoMaster.findMany({
+                where: { Status: 'A' },
+                select: { IncoMasterSid: true, IncoCode: true, OceanFreight: true },
+            }),
+            this._db.currencyMaster.findMany({
+                select: { CurrencyMasterSid: true, currencyCode: true },
+            }),
+            this._db.imcoMaster.findMany({
+                where: { status: 'A' },
+                select: { ImcoMasterSid: true, ImcoName: true },
+            }),
+            this._db.userMaster.findMany({
+                where: {
+                    userCompanyMaster: {
+                        some: {
+                            CompanyMasterSid: companyMasterSid,
+                            GiveAccess: 'Y',
+                            status: 'A',
+                        },
+                    },
+                    isSalesperson: '1',
+                    status: 'A',
+                },
+                select: { UserMasterSid: true, userName: true },
+            }),
+        ]);
+
+        // ── Lookup maps ───────────────────────────────────────────────────────────
+        const deptMap = new Map(departments.map((d: any) => [d.departmentName.trim().toLowerCase(), d]));
+        const portByCode = new Map(ports.map((p: any) => [p.PortCode.trim().toLowerCase(), p]));
+        const portByLabel = new Map(
+            ports.map((p: any) => [
+                `${p.PortCode.trim().toLowerCase()} - ${p.PortName.trim().toLowerCase()}`,
+                p,
+            ]),
+        );
+        const carrierMap = new Map(carriers.map((c: any) => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
+        const agentMap = new Map(agents.map((a: any) => [a.CustomerName.trim().toLowerCase(), a.CustomerMasterSid]));
+        const customerMap = new Map(customers.map((c: any) => [c.CustomerName.trim().toLowerCase(), c]));
+        const ctMap = new Map(containerTypes.map((c: any) => [c.ContainerName.trim().toLowerCase(), c.ContainerTypeMasterSid]));
+        const pkgMap = new Map(packageTypes.map((p: any) => [p.UOMName.trim().toLowerCase(), p.UOMName]));
+        const incoMap = new Map(
+            incoTerms.map((i: any) => [
+                i.IncoCode.trim().toLowerCase(),
+                { sid: i.IncoMasterSid, freightTerms: i.OceanFreight ?? '' },
+            ]),
+        );
+        const imcoMap = new Map(imcos.map((i: any) => [i.ImcoName.trim().toLowerCase(), i.ImcoName]));
+        const salesPersonMap = new Map(salesPersons.map((s: any) => [s.userName.trim().toLowerCase(), s.UserMasterSid]));
+
+        // ── Utility helpers ───────────────────────────────────────────────────────
+        const resolvePort = (val: any): any | null => {
+            if (!val) return null;
+            const raw = String(val).trim().toLowerCase();
+            return portByLabel.get(raw) || portByCode.get(raw.split(' ')[0]) || null;
+        };
+
+        const formatLocalDate = (date: Date): string | null => {
+            if (!date || isNaN(date.getTime())) return null;
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+
+        const parseDate = (val: any): string | null => {
+            if (!val) return null;
+            // Already a Date object (cellDates: true)
+            if (val instanceof Date) return formatLocalDate(val);
+            const s = String(val).trim();
+            // Already YYYY-MM-DD text
+            if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+            // Excel serial number stored as plain string e.g. "46171"
+            if (/^\d+$/.test(s)) {
+                const excelEpoch = new Date(1899, 11, 30);
+                const d = new Date(excelEpoch.getTime() + parseInt(s) * 86400000);
+                return formatLocalDate(d);
+            }
+            // Fallback: try native Date parse (handles "5/29/2026", "29-May-2026", etc.)
+            const d = new Date(s);
+            return isNaN(d.getTime()) ? null : formatLocalDate(d);
+        };
+
+        const str = (v: any) => (v === null || v === undefined ? '' : String(v).trim());
+        const num = (v: any) =>
+            v === null || v === undefined || v === '' ? null : parseFloat(String(v));
+
+        // ── Dimension / volumetric helpers ────────────────────────────────────────
+        const uomStringToSid = (uomRaw: string): number => {
+            const u = uomRaw.trim().toUpperCase();
+            if (u === 'M') return 1;
+            if (u === 'INCH') return 3;
+            return 2;
+        };
+
+        const toCBM = (qty: number, l: number, w: number, h: number, uomSid: number): number => {
+            switch (uomSid) {
+                case 1: return qty * l * w * h;
+                case 3: return qty * (l * 0.0254) * (w * 0.0254) * (h * 0.0254);
+                default: return qty * l * w * h / 1_000_000;
+            }
+        };
+
+        const toVolumetric = (
+            qty: number, l: number, w: number, h: number,
+            uomSid: number,
+            shipmentType: 'LCL' | 'AIR' = 'LCL',
+        ): number => {
+            let cmL: number, cmW: number, cmH: number;
+            switch (uomSid) {
+                case 1: cmL = l * 100; cmW = w * 100; cmH = h * 100; break;
+                case 3: cmL = l * 2.54; cmW = w * 2.54; cmH = h * 2.54; break;
+                default: cmL = l; cmW = w; cmH = h;
+            }
+            const divisor = shipmentType === 'AIR' ? 6000 : 5000;
+            return (qty * cmL * cmW * cmH) / divisor;
+        };
+
+        // ── Group child rows by TempBookingRef ────────────────────────────────────
+        const groupByTempRef = (rows: any[][], colIdx = 0) => {
+            const map = new Map<string, any[][]>();
+            rows.forEach((r: any[]) => {
+                const key = str(r[colIdx]).toLowerCase();
+                if (!key) return;
+                if (!map.has(key)) map.set(key, []);
+                map.get(key)!.push(r);
+            });
+            return map;
+        };
+
+        const cargoByRef = groupByTempRef(cgRows, 0);
+        const productByRef = groupByTempRef(prRows, 0);
+        const othersByRef = groupByTempRef(otRows, 0);
+
+        const warnings: string[] = [];
+        const seenTempRefs = new Set<string>();
+        const validRows: any[] = [];
+        const invalidRows: any[] = [];
+
+        // ── Process each booking row ──────────────────────────────────────────────
+        for (let i = 0; i < bkRows.length; i++) {
+            const row = bkRows[i];
+            const rowNum = i + 3;
+            const errs: string[] = [];
+
+            const tempBookingRef = str(row[0]);
+            const bookingDate = parseDate(row[1]);
+            const deptName = str(row[2]);
+            const customerName = str(row[3]);
+            const customerAddr = str(row[4]);
+            const shipperName = str(row[5]);
+            const shipperAddr = str(row[6]);
+            const consigneeName = str(row[7]);
+            const consigneeAddr = str(row[8]);
+            const notify = str(row[9]);
+            const notifyAddress = str(row[10]);
+            const destAgentName = str(row[11]);
+            const agentAddress = str(row[12]);
+            const carrierName = str(row[13]);
+            const salesPersonName = str(row[14]);
+            const incoTermsVal = str(row[15]);
+            const pooRaw = str(row[16]);
+            const polRaw = str(row[17]);
+            const podRaw = str(row[18]);
+            const fpdRaw = str(row[19]);
+            const vesselName = str(row[20]);
+            const voyageNo = str(row[21]);
+            const etd = parseDate(row[22]);
+            const eta = parseDate(row[23]);
+            const coload = str(row[24]).toUpperCase() === 'Y' ? 'Y' : 'N';
+
+            if (!tempBookingRef) {
+                errs.push('TempBookingRef (col A) is required — provide a unique label e.g. BKN-001');
+            } else if (seenTempRefs.has(tempBookingRef.toLowerCase())) {
+                errs.push(`Duplicate TempBookingRef "${tempBookingRef}" — each booking row must have a unique value`);
+            } else {
+                seenTempRefs.add(tempBookingRef.toLowerCase());
+            }
+
+            if (!bookingDate) errs.push('BookingDate is required (YYYY-MM-DD)');
+            if (!deptName) errs.push('DepartmentName is required');
+            if (!customerName) errs.push('CustomerName is required');
+            if (!customerAddr) errs.push('CustomerAddress is required');
+            if (!polRaw) errs.push('POL is required');
+            if (!podRaw) errs.push('POD is required');
+            if (!incoTermsVal) errs.push('IncoTerms is required');
+
+            const dept = deptName ? deptMap.get(deptName.toLowerCase()) : null;
+            if (deptName && !dept) errs.push(`Department "${deptName}" not found`);
+
+            const customerObj = customerName ? customerMap.get(customerName.toLowerCase()) : null;
+            if (customerName && !customerObj) errs.push(`Customer "${customerName}" not found`);
+
+            const polPort = resolvePort(polRaw);
+            const podPort = resolvePort(podRaw);
+            const pooPort = resolvePort(pooRaw);
+            const fpdPort = resolvePort(fpdRaw);
+
+            if (polRaw && !polPort) errs.push(`POL port "${polRaw}" not found`);
+            if (podRaw && !podPort) errs.push(`POD port "${podRaw}" not found`);
+
+            if (polPort && podPort && polPort.PortCode === podPort.PortCode) {
+                errs.push('POL and POD cannot be the same port');
+            }
+
+            const incoEntry = incoTermsVal ? incoMap.get(incoTermsVal.toLowerCase()) : null;
+            if (incoTermsVal && !incoEntry) errs.push(`IncoTerms "${incoTermsVal}" not found`);
+
+            const carrierId = carrierName ? carrierMap.get(carrierName.toLowerCase()) : null;
+            if (carrierName && !carrierId) errs.push(`CarrierName "${carrierName}" not found`);
+
+            const destAgentId = destAgentName ? agentMap.get(destAgentName.toLowerCase()) : null;
+            if (destAgentName && !destAgentId) errs.push(`DestinationAgent "${destAgentName}" not found`);
+
+            const salesPersonId = salesPersonName ? salesPersonMap.get(salesPersonName.toLowerCase()) : null;
+            if (salesPersonName && !salesPersonId) errs.push(`SalesPerson "${salesPersonName}" not found`);
+
+            const isFCL = dept && String(dept.FCLLCL || '').toUpperCase() === 'FCL';
+            const isAir = dept && String(dept.departmentType || '').toUpperCase() === 'AIR';
+            const isLCLOrAir = dept && (
+                String(dept.FCLLCL || '').toUpperCase() === 'LCL' ||
+                String(dept.departmentType || '').toUpperCase() === 'AIR'
+            );
+            const shipmentTypeForCalc: 'LCL' | 'AIR' =
+                dept && String(dept.departmentType || '').toUpperCase() === 'AIR' ? 'AIR' : 'LCL';
+
+            const jobType = dept?.ExportImport ?? '';
+            const linkKey = tempBookingRef.toLowerCase();
+
+            const cargoRowsRaw = cargoByRef.get(linkKey) || [];
+            const productRowsRaw = productByRef.get(linkKey) || [];
+
+            // ── Parse BookingCargo rows ───────────────────────────────────────────
+            const cargoList: any[] = [];
+            const cargoErrs: any[] = [];
+
+            for (let ci = 0; ci < cargoRowsRaw.length; ci++) {
+                const cRow = cargoRowsRaw[ci];
+                const cErrs: string[] = [];
+
+                const cargoType = str(cRow[1]) || 'General';
+                const containerName = str(cRow[2]);
+                const noofContainers = num(cRow[3]);
+                const cMovementType = str(cRow[4]);
+                const modeOfTransport = str(cRow[5]);
+                const stuffingAt = str(cRow[6]) || 'Dock';
+                const shipmentTerms = str(cRow[7]);
+
+                const resolvedCtId = containerName ? ctMap.get(containerName.toLowerCase()) : null;
+                if (isFCL) {
+                    if (!containerName) {
+                        cErrs.push(`Cargo ${ci + 1}: ContainerType is required for FCL`);
+                    } else if (!resolvedCtId) {
+                        cErrs.push(`Cargo ${ci + 1}: ContainerType "${containerName}" not found`);
+                    }
+                    if (!noofContainers || noofContainers <= 0) {
+                        cErrs.push(`Cargo ${ci + 1}: NoofContainers must be > 0 for FCL`);
+                    }
+                } else if (isAir) {
+                    // Air — ContainerType and NoofContainers not applicable
+                } else {
+                    if (noofContainers !== null && noofContainers !== undefined && noofContainers < 0) {
+                        cErrs.push(`Cargo ${ci + 1}: NoofContainers cannot be negative`);
                     }
                 }
-            },
-            orderBy: {
-                VoucherDate: 'desc'
+
+                if (cErrs.length) {
+                    cargoErrs.push({ cargoIndex: ci + 1, errors: cErrs });
+                } else {
+                    cargoList.push({
+                        CargoType: cargoType,
+                        ContainerType: (isFCL ? resolvedCtId : null) || null,
+                        ContainerName: isFCL ? containerName : '',
+                        NoofContainers: isAir ? 0 : (noofContainers || 0),
+                        MovementType: cMovementType || null,
+                        ModeOfTransport: modeOfTransport || null,
+                        StuffingAt: stuffingAt,
+                        ShipmentTerms: shipmentTerms || null,
+                        GrossWeight: 0,
+                        NetWeight: 0,
+                        Volume: 0,
+                        Volumetric: 0,
+                        ChargeableWeight: 0,
+                        NoOfPackage: 0,
+                        _cargoIndex: ci + 1,
+                        bookingProducts: [],
+                    });
+                }
             }
-        });
 
-        return arapData.map((item: any) => ({
-            CompanyMasterSid: item.CompanyMasterSid,
-            BookingHeaderSid: item.BookingHeaderSid,
-            VoucherHeaderSid: item.VoucherHeaderSid,
-            VoucherNumber: item.VoucherNumber,
-            VoucherDate: item.VoucherDate,
-            HBLNo: item.HouseNumber || '-',
-            MBLNo: item.MasterNumber || '-',
-            DocumentTypeCode: item.voucherTypeMaster?.DocumentTypeCode || '',
-            CurrencyCode: item.CurrencyCode,
-            Amount: Number(item.Amount) || 0,
-            LocalAmount: Number(item.LocalAmount) || 0,
-            PostStatus: item.PostStatus || 'U'
-        }));
-    } catch (error) {
-        this.logger.error(`Error fetching AR/AP data: ${error.message}`);
-        throw new InternalServerErrorException('Failed to fetch AR/AP data');
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// generateBookingTemplate
-// ─────────────────────────────────────────────────────────────────────────────
-async generateBookingTemplate(companyMasterSid: number): Promise<Buffer> {
-  const ExcelJS = require('exceljs');
-  const workbook = new ExcelJS.Workbook();
-
-  // ── Fetch lookup data ─────────────────────────────────────────────────────
-  const [
-    departments, ports, carriers, agents, customers,
-    containerTypes, packageTypes, incoTerms, currencies, imcos, uoms, salesPersons,
-  ] = await Promise.all([
-    this._db.departmentMaster.findMany({
-      where: { CompanyMasterSid: companyMasterSid, Status: 'A' },
-      select: {
-        DepartmentMasterSid: true,
-        departmentName: true,
-        departmentType: true,
-        ExportImport: true,
-        FCLLCL: true,
-      },
-    }),
-    this._db.portMaster.findMany({
-      where: { status: 'A' },
-      select: { PortMasterSid: true, PortCode: true, PortName: true },
-      orderBy: { PortCode: 'asc' },
-    }),
-    this._db.customerMaster.findMany({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        status: 'A',
-        CustomerType: { path: ['carrier'], equals: 'isTrue' },
-        CustomerBranch: { some: {} },
-      },
-      select: { CustomerMasterSid: true, CustomerName: true },
-      orderBy: { CustomerName: 'asc' },
-    }),
-    this._db.customerMaster.findMany({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        status: 'A',
-        CustomerType: { path: ['agent'], equals: 'isTrue' },
-        CustomerBranch: { some: {} },
-      },
-      select: { CustomerMasterSid: true, CustomerName: true },
-      orderBy: { CustomerName: 'asc' },
-    }),
-    this._db.customerMaster.findMany({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        status: 'A',
-        CustomerType: { path: ['customer'], equals: 'isTrue' },
-        CustomerBranch: { some: {} },
-      },
-      select: { CustomerMasterSid: true, CustomerName: true },
-      orderBy: { CustomerName: 'asc' },
-    }),
-    this._db.containerTypeMaster.findMany({
-      where: { status: 'A' },
-      select: { ContainerTypeMasterSid: true, ContainerName: true },
-    }),
-    this._db.uOMMaster.findMany({
-      where: { UOMType: 'P', status: 'A' },
-      select: { UOMMasterSid: true, UOMName: true },
-    }),
-    this._db.incoMaster.findMany({
-      where: { Status: 'A' },
-      select: { IncoMasterSid: true, IncoCode: true },
-      orderBy: { IncoCode: 'asc' },
-    }),
-    this._db.currencyMaster.findMany({
-      select: { CurrencyMasterSid: true, currencyCode: true },
-    }),
-    this._db.imcoMaster.findMany({
-      where: { status: 'A' },
-      select: { ImcoMasterSid: true, ImcoName: true },
-    }),
-    this._db.uOMMaster.findMany({
-      where: { status: 'A' },
-      select: { UOMMasterSid: true, UOMName: true },
-    }),
-    this._db.userMaster.findMany({
-      where: {
-        userCompanyMaster: {
-          some: {
-            CompanyMasterSid: companyMasterSid,
-            GiveAccess: 'Y',
-            status: 'A',
-          },
-        },
-        isSalesperson: '1',
-        status: 'A',
-      },
-      select: { UserMasterSid: true, userName: true },
-      orderBy: { userName: 'asc' },
-    }),
-  ]);
-
-  const portOptions = ports.map((p: any) => `${p.PortCode} - ${p.PortName}`);
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  const styleHeaderRow = (row: any, mandatoryCount: number) => {
-    row.height = 22;
-    row.eachCell((cell: any, colNo: number) => {
-      const isMandatory = colNo <= mandatoryCount;
-      cell.font = {
-        bold: true,
-        color: { argb: isMandatory ? 'FFCC0000' : 'FF6B6B00' },
-        size: 10,
-      };
-      cell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: isMandatory ? 'FFFFE5E5' : 'FFFFFBE6' },
-      };
-      cell.border = {
-        bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
-        top:    { style: 'thin',   color: { argb: 'FFAAAAAA' } },
-        left:   { style: 'thin',   color: { argb: 'FFAAAAAA' } },
-        right:  { style: 'thin',   color: { argb: 'FFAAAAAA' } },
-      };
-      cell.alignment = { vertical: 'middle', wrapText: false };
-    });
-  };
-
-  const markMandatoryCols = (sheet: any, colNumbers: number[]) => {
-    colNumbers.forEach(colNo => {
-      const cell = sheet.getRow(1).getCell(colNo);
-      cell.font  = { bold: true, color: { argb: 'FFCC0000' }, size: 10 };
-      cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
-      cell.border = {
-        bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
-        top:    { style: 'thin',   color: { argb: 'FFAAAAAA' } },
-        left:   { style: 'thin',   color: { argb: 'FFAAAAAA' } },
-        right:  { style: 'thin',   color: { argb: 'FFAAAAAA' } },
-      };
-      cell.alignment = { vertical: 'middle', wrapText: false };
-    });
-  };
-
-  const styleExampleRow = (sheet: any, rowNum: number) => {
-    sheet.getRow(rowNum).eachCell((cell: any) => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2FB' } };
-      cell.font = { italic: true, color: { argb: 'FF555577' }, size: 9 };
-    });
-  };
-
-  const applyDV = (
-    sheet: any,
-    col: string,
-    formulae: string,
-    startRow: number,
-    endRow = 5000,
-  ) => {
-    for (let r = startRow; r <= endRow; r++) {
-      sheet.getCell(`${col}${r}`).dataValidation = {
-        type: 'list',
-        allowBlank: true,
-        formulae: [formulae],
-        showErrorMessage: true,
-        errorTitle: 'Invalid value',
-        error: 'Select from the dropdown list',
-      };
-    }
-  };
-
-  const applyDateDV = (sheet: any, col: string, startRow: number, endRow = 5000) => {
-    for (let r = startRow; r <= endRow; r++) {
-      sheet.getCell(`${col}${r}`).dataValidation = {
-        type: 'date',
-        operator: 'between',
-        allowBlank: true,
-        formulae: [new Date(2000, 0, 1), new Date(2099, 11, 31)],
-        showErrorMessage: true,
-        errorTitle: 'Invalid Date',
-        error: 'Use YYYY-MM-DD format',
-      };
-    }
-  };
-
-  const addRefSheet = (name: string, values: string[]) => {
-    const ws = workbook.addWorksheet(name);
-    values.forEach((v: string) => ws.addRow([v]));
-    ws.state = 'veryHidden';
-    return ws;
-  };
-
-  const dvRef = (sheet: string, count: number) =>
-    count > 0 ? `'${sheet}'!$A$1:$A$${count}` : `'${sheet}'!$A$1`;
-
-  // ── Reference sheets ──────────────────────────────────────────────────────
-  addRefSheet('_Departments',    departments.map((d: any) => d.departmentName));
-  addRefSheet('_Ports',          portOptions);
-  addRefSheet('_Carriers',       carriers.map((c: any) => c.CustomerName));
-  addRefSheet('_Agents',         agents.map((a: any) => a.CustomerName));
-  addRefSheet('_Customers',      customers.map((c: any) => c.CustomerName));
-  addRefSheet('_ContainerTypes', containerTypes.map((c: any) => c.ContainerName));
-  addRefSheet('_PackageTypes',   packageTypes.map((p: any) => p.UOMName));
-  addRefSheet('_IncoTerms',      incoTerms.map((i: any) => i.IncoCode));
-  addRefSheet('_Currencies',     currencies.map((c: any) => c.currencyCode));
-  addRefSheet('_IMCO',           imcos.map((i: any) => i.ImcoName));
-  addRefSheet('_SalesPersons',   salesPersons.map((s: any) => s.UserName));
-  addRefSheet('_FreightTerms',   ['Prepaid', 'Collect']);
-  addRefSheet('_CargoType',      ['General', 'Haz', 'Reefer', 'Tanker', 'OOG']);
-  addRefSheet('_YesNo',          ['Y', 'N']);
-  addRefSheet('_BookingStatus',  ['Booked', 'Cargo Received', 'Stuffed']);
-  addRefSheet('_MovementType',   ['CY-CFS', 'CFS-FO', 'CFS-CY', 'CFS-CFS', 'FO-FI', 'Door-Door', 'CY-Door', 'CY-FO']);
-  addRefSheet('_ShipmentTerms',  ['FCL/FCL', 'FCL/LCL', 'LCL/FCL', 'LCL/LCL', 'LTL', 'FTL', 'FTL HH']);
-  addRefSheet('_UOM',            ['M', 'CM', 'Inch']);
-  addRefSheet('_ReleaseType',    ['Original', 'Sea Way BL', 'Express', 'Draft']);
-  addRefSheet('_ModeOfTransport',['Sea', 'Air', 'Road', 'Rail', 'Courier']);
-
-  const deptCount     = departments.length;
-  const portCount     = portOptions.length;
-  const carrierCount  = carriers.length;
-  const agentCount    = agents.length;
-  const customerCount = customers.length;
-  const ctCount       = containerTypes.length;
-  const pkgCount      = packageTypes.length;
-  const incoCount     = incoTerms.length;
-  const currCount     = currencies.length;
-  const imcoCount     = imcos.length;
-  const spCount       = salesPersons.length;
-
-  // ══════════════════════════════════════════════════════
-  // SHEET 1 — Booking (header)
-  // ══════════════════════════════════════════════════════
-  const bkSheet = workbook.addWorksheet('Booking');
-
-  // Column layout (25 columns A–Y):
-  // A  TempBookingRef      - mandatory
-  // B  BookingDate         - mandatory
-  // C  DepartmentName      - mandatory
-  // D  CustomerName        - mandatory
-  // E  CustomerAddress     - mandatory
-  // F  ShipperName
-  // G  ShipperAddress
-  // H  ConsigneeName
-  // I  ConsigneeAddress
-  // J  NotifyName
-  // K  NotifyAddress
-  // L  DestinationAgent
-  // M  AgentAddress
-  // N  CarrierName
-  // O  SalesPerson
-  // P  IncoTerms           - mandatory
-  // Q  POO
-  // R  POL                 - mandatory
-  // S  POD                 - mandatory
-  // T  FPOD
-  // U  VesselName
-  // V  VoyageNo
-  // W  ETD
-  // X  ETA
-  // Y  Coload
-  const bkHeaders = [
-    'TempBookingRef',               // A - mandatory
-    'BookingDate (YYYY-MM-DD)',     // B - mandatory
-    'DepartmentName',               // C - mandatory
-    'CustomerName',                 // D - mandatory
-    'CustomerAddress',              // E - mandatory
-    'ShipperName',                  // F
-    'ShipperAddress',               // G
-    'ConsigneeName',                // H
-    'ConsigneeAddress',             // I
-    'NotifyName',                   // J
-    'NotifyAddress',                // K
-    'DestinationAgent',             // L
-    'AgentAddress',                 // M
-    'CarrierName',                  // N
-    'SalesPerson',                  // O
-    'IncoTerms',                    // P - mandatory
-    'POO (PortCode)',               // Q
-    'POL (PortCode)',               // R - mandatory
-    'POD (PortCode)',               // S - mandatory
-    'FPOD (PortCode)',              // T
-    'VesselName',                   // U
-    'VoyageNo',                     // V
-    'ETD (YYYY-MM-DD)',             // W
-    'ETA (YYYY-MM-DD)',             // X
-    'Coload (Y/N)',                 // Y
-  ];
-
-  bkSheet.addRow(bkHeaders);
-  // Cols A–E (1–5) are mandatory → red styling via styleHeaderRow
-  styleHeaderRow(bkSheet.getRow(1), 5);
-  // Cols P(16), R(18), S(19) also mandatory
-  markMandatoryCols(bkSheet, [16, 18, 19]);
-
-  // Example row
-  bkSheet.addRow([
-    'BKN-001',                                              // A  TempBookingRef
-    '2024-01-15',                                          // B  BookingDate
-    departments[0]?.departmentName || 'FCL Export',        // C
-    customers[0]?.CustomerName     || 'ABC Exports Ltd',   // D
-    'Customer Address Line 1',                             // E
-    'Shipper Co.',                                         // F
-    '456 Shipper St, Mumbai',                              // G
-    'Consignee Co.',                                       // H
-    '789 Consignee Ave, LA',                              // I
-    'Same as Consignee',                                   // J
-    '789 Consignee Ave, LA',                              // K
-    agents[0]?.CustomerName        || 'US Agent LLC',     // L
-    'Agent Address Line 1',                                // M
-    carriers[0]?.CustomerName      || 'MSC',              // N
-    salesPersons[0]?.userName      || '',                  // O
-    incoTerms[0]?.IncoCode         || 'CIF',              // P
-    '',                                                    // Q  POO
-    'INNSA - Nhava Sheva',                                 // R  POL
-    'USLAX - Los Angeles',                                 // S  POD
-    '',                                                    // T  FPOD
-    'MSC ANNA',                                            // U
-    'V001E',                                               // V
-    '2024-01-20',                                          // W  ETD
-    '2024-02-10',                                          // X  ETA
-    'N',                                                   // Y
-  ]);
-  styleExampleRow(bkSheet, 2);
-
-  // Column widths (25 cols)
-  [16, 18, 22, 24, 28, 24, 28, 24, 28, 22, 24, 24, 28, 22, 20, 14, 18, 20, 20, 18, 22, 14, 18, 18, 12]
-    .forEach((w: number, i: number) => { bkSheet.getColumn(i + 1).width = w; });
-
-  // Data validation — data rows start at row 3
-  const bkStart = 3;
-  applyDateDV(bkSheet, 'B', bkStart);                                    // BookingDate
-  applyDV(bkSheet, 'C', dvRef('_Departments', deptCount), bkStart);      // DepartmentName
-  applyDV(bkSheet, 'D', dvRef('_Customers', customerCount), bkStart);    // CustomerName
-  applyDV(bkSheet, 'L', dvRef('_Agents', agentCount), bkStart);          // DestinationAgent
-  applyDV(bkSheet, 'N', dvRef('_Carriers', carrierCount), bkStart);      // CarrierName
-  applyDV(bkSheet, 'O', dvRef('_SalesPersons', spCount), bkStart);       // SalesPerson
-  applyDV(bkSheet, 'P', dvRef('_IncoTerms', incoCount), bkStart);        // IncoTerms
-  applyDV(bkSheet, 'Q', dvRef('_Ports', portCount), bkStart);            // POO
-  applyDV(bkSheet, 'R', dvRef('_Ports', portCount), bkStart);            // POL
-  applyDV(bkSheet, 'S', dvRef('_Ports', portCount), bkStart);            // POD
-  applyDV(bkSheet, 'T', dvRef('_Ports', portCount), bkStart);            // FPOD
-  applyDV(bkSheet, 'Y', dvRef('_YesNo', 2), bkStart);                    // Coload
-  applyDateDV(bkSheet, 'W', bkStart);                                    // ETD
-  applyDateDV(bkSheet, 'X', bkStart);                                    // ETA
-
-  // ══════════════════════════════════════════════════════
-  // SHEET 2 — BookingCargo
-  // ══════════════════════════════════════════════════════
-  // Column layout (8 columns A–H):
-  // A  TempBookingRef (Link)   - mandatory
-  // B  CargoType               - mandatory
-  // C  ContainerType           (FCL only; leave blank for LCL/Air)
-  // D  NoofContainers          (Sea only — FCL & LCL; leave blank for Air)
-  // E  MovementType
-  // F  ModeOfTransport
-  // G  StuffingAt
-  // H  ShipmentTerms
-  //
-  // NOTE: GrossWeight, NetWeight, Volume, Volumetric, ChargeableWeight, and
-  //       NoOfPackage are NOT entered by the user — they are computed server-side
-  //       as the sum (or max, for ChargeableWeight) of the linked product rows.
-  const cgSheet = workbook.addWorksheet('BookingCargo');
-
-  const cgHeaders = [
-    'TempBookingRef (Link)',    // A - mandatory
-    'CargoType',               // B - mandatory
-    'ContainerType',           // C (FCL only — leave blank for LCL/Air)
-    'NoofContainers',          // D (Sea only — FCL & LCL; leave blank for Air)
-    'MovementType',            // E
-    'ModeOfTransport',         // F
-    'StuffingAt',              // G
-    'ShipmentTerms',           // H
-  ];
-
-  cgSheet.addRow(cgHeaders);
-  styleHeaderRow(cgSheet.getRow(1), 2); // A–B mandatory (red), C–H optional (yellow)
-
-  cgSheet.addRow([
-    'BKN-001',                                              // A  TempBookingRef
-    'General',                                             // B  CargoType
-    containerTypes[0]?.ContainerName || '20FT',           // C  ContainerType
-    1,                                                     // D  NoofContainers
-    'CY-CFS',                                             // E  MovementType
-    'Sea',                                                 // F  ModeOfTransport
-    'Dock',                                               // G  StuffingAt
-    'FCL/FCL',                                            // H  ShipmentTerms
-  ]);
-  styleExampleRow(cgSheet, 2);
-
-  [18, 14, 18, 14, 18, 18, 14, 16]
-    .forEach((w: number, i: number) => { cgSheet.getColumn(i + 1).width = w; });
-
-  const cgStart = 3;
-  applyDV(cgSheet, 'B', dvRef('_CargoType', 5), cgStart);                // CargoType
-  applyDV(cgSheet, 'C', dvRef('_ContainerTypes', ctCount), cgStart);     // ContainerType
-  applyDV(cgSheet, 'E', dvRef('_MovementType', 8), cgStart);             // MovementType
-  applyDV(cgSheet, 'F', dvRef('_ModeOfTransport', 5), cgStart);          // ModeOfTransport
-  applyDV(cgSheet, 'G', `"Dock,Factory"`, cgStart);                      // StuffingAt
-  applyDV(cgSheet, 'H', dvRef('_ShipmentTerms', 7), cgStart);            // ShipmentTerms
-
-  // ══════════════════════════════════════════════════════
-  // SHEET 3 — BookingProduct
-  // ══════════════════════════════════════════════════════
-  const prSheet = workbook.addWorksheet('BookingProduct');
-
-  const prHeaders = [
-    'TempBookingRef (Link)',         // A - mandatory
-    'CargoIndex (1,2,3...)',         // B - mandatory
-    'Commodity',                    // C - mandatory
-    'ExternalPkg',                  // D - mandatory
-    'ExternalQty (No of Pkg)',       // E - mandatory
-    'GrossWeight',                  // F - mandatory
-    'NetWeight',                    // G
-    'UOM',                          // H (M / CM / Inch)
-    'Length',                       // I
-    'Width',                        // J
-    'Height',                       // K
-    'Volumetric (auto-calc)',        // L
-    'CBM / Volume (auto-calc)',      // M
-    'ShippingBillNo',               // N
-    'ShippingBillDate (YYYY-MM-DD)',// O
-    'CargoRecDate (YYYY-MM-DD)',    // P
-    'IsHaz (Y/N)',                  // Q
-    'ImcoClass',                    // R
-    'UnNo',                         // S
-    'PkgGroup',                     // T
-  ];
-
-  prSheet.addRow(prHeaders);
-  styleHeaderRow(prSheet.getRow(1), 6);
-
-  // Mark Volumetric (col 12) and CBM (col 13) as auto-calculated gold
-  [12, 13].forEach(colNo => {
-    const cell = prSheet.getRow(1).getCell(colNo);
-    cell.font  = { bold: true, color: { argb: 'FF6B4E00' }, size: 10 };
-    cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9E0' } };
-    cell.border = {
-      bottom: { style: 'medium', color: { argb: 'FFAAAAAA' } },
-      top:    { style: 'thin',   color: { argb: 'FFAAAAAA' } },
-      left:   { style: 'thin',   color: { argb: 'FFAAAAAA' } },
-      right:  { style: 'thin',   color: { argb: 'FFAAAAAA' } },
-    };
-    cell.alignment = { vertical: 'middle', wrapText: false };
-  });
-
-  prSheet.addRow([
-    'BKN-001', 1,                          // A TempBookingRef, B CargoIndex
-    'Electronic Components', 'CTN', 10,    // C, D, E
-    500, 480, 'CM', 60, 40, 30, '', '',    // F–M
-    'SB-001', '', '', 'N', '', '', '',     // N–T
-  ]);
-  styleExampleRow(prSheet, 2);
-
-  [18, 14, 28, 16, 16, 14, 12, 10, 10, 10, 10, 18, 18, 16, 22, 22, 12, 18, 14, 14]
-    .forEach((w: number, i: number) => { prSheet.getColumn(i + 1).width = w; });
-
-  const prStart = 3;
-  applyDV(prSheet, 'D', dvRef('_PackageTypes', pkgCount), prStart);
-  applyDV(prSheet, 'H', `"M,CM,Inch"`, prStart);
-  applyDV(prSheet, 'Q', dvRef('_YesNo', 2), prStart);
-  applyDV(prSheet, 'R', dvRef('_IMCO', imcoCount), prStart);
-  applyDateDV(prSheet, 'O', prStart);
-  applyDateDV(prSheet, 'P', prStart);
-
-  // Auto-calculated formulas for Volumetric (L) and CBM (M)
-  for (let r = prStart; r <= 5000; r++) {
-    prSheet.getCell(`L${r}`).value = {
-      formula:
-        `=IF(AND(I${r}>0,J${r}>0,K${r}>0,E${r}>0),` +
-        `ROUND(IF(H${r}="M",   E${r}*(I${r}*100)*(J${r}*100)*(K${r}*100)/6000,` +
-               `IF(H${r}="Inch",E${r}*(I${r}*2.54)*(J${r}*2.54)*(K${r}*2.54)/6000,` +
-                               `E${r}*I${r}*J${r}*K${r}/6000)),3),"")`
-    };
-    prSheet.getCell(`M${r}`).value = {
-      formula:
-        `=IF(AND(I${r}>0,J${r}>0,K${r}>0,E${r}>0),` +
-        `ROUND(IF(H${r}="M",   E${r}*I${r}*J${r}*K${r},` +
-               `IF(H${r}="Inch",E${r}*(I${r}*0.0254)*(J${r}*0.0254)*(K${r}*0.0254),` +
-                               `E${r}*I${r}*J${r}*K${r}/1000000)),3),"")`
-    };
-    ['L', 'M'].forEach(col => {
-      const cell = prSheet.getCell(`${col}${r}`);
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFDE7' } };
-      cell.font = { color: { argb: 'FF6B4E00' }, size: 9 };
-      cell.numFmt = '0.000';
-    });
-  }
-
-  // ══════════════════════════════════════════════════════
-  // SHEET 4 — BookingOthers
-  // ══════════════════════════════════════════════════════
-  const otSheet = workbook.addWorksheet('BookingOthers');
-
-  const otHeaders = [
-    'TempBookingRef (Link)',             // A - mandatory
-    'CustomerRefNo',                    // B
-    'YardCFS',                          // C
-    'ReleaseType',                      // D
-    'Forwarder',                        // E
-    'ForwarderAddress',                 // F
-    'Notify2',                          // G
-    'NotifyAddress2',                   // H
-    'Coloader',                         // I
-    'PickupPlace',                      // J
-    'PickupAddress',                    // K
-    'DeliveryPlace',                    // L
-    'DeliveryDate (YYYY-MM-DD)',        // M
-    'DeliveryAddress',                  // N
-    'CargoCurrency',                   // O
-    'CargoValue',                       // P
-    'CarrierBookingRef',                // Q
-    'CarrierBookingDate (YYYY-MM-DD)', // R
-    'SwitchBL (Y/N)',                  // S
-    'BacktoBack (Y/N)',                // T
-    'CHAName',                          // U
-    'ExternalRemarks',                  // V
-  ];
-
-  otSheet.addRow(otHeaders);
-  styleHeaderRow(otSheet.getRow(1), 1);
-
-  otSheet.addRow([
-    'BKN-001',                      // A  TempBookingRef
-    'CREF-001', '', 'Original',    // B, C, D
-    '', '', '', '', '', '', '', '', '', '', // E–N
-    'USD', '', '', '', 'N', 'N', '', '',   // O–V
-  ]);
-  styleExampleRow(otSheet, 2);
-
-  [18, 18, 22, 14, 24, 28, 22, 24, 24, 22, 22, 22, 22, 22, 14, 14, 22, 22, 12, 12, 22, 28]
-    .forEach((w: number, i: number) => { otSheet.getColumn(i + 1).width = w; });
-
-  const otStart = 3;
-  applyDV(otSheet, 'D', dvRef('_ReleaseType', 4), otStart);
-  applyDV(otSheet, 'E', dvRef('_Agents', agentCount), otStart);
-  applyDV(otSheet, 'O', dvRef('_Currencies', currCount), otStart);
-  applyDV(otSheet, 'S', dvRef('_YesNo', 2), otStart);
-  applyDV(otSheet, 'T', dvRef('_YesNo', 2), otStart);
-  applyDateDV(otSheet, 'M', otStart);
-  applyDateDV(otSheet, 'R', otStart);
-
-  // ══════════════════════════════════════════════════════
-  // INSTRUCTIONS SHEET
-  // ══════════════════════════════════════════════════════
-  const inst = workbook.addWorksheet('Instructions');
-  const instRows = [
-    ['Booking Bulk Upload Template — Instructions'],
-    [],
-    ['SHEET OVERVIEW'],
-    ['  Booking         — One row per booking. TempBookingRef (col A) is your own short unique ID (e.g. BKN-001).'],
-    ['                    Columns: TempBookingRef, BookingDate, DepartmentName, CustomerName, CustomerAddress,'],
-    ['                    ShipperName, ShipperAddress, ConsigneeName, ConsigneeAddress, NotifyName, NotifyAddress,'],
-    ['                    DestinationAgent, AgentAddress, CarrierName, SalesPerson, IncoTerms,'],
-    ['                    POO, POL, POD, FPOD, VesselName, VoyageNo, ETD, ETA, Coload.'],
-    ['  BookingCargo    — Cargo rows. Col A (TempBookingRef) must match a value in Booking col A.'],
-    ['                    Columns: TempBookingRef, CargoType, ContainerType, NoofContainers,'],
-    ['                    MovementType, ModeOfTransport, StuffingAt, ShipmentTerms.'],
-    ['                    GrossWeight/NetWeight/Volume/Volumetric/ChargeableWeight/NoOfPackage are'],
-    ['                    computed automatically from the linked product rows — do not enter them here.'],
-    ['  BookingProduct  — Product rows. Col A (TempBookingRef) + Col B (CargoIndex) identify the parent cargo row.'],
-    ['  BookingOthers   — One row per booking. Col A (TempBookingRef) must match Booking col A.'],
-    [],
-    ['TEMPBOOKINGREF — THE LINK KEY'],
-    ['  • TempBookingRef is a file-scoped reference you create (e.g. BKN-001, BKN-002).'],
-    ['  • It must be unique within the Booking sheet — no two booking rows can share the same value.'],
-    ['  • Use the SAME TempBookingRef in BookingCargo, BookingProduct, and BookingOthers col A to link rows.'],
-    ['  • The real BookingNo is auto-generated by the system on import. TempBookingRef is discarded after save.'],
-    [],
-    ['HOW TO USE'],
-    ['  1. Fill the Booking sheet. Give each row a unique TempBookingRef (col A) and a BookingDate (col B).'],
-    ['  2. In BookingCargo, set col A = TempBookingRef of the parent booking row.'],
-    ['  3. In BookingProduct, set col A = TempBookingRef and col B = CargoIndex (1, 2, 3...) of the cargo row.'],
-    ['  4. In BookingOthers, set col A = TempBookingRef of the parent booking row (one row per booking).'],
-    ['  5. Example rows (row 2) are for reference and will be ignored during import.'],
-    ['  6. Dropdowns are provided for validated fields — do not type values outside the list.'],
-    ['  7. Red column header = mandatory. Yellow = optional. Gold = auto-calculated (Volumetric / CBM).'],
-    ['  8. Date columns accept YYYY-MM-DD format only.'],
-    [],
-    ['DEPARTMENT & JOBTYPE RULES'],
-    ['  • The JobType (Export/Import) is automatically derived from the selected DepartmentName.'],
-    ['  • No separate JobType column is needed — the system reads ExportImport from the department master.'],
-    [],
-    ['CARGO FIELD RULES'],
-    ['  • ContainerType: required for FCL departments only. Leave blank for LCL and Air.'],
-    ['  • NoofContainers: required for Sea departments (FCL and LCL). Leave blank for Air.'],
-    ['  • GrossWeight, NetWeight, Volume, Volumetric, ChargeableWeight, and NoOfPackage are NOT'],
-    ['    entered in this sheet. They are computed as the sum of all linked BookingProduct rows.'],
-    ['    ChargeableWeight = MAX(GrossWeight, Volumetric) across all products for that cargo.'],
-    [],
-    ['INCOTERMS & FREIGHT TERMS'],
-    ['  • FreightTerms is auto-patched from the selected IncoTerms OceanFreight value on import.'],
-    ['  • No separate FreightTerms column is needed in the Booking sheet.'],
-    [],
-    ['PRODUCT RULES'],
-    ['  • CargoIndex (1, 2, 3…) links each product to its parent cargo row within the same TempBookingRef.'],
-    ['  • If a booking has only one cargo row, use CargoIndex = 1 for all products.'],
-    ['  • Volumetric and CBM are auto-calculated in the spreadsheet — leave blank or let Excel compute.'],
-    ['  • During import, if dimensions (L×W×H×Qty×UOM) are present, values are re-calculated server-side.'],
-    ['  • GrossWeight must be >= NetWeight.'],
-    [],
-    ['VALIDATION RULES'],
-    ['  • TempBookingRef must be unique within the Booking sheet.'],
-    ['  • TempBookingRef in child sheets must match an existing row in the Booking sheet.'],
-    ['  • POL and POD cannot be the same port.'],
-    ['  • CustomerName, Department, IncoTerms, and port codes must match existing master data.'],
-    ['  • SalesPerson must match an active salesperson for this company (isSalesPerson = Y).'],
-    ['  • IsHaz = Y requires ImcoClass to be filled.'],
-  ];
-  instRows.forEach((r: any) => inst.addRow(r));
-  inst.getRow(1).font = { bold: true, size: 13 };
-  inst.getColumn(1).width = 110;
-
-  workbook.views = [{ activeTab: 0 }];
-
-  const buf = await workbook.xlsx.writeBuffer();
-  return Buffer.from(buf);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// parseBookingExcel
-// ─────────────────────────────────────────────────────────────────────────────
-async parseBookingExcel(
-  buffer: Buffer,
-  companyMasterSid: number,
-  branchMasterSid: number,
-): Promise<{
-  validRows: any[];
-  invalidRows: any[];
-  warnings: string[];
-  summary: { total: number; valid: number; invalid: number };
-}> {
-  const XLSX = require('xlsx');
-  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-
-  // ── Sheet readers ─────────────────────────────────────────────────────────
-  const getRows = (sheetPartial: string, skipRows: number): any[][] => {
-    const name = wb.SheetNames.find((n: string) =>
-      n.toLowerCase().includes(sheetPartial.toLowerCase()),
-    );
-    if (!name) return [];
-    const all: any[][] = XLSX.utils.sheet_to_json(wb.Sheets[name], {
-      header: 1,
-      defval: null,
-      raw: false,
-    });
-    all.splice(0, skipRows);
-    return all.filter((r: any[]) => r.some((cell: any) => cell !== null && cell !== ''));
-  };
-
-  const bkRows = getRows('booking',        2); // skip header + example
-  const cgRows = getRows('bookingcargo',   2);
-  const prRows = getRows('bookingproduct', 2);
-  const otRows = getRows('bookingothers',  2);
-
-  // ── Fetch lookup data ─────────────────────────────────────────────────────
-  const [
-    departments, ports, carriers, agents, customers,
-    containerTypes, packageTypes, incoTerms, currencies, imcos, salesPersons,
-  ] = await Promise.all([
-    this._db.departmentMaster.findMany({
-      where: { CompanyMasterSid: companyMasterSid, Status: 'A' },
-      select: {
-        DepartmentMasterSid: true,
-        departmentName: true,
-        departmentType: true,
-        ExportImport: true,
-        FCLLCL: true,
-      },
-    }),
-    this._db.portMaster.findMany({
-      where: { status: 'A' },
-      select: { PortMasterSid: true, PortCode: true, PortName: true },
-    }),
-    this._db.customerMaster.findMany({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        status: 'A',
-        CustomerType: { path: ['carrier'], equals: 'isTrue' },
-        CustomerBranch: { some: {} },
-      },
-      select: { CustomerMasterSid: true, CustomerName: true },
-    }),
-    this._db.customerMaster.findMany({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        status: 'A',
-        CustomerType: { path: ['agent'], equals: 'isTrue' },
-        CustomerBranch: { some: {} },
-      },
-      select: { CustomerMasterSid: true, CustomerName: true },
-    }),
-    this._db.customerMaster.findMany({
-      where: {
-        CompanyMasterSid: companyMasterSid,
-        status: 'A',
-        CustomerType: { path: ['customer'], equals: 'isTrue' },
-        CustomerBranch: { some: {} },
-      },
-      select: { CustomerMasterSid: true, CustomerName: true },
-    }),
-    this._db.containerTypeMaster.findMany({
-      where: { status: 'A' },
-      select: { ContainerTypeMasterSid: true, ContainerName: true },
-    }),
-    this._db.uOMMaster.findMany({
-      where: { UOMType: 'P', status: 'A' },
-      select: { UOMMasterSid: true, UOMName: true },
-    }),
-    this._db.incoMaster.findMany({
-      where: { Status: 'A' },
-      select: { IncoMasterSid: true, IncoCode: true, OceanFreight: true },
-    }),
-    this._db.currencyMaster.findMany({
-      select: { CurrencyMasterSid: true, currencyCode: true },
-    }),
-    this._db.imcoMaster.findMany({
-      where: { status: 'A' },
-      select: { ImcoMasterSid: true, ImcoName: true },
-    }),
-    this._db.userMaster.findMany({
-      where: {
-        userCompanyMaster: {
-          some: {
-            CompanyMasterSid: companyMasterSid,
-            GiveAccess: 'Y',
-            status: 'A',
-          },
-        },
-        isSalesperson: '1',
-        status: 'A',
-      },
-      select: { UserMasterSid: true, userName: true },
-    }),
-  ]);
-
-  // ── Lookup maps ───────────────────────────────────────────────────────────
-  const deptMap        = new Map(departments.map((d: any) => [d.departmentName.trim().toLowerCase(), d]));
-  const portByCode     = new Map(ports.map((p: any) => [p.PortCode.trim().toLowerCase(), p]));
-  const portByLabel    = new Map(
-    ports.map((p: any) => [
-      `${p.PortCode.trim().toLowerCase()} - ${p.PortName.trim().toLowerCase()}`,
-      p,
-    ]),
-  );
-  const carrierMap     = new Map(carriers.map((c: any) => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
-  const agentMap       = new Map(agents.map((a: any) => [a.CustomerName.trim().toLowerCase(), a.CustomerMasterSid]));
-  const customerMap    = new Map(customers.map((c: any) => [c.CustomerName.trim().toLowerCase(), c]));
-  const ctMap          = new Map(containerTypes.map((c: any) => [c.ContainerName.trim().toLowerCase(), c.ContainerTypeMasterSid]));
-  const pkgMap         = new Map(packageTypes.map((p: any) => [p.UOMName.trim().toLowerCase(), p.UOMName]));
-  const incoMap        = new Map(
-    incoTerms.map((i: any) => [
-      i.IncoCode.trim().toLowerCase(),
-      { sid: i.IncoMasterSid, freightTerms: i.OceanFreight ?? '' },
-    ]),
-  );
-  const imcoMap        = new Map(imcos.map((i: any) => [i.ImcoName.trim().toLowerCase(), i.ImcoName]));
-  const salesPersonMap = new Map(salesPersons.map((s: any) => [s.userName.trim().toLowerCase(), s.UserMasterSid]));
-
-  // ── Utility helpers ───────────────────────────────────────────────────────
-  const resolvePort = (val: any): any | null => {
-    if (!val) return null;
-    const raw = String(val).trim().toLowerCase();
-    return portByLabel.get(raw) || portByCode.get(raw.split(' ')[0]) || null;
-  };
-
-  const formatLocalDate = (date: Date): string | null => {
-    if (!date || isNaN(date.getTime())) return null;
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  };
-
-  const parseDate = (val: any): string | null => {
-    if (!val) return null;
-    if (val instanceof Date) return formatLocalDate(val);
-    const s = String(val).trim();
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? null : formatLocalDate(d);
-  };
-
-  const str = (v: any) => (v === null || v === undefined ? '' : String(v).trim());
-  const num = (v: any) =>
-    v === null || v === undefined || v === '' ? null : parseFloat(String(v));
-
-  // ── Dimension / volumetric helpers ────────────────────────────────────────
-  const toCBM = (qty: number, l: number, w: number, h: number, uom: string): number => {
-    const u = uom.trim().toUpperCase();
-    if (u === 'M')    return qty * l * w * h;
-    if (u === 'INCH') return qty * (l * 0.0254) * (w * 0.0254) * (h * 0.0254);
-    return qty * l * w * h / 1_000_000; // CM default
-  };
-
-  const toVolumetric = (qty: number, l: number, w: number, h: number, uom: string): number => {
-    const u = uom.trim().toUpperCase();
-    const cmL = u === 'M' ? l * 100 : u === 'INCH' ? l * 2.54 : l;
-    const cmW = u === 'M' ? w * 100 : u === 'INCH' ? w * 2.54 : w;
-    const cmH = u === 'M' ? h * 100 : u === 'INCH' ? h * 2.54 : h;
-    return (qty * cmL * cmW * cmH) / 6000;
-  };
-
-  // ── Group child rows by TempBookingRef (col A = index 0) ──────────────────
-  const groupByTempRef = (rows: any[][], colIdx = 0) => {
-    const map = new Map<string, any[][]>();
-    rows.forEach((r: any[]) => {
-      const key = str(r[colIdx]).toLowerCase();
-      if (!key) return;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(r);
-    });
-    return map;
-  };
-
-  const cargoByRef   = groupByTempRef(cgRows, 0);
-  const productByRef = groupByTempRef(prRows, 0);
-  const othersByRef  = groupByTempRef(otRows, 0);
-
-  const warnings: string[]  = [];
-  const seenTempRefs         = new Set<string>();
-  const validRows: any[]    = [];
-  const invalidRows: any[]  = [];
-
-  // ── Process each booking row ──────────────────────────────────────────────
-  for (let i = 0; i < bkRows.length; i++) {
-    const row    = bkRows[i];
-    const rowNum = i + 3; // row 1 = header, row 2 = example
-    const errs: string[] = [];
-
-    // ── Column extraction (A=0 … Y=24) ────────────────────────────────────
-    const tempBookingRef  = str(row[0]);        // A
-    const bookingDate     = parseDate(row[1]);  // B
-    const deptName        = str(row[2]);        // C
-    const customerName    = str(row[3]);        // D
-    const customerAddr    = str(row[4]);        // E
-    const shipperName     = str(row[5]);        // F
-    const shipperAddr     = str(row[6]);        // G
-    const consigneeName   = str(row[7]);        // H
-    const consigneeAddr   = str(row[8]);        // I
-    const notify          = str(row[9]);        // J
-    const notifyAddress   = str(row[10]);       // K
-    const destAgentName   = str(row[11]);       // L
-    const agentAddress    = str(row[12]);       // M
-    const carrierName     = str(row[13]);       // N
-    const salesPersonName = str(row[14]);       // O
-    const incoTermsVal    = str(row[15]);       // P
-    const pooRaw          = str(row[16]);       // Q
-    const polRaw          = str(row[17]);       // R
-    const podRaw          = str(row[18]);       // S
-    const fpdRaw          = str(row[19]);       // T
-    const vesselName      = str(row[20]);       // U
-    const voyageNo        = str(row[21]);       // V
-    const etd             = parseDate(row[22]); // W
-    const eta             = parseDate(row[23]); // X
-    const coload          = str(row[24]).toUpperCase() === 'Y' ? 'Y' : 'N'; // Y
-
-    // ── TempBookingRef validation ──────────────────────────────────────────
-    if (!tempBookingRef) {
-      errs.push('TempBookingRef (col A) is required — provide a unique label e.g. BKN-001');
-    } else if (seenTempRefs.has(tempBookingRef.toLowerCase())) {
-      errs.push(
-        `Duplicate TempBookingRef "${tempBookingRef}" — each booking row must have a unique value`,
-      );
-    } else {
-      seenTempRefs.add(tempBookingRef.toLowerCase());
-    }
-
-    // ── Mandatory field validation ─────────────────────────────────────────
-    if (!bookingDate)  errs.push('BookingDate is required (YYYY-MM-DD)');
-    if (!deptName)     errs.push('DepartmentName is required');
-    if (!customerName) errs.push('CustomerName is required');
-    if (!customerAddr) errs.push('CustomerAddress is required');
-    if (!polRaw)       errs.push('POL is required');
-    if (!podRaw)       errs.push('POD is required');
-    if (!incoTermsVal) errs.push('IncoTerms is required');
-
-    // ── Lookup resolution ──────────────────────────────────────────────────
-    const dept = deptName ? deptMap.get(deptName.toLowerCase()) : null;
-    if (deptName && !dept) errs.push(`Department "${deptName}" not found`);
-
-    const customerObj = customerName ? customerMap.get(customerName.toLowerCase()) : null;
-    if (customerName && !customerObj) errs.push(`Customer "${customerName}" not found`);
-
-    const polPort = resolvePort(polRaw);
-    const podPort = resolvePort(podRaw);
-    const pooPort = resolvePort(pooRaw);
-    const fpdPort = resolvePort(fpdRaw);
-
-    if (polRaw && !polPort) errs.push(`POL port "${polRaw}" not found`);
-    if (podRaw && !podPort) errs.push(`POD port "${podRaw}" not found`);
-
-    if (polPort && podPort && polPort.PortCode === podPort.PortCode) {
-      errs.push('POL and POD cannot be the same port');
-    }
-
-    const incoEntry = incoTermsVal ? incoMap.get(incoTermsVal.toLowerCase()) : null;
-    if (incoTermsVal && !incoEntry) errs.push(`IncoTerms "${incoTermsVal}" not found`);
-
-    const carrierId = carrierName ? carrierMap.get(carrierName.toLowerCase()) : null;
-    if (carrierName && !carrierId) errs.push(`CarrierName "${carrierName}" not found`);
-
-    const destAgentId = destAgentName ? agentMap.get(destAgentName.toLowerCase()) : null;
-    if (destAgentName && !destAgentId) errs.push(`DestinationAgent "${destAgentName}" not found`);
-
-    const salesPersonId = salesPersonName
-      ? salesPersonMap.get(salesPersonName.toLowerCase())
-      : null;
-    if (salesPersonName && !salesPersonId) {
-      errs.push(`SalesPerson "${salesPersonName}" not found`);
-    }
-
-    // ── Department type flags ──────────────────────────────────────────────
-    const isFCL     = dept && String(dept.FCLLCL || '').toUpperCase() === 'FCL';
-    const isAir     = dept && String(dept.departmentType || '').toUpperCase() === 'AIR';
-    const isSea     = dept && String(dept.departmentType || '').toUpperCase() !== 'AIR'; // Sea = FCL or LCL
-    const isLCLOrAir = dept && (
-      String(dept.FCLLCL || '').toUpperCase() === 'LCL' ||
-      String(dept.departmentType || '').toUpperCase() === 'AIR'
-    );
-
-    // ── JobType from department ExportImport ───────────────────────────────
-    // Derived automatically — no column in the sheet; read from dept master.
-    const jobType = dept?.ExportImport ?? '';
-
-    // ── Fetch child rows by TempBookingRef ─────────────────────────────────
-    const linkKey = tempBookingRef.toLowerCase();
-
-    const cargoRowsRaw   = cargoByRef.get(linkKey)  || [];
-    const productRowsRaw = productByRef.get(linkKey) || [];
-
-    // ── Parse BookingCargo rows ────────────────────────────────────────────
-    // New column layout (8 cols, index 0–7):
-    //   0  TempBookingRef (link key — skip)
-    //   1  CargoType
-    //   2  ContainerType   (FCL only; blanked for LCL/Air)
-    //   3  NoofContainers  (Sea only; blanked for Air)
-    //   4  MovementType
-    //   5  ModeOfTransport
-    //   6  StuffingAt
-    //   7  ShipmentTerms
-    //
-    // Weight/volume/package fields are NOT in the sheet — they are computed
-    // from linked product rows and written into the cargo objects below.
-    const cargoList: any[]  = [];
-    const cargoErrs: any[]  = [];
-
-    for (let ci = 0; ci < cargoRowsRaw.length; ci++) {
-      const cRow  = cargoRowsRaw[ci];
-      const cErrs: string[] = [];
-
-      const cargoType      = str(cRow[1]) || 'General'; // B
-      const containerName  = str(cRow[2]);              // C
-      const noofContainers = num(cRow[3]);              // D
-      const cMovementType  = str(cRow[4]);              // E
-      const modeOfTransport = str(cRow[5]);             // F
-      const stuffingAt     = str(cRow[6]) || 'Dock';   // G
-      const shipmentTerms  = str(cRow[7]);              // H
-
-      // ContainerType: required for FCL; must be blank / ignored for LCL and Air
-      const resolvedCtId = containerName ? ctMap.get(containerName.toLowerCase()) : null;
-      if (isFCL) {
-        if (!containerName) {
-          cErrs.push(`Cargo ${ci + 1}: ContainerType is required for FCL`);
-        } else if (!resolvedCtId) {
-          cErrs.push(`Cargo ${ci + 1}: ContainerType "${containerName}" not found`);
-        }
-        if (!noofContainers || noofContainers <= 0) {
-          cErrs.push(`Cargo ${ci + 1}: NoofContainers must be > 0 for FCL`);
-        }
-      } else if (isAir) {
-        // Air — ContainerType and NoofContainers are not applicable; ignore silently
-      } else {
-        // LCL Sea — NoofContainers is still meaningful (number of packages / units)
-        if (noofContainers !== null && noofContainers !== undefined && noofContainers < 0) {
-          cErrs.push(`Cargo ${ci + 1}: NoofContainers cannot be negative`);
-        }
-      }
-
-      if (cErrs.length) {
-        cargoErrs.push({ cargoIndex: ci + 1, errors: cErrs });
-      } else {
-        cargoList.push({
-          CargoType:        cargoType,
-          // Clear ContainerType for LCL/Air on upload
-          ContainerType:    (isFCL ? resolvedCtId : null) || null,
-          ContainerName:    isFCL ? containerName : '',
-          // Clear NoofContainers for Air on upload
-          NoofContainers:   isAir ? 0 : (noofContainers || 0),
-          MovementType:     cMovementType || null,
-          ModeOfTransport:  modeOfTransport || null,
-          StuffingAt:       stuffingAt,
-          ShipmentTerms:    shipmentTerms || null,
-          // Weight / volume / package fields are zero here;
-          // they will be overwritten once products are aggregated below.
-          GrossWeight:      0,
-          NetWeight:        0,
-          Volume:           0,
-          Volumetric:       0,
-          ChargeableWeight: 0,
-          NoOfPackage:      0,
-          _cargoIndex:      ci + 1,
-          bookingProducts:  [],
-        });
-      }
-    }
-
-    // ── Parse BookingProduct rows ──────────────────────────────────────────
-    // col A (index 0) = TempBookingRef; col B (index 1) = CargoIndex; data from col C (index 2)
-    const productErrs: any[] = [];
-
-    for (const pRow of productRowsRaw) {
-      const pErrs: string[] = [];
-
-      const cargoIndexRaw    = Math.max(1, Math.round(Number(pRow[1]) || 1)); // B
-      const commodity        = str(pRow[2]);    // C
-      const extPkgName       = str(pRow[3]);    // D
-      const extQty           = str(pRow[4]);    // E
-      const grossWeight      = num(pRow[5]) || 0; // F
-      const netWeight        = num(pRow[6]) || 0; // G
-      const uomRaw           = str(pRow[7]) || 'CM'; // H
-      const length           = num(pRow[8])  || 0;  // I
-      const width            = num(pRow[9])  || 0;  // J
-      const height           = num(pRow[10]) || 0;  // K
-      const spreadVolumetric = num(pRow[11]) || 0;  // L
-      const spreadCBM        = num(pRow[12]) || 0;  // M
-      const shippingBillNo   = str(pRow[13]);        // N
-      const shippingBillDate = parseDate(pRow[14]);  // O
-      const cargoRecDate     = parseDate(pRow[15]);  // P
-      const isHazRaw         = str(pRow[16]).toUpperCase(); // Q
-      const isHaz            = isHazRaw === 'Y';
-      const imcoRaw          = str(pRow[17]); // R
-      const unNo             = str(pRow[18]); // S
-      const pkgGroup         = str(pRow[19]); // T
-
-      if (!commodity)   pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): Commodity is required`);
-      if (!extQty)      pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): ExternalQty is required`);
-      if (!grossWeight) pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): GrossWeight is required`);
-
-      const extPkgCode = extPkgName ? pkgMap.get(extPkgName.toLowerCase()) : null;
-      if (extPkgName && !extPkgCode) {
-        pErrs.push(
-          `Product (CargoIndex ${cargoIndexRaw}): ExternalPkg "${extPkgName}" not found`,
-        );
-      }
-
-      if (grossWeight && netWeight && grossWeight < netWeight) {
-        pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): GrossWeight cannot be less than NetWeight`);
-      }
-
-      if (
-        isLCLOrAir &&
-        !spreadCBM &&
-        !(length > 0 && width > 0 && height > 0 && Number(extQty) > 0)
-      ) {
-        pErrs.push(
-          `Product (CargoIndex ${cargoIndexRaw}): CBM/Volume is required for LCL/AIR`,
-        );
-      }
-
-      if (isHaz && !imcoRaw) {
-        pErrs.push(
-          `Product (CargoIndex ${cargoIndexRaw}): ImcoClass is required when IsHaz = Y`,
-        );
-      }
-
-      const resolvedImco = imcoRaw ? imcoMap.get(imcoRaw.toLowerCase()) : null;
-      if (imcoRaw && !resolvedImco) {
-        pErrs.push(
-          `Product (CargoIndex ${cargoIndexRaw}): ImcoClass "${imcoRaw}" not found`,
-        );
-      }
-
-      const qty = Number(extQty) || 0;
-      const cbm = length > 0 && width > 0 && height > 0 && qty > 0
-        ? parseFloat(toCBM(qty, length, width, height, uomRaw).toFixed(3))
-        : spreadCBM;
-      const volumetricCalc = length > 0 && width > 0 && height > 0 && qty > 0
-        ? parseFloat(toVolumetric(qty, length, width, height, uomRaw).toFixed(3))
-        : spreadVolumetric;
-
-      if (pErrs.length) {
-        productErrs.push({ cargoIndex: cargoIndexRaw, errors: pErrs });
-      } else {
-        const targetCargo = cargoList.find((c: any) => c._cargoIndex === cargoIndexRaw);
-        const productData = {
-          ProductName:      commodity,
-          ExternaPkg:       extPkgCode || null,
-          ExternlQty:       String(qty),
-          GrossWeight:      grossWeight,
-          NetWeight:        netWeight,
-          Volume:           cbm,
-          Volumetric:       volumetricCalc,
-          Length:           length,
-          Width:            width,
-          Height:           height,
-          UomRaw:           uomRaw,
-          ShippingBillNo:   shippingBillNo,
-          ShippingBillDate: shippingBillDate,
-          CargoRecDate:     cargoRecDate,
-          IsHaz:            isHaz ? 'Y' : 'N',
-          ImcoClass:        resolvedImco || null,
-          UnNo:             unNo,
-          PkgGroup:         pkgGroup,
-        };
-        if (targetCargo) {
-          targetCargo.bookingProducts.push(productData);
-        } else {
-          // No matching cargo row for this CargoIndex — auto-create placeholder
-          if (cargoList.length === 0) {
-            cargoList.push({
-              CargoType: 'General', ContainerType: null, NoofContainers: 0,
-              GrossWeight: 0, NetWeight: 0, Volume: 0, Volumetric: 0,
-              ChargeableWeight: 0, NoOfPackage: 0, ShipmentTerms: null,
-              MovementType: null, ModeOfTransport: null,
-              StuffingAt: 'Dock',
-              _cargoIndex: 1, bookingProducts: [],
+            // ── Parse BookingProduct rows ─────────────────────────────────────────
+            const productErrs: any[] = [];
+
+            for (const pRow of productRowsRaw) {
+                const pErrs: string[] = [];
+
+                const cargoIndexRaw = Math.max(1, Math.round(Number(pRow[1]) || 1));
+                const commodity = str(pRow[2]);
+                const shippingBillNo = str(pRow[3]);
+                const shippingBillDate = parseDate(pRow[4]);
+                const extPkgName = str(pRow[5]);
+                const noofPackage = str(pRow[6]);
+                const uomRaw = str(pRow[7]) || 'CM';
+                const length = num(pRow[8]) || 0;
+                const width = num(pRow[9]) || 0;
+                const height = num(pRow[10]) || 0;
+                const spreadVolumetric = num(pRow[11]) || 0;
+                const spreadCBM = num(pRow[12]) || 0;
+                const grossWeight = num(pRow[13]) || 0;
+                const netWeight = num(pRow[14]) || 0;
+                const cargoRecDate = parseDate(pRow[15]);
+                const isHazRaw = str(pRow[16]).toUpperCase();
+                const isHaz = isHazRaw === 'Y';
+                const imcoRaw = str(pRow[17]);
+                const unNo = str(pRow[18]);
+                const pkgGroup = str(pRow[19]);
+
+                if (!commodity) pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): Commodity is required`);
+                if (!noofPackage) pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): NoofPackage is required`);
+                if (!grossWeight) pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): GrossWeight is required`);
+                if (!extPkgName) pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): ExternalPkg is required`);
+
+                const extPkgCode = extPkgName ? pkgMap.get(extPkgName.toLowerCase()) : null;
+                if (extPkgName && !extPkgCode) {
+                    pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): ExternalPkg "${extPkgName}" not found`);
+                }
+
+                if (grossWeight && netWeight && grossWeight < netWeight) {
+                    pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): GrossWeight cannot be less than NetWeight`);
+                }
+
+                if (isHaz && !imcoRaw) {
+                    pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): ImcoClass is required when IsHaz = Y`);
+                }
+
+                const resolvedImco = imcoRaw ? imcoMap.get(imcoRaw.toLowerCase()) : null;
+                if (imcoRaw && !resolvedImco) {
+                    pErrs.push(`Product (CargoIndex ${cargoIndexRaw}): ImcoClass "${imcoRaw}" not found`);
+                }
+
+                const uomSid = uomStringToSid(uomRaw);
+                const qty = Number(noofPackage) || 0;
+
+                // ── AFTER (fixed) ──
+                const hasDimensions = length > 0 && width > 0 && height > 0 && qty > 0;
+
+                const cbm = hasDimensions
+                    ? parseFloat(toCBM(qty, length, width, height, uomSid).toFixed(3))
+                    : spreadCBM;
+
+                const volumetricCalc = hasDimensions
+                    ? parseFloat(toVolumetric(qty, length, width, height, uomSid, shipmentTypeForCalc).toFixed(3))
+                    : shipmentTypeForCalc === 'AIR' && spreadVolumetric > 0
+                        // Excel used LCL divisor (5000); re-scale to AIR divisor (6000)
+                        ? parseFloat((spreadVolumetric * 5000 / 6000).toFixed(3))
+                        : spreadVolumetric;
+
+                if (
+                    isLCLOrAir &&
+                    !cbm &&
+                    !(length > 0 && width > 0 && height > 0 && qty > 0)
+                ) {
+                    pErrs.push(
+                        `Product (CargoIndex ${cargoIndexRaw}): CBM/Volume is required for LCL/AIR (enter dimensions or a pre-calculated value)`,
+                    );
+                }
+
+                if (pErrs.length) {
+                    productErrs.push({ cargoIndex: cargoIndexRaw, errors: pErrs });
+                } else {
+                    const targetCargo = cargoList.find((c: any) => c._cargoIndex === cargoIndexRaw);
+                    const productData = {
+                        ProductName: commodity,
+                        ExternaPkg: extPkgCode || null,
+                        ExternlQty: String(qty),
+                        GrossWeight: grossWeight,
+                        NetWeight: netWeight,
+                        Volume: cbm,
+                        Volumetric: volumetricCalc,
+                        Length: length,
+                        Width: width,
+                        Height: height,
+                        UomRaw: uomRaw,
+                        UomSid: uomSid,
+                        ShippingBillNo: shippingBillNo,
+                        ShippingBillDate: shippingBillDate,
+                        CargoRecDate: cargoRecDate,
+                        IsHaz: isHaz ? 'Y' : 'N',
+                        ImcoClass: resolvedImco || null,
+                        UnNo: unNo,
+                        PkgGroup: pkgGroup,
+                    };
+                    if (targetCargo) {
+                        targetCargo.bookingProducts.push(productData);
+                    } else {
+                        if (cargoList.length === 0) {
+                            cargoList.push({
+                                CargoType: 'General', ContainerType: null, NoofContainers: 0,
+                                GrossWeight: 0, NetWeight: 0, Volume: 0, Volumetric: 0,
+                                ChargeableWeight: 0, NoOfPackage: 0, ShipmentTerms: null,
+                                MovementType: null, ModeOfTransport: null,
+                                StuffingAt: 'Dock',
+                                _cargoIndex: 1, bookingProducts: [],
+                            });
+                        }
+                        cargoList[0].bookingProducts.push(productData);
+                    }
+                }
+            }
+
+            // ── Aggregate product totals into each cargo row ──────────────────────
+            cargoList.forEach((cargo: any) => {
+                if (cargo.bookingProducts.length > 0) {
+                    const prods = cargo.bookingProducts;
+                    const totalGW = parseFloat(prods.reduce((s: number, p: any) => s + (Number(p.GrossWeight) || 0), 0).toFixed(3));
+                    const totalNW = parseFloat(prods.reduce((s: number, p: any) => s + (Number(p.NetWeight) || 0), 0).toFixed(3));
+                    const totalVol = parseFloat(prods.reduce((s: number, p: any) => s + (Number(p.Volume) || 0), 0).toFixed(3));
+                    const totalVom = parseFloat(prods.reduce((s: number, p: any) => s + (Number(p.Volumetric) || 0), 0).toFixed(3));
+                    const totalPkg = prods.reduce((s: number, p: any) => s + (Number(p.ExternlQty) || 0), 0);
+
+                    cargo.GrossWeight = totalGW;
+                    cargo.NetWeight = totalNW;
+                    cargo.Volume = totalVol;
+                    cargo.Volumetric = totalVom;
+                    cargo.NoOfPackage = totalPkg;
+                    cargo.ChargeableWeight = parseFloat(Math.max(totalGW, totalVom).toFixed(3));
+                }
             });
-          }
-          cargoList[0].bookingProducts.push(productData);
+
+            // ── Parse BookingOthers row ───────────────────────────────────────────
+            const othersRow = (othersByRef.get(linkKey) || [])[0];
+            const otherData = othersRow
+                ? {
+                    CustomerRefNo: str(othersRow[1]),
+                    YardCFS: str(othersRow[2]),
+                    ReleaseType: str(othersRow[3]) || null,
+                    Forwarder: str(othersRow[4]) || null,
+                    ForwarderAddress: str(othersRow[5]),
+                    Notify2: str(othersRow[6]) || null,
+                    NotifyAddress2: str(othersRow[7]),
+                    Coloader: str(othersRow[8]) || null,
+                    PickupPlace: str(othersRow[9]),
+                    PickupAddress: str(othersRow[10]),
+                    DeliveryPlace: str(othersRow[11]),
+                    DeliveryDate: parseDate(othersRow[12]),
+                    DeliveryAddress: str(othersRow[13]),
+                    CargoCurrency: str(othersRow[14]) || null,
+                    CargoValue: num(othersRow[15]) || 0,
+                    CarrierBookingRef: str(othersRow[16]),
+                    CarrierBookingDate: parseDate(othersRow[17]),
+                    SwitchBL: str(othersRow[18]).toUpperCase() === 'Y' ? 'Y' : 'N',
+                    BacktoBack: str(othersRow[19]).toUpperCase() === 'Y' ? 'Y' : 'N',
+                    CHAName: str(othersRow[20]),
+                    ExternalRemarks: str(othersRow[21]),
+                }
+                : null;
+
+            // ── Consolidate all errors ────────────────────────────────────────────
+            const allErrors = [
+                ...errs,
+                ...cargoErrs.flatMap((e: any) =>
+                    e.errors.map((m: string) => `Cargo ${e.cargoIndex}: ${m}`),
+                ),
+                ...productErrs.flatMap((e: any) => e.errors.map((m: string) => m)),
+            ];
+
+            const rowResult = {
+                rowNum,
+                tempBookingRef,
+                DepartmentMasterSid: dept?.DepartmentMasterSid,
+                DepartmentName: deptName,
+                ExportImport: jobType,
+                JobType: jobType,
+                FCLLCL: dept?.FCLLCL ?? '',
+                DepartmentType: dept?.departmentType ?? '',
+                BookingDate: bookingDate,
+                CustomerMasterSid: customerObj?.CustomerMasterSid || null,
+                CustomerName: customerName,
+                CustomerAddress: customerAddr,
+                ShipperName: shipperName,
+                ShipperAddress: shipperAddr,
+                ConsigneeName: consigneeName,
+                ConsigneeAddress: consigneeAddr,
+                Notify: notify,
+                NotifyAddress: notifyAddress,
+                CarrierName: carrierName,
+                CarrierSid: carrierId || null,
+                VesselName: vesselName,
+                VoyageNo: voyageNo,
+                ETD: etd,
+                ETA: eta,
+                POO: pooPort?.PortCode || null,
+                POL: polPort?.PortCode || null,
+                POD: podPort?.PortCode || null,
+                FPD: fpdPort?.PortCode || null,
+                IncoTerms: incoTermsVal,
+                FreightTerms: incoEntry?.freightTerms || null,
+                MovementType: null,
+                DestinationAgent: destAgentId || null,
+                DestinationAgentName: destAgentName,
+                AgentAddress: agentAddress,
+                SalesPersonSid: salesPersonId || null,
+                SalesPersonName: salesPersonName,
+                InternalNote: '',
+                GeneralNote: '',
+                BookingStatus: 'Booked',
+                NominatedBy: 'Self',
+                Coload: coload,
+                bookingCargo: cargoList,
+                bookingOther: otherData,
+            };
+
+            if (allErrors.length) {
+                invalidRows.push({ ...rowResult, errors: allErrors });
+            } else {
+                validRows.push(rowResult);
+            }
         }
-      }
-    }
 
-    // ── Aggregate product totals into each cargo row ───────────────────────
-    // GrossWeight, NetWeight, Volume, Volumetric = sum of linked products
-    // ChargeableWeight = MAX(GrossWeight, Volumetric)
-    // NoOfPackage      = sum of ExternlQty
-    cargoList.forEach((cargo: any) => {
-      if (cargo.bookingProducts.length > 0) {
-        const prods    = cargo.bookingProducts;
-        const totalGW  = parseFloat(prods.reduce((s: number, p: any) => s + (Number(p.GrossWeight) || 0), 0).toFixed(3));
-        const totalNW  = parseFloat(prods.reduce((s: number, p: any) => s + (Number(p.NetWeight)   || 0), 0).toFixed(3));
-        const totalVol = parseFloat(prods.reduce((s: number, p: any) => s + (Number(p.Volume)      || 0), 0).toFixed(3));
-        const totalVom = parseFloat(prods.reduce((s: number, p: any) => s + (Number(p.Volumetric)  || 0), 0).toFixed(3));
-        const totalPkg = prods.reduce((s: number, p: any) => s + (Number(p.ExternlQty) || 0), 0);
-
-        cargo.GrossWeight      = totalGW;
-        cargo.NetWeight        = totalNW;
-        cargo.Volume           = totalVol;
-        cargo.Volumetric       = totalVom;
-        cargo.NoOfPackage      = totalPkg;
-        // ChargeableWeight = greater of GrossWeight and Volumetric
-        cargo.ChargeableWeight = parseFloat(Math.max(totalGW, totalVom).toFixed(3));
-      }
-    });
-
-    // ── Parse BookingOthers row ────────────────────────────────────────────
-    // col A (index 0) = TempBookingRef (link key, skip); data from col B (index 1)
-    const othersRow = (othersByRef.get(linkKey) || [])[0];
-    const otherData = othersRow
-      ? {
-          CustomerRefNo:      str(othersRow[1]),
-          YardCFS:            str(othersRow[2]),
-          ReleaseType:        str(othersRow[3])  || null,
-          Forwarder:          str(othersRow[4])  || null,
-          ForwarderAddress:   str(othersRow[5]),
-          Notify2:            str(othersRow[6])  || null,
-          NotifyAddress2:     str(othersRow[7]),
-          Coloader:           str(othersRow[8])  || null,
-          PickupPlace:        str(othersRow[9]),
-          PickupAddress:      str(othersRow[10]),
-          DeliveryPlace:      str(othersRow[11]),
-          DeliveryDate:       parseDate(othersRow[12]),
-          DeliveryAddress:    str(othersRow[13]),
-          CargoCurrency:      str(othersRow[14]) || null,
-          CargoValue:         num(othersRow[15]) || 0,
-          CarrierBookingRef:  str(othersRow[16]),
-          CarrierBookingDate: parseDate(othersRow[17]),
-          SwitchBL:           str(othersRow[18]).toUpperCase() === 'Y' ? 'Y' : 'N',
-          BacktoBack:         str(othersRow[19]).toUpperCase() === 'Y' ? 'Y' : 'N',
-          CHAName:            str(othersRow[20]),
-          ExternalRemarks:    str(othersRow[21]),
+        // ── Orphan detection ──────────────────────────────────────────────────────
+        for (const [key] of cargoByRef) {
+            if (!seenTempRefs.has(key)) {
+                warnings.push(
+                    `BookingCargo has TempBookingRef "${key}" with no matching row in the Booking sheet — these cargo rows were ignored`,
+                );
+            }
         }
-      : null;
+        for (const [key] of productByRef) {
+            if (!seenTempRefs.has(key)) {
+                warnings.push(
+                    `BookingProduct has TempBookingRef "${key}" with no matching row in the Booking sheet — these product rows were ignored`,
+                );
+            }
+        }
+        for (const [key] of othersByRef) {
+            if (!seenTempRefs.has(key)) {
+                warnings.push(
+                    `BookingOthers has TempBookingRef "${key}" with no matching row in the Booking sheet — this others row was ignored`,
+                );
+            }
+        }
 
-    // ── Consolidate all errors ─────────────────────────────────────────────
-    const allErrors = [
-      ...errs,
-      ...cargoErrs.flatMap((e: any) =>
-        e.errors.map((m: string) => `Cargo ${e.cargoIndex}: ${m}`),
-      ),
-      ...productErrs.flatMap((e: any) => e.errors.map((m: string) => m)),
-    ];
-
-    const rowResult = {
-      rowNum,
-      tempBookingRef,
-      DepartmentMasterSid:  dept?.DepartmentMasterSid,
-      DepartmentName:       deptName,
-      // JobType is derived directly from the department's ExportImport value
-      ExportImport:         jobType,
-      JobType:              jobType,
-      FCLLCL:               dept?.FCLLCL        ?? '',
-      DepartmentType:       dept?.departmentType ?? '',
-      BookingDate:          bookingDate,
-      CustomerMasterSid:    customerObj?.CustomerMasterSid || null,
-      CustomerName:         customerName,
-      CustomerAddress:      customerAddr,
-      ShipperName:          shipperName,
-      ShipperAddress:       shipperAddr,
-      ConsigneeName:        consigneeName,
-      ConsigneeAddress:     consigneeAddr,
-      Notify:               notify,
-      NotifyAddress:        notifyAddress,
-      CarrierName:          carrierName,
-      CarrierSid:           carrierId    || null,
-      VesselName:           vesselName,
-      VoyageNo:             voyageNo,
-      ETD:                  etd,
-      ETA:                  eta,
-      POO:                  pooPort?.PortCode || null,
-      POL:                  polPort?.PortCode || null,
-      POD:                  podPort?.PortCode || null,
-      FPD:                  fpdPort?.PortCode || null,
-      IncoTerms:            incoTermsVal,
-      FreightTerms:         incoEntry?.freightTerms || null, // auto-patched from OceanFreight
-      MovementType:         null,
-      DestinationAgent:     destAgentId  || null,
-      DestinationAgentName: destAgentName,
-      AgentAddress:         agentAddress,
-      SalesPersonSid:       salesPersonId || null,
-      SalesPersonName:      salesPersonName,
-      InternalNote:         '',
-      GeneralNote:          '',
-      BookingStatus:        'Booked',
-      NominatedBy:          'Self',
-      Coload:               coload,
-      bookingCargo:         cargoList,
-      bookingOther:         otherData,
-    };
-
-    if (allErrors.length) {
-      invalidRows.push({ ...rowResult, errors: allErrors });
-    } else {
-      validRows.push(rowResult);
-    }
-  }
-
-  // ── Orphan detection ──────────────────────────────────────────────────────
-  for (const [key] of cargoByRef) {
-    if (!seenTempRefs.has(key)) {
-      warnings.push(
-        `BookingCargo has TempBookingRef "${key}" with no matching row in the Booking sheet — these cargo rows were ignored`,
-      );
-    }
-  }
-  for (const [key] of productByRef) {
-    if (!seenTempRefs.has(key)) {
-      warnings.push(
-        `BookingProduct has TempBookingRef "${key}" with no matching row in the Booking sheet — these product rows were ignored`,
-      );
-    }
-  }
-  for (const [key] of othersByRef) {
-    if (!seenTempRefs.has(key)) {
-      warnings.push(
-        `BookingOthers has TempBookingRef "${key}" with no matching row in the Booking sheet — this others row was ignored`,
-      );
-    }
-  }
-
-  return {
-    validRows,
-    invalidRows,
-    warnings,
-    summary: {
-      total:   validRows.length + invalidRows.length,
-      valid:   validRows.length,
-      invalid: invalidRows.length,
-    },
-  };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// saveBookingExcel
-// ─────────────────────────────────────────────────────────────────────────────
-async saveBookingExcel(
-  validRows: any[],
-  companyMasterSid: number,
-  branchMasterSid: number,
-  menuMasterSid: number,
-  createdBy: string,
-): Promise<{ created: number; skipped: number; errors: any[] }> {
-  let created = 0, skipped = 0;
-  const errors: any[] = [];
-
-  for (const row of validRows) {
-    try {
-      const bookingMenu = await this._db.menuMaster.findFirst({
-        where: { MenuCode: 'BKN', status: { in: ['A', 'S'] } },
-      });
-      const resolvedMenuId = menuMasterSid || bookingMenu?.MenuMasterSid;
-
-      if (!resolvedMenuId) {
-        errors.push({ ref: row.tempBookingRef, message: 'Booking menu (BKN) not found — skipped' });
-        skipped++;
-        continue;
-      }
-
-      const bookingDate = row.BookingDate ? new Date(row.BookingDate) : new Date();
-
-      const [polPort, podPort] = await Promise.all([
-        row.POL
-          ? this._db.portMaster.findFirst({
-              where: { PortCode: row.POL },
-              select: { PortMasterSid: true },
-            })
-          : null,
-        row.POD
-          ? this._db.portMaster.findFirst({
-              where: { PortCode: row.POD },
-              select: { PortMasterSid: true },
-            })
-          : null,
-      ]);
-
-      let BookingNo = await this.numberSeriesService.generateNextNumber(
-        companyMasterSid,
-        branchMasterSid,
-        resolvedMenuId,
-        row.DepartmentMasterSid ?? undefined,
-        bookingDate,
-        polPort?.PortMasterSid,
-        podPort?.PortMasterSid,
-      );
-
-      if (!BookingNo) {
-        const { format } = require('date-fns');
-        const ds  = format(bookingDate, 'yyyyMMdd');
-        const cnt = await this._db.bookingHeader.count({
-          where: { BookingNo: { contains: ds } },
-        });
-        BookingNo = `booking-${ds}-${String(cnt + 1).padStart(3, '0')}`;
-      }
-
-      if (BookingNo && BookingNo.length > 50) {
-        BookingNo = BookingNo.substring(0, 50);
-      }
-
-      await this._db.$transaction(async (prisma: any) => {
-        // ── 1. BookingHeader ───────────────────────────────────────────────
-        const bookingHeader = await prisma.bookingHeader.create({
-          data: {
-            BookingNo,
-            ShipmentNo:          BookingNo,
-            BookingDateTime:     bookingDate,
-            CompanyMasterSid:    companyMasterSid,
-            BranchMasterSid:     branchMasterSid,
-            MenuMasterSid:       resolvedMenuId,
-            DepartmentMasterSid: row.DepartmentMasterSid,
-            CustomerMasterSid:   row.CustomerMasterSid   || null,
-            CustomerName:        row.CustomerName         || '',
-            CustomerAddress:     row.CustomerAddress      || '',
-            ShipperName:         row.ShipperName          || '',
-            ShipperAddress:      row.ShipperAddress       || '',
-            ConsigneeName:       row.ConsigneeName        || '',
-            ConsigneeAddress:    row.ConsigneeAddress     || '',
-            Notify:              row.Notify               || '',
-            NotifyAddress:       row.NotifyAddress        || '',
-            CarrierName:         row.CarrierName          || null,
-            CarrierSid:          row.CarrierSid           || null,
-            VesselName:          row.VesselName           || null,
-            VoyageNo:            row.VoyageNo             || null,
-            ETD:                 row.ETD  ? new Date(row.ETD)  : null,
-            ETA:                 row.ETA  ? new Date(row.ETA)  : null,
-            POO:                 row.POO  || null,
-            POL:                 row.POL  || '',
-            POD:                 row.POD  || '',
-            FPD:                 row.FPD  || null,
-            IncoTerms:           row.IncoTerms            || '',
-            FreightTerms:        row.FreightTerms         || '',  // auto-patched from OceanFreight
-            MovementType:        row.MovementType         || null,
-            DestinationAgent:    row.DestinationAgent     || null,
-            AgentAddress:        row.AgentAddress         || '',
-            SalesPersonSid:      row.SalesPersonSid       || null,
-            InternalNote:        row.InternalNote         || '',
-            GeneralNote:         row.GeneralNote          || '',
-            BookingStatus:       row.BookingStatus        || 'Booked',
-            NominatedBy:         row.NominatedBy          || 'Self',
-            Coload:              row.Coload               || 'N',
-            // JobType is the ExportImport value from the department master
-            JobType:             row.JobType              || row.ExportImport || '',
-            status:              'A',
-            createdBy,
-          },
-        });
-
-        // ── 2. BookingCargo + BookingProducts ──────────────────────────────
-        for (const cargo of row.bookingCargo || []) {
-          const createdCargo = await prisma.bookingCargo.create({
-            data: {
-              BookingHeaderSid:  bookingHeader.BookingHeaderSid,
-              CompanyMasterSid:  companyMasterSid,
-              BranchMasterSid:   branchMasterSid,
-              CargoType:         cargo.CargoType        || 'General',
-              ContainerType:     cargo.ContainerType    || null,
-              NoofContainers:    Number(cargo.NoofContainers)    || 0,
-              // Weight/volume aggregated from products
-              GrossWeight:       Number(cargo.GrossWeight)       || 0,
-              NetWeight:         Number(cargo.NetWeight)         || 0,
-              Volume:            Number(cargo.Volume)            || 0,
-              Volumetric:        Number(cargo.Volumetric)        || 0,
-              // ChargeableWeight = MAX(GrossWeight, Volumetric)
-              ChargeableWeight:  Number(cargo.ChargeableWeight)  || 0,
-              NoOfPackage:       Number(cargo.NoOfPackage)       || 0,
-              ShipmentTerms:     cargo.ShipmentTerms    || null,
-              MovementType:      cargo.MovementType     || null,
-              ModeOfTransport:   cargo.ModeOfTransport  || null,
-              FreightTerms:      cargo.FreightTerms     || null,
-              StuffingAt:        cargo.StuffingAt       || 'Dock',
-              status:            'A',
-              createdBy,
+        return {
+            validRows,
+            invalidRows,
+            warnings,
+            summary: {
+                total: validRows.length + invalidRows.length,
+                valid: validRows.length,
+                invalid: invalidRows.length,
             },
-          });
+        };
+    }
 
-          for (const product of cargo.bookingProducts || []) {
-            await prisma.bookingProduct.create({
-              data: {
-                BookingHeaderSid: bookingHeader.BookingHeaderSid,
-                BookingCargoSid:  createdCargo.BookingCargoSid,
-                ProductName:      product.ProductName      || '',
-                ExternaPkg:       product.ExternaPkg       || null,
-                ExternlQty:       String(product.ExternlQty || ''),
-                GrossWeight:      Number(product.GrossWeight)  || 0,
-                NetWeight:        Number(product.NetWeight)    || 0,
-                Volume:           Number(product.Volume)       || 0,
-                Volumetric:       Number(product.Volumetric)   || 0,
-                Length:           product.Length   || null,
-                Width:            product.Width    || null,
-                Height:           product.Height   || null,
-                IsHaz:            product.IsHaz    || 'N',
-                ImcoClass:        product.ImcoClass || null,
-                UnNo:             String(product.UnNo    ?? ''),
-                PkgGroup:         product.PkgGroup || '',
-                ShippingBillNo:   product.ShippingBillNo   || '',
-                ShippingBillDate: product.ShippingBillDate
-                  ? new Date(product.ShippingBillDate)
-                  : null,
-                CargoRecDate:     product.CargoRecDate
-                  ? new Date(product.CargoRecDate)
-                  : null,
-                status:    'A',
-                createdBy,
-              },
-            });
-          }
+    // ─────────────────────────────────────────────────────────────────────────────
+    // saveBookingExcel
+    // ─────────────────────────────────────────────────────────────────────────────
+    async saveBookingExcel(
+        validRows: any[],
+        companyMasterSid: number,
+        branchMasterSid: number,
+        menuMasterSid: number,
+        createdBy: string,
+    ): Promise<{ created: number; skipped: number; errors: any[] }> {
+        let created = 0, skipped = 0;
+        const errors: any[] = [];
+
+        for (const row of validRows) {
+            try {
+                const bookingMenu = await this._db.menuMaster.findFirst({
+                    where: { MenuCode: 'BKN', status: { in: ['A', 'S'] } },
+                });
+                const resolvedMenuId = menuMasterSid || bookingMenu?.MenuMasterSid;
+
+                if (!resolvedMenuId) {
+                    errors.push({ ref: row.tempBookingRef, message: 'Booking menu (BKN) not found — skipped' });
+                    skipped++;
+                    continue;
+                }
+
+                const bookingDate = row.BookingDate ? new Date(row.BookingDate) : new Date();
+
+                const [polPort, podPort] = await Promise.all([
+                    row.POL
+                        ? this._db.portMaster.findFirst({
+                            where: { PortCode: row.POL },
+                            select: { PortMasterSid: true },
+                        })
+                        : null,
+                    row.POD
+                        ? this._db.portMaster.findFirst({
+                            where: { PortCode: row.POD },
+                            select: { PortMasterSid: true },
+                        })
+                        : null,
+                ]);
+
+                let BookingNo = await this.numberSeriesService.generateNextNumber(
+                    companyMasterSid,
+                    branchMasterSid,
+                    resolvedMenuId,
+                    row.DepartmentMasterSid ?? undefined,
+                    bookingDate,
+                    polPort?.PortMasterSid,
+                    podPort?.PortMasterSid,
+                );
+
+                if (!BookingNo) {
+                    const { format } = require('date-fns');
+                    const ds = format(bookingDate, 'yyyyMMdd');
+                    const cnt = await this._db.bookingHeader.count({
+                        where: { BookingNo: { contains: ds } },
+                    });
+                    BookingNo = `booking-${ds}-${String(cnt + 1).padStart(3, '0')}`;
+                }
+
+                if (BookingNo && BookingNo.length > 50) {
+                    BookingNo = BookingNo.substring(0, 50);
+                }
+
+                await this._db.$transaction(async (prisma: any) => {
+                    // ── 1. BookingHeader ───────────────────────────────────────────────
+                    const bookingHeader = await prisma.bookingHeader.create({
+                        data: {
+                            BookingNo,
+                            ShipmentNo: BookingNo,
+                            BookingDateTime: bookingDate,
+                            CompanyMasterSid: companyMasterSid,
+                            BranchMasterSid: branchMasterSid,
+                            MenuMasterSid: resolvedMenuId,
+                            DepartmentMasterSid: row.DepartmentMasterSid,
+                            CustomerMasterSid: row.CustomerMasterSid || null,
+                            CustomerName: row.CustomerName || '',
+                            CustomerAddress: row.CustomerAddress || '',
+                            ShipperName: row.ShipperName || '',
+                            ShipperAddress: row.ShipperAddress || '',
+                            ConsigneeName: row.ConsigneeName || '',
+                            ConsigneeAddress: row.ConsigneeAddress || '',
+                            Notify: row.Notify || '',
+                            NotifyAddress: row.NotifyAddress || '',
+                            CarrierName: row.CarrierName || null,
+                            CarrierSid: row.CarrierSid || null,
+                            VesselName: row.VesselName || null,
+                            VoyageNo: row.VoyageNo || null,
+                            ETD: row.ETD ? new Date(row.ETD) : null,
+                            ETA: row.ETA ? new Date(row.ETA) : null,
+                            POO: row.POO || null,
+                            POL: row.POL || '',
+                            POD: row.POD || '',
+                            FPD: row.FPD || null,
+                            IncoTerms: row.IncoTerms || '',
+                            FreightTerms: row.FreightTerms || '',  // auto-patched from OceanFreight
+                            MovementType: row.MovementType || null,
+                            DestinationAgent: row.DestinationAgent || null,
+                            AgentAddress: row.AgentAddress || '',
+                            SalesmanSid: row.SalesPersonSid || null,
+                            InternalNote: row.InternalNote || '',
+                            GeneralNote: row.GeneralNote || '',
+                            BookingStatus: row.BookingStatus || 'Booked',
+                            NominatedBy: row.NominatedBy || 'Self',
+                            Coload: row.Coload || 'N',
+                            // JobType is the ExportImport value from the department master
+                            JobType: row.JobType || row.ExportImport || '',
+                            status: 'A',
+                            createdBy,
+                        },
+                    });
+
+                    // ── 2. BookingCargo + BookingProducts ──────────────────────────────
+                    for (const cargo of row.bookingCargo || []) {
+                        const createdCargo = await prisma.bookingCargo.create({
+                            data: {
+                                BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                                CompanyMasterSid: companyMasterSid,
+                                BranchMasterSid: branchMasterSid,
+                                CargoType: cargo.CargoType || 'General',
+                                ContainerType: cargo.ContainerType || null,
+                                NoofContainers: Number(cargo.NoofContainers) || 0,
+                                // Weight/volume aggregated from products
+                                GrossWeight: Number(cargo.GrossWeight) || 0,
+                                NetWeight: Number(cargo.NetWeight) || 0,
+                                Volume: Number(cargo.Volume) || 0,
+                                Volumetric: Number(cargo.Volumetric) || 0,
+                                // ChargeableWeight = MAX(GrossWeight, Volumetric)
+                                ChargeableWeight: Number(cargo.ChargeableWeight) || 0,
+                                NoOfPackage: Number(cargo.NoOfPackage) || 0,
+                                ShipmentTerms: cargo.ShipmentTerms || null,
+                                MovementType: cargo.MovementType || null,
+                                ModeOfTransport: cargo.ModeOfTransport || null,
+                                FreightTerms: cargo.FreightTerms || null,
+                                StuffingAt: cargo.StuffingAt || 'Dock',
+                                status: 'A',
+                                createdBy,
+                            },
+                        });
+
+                        for (const product of cargo.bookingProducts || []) {
+                            await prisma.bookingProduct.create({
+                                data: {
+                                    BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                                    BookingCargoSid: createdCargo.BookingCargoSid,
+                                    ProductName: product.ProductName || '',
+                                    ExternaPkg: product.ExternaPkg || null,
+                                    ExternlQty: String(product.ExternlQty || ''),
+                                    GrossWeight: Number(product.GrossWeight) || 0,
+                                    NetWeight: Number(product.NetWeight) || 0,
+                                    Volume: Number(product.Volume) || 0,
+                                    Volumetric: Number(product.Volumetric) || 0,
+                                    Length: product.Length || null,
+                                    Width: product.Width || null,
+                                    Height: product.Height || null,
+                                    IsHaz: product.IsHaz || 'N',
+                                    ImcoClass: product.ImcoClass || null,
+                                    UnNo: String(product.UnNo ?? ''),
+                                    PkgGroup: product.PkgGroup || '',
+                                    ShippingBillNo: product.ShippingBillNo || '',
+                                    ShippingBillDate: product.ShippingBillDate
+                                        ? new Date(product.ShippingBillDate)
+                                        : null,
+                                    CargoRecDate: product.CargoRecDate
+                                        ? new Date(product.CargoRecDate)
+                                        : null,
+                                    status: 'A',
+                                    createdBy,
+                                },
+                            });
+                        }
+                    }
+
+                    // ── 3. BookingOthers ───────────────────────────────────────────────
+                    const ot = row.bookingOther;
+                    await prisma.bookingOthers.create({
+                        data: {
+                            BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                            CustomerRefNo: ot?.CustomerRefNo || '',
+                            YardCFS: ot?.YardCFS || '',
+                            ReleaseType: ot?.ReleaseType || null,
+                            Forwarder: ot?.Forwarder || null,
+                            ForwarderAddress: ot?.ForwarderAddress || '',
+                            Notify2: ot?.Notify2 || null,
+                            NotifyAddress2: ot?.NotifyAddress2 || '',
+                            Coloader: ot?.Coloader || null,
+                            PickupPlace: ot?.PickupPlace || '',
+                            PickupAddress: ot?.PickupAddress || '',
+                            DeliveryPlace: ot?.DeliveryPlace || '',
+                            DeliveryDate: ot?.DeliveryDate || '',
+                            DeliveryAddress: ot?.DeliveryAddress || '',
+                            CargoCurrency: ot?.CargoCurrency || '',
+                            CargoValue: Number(ot?.CargoValue) || 0,
+                            CarrierBookingRef: ot?.CarrierBookingRef || '',
+                            CarrierBookingDate: ot?.CarrierBookingDate
+                                ? new Date(ot.CarrierBookingDate)
+                                : null,
+                            SwitchBL: ot?.SwitchBL || 'N',
+                            BacktoBack: ot?.BacktoBack || 'N',
+                            CHAName: ot?.CHAName || '',
+                            ExternalRemarks: ot?.ExternalRemarks || '',
+                            NotifyParty: ot?.NotifyParty || '',
+                            NotifyPartyAddress: '',
+                            HBLNo: '',
+                            SwitchBLAgent: null,
+                            AgentAddress: '',
+                            SwitchBLShipper: null,
+                            SwitchBLConsignee: null,
+                            SwitchLocation: '',
+                            Depo: '',
+                            ROValidity: null,
+                            LocalTransport: null,
+                            OverseasTransport: null,
+                            OverseasClearance: null,
+                            PickupMode: null,
+                            DeliveryMode: null,
+                            status: 'A',
+                            createdBy,
+                        },
+                    });
+                }, { timeout: 60000 });
+
+                created++;
+            } catch (err: any) {
+                errors.push({
+                    ref: row.tempBookingRef || `row:${row.rowNum}`,
+                    message: err.message || 'DB error during save',
+                });
+                skipped++;
+            }
         }
 
-        // ── 3. BookingOthers ───────────────────────────────────────────────
-        const ot = row.bookingOther;
-        await prisma.bookingOthers.create({
-          data: {
-            BookingHeaderSid:   bookingHeader.BookingHeaderSid,
-            CustomerRefNo:      ot?.CustomerRefNo     || '',
-            YardCFS:            ot?.YardCFS           || '',
-            ReleaseType:        ot?.ReleaseType       || null,
-            Forwarder:          ot?.Forwarder         || null,
-            ForwarderAddress:   ot?.ForwarderAddress  || '',
-            Notify2:            ot?.Notify2           || null,
-            NotifyAddress2:     ot?.NotifyAddress2    || '',
-            Coloader:           ot?.Coloader          || null,
-            PickupPlace:        ot?.PickupPlace       || '',
-            PickupAddress:      ot?.PickupAddress     || '',
-            DeliveryPlace:      ot?.DeliveryPlace     || '',
-            DeliveryDate:       ot?.DeliveryDate      || '',
-            DeliveryAddress:    ot?.DeliveryAddress   || '',
-            CargoCurrency:      ot?.CargoCurrency     || '',
-            CargoValue:         Number(ot?.CargoValue) || 0,
-            CarrierBookingRef:  ot?.CarrierBookingRef  || '',
-            CarrierBookingDate: ot?.CarrierBookingDate
-              ? new Date(ot.CarrierBookingDate)
-              : null,
-            SwitchBL:           ot?.SwitchBL   || 'N',
-            BacktoBack:         ot?.BacktoBack  || 'N',
-            CHAName:            ot?.CHAName     || '',
-            ExternalRemarks:    ot?.ExternalRemarks || '',
-            NotifyParty:        ot?.NotifyParty || '',
-            NotifyPartyAddress: '',
-            HBLNo:              '',
-            SwitchBLAgent:      null,
-            AgentAddress:       '',
-            SwitchBLShipper:    null,
-            SwitchBLConsignee:  null,
-            SwitchLocation:     '',
-            Depo:               '',
-            ROValidity:         null,
-            LocalTransport:     null,
-            OverseasTransport:  null,
-            OverseasClearance:  null,
-            PickupMode:         null,
-            DeliveryMode:       null,
-            status:             'A',
-            createdBy,
-          },
-        });
-      }, { timeout: 60000 });
-
-      created++;
-    } catch (err: any) {
-      errors.push({
-        ref: row.tempBookingRef || `row:${row.rowNum}`,
-        message: err.message || 'DB error during save',
-      });
-      skipped++;
+        return { created, skipped, errors };
     }
-  }
-
-  return { created, skipped, errors };
 }
-
-
-
-}
-
-
-
-

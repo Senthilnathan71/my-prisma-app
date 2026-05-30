@@ -168,6 +168,10 @@ export class QuotationService {
                     let finalCarriers: any[] = [];
                     await Promise.all(
                         allCarriers.map(async (carrier) => {
+                            const requestedApprovalStatus =
+                                Object.values(ApprovalStatus).includes(carrier.ApprovalStatus)
+                                    ? carrier.ApprovalStatus
+                                    : ApprovalStatus.Open;
                             const createdQuoteCarrier = await this._db.quoteCarrier.create({
                                 data: {
                                     QuoteRouteSid: createdQuoteRoute.QuoteRouteSid,
@@ -177,7 +181,8 @@ export class QuotationService {
                                     TransitTime: carrier.TransitTime,
                                     CompanyMasterSid: quoteHeader.CompanyMasterSid,
                                     BranchMasterSid: quoteHeader.BranchMasterSid,
-                                    ApprovalStatus: ApprovalStatus.Open,
+                                    ApprovalStatus: requestedApprovalStatus,
+                                    ApprovedBy: carrier.ApprovedBy || null,
                                     createdBy: payload.createdBy,
                                 },
                             });
