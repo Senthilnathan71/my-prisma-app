@@ -61,9 +61,9 @@ async update(id: number, dto: UpdateBoeDto) {
   const cleanDecimal = (value: any) =>
     value === '' || value === undefined || value === null ? null : new Prisma.Decimal(value);
 
-  // ✅ Clean dates (convert string → Date or keep existing)
+  // ✅ Clean dates (convert string → Date, clear null, or keep existing when omitted)
   const cleanDate = (value: any, existingDate: Date | null) =>
-    value ? new Date(value) : existingDate;
+    value === undefined ? existingDate : value ? new Date(value) : null;
 
   return this.prisma.houseJobBOE.update({
     where: { HouseJobBOESid: id },
