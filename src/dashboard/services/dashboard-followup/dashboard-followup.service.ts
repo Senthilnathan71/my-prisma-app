@@ -44,13 +44,16 @@ export class DashboardFollowupService {
     const menuParamIndex = mode === 'our' ? 4 : 3;
     const menuClause = `($${menuParamIndex}::int IS NULL OR f."MenuMasterSid" = $${menuParamIndex}::int)`;
 
+    // Add the ISO-8601 UTC offset back to get the branch-local date for comparison.
+    // e.g. timeZone='+04:00': UTC 20:00 + 4h = local midnight → ::date = correct local date.
+    const tzInterval = `COALESCE(bm."timeZone", '00:00')::interval`;
     let statusClause = '';
     if (query.followUpStatus === 'overdue') {
-      statusClause = `AND f."FollowupDate"::date < CURRENT_DATE`;
+      statusClause = `AND (f."FollowupDate" + ${tzInterval})::date < (NOW() + ${tzInterval})::date`;
     } else if (query.followUpStatus === 'today') {
-      statusClause = `AND f."FollowupDate"::date = CURRENT_DATE`;
+      statusClause = `AND (f."FollowupDate" + ${tzInterval})::date = (NOW() + ${tzInterval})::date`;
     } else if (query.followUpStatus === 'upcoming') {
-      statusClause = `AND f."FollowupDate"::date > CURRENT_DATE`;
+      statusClause = `AND (f."FollowupDate" + ${tzInterval})::date > (NOW() + ${tzInterval})::date`;
     }
 
     const whereClause = `
@@ -95,11 +98,12 @@ export class DashboardFollowupService {
           mm."MenuName" AS "menuName",
           mm."path" AS "menuPath",
           CASE
-            WHEN f."FollowupDate"::date < CURRENT_DATE THEN 'Overdue'
-            WHEN f."FollowupDate"::date = CURRENT_DATE THEN 'Due Today'
+            WHEN (f."FollowupDate" + COALESCE(bm."timeZone", '00:00')::interval)::date < (NOW() + COALESCE(bm."timeZone", '00:00')::interval)::date THEN 'Overdue'
+            WHEN (f."FollowupDate" + COALESCE(bm."timeZone", '00:00')::interval)::date = (NOW() + COALESCE(bm."timeZone", '00:00')::interval)::date THEN 'Due Today'
             ELSE 'Upcoming'
           END AS "followUpStatus"
         FROM "Followup" f
+        LEFT JOIN "BranchMaster" bm ON f."BranchMasterSid" = bm."BranchMasterSid"
         LEFT JOIN "MenuMaster" mm ON f."MenuMasterSid" = mm."MenuMasterSid"
         LEFT JOIN "EnquiryHeader" eh ON mm."path" LIKE '%/crm/enquiry%' AND f."DocumentSid" = eh."EnquiryHeaderSid"
         LEFT JOIN "QuoteHeader" qh ON mm."path" LIKE '%/crm/quotation%' AND f."DocumentSid" = qh."QuoteHeaderSid"
@@ -114,6 +118,7 @@ export class DashboardFollowupService {
       this.db.$queryRawUnsafe(
         `SELECT COUNT(*) AS "count"
         FROM "Followup" f
+        LEFT JOIN "BranchMaster" bm ON f."BranchMasterSid" = bm."BranchMasterSid"
         WHERE ${whereClause}`,
         ...baseParams,
       ),
