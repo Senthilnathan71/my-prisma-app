@@ -65,6 +65,11 @@ export class FollowupService implements OnModuleInit {
             const followup = await this._db.followup.create({
                 data: {
                     ...followupCreate,
+                    MenuMasterSid: followupCreate.MenuMasterSid != null ? Number(followupCreate.MenuMasterSid) : null,
+                    CompanyMasterSid: Number(followupCreate.CompanyMasterSid),
+                    BranchMasterSid: Number(followupCreate.BranchMasterSid),
+                    DocumentSid: followupCreate.DocumentSid != null ? Number(followupCreate.DocumentSid) : null,
+                    InternalUser: followupCreate.InternalUser != null ? Number(followupCreate.InternalUser) : null,
                     FollowupDate: followupCreate.FollowupDate,
                     FollowupRequire: followupCreate.FollowupRequire ? 'Y' : 'N',
                     Public: followupCreate.Public ? 'Y' : 'N',
