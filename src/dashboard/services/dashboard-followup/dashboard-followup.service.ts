@@ -78,6 +78,17 @@ export class DashboardFollowupService {
             mj."MasterJobNumber",
             f."AttachDocmentNo"
           ) AS "documentNo",
+          -- linkLabel: non-null text for the hyperlink when no document number exists
+          COALESCE(
+            eh."EnquiryNumber",
+            qh."QuoteNumber",
+            bh."BookingNo",
+            hj."HBLNo",
+            mj."MasterJobNumber",
+            f."AttachDocmentNo",
+            mm."MenuName",
+            'View'
+          ) AS "linkLabel",
           f."Subject",
           f."FollowupDate" AS "followupDate",
           f."MenuMasterSid",
