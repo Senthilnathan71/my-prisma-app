@@ -2615,7 +2615,7 @@ model Followup {
   MenuMasterSid    Int?
   AttachDocmentNo  String?       @db.VarChar(20)
   DocumentDate     DateTime?     @db.Date
-  FileName         String?       @db.VarChar(30)
+  FileName         String?       @db.VarChar(100)
   Documenttype     String?       @db.VarChar(20)
   ReceivedDate     DateTime?     @db.Date
   FollowupRequire  String        @default("N") @db.Char(1)

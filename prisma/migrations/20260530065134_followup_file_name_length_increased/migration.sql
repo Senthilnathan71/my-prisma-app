@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Followup" ALTER COLUMN "FileName" SET DATA TYPE VARCHAR(100);
