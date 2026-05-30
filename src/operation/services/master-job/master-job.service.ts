@@ -3557,7 +3557,9 @@ if (houseJobsForBookingSync.length > 0) {
         ) hc ON mj."MasterJobSid" = hc."MasterJobSid"
         LEFT JOIN "DepartmentMaster" dm ON mj."DepartmentMasterSid" = dm."DepartmentMasterSid"
         WHERE ${whereClause}
-        ORDER BY mj."MasterJobDate" DESC
+        ORDER BY
+            mj."MasterJobDate" DESC,
+            mj."MasterJobSid" DESC
         LIMIT ${pageSizeNum}::bigint OFFSET ${skip}::bigint
     `;
 

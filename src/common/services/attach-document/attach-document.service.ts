@@ -96,6 +96,19 @@ export class AttachDocumentService {
                 for (const file of files) {
                     const filePath = path.join(folderPath, file.originalname);
 
+                    const duplicateFile = await tx.attachDocument.findFirst({
+                        where: {
+                            AttachDocumentGroupSid: group.AttachDocumentGroupSid,
+                            FileName: file.originalname,
+                            status: { in: ['A', 'S'] },
+                        },
+                    });
+
+                    if (duplicateFile) {
+                        createdFiles.push(duplicateFile);
+                        continue;
+                    }
+
                     const record = await tx.attachDocument.create({
                         data: {
                             AttachDocumentGroupSid: group.AttachDocumentGroupSid,

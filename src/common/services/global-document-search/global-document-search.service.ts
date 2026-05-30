@@ -128,6 +128,14 @@ export class GlobalDocumentSearchService {
                     OR : [
                         { MasterJobNumber: { contains: search, mode: 'insensitive' }},
                         { MBLNo : {contains : search, mode: 'insensitive'}},
+                        {
+                            containers: {
+                                some: {
+                                    Status: statusWhereClause,
+                                    ContainerNumber: { contains: search, mode: 'insensitive' },
+                                },
+                            },
+                        },
                     ]
                 },
                 select: { 
@@ -135,6 +143,17 @@ export class GlobalDocumentSearchService {
                     MasterJobNumber: true,
                     MBLNo : true,
                     DepartmentMasterSid : true,
+                    containers: {
+                        where: {
+                            Status: statusWhereClause,
+                            ContainerNumber: { contains: search, mode: 'insensitive' },
+                        },
+                        select: {
+                            MasterJobContainerSid: true,
+                            ContainerNumber: true,
+                        },
+                        take: 1,
+                    },
                     houseJob: {
                         where: {
                             status: statusWhereClause,
@@ -163,13 +182,22 @@ export class GlobalDocumentSearchService {
                 const searchLower = search.toLowerCase();
                 const matchesMasterJobNumber = (m.MasterJobNumber || '').toLowerCase().includes(searchLower);
                 const matchesMBLNo = (m.MBLNo || '').toLowerCase().includes(searchLower);
-                const documentNumber = matchesMBLNo && !matchesMasterJobNumber ? (m.MBLNo || '') : (m.MasterJobNumber || '');
-                const displayType = isAgentMasterAirWaybill
-                    ? 'AMAWB'
-                    : (matchesMasterJobNumber ? 'Master Job' : `${isSeaJob ? 'MBL' : 'MAWB'}`);
-                const title = isAgentMasterAirWaybill
-                    ? `AMAWB: ${documentNumber}`
-                    : (matchesMasterJobNumber ? `${isSeaJob ? 'Master Job' : 'Master Air Waybill'}: ${m.MasterJobNumber}` : `${isSeaJob ? 'MBL' : 'MAWB'} : ${m.MBLNo}`);
+                const matchedContainer = m.containers?.[0];
+                const matchedContainerNumber = matchedContainer?.ContainerNumber || '';
+                const matchesContainerNumber = !!matchedContainerNumber;
+                const documentNumber = matchesContainerNumber && !matchesMasterJobNumber && !matchesMBLNo
+                    ? matchedContainerNumber
+                    : (matchesMBLNo && !matchesMasterJobNumber ? (m.MBLNo || '') : (m.MasterJobNumber || ''));
+                const displayType = matchesContainerNumber && !matchesMasterJobNumber && !matchesMBLNo
+                    ? 'Container'
+                    : (isAgentMasterAirWaybill
+                        ? 'AMAWB'
+                        : (matchesMasterJobNumber ? 'Master Job' : `${isSeaJob ? 'MBL' : 'MAWB'}`));
+                const title = matchesContainerNumber && !matchesMasterJobNumber && !matchesMBLNo
+                    ? `Container: ${matchedContainerNumber}`
+                    : (isAgentMasterAirWaybill
+                        ? `AMAWB: ${documentNumber}`
+                        : (matchesMasterJobNumber ? `${isSeaJob ? 'Master Job' : 'Master Air Waybill'}: ${m.MasterJobNumber}` : `${isSeaJob ? 'MBL' : 'MAWB'} : ${m.MBLNo}`));
                 const path = isAgentMasterAirWaybill
                     ? `/operation/agent-master-air-waybill/entry/${m.houseJob[0].HouseJobSid}`
                     : `/operation/${isSeaJob ? 'master-job' : 'mawbill'}/entry/${m.MasterJobSid}`;
@@ -200,21 +228,65 @@ export class GlobalDocumentSearchService {
                     BranchMasterSid: branchId,
                     status: statusWhereClause,
                     IsServiceJob : { not : 'Y'},
-                    HBLNo: { contains: search, mode: 'insensitive' }
+                    OR: [
+                        { HBLNo: { contains: search, mode: 'insensitive' } },
+                        {
+                            houseJobBOE: {
+                                some: {
+                                    Status: statusWhereClause,
+                                    OR: [
+                                        { DeclarationNo: { contains: search, mode: 'insensitive' } },
+                                        { BOENo: { contains: search, mode: 'insensitive' } },
+                                    ],
+                                },
+                            },
+                        },
+                    ],
                 },
-                select: { HouseJobSid: true, HBLNo: true , departmentMaster : {select : {departmentType : true}}},
+                select: {
+                    HouseJobSid: true,
+                    HBLNo: true,
+                    departmentMaster : {select : {departmentType : true}},
+                    houseJobBOE: {
+                        where: {
+                            Status: statusWhereClause,
+                            OR: [
+                                { DeclarationNo: { contains: search, mode: 'insensitive' } },
+                                { BOENo: { contains: search, mode: 'insensitive' } },
+                            ],
+                        },
+                        select: {
+                            DeclarationNo: true,
+                            BOENo: true,
+                        },
+                        take: 1,
+                    },
+                },
                 take: 5,
             });
 
             return houseJobs.map((h) => {
                 const isSeaJob = h.departmentMaster?.departmentType.toUpperCase() === 'SEA'
+                const searchLower = search.toLowerCase();
+                const matchedBoe = h.houseJobBOE?.[0];
+                const matchedDeclarationNo = matchedBoe?.DeclarationNo || '';
+                const matchedBOENo = matchedBoe?.BOENo || '';
+                const matchesDeclarationNo = matchedDeclarationNo.toLowerCase().includes(searchLower);
+                const matchesBOENo = matchedBOENo.toLowerCase().includes(searchLower);
+                const matchesHBLNo = (h.HBLNo || '').toLowerCase().includes(searchLower);
+                const documentNumber = !matchesHBLNo && matchesDeclarationNo
+                    ? matchedDeclarationNo
+                    : (!matchesHBLNo && matchesBOENo ? matchedBOENo : (h.HBLNo || ''));
+                const displayType = !matchesHBLNo && (matchesDeclarationNo || matchesBOENo)
+                    ? (matchesDeclarationNo ? 'Declaration No' : 'BOE No')
+                    : (isSeaJob ? 'HBL' : 'HAWB');
                 return {
                 id: h.HouseJobSid,
-                documentNumber: h.HBLNo || '',
+                documentNumber,
                 documentType: 'HOUSE_JOB',
-                displayType: isSeaJob ? 'HBL' : 'HAWB',
+                displayType,
                 path: isSeaJob ? `/operation/house-job/entry/${h.HouseJobSid}` : `/operation/hawb-bill/entry/${h.HouseJobSid}`,
-                title: `${isSeaJob ? 'HBL' : 'HAWB'}: ${h.HBLNo}`,
+                title: `${displayType}: ${documentNumber}`,
                 }
             });
         } catch (error) {
