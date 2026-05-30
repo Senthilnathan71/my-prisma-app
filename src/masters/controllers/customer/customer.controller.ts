@@ -1,5 +1,5 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException, UsePipes, ValidationPipe } from '@nestjs/common';
-import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, Res, UnauthorizedException, UploadedFile, UseInterceptors, UsePipes, ValidationPipe } from '@nestjs/common';
+import { ApiConsumes, ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
@@ -7,6 +7,8 @@ import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CreateUpdateCustomerDto, BulkCreateCustomerDto } from 'src/masters/DTO/customer.dto';
 import { CustomerService } from 'src/masters/services/customer/customer.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 class CompanyIdDto {
     CompanyMasterSid: number;
 }
@@ -621,5 +623,119 @@ async searchCustomersByName(@Body() body: {
         }
         return output;
     }
+
+    @ApiOperation({ summary: 'Download Customer Excel template' })
+@HttpCode(HttpStatus.OK)
+@Get('template')
+async downloadCustomerTemplate(
+  @Query('CompanyMasterSid') CompanyMasterSid: number,
+  @Res() res: Response
+) {
+  try {
+    this.logger.log(`Generating Excel template for customer upload`);
+    const buffer = await this.customerService.generateCustomerTemplate(Number(CompanyMasterSid));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=Customer_Upload_Template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    this.logger.warn(`Error generating customer template: ${JSON.stringify(error)}, ${error}`);
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ status: false, message: 'Error generating template' });
+  }
+}
+
+// ─── STEP 1: PARSE ────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Parse & validate customer Excel — does NOT save to DB' })
+@ApiConsumes('multipart/form-data')
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/parse')
+@UseInterceptors(FileInterceptor('file'))
+async parseCustomerExcel(
+  @UploadedFile() file: Express.Multer.File,
+  @Body('CompanyMasterSid') CompanyMasterSid: string,
+) {
+  const resp = new ResponseData();
+  try {
+    if (!file)
+      throw new BadRequestException('No file uploaded');
+
+    const allowedMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    if (!allowedMimeTypes.includes(file.mimetype))
+      throw new BadRequestException('Invalid file type. Only .xlsx or .xls allowed');
+
+    if (file.size > 5 * 1024 * 1024)
+      throw new BadRequestException('File size exceeds 5MB limit');
+
+    if (!CompanyMasterSid)
+      throw new BadRequestException('CompanyMasterSid is required');
+
+    const result = await this.customerService.parseCustomerExcel(
+      file.buffer,
+      Number(CompanyMasterSid)
+    );
+
+    const hasValid = result.validRows.length > 0;
+
+    resp.status = true;
+    resp.message = hasValid
+      ? `Parsed successfully. ${result.validRows.length} valid, ${result.invalidRows.length} invalid.`
+      : 'No valid rows found. Please fix the errors and re-upload.';
+    resp.data = result;
+
+  } catch (error) {
+    resp.status = false;
+    this.logger.warn(`Error parsing customer Excel: ${JSON.stringify(error)}, ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
+}
+
+// ─── STEP 2: SAVE ─────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Save validated customer rows to DB' })
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/save')
+async saveCustomerExcel(
+  @Body() payload: {
+    validRows: any[];
+    CompanyMasterSid: number;
+    createdBy: string;
+  }
+) {
+  const resp = new ResponseData();
+  try {
+    const { validRows, CompanyMasterSid, createdBy } = payload;
+
+    if (!validRows?.length)
+      throw new BadRequestException('No valid rows to save');
+
+    if (!CompanyMasterSid)
+      throw new BadRequestException('CompanyMasterSid is required');
+
+    if (!createdBy)
+      throw new BadRequestException('createdBy is required');
+
+    const result = await this.customerService.saveCustomerExcel(
+      validRows,
+      CompanyMasterSid,
+      createdBy
+    );
+
+    resp.status = true;
+    resp.message = `Import complete. ${result.created} created, ${result.skipped} skipped.`;
+    resp.data = result;
+
+  } catch (error) {
+    resp.status = false;
+    this.logger.warn(`Error saving customer Excel: ${JSON.stringify(error)}, ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
+}
 
 }

@@ -5,6 +5,8 @@ import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CreateUpdateCustomerDto, BulkCreateUpdateCustomerDto } from 'src/masters/DTO/customer.dto';
+import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 
 @Injectable()
 export class CustomerService {
@@ -1845,6 +1847,843 @@ export class CustomerService {
 
         return { valid: true, message: '', errorType: null };
     }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+// EXCEL TEMPLATE GENERATOR — Customer + Branch only
+// ══════════════════════════════════════════════════════════════════════════════
+async generateCustomerTemplate(CompanyMasterSid: number): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+
+    // ── Fetch lookup data ──────────────────────────────────────────────────────
+    const [countries, currencies, networks, states, cities] = await Promise.all([
+        this._db.countryMaster.findMany({
+            where: { status: 'A' },
+            select: { CountryMasterSid: true, countryName: true, countryCode: true }
+        }),
+        this._db.currencyMaster.findMany({
+            where: { status: 'A' },
+            select: { CurrencyMasterSid: true, currencyCode: true }
+        }),
+        this._db.networkMaster.findMany({
+            where: { Status: 'A' },
+            select: { NetworkMasterSid: true, NetworkName: true }
+        }),
+        this._db.stateMaster.findMany({
+            where: { status: 'A' },
+            select: { StateMasterSid: true, stateName: true }
+        }),
+        this._db.cityMaster.findMany({
+            where: { status: 'A' },
+            select: { CityMasterSid: true, cityName: true, StateMasterSid: true }
+        }),
+    ]);
+
+    const organizationTypeOptions = [
+        'Agent', 'Air Line', 'Carrier', 'CFS', 'Consignee', 'Customer',
+        'Feeder', 'Forwarder', 'NVOCC', 'Notify', 'Overseas Agent',
+        'Shipper', 'Shipping Line', 'Transporter', 'Vendor', 'Warehouse', 'Yard'
+    ];
+
+    const companyTypeOptions = [
+        'Artificial Juridical Person', 'Association Of Persons(AOP)', 'Body Of Individuals',
+        'Company', 'Firm', 'Government Agency', 'Individual(proprietor)',
+        'Limited Liability Company(LLC)', 'Limited Liability Partnership(LLP)', 'Local Authority'
+    ];
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SHEET 1 — CUSTOMERS
+    // ══════════════════════════════════════════════════════════════════════════
+    const customerSheet = workbook.addWorksheet('Customers');
+
+    // A  Customer Name   — mandatory
+    // B  Code
+    // C  Country         — mandatory, dropdown
+    // D  Currency        — dropdown
+    // E  Organization Type — free-text, comma-separated
+    // F  Alias
+    // G  Group Name
+    // H  Address1        — mandatory
+    // I  Address2
+    // J  Website
+    // K  CashCredit      — dropdown: Cash / Credit
+    // L  Network         — dropdown
+    // M  CIN
+    // N  TAN
+    // O  Remarks
+    // P  Registration No
+    // Q  Company Type    — dropdown
+    // R  VAT Available   — Y/N
+    // S  VAT No
+    // T  Name as per VAT
+    const customerHeaders = [
+        'Customer Name',       // A — mandatory
+        'Code',                // B
+        'Country',             // C — mandatory, dropdown
+        'Currency',            // D — dropdown
+        'Organization Type',   // E — comma separated
+        'Alias',               // F
+        'Group Name',          // G
+        'Address1',            // H — mandatory
+        'Address2',            // I
+        'Website',             // J
+        'CashCredit',          // K — dropdown: Cash / Credit
+        'Network',             // L — dropdown
+        'CIN',                 // M
+        'TAN',                 // N
+        'Remarks',             // O
+        'Registration No',     // P
+        'Company Type',        // Q — dropdown
+        'VAT Available',       // R — Y/N
+        'VAT No',              // S
+        'Name as per VAT',     // T
+    ];
+    customerSheet.addRow(customerHeaders);
+
+    // Header styling — mandatory = red, optional = orange
+    const custHeaderRow = customerSheet.getRow(1);
+    custHeaderRow.font = { bold: true };
+    custHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+    custHeaderRow.height = 20;
+
+    ['A', 'C', 'H'].forEach(col => {
+        const cell = customerSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFFF0000' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+    });
+    ['B', 'D', 'E', 'F', 'G', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'].forEach(col => {
+        const cell = customerSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFD97706' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7E5' } };
+    });
+
+    // Example rows
+    const customerExamples = [
+        [
+            'ABC Corporation',          // A Customer Name
+            'ABC',                      // B Code
+            'India',                    // C Country
+            'INR',                      // D Currency
+            'Customer,Shipper',         // E Organization Type
+            'ABC Corp',                 // F Alias
+            'ABC Group',                // G Group Name
+            '123 Main Street',          // H Address1
+            'Suite 100',                // I Address2
+            'www.abc.com',              // J Website
+            'Credit',                   // K CashCredit
+            '',                         // L Network
+            'U12345MH2020PTC123456',    // M CIN
+            'ABCD12345E',               // N TAN
+            'Sample customer',          // O Remarks
+            'REG12345',                 // P Registration No
+            'Company',                  // Q Company Type
+            'Y',                        // R VAT Available
+            'ABCDE1234F',               // S VAT No
+            'ABC Corp',                 // T Name as per VAT
+        ],
+        [
+            'XYZ Enterprises',          // A Customer Name
+            'XYZ',                      // B Code
+            'India',                    // C Country
+            'INR',                      // D Currency
+            'Vendor',                   // E Organization Type
+            '',                         // F Alias
+            '',                         // G Group Name
+            '456 Park Avenue',          // H Address1
+            '',                         // I Address2
+            '',                         // J Website
+            'Cash',                     // K CashCredit
+            '',                         // L Network
+            '',                         // M CIN
+            '',                         // N TAN
+            '',                         // O Remarks
+            '',                         // P Registration No
+            'Firm',                     // Q Company Type
+            'N',                        // R VAT Available
+            '',                         // S VAT No
+            '',                         // T Name as per VAT
+        ],
+    ];
+    customerExamples.forEach(rowData => {
+        const r = customerSheet.addRow(rowData);
+        r.eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2FB' } };
+            cell.font = { italic: true, color: { argb: 'FF555555' } };
+        });
+        r.commit();
+    });
+
+    // Column widths
+    [28, 14, 16, 12, 32, 20, 16, 28, 20, 22, 12, 18, 26, 16, 24, 16, 28, 14, 18, 24]
+        .forEach((w, i) => { customerSheet.getColumn(i + 1).width = w; });
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SHEET 2 — BRANCHES
+    // ══════════════════════════════════════════════════════════════════════════
+    const branchSheet = workbook.addWorksheet('Branches');
+
+    // A  Customer Name   — mandatory, dropdown from Customers sheet
+    // B  Branch Name     — mandatory
+    // C  Branch Type     — mandatory, dropdown: HeadQuarters / BRANCH
+    // D  Branch Code
+    // E  State           — mandatory, dropdown from state master
+    // F  City            — mandatory, dropdown from city master
+    // G  Contact Person
+    // H  Phone
+    // I  Email
+    // J  Address         — mandatory
+    // K  Zip/Post Code
+    // L  Registered      — dropdown: Y / N
+    const branchHeaders = [
+        'Customer Name',       // A — mandatory
+        'Branch Name',         // B — mandatory
+        'Branch Type',         // C — mandatory, dropdown
+        'Branch Code',         // D
+        'State',               // E — mandatory, dropdown
+        'City',                // F — mandatory, dropdown
+        'Contact Person',      // G
+        'Phone',               // H
+        'Email',               // I
+        'Address',             // J — mandatory
+        'Zip/Post Code',       // K
+        'Registered',          // L — dropdown: Y / N
+    ];
+    branchSheet.addRow(branchHeaders);
+
+    const branchHeaderRow = branchSheet.getRow(1);
+    branchHeaderRow.font = { bold: true };
+    branchHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+    branchHeaderRow.height = 20;
+
+    ['A', 'B', 'C', 'E', 'F', 'J'].forEach(col => {
+        const cell = branchSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFFF0000' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+    });
+    ['D', 'G', 'H', 'I', 'K', 'L'].forEach(col => {
+        const cell = branchSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFD97706' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7E5' } };
+    });
+
+    const branchExamples = [
+        ['ABC Corporation', 'Head Office',   'HeadQuarters', 'HO001',  'Maharashtra', 'Mumbai',    'John Doe',   '9876543210', 'ho@abc.com',    '123 Main Street, Mumbai',    '400001', 'Y'],
+        ['ABC Corporation', 'Delhi Branch',  'BRANCH',       'DEL001', 'Delhi',       'New Delhi',  'Jane Smith', '9876543211', 'delhi@abc.com', '456 Park Avenue, Delhi',     '110001', 'Y'],
+        ['XYZ Enterprises', 'Main Branch',   'HeadQuarters', 'MAIN001','Karnataka',   'Bengaluru',  '',           '9876543212', 'main@xyz.com',  '789 Ring Road, Bengaluru',   '560001', 'N'],
+    ];
+    branchExamples.forEach(rowData => {
+        const r = branchSheet.addRow(rowData);
+        r.eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2FB' } };
+            cell.font = { italic: true, color: { argb: 'FF555555' } };
+        });
+        r.commit();
+    });
+
+    [28, 20, 16, 14, 18, 18, 18, 16, 28, 32, 14, 12]
+        .forEach((w, i) => { branchSheet.getColumn(i + 1).width = w; });
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // HIDDEN REFERENCE SHEETS
+    // ══════════════════════════════════════════════════════════════════════════
+    const addRef = (name: string, values: string[]) => {
+        const ws = workbook.addWorksheet(name);
+        ws.addRow(['Value']);
+        values.forEach(v => ws.addRow([v]));
+        ws.state = 'hidden';
+        return ws;
+    };
+
+    addRef('_Countries',    countries.map(x => x.countryName));
+    addRef('_Currencies',   currencies.map(x => x.currencyCode));
+    addRef('_Networks',     networks.map(x => x.NetworkName));
+    addRef('_States',       states.map(x => x.stateName));
+    addRef('_Cities',       cities.map(x => x.cityName));
+    addRef('_OrgTypes',     organizationTypeOptions);
+    addRef('_CompanyTypes', companyTypeOptions);
+    addRef('_BranchTypes',  ['HeadQuarters', 'BRANCH']);
+    addRef('_CashCredit',   ['Cash', 'Credit']);
+    addRef('_YesNo',        ['Y', 'N']);
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // APPLY DROPDOWNS
+    // ══════════════════════════════════════════════════════════════════════════
+    const applyDV = (
+        sheet: ExcelJS.Worksheet,
+        col: string,
+        refSheet: string,
+        count: number,
+        startRow = 4
+    ) => {
+        const formula = `'${refSheet}'!$A$2:$A$${count + 1}`;
+        for (let r = startRow; r <= 3000; r++) {
+            sheet.getCell(`${col}${r}`).dataValidation = {
+                type: 'list', allowBlank: true,
+                formulae: [formula],
+                showErrorMessage: true,
+                errorTitle: 'Invalid value',
+                error: 'Please select a value from the dropdown list'
+            };
+        }
+    };
+
+    // ── Customer sheet dropdowns ───────────────────────────────────────────
+    applyDV(customerSheet, 'C', '_Countries',    countries.length);           // Country
+    applyDV(customerSheet, 'D', '_Currencies',   currencies.length);          // Currency
+    applyDV(customerSheet, 'K', '_CashCredit',   2);                          // CashCredit
+    applyDV(customerSheet, 'L', '_Networks',     networks.length);            // Network
+    applyDV(customerSheet, 'Q', '_CompanyTypes', companyTypeOptions.length);  // Company Type
+    applyDV(customerSheet, 'R', '_YesNo',        2);                          // VAT Available
+
+    // ── Branch sheet dropdowns ─────────────────────────────────────────────
+    applyDV(branchSheet, 'C', '_BranchTypes', 2);                // Branch Type
+    applyDV(branchSheet, 'E', '_States',      states.length);    // State
+    applyDV(branchSheet, 'F', '_Cities',      cities.length);    // City
+    applyDV(branchSheet, 'L', '_YesNo',       2);                // Registered
+
+    // Branch → Customer Name must match Customers sheet (dynamic list)
+    for (let r = 4; r <= 3000; r++) {
+        branchSheet.getCell(`A${r}`).dataValidation = {
+            type: 'list', allowBlank: true,
+            formulae: [`OFFSET(Customers!$A$4,0,0,COUNTA(Customers!$A$4:$A$3002),1)`],
+            showErrorMessage: true,
+            errorTitle: 'Invalid Customer Name',
+            error: 'Please select a Customer Name that exists in the Customers sheet'
+        };
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // INSTRUCTIONS SHEET
+    // ══════════════════════════════════════════════════════════════════════════
+    const inst = workbook.addWorksheet('Instructions');
+    [
+        ['Customer / Organization Bulk Upload Template — Instructions'],
+        [],
+        ['SHEET OVERVIEW'],
+        ['  Customers  — Enter one customer per row (mandatory)'],
+        ['  Branches   — Enter one branch per row, linked to a customer by Customer Name'],
+        [],
+        ['HOW TO USE'],
+        ['  1. Fill the Customers sheet first (one row per customer)'],
+        ['  2. Go to Branches — select Customer Name from dropdown, fill branch details'],
+        ['  3. Multiple branches can be linked to the same customer by repeating the Customer Name'],
+        ['  4. Rows 2–3 in each sheet are EXAMPLES — do not edit or delete them'],
+        ['  5. Enter your data starting from Row 4'],
+        ['  6. Status is automatically set to Active — no need to fill it'],
+        [],
+        ['CUSTOMERS SHEET — MANDATORY FIELDS (red header)'],
+        ['  Customer Name   — must be unique, max 200 chars'],
+        ['  Country         — select from dropdown'],
+        ['  Address1        — primary address line'],
+        [],
+        ['CUSTOMERS SHEET — OPTIONAL FIELDS (orange header)'],
+        ['  Code            — unique short code, max 20 chars'],
+        ['  Currency        — select from dropdown (auto-detected from Country if blank)'],
+        ['  Organization Type — comma-separated list. Valid values:'],
+        ['    Agent, Air Line, Carrier, CFS, Consignee, Customer, Feeder, Forwarder,'],
+        ['    NVOCC, Notify, Overseas Agent, Shipper, Shipping Line, Transporter,'],
+        ['    Vendor, Warehouse, Yard'],
+        ['  CashCredit      — Cash or Credit (select from dropdown)'],
+        ['  Network         — select from dropdown'],
+        ['  Company Type    — select from dropdown'],
+        ['  VAT Available   — Y if VAT/PAN/Tax ID is available'],
+        ['  VAT No          — required if VAT Available = Y'],
+        ['  Name as per VAT — name registered with the tax authority'],
+        [],
+        ['BRANCHES SHEET — MANDATORY FIELDS (red header)'],
+        ['  Customer Name   — must match a name in the Customers sheet (select from dropdown)'],
+        ['  Branch Name     — name of the branch, max 50 chars'],
+        ['  Branch Type     — HeadQuarters or BRANCH (select from dropdown)'],
+        ['  State           — select from dropdown'],
+        ['  City            — select from dropdown'],
+        ['  Address         — branch address, max 300 chars'],
+        [],
+        ['BRANCHES SHEET — OPTIONAL FIELDS (orange header)'],
+        ['  Branch Code     — unique code for the branch'],
+        ['  Contact Person  — primary contact at the branch'],
+        ['  Phone           — contact phone number'],
+        ['  Email           — branch email address'],
+        ['  Zip/Post Code   — postal code'],
+        ['  Registered      — Y if branch is GST registered, N if unregistered'],
+        [],
+        ['RULES'],
+        ['  • Duplicate Customer Name will be skipped with an error'],
+        ['  • Each customer must have at least one branch'],
+        ['  • Status is always imported as Active — use the application to suspend records'],
+    ].forEach(r => inst.addRow(r));
+
+    inst.getRow(1).font = { bold: true, size: 13 };
+    ['A3', 'A8', 'A15', 'A21', 'A34', 'A42', 'A50'].forEach(cell => {
+        inst.getCell(cell).font = { bold: true, underline: true };
+    });
+    inst.getColumn(1).width = 90;
+
+    const buf = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buf);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STEP 1: PARSE ONLY — validate without DB writes
+// ══════════════════════════════════════════════════════════════════════════════
+async parseCustomerExcel(
+    buffer: Buffer,
+    CompanyMasterSid: number
+): Promise<{
+    validRows: any[];
+    invalidRows: any[];
+    summary: { total: number; valid: number; invalid: number };
+}> {
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+    const getRows = (partialName: string, skipRows: number): any[][] => {
+        const name = workbook.SheetNames.find(n =>
+            n.toLowerCase().includes(partialName.toLowerCase())
+        );
+        if (!name) return [];
+        const all: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[name], {
+            header: 1, defval: null, raw: false
+        });
+        all.splice(0, skipRows);
+        return all.filter(r => r.some(cell => cell !== null && cell !== ''));
+    };
+
+    // Skip header row (1) + 2 example rows = 3 rows
+    const customerRows = getRows('customer', 3);
+    const branchRows   = getRows('branch',   3);
+
+    // ── Lookup data ──────────────────────────────────────────────────────────
+    const [countries, currencies, networks, states, cities, existingCustomers] = await Promise.all([
+        this._db.countryMaster.findMany({
+            where: { status: 'A' },
+            select: { CountryMasterSid: true, countryName: true, countryCode: true, CurrencyMasterSid: true }
+        }),
+        this._db.currencyMaster.findMany({
+            where: { status: 'A' },
+            select: { CurrencyMasterSid: true, currencyCode: true }
+        }),
+        this._db.networkMaster.findMany({
+            where: { Status: 'A' },
+            select: { NetworkMasterSid: true, NetworkName: true }
+        }),
+        this._db.stateMaster.findMany({
+            where: { status: 'A' },
+            select: { StateMasterSid: true, stateName: true }
+        }),
+        this._db.cityMaster.findMany({
+            where: { status: 'A' },
+            select: { CityMasterSid: true, cityName: true, StateMasterSid: true }
+        }),
+        this._db.customerMaster.findMany({
+            where: { CompanyMasterSid, status: { not: 'D' } },
+            select: { CustomerName: true, CustomerShortCode: true }
+        }),
+    ]);
+
+    const countryMap  = new Map(countries.map(x => [x.countryName.trim().toLowerCase(), x]));
+    const currencyMap = new Map(currencies.map(x => [x.currencyCode.trim().toLowerCase(), x.CurrencyMasterSid]));
+    const networkMap  = new Map(networks.map(x => [x.NetworkName.trim().toLowerCase(), x.NetworkMasterSid]));
+    const stateMap    = new Map(states.map(x => [x.stateName.trim().toLowerCase(), x.StateMasterSid]));
+    const cityMap     = new Map(
+        cities.map(x => [`${x.cityName.trim().toLowerCase()}__${x.StateMasterSid}`, x.CityMasterSid])
+    );
+
+    const existingNames = new Set(existingCustomers.map(x => x.CustomerName.toLowerCase()));
+    const existingCodes = new Set(
+        existingCustomers.map(x => x.CustomerShortCode?.toLowerCase()).filter(Boolean)
+    );
+
+    const customerTypeKeys: Record<string, string> = {
+        'agent': 'agent', 'air line': 'airLine', 'carrier': 'carrier', 'cfs': 'cFS',
+        'consignee': 'consignee', 'customer': 'customer', 'feeder': 'feeder',
+        'forwarder': 'forwarder', 'nvocc': 'nVOCC', 'notify': 'notify',
+        'overseas agent': 'overseasAgent', 'shipper': 'shipper',
+        'shipping line': 'shippingLine', 'transporter': 'transporter',
+        'vendor': 'vendor', 'warehouse': 'warehouse', 'yard': 'yard'
+    };
+
+    const buildCustomerTypeObject = (raw: string): Record<string, string> => {
+        const result: Record<string, string> = {};
+        if (!raw) return result;
+        raw.split(',').map(t => t.trim().toLowerCase()).forEach(t => {
+            const key = customerTypeKeys[t];
+            if (key) result[key] = 'isTrue';
+        });
+        return result;
+    };
+
+    // ── Group branches by customer name ──────────────────────────────────────
+    const branchesByCustomer = new Map<string, any[]>();
+    branchRows.forEach((row, i) => {
+        const name = (row[0] || '').toString().trim().toLowerCase();
+        if (!name) return;
+        if (!branchesByCustomer.has(name)) branchesByCustomer.set(name, []);
+        branchesByCustomer.get(name)!.push({ row, rowNum: i + 4 });
+    });
+
+    const validRows:   any[] = [];
+    const invalidRows: any[] = [];
+
+    const seenNames = new Set<string>();
+    const seenCodes = new Set<string>();
+
+    for (let i = 0; i < customerRows.length; i++) {
+        const row    = customerRows[i];
+        const rowNum = i + 4;
+        const errors: string[] = [];
+
+        // ── Customer sheet column mapping (0-based) ───────────────────────────
+        // Matches generateCustomerTemplate column order exactly:
+        // A(0)  Customer Name
+        // B(1)  Code
+        // C(2)  Country          ← dropdown
+        // D(3)  Currency         ← dropdown
+        // E(4)  Organization Type
+        // F(5)  Alias
+        // G(6)  Group Name
+        // H(7)  Address1
+        // I(8)  Address2
+        // J(9)  Website
+        // K(10) CashCredit       ← dropdown: Cash / Credit
+        // L(11) Network          ← dropdown
+        // M(12) CIN
+        // N(13) TAN
+        // O(14) Remarks
+        // P(15) Registration No
+        // Q(16) Company Type     ← dropdown
+        // R(17) VAT Available    ← Y/N
+        // S(18) VAT No
+        // T(19) Name as per VAT
+        const customerName    = (row[0]  || '').toString().trim();
+        const shortCode       = (row[1]  || '').toString().trim();
+        const countryRaw      = (row[2]  || '').toString().trim();
+        const currencyRaw     = (row[3]  || '').toString().trim();
+        const customerTypes   = (row[4]  || '').toString().trim();
+        const aliasName       = (row[5]  || '').toString().trim();
+        const groupName       = (row[6]  || '').toString().trim();
+        const address1        = (row[7]  || '').toString().trim();
+        const address2        = (row[8]  || '').toString().trim();
+        const website         = (row[9]  || '').toString().trim();
+        const cashCredit      = (row[10] || 'Credit').toString().trim();
+        const network         = (row[11] || '').toString().trim();
+        const cin             = (row[12] || '').toString().trim();
+        const tan             = (row[13] || '').toString().trim();
+        const remarks         = (row[14] || '').toString().trim();
+        const registrationNo  = (row[15] || '').toString().trim();
+        const companyType     = (row[16] || '').toString().trim();
+        const vatAvailable    = (row[17] || '').toString().trim().toUpperCase() === 'Y';
+        const vatNumber       = (row[18] || '').toString().trim().toUpperCase();
+        const vatName         = (row[19] || '').toString().trim();
+
+        if (!customerName && !address1) continue;
+
+        // ── Mandatory validations ─────────────────────────────────────────────
+        if (!customerName) {
+            errors.push('Customer Name is required');
+        } else if (customerName.length > 200) {
+            errors.push('Customer Name must be ≤ 200 characters');
+        }
+
+        if (!address1) errors.push('Address1 is required');
+
+        // ── Country ───────────────────────────────────────────────────────────
+        let CountryMasterSid: number | null = null;
+        let autoCurrencyId:   number | null = null;
+        if (!countryRaw) {
+            errors.push('Country is required');
+        } else {
+            const countryRec = countryMap.get(countryRaw.toLowerCase());
+            if (!countryRec) {
+                errors.push(`Country "${countryRaw}" not found`);
+            } else {
+                CountryMasterSid = countryRec.CountryMasterSid;
+                autoCurrencyId   = countryRec.CurrencyMasterSid ?? null;
+            }
+        }
+
+        // ── Currency (optional — auto-detected from country if blank) ─────────
+        let CurrencyMasterSid: number | null = autoCurrencyId;
+        if (currencyRaw) {
+            const cid = currencyMap.get(currencyRaw.toLowerCase());
+            if (!cid) errors.push(`Currency "${currencyRaw}" not found`);
+            else CurrencyMasterSid = cid;
+        }
+
+        // ── Duplicate checks ──────────────────────────────────────────────────
+        if (customerName && existingNames.has(customerName.toLowerCase())) {
+            errors.push(`Customer Name "${customerName}" already exists in the system`);
+        }
+        if (customerName && seenNames.has(customerName.toLowerCase())) {
+            errors.push(`Duplicate Customer Name "${customerName}" within the file`);
+        }
+        if (shortCode && existingCodes.has(shortCode.toLowerCase())) {
+            errors.push(`Short Code "${shortCode}" already exists in the system`);
+        }
+        if (shortCode && seenCodes.has(shortCode.toLowerCase())) {
+            errors.push(`Duplicate Short Code "${shortCode}" within the file`);
+        }
+
+        // ── Branches for this customer ────────────────────────────────────────
+        const matchedBranches = branchesByCustomer.get(customerName.toLowerCase()) || [];
+        const branchRecords:  any[] = [];
+        const branchErrors:   any[] = [];
+
+        if (matchedBranches.length === 0) {
+            errors.push('At least one branch is required');
+        }
+
+        for (const { row: br, rowNum: brRowNum } of matchedBranches) {
+            // ── Branch sheet column mapping (0-based) ─────────────────────────
+            // Matches generateCustomerTemplate branch sheet column order exactly:
+            // A(0)  Customer Name
+            // B(1)  Branch Name
+            // C(2)  Branch Type    ← dropdown: HeadQuarters / BRANCH
+            // D(3)  Branch Code
+            // E(4)  State          ← dropdown
+            // F(5)  City           ← dropdown
+            // G(6)  Contact Person
+            // H(7)  Phone
+            // I(8)  Email
+            // J(9)  Address
+            // K(10) Zip/Post Code
+            // L(11) Registered     ← dropdown: Y / N
+            const branchName    = (br[1]  || '').toString().trim();
+            const branchType    = (br[2]  || '').toString().trim();
+            const branchCode    = (br[3]  || '').toString().trim();
+            const stateRaw      = (br[4]  || '').toString().trim();
+            const cityRaw       = (br[5]  || '').toString().trim();
+            const contactPerson = (br[6]  || '').toString().trim();
+            const phone         = (br[7]  || '').toString().trim();
+            const email         = (br[8]  || '').toString().trim();
+            const address       = (br[9]  || '').toString().trim();
+            const zipCode       = (br[10] || '').toString().trim();
+            const registered    = (br[11] || 'Y').toString().trim().toUpperCase() === 'Y' ? 'Y' : 'N';
+
+            const bErrors: string[] = [];
+
+            if (!branchName) bErrors.push('Branch Name is required');
+            if (!branchType) bErrors.push('Branch Type is required');
+            if (!address)    bErrors.push('Branch Address is required');
+
+            // State
+            let StateMasterSid: number | null = null;
+            if (!stateRaw) {
+                bErrors.push('State is required');
+            } else {
+                const sid = stateMap.get(stateRaw.toLowerCase());
+                if (!sid) bErrors.push(`State "${stateRaw}" not found`);
+                else StateMasterSid = sid;
+            }
+
+            // City (resolved against state)
+            let CityMasterSid: number | null = null;
+            if (!cityRaw) {
+                bErrors.push('City is required');
+            } else if (StateMasterSid) {
+                const cid = cityMap.get(`${cityRaw.toLowerCase()}__${StateMasterSid}`);
+                if (!cid) bErrors.push(`City "${cityRaw}" not found in state "${stateRaw}"`);
+                else CityMasterSid = cid;
+            }
+
+            if (bErrors.length) {
+                branchErrors.push({ sheet: 'Branches', row: brRowNum, branchName, errors: bErrors });
+            } else {
+                branchRecords.push({
+                    BranchName:    branchName,
+                    Branch_Type:   branchType,
+                    Branch_Code:   branchCode,
+                    StateMasterSid,
+                    CityMasterSid,
+                    Contact_Person: contactPerson,
+                    ContactNo:     phone,
+                    Email:         email,
+                    Address:       address,
+                    Zip_PostBox:   zipCode,
+                    Registered:    registered,
+                    status:        'A',   // always Active on import
+                });
+            }
+        }
+
+        // ── Build result row ──────────────────────────────────────────────────
+        const rowResult = {
+            rowNum,
+            customerName,
+            shortCode,
+            aliasName,
+            address1,
+            address2,
+            countryRaw,
+            CountryMasterSid,
+            CurrencyMasterSid,
+            companyType,
+            panAvailable:  vatAvailable,
+            panNumber:     vatNumber,
+            panName:       vatName,
+            groupName,
+            website,
+            paymentType:   cashCredit,
+            registrationNo,
+            cin,
+            tan,
+            remarks,
+            customerTypeObject: buildCustomerTypeObject(customerTypes),
+            network,
+            status:        'A',   // always Active on import
+            branchRecords,
+            branchErrors,
+        };
+
+        const allErrors = [
+            ...errors,
+            ...branchErrors.map(be => `Branch "${be.branchName}": ${be.errors.join(', ')}`)
+        ];
+
+        if (allErrors.length) {
+            invalidRows.push({ ...rowResult, errors: allErrors });
+        } else {
+            seenNames.add(customerName.toLowerCase());
+            if (shortCode) seenCodes.add(shortCode.toLowerCase());
+            validRows.push(rowResult);
+        }
+    }
+
+    return {
+        validRows,
+        invalidRows,
+        summary: {
+            total:   validRows.length + invalidRows.length,
+            valid:   validRows.length,
+            invalid: invalidRows.length,
+        }
+    };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// STEP 2: SAVE ONLY — receives pre-validated rows from parseCustomerExcel
+// ══════════════════════════════════════════════════════════════════════════════
+async saveCustomerExcel(
+    validRows: any[],
+    CompanyMasterSid: number,
+    createdBy: string
+): Promise<{ created: number; skipped: number; errors: any[] }> {
+
+    let created = 0, skipped = 0;
+    const errors: any[] = [];
+
+    for (const row of validRows) {
+        // Final duplicate guard at save time
+        const dup = await this._db.customerMaster.findFirst({
+            where: {
+                CompanyMasterSid,
+                status: { not: 'D' },
+                OR: [
+                    { CustomerName: { equals: row.customerName, mode: 'insensitive' } },
+                    ...(row.shortCode
+                        ? [{ CustomerShortCode: { equals: row.shortCode, mode: Prisma.QueryMode.insensitive } }]
+                        : []),
+                ]
+            }
+        });
+
+        if (dup) {
+            errors.push({ customerName: row.customerName, message: 'Duplicate found at save time — skipped' });
+            skipped++;
+            continue;
+        }
+
+        try {
+            await this._db.$transaction(async (prisma) => {
+                const customer = await prisma.customerMaster.create({
+                    data: {
+                        CompanyMasterSid,
+                        CustomerName:     row.customerName,
+                        CustomerShortCode: row.shortCode     || null,
+                        CustomerAliasName: row.aliasName    || null,
+                        CustomerAddress1:  row.address1,
+                        CustomerAddress2:  row.address2     || null,
+                        CountryMasterSid:  row.CountryMasterSid,
+                        CurrencyMasterSid: row.CurrencyMasterSid ?? null,
+                        CompanyType:       row.companyType  || null,
+                        PanType:           row.panAvailable ? row.panNumber : null,
+                        PanName:           row.panAvailable ? row.panName   : null,
+                        GroupName:         row.groupName    || null,
+                        Website:           row.website      || null,
+                        CashCredit:        row.paymentType  || 'Credit',
+                        IsMSME:            row.isMsme ? 'A' : 'I',
+                        RegistrationNo:    row.registrationNo || null,
+                        CIN:               row.cin          || null,
+                        TAN:               row.tan          || null,
+                        Remarks:           row.remarks      || null,
+                        CustomerType:      row.customerTypeObject,
+                        Network:           row.network      || null,
+                        status:            row.status,
+                        createdBy,
+                    }
+                });
+
+                if (row.branchRecords?.length) {
+                    await prisma.customerBranch.createMany({
+                        data: row.branchRecords.map((b: any) => ({
+                            CustomerMasterSid: customer.CustomerMasterSid,
+                            CompanyMasterSid,
+                            BranchName:       b.BranchName,
+                            Branch_Type:      b.Branch_Type,
+                            Branch_Code:      b.Branch_Code     || null,
+                            StateMasterSid:   b.StateMasterSid,
+                            CityMasterSid:    b.CityMasterSid,
+                            Contact_Person:   b.Contact_Person  || null,
+                            ContactNo:        b.ContactNo       || null,
+                            Email:            b.Email           || '',
+                            Address:          b.Address,
+                            Zip_PostBox:      b.Zip_PostBox     || null,
+                            Registered:       b.Registered,
+                            CustomerGstType:  b.CustomerGstType || null,
+                            GSTNo:            b.GSTNo           || '',
+                            status:           b.status,
+                            createdBy,
+                        }))
+                    });
+                }
+            });
+
+            created++;
+        } catch (err: any) {
+            errors.push({ customerName: row.customerName, message: err.message || 'DB insert failed' });
+            skipped++;
+        }
+    }
+
+    return { created, skipped, errors };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SINGLE-SHOT IMPORT (parse + save in one call — mirrors parseAndImportChargeExcel)
+// ══════════════════════════════════════════════════════════════════════════════
+async parseAndImportCustomerExcel(
+    buffer: Buffer,
+    CompanyMasterSid: number,
+    createdBy: string
+): Promise<{ created: number; skipped: number; errors: any[] }> {
+
+    const { validRows, invalidRows } = await this.parseCustomerExcel(buffer, CompanyMasterSid);
+
+    // Collect parse-time errors for reporting
+    const errors: any[] = invalidRows.map(r => ({
+        sheet: 'Customers',
+        row: r.rowNum,
+        customerName: r.customerName,
+        message: r.errors.join('; ')
+    }));
+
+    const { created, skipped, errors: saveErrors } = await this.saveCustomerExcel(
+        validRows, CompanyMasterSid, createdBy
+    );
+
+    return {
+        created,
+        skipped: skipped + invalidRows.length,
+        errors:  [...errors, ...saveErrors]
+    };
+}
 
 }
 
