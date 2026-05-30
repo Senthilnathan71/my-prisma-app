@@ -1563,7 +1563,7 @@ if (!croPayload?.BookingCroSid) {
                 take: pageSize,
                 orderBy: [
                     { BookingDateTime: 'desc' },
-                    { BookingNo: 'desc' }
+                    { BookingHeaderSid: 'desc' }
                 ],
                 include : {
                     departmentMaster : {
