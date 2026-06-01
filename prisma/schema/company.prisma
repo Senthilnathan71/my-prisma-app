@@ -2603,36 +2603,36 @@ model AuthorityLog {
 }
 
 model Followup {
-  FollowupSid      Int           @id @default(autoincrement())
-  CompanyMasterSid Int
-  BranchMasterSid  Int
-  CreatedOn        DateTime      @default(now())
-  CreatedBy        String        @db.VarChar(100)
-  UpdatedOn        DateTime      @default(now())
-  UpdatedBy        String?       @db.VarChar(100)
-  Status           String?       @default("A") @db.Char(1)
-  DocumentSid      Int?
-  MenuMasterSid    Int?
-  AttachDocmentNo  String?       @db.VarChar(20)
-  DocumentDate     DateTime?     @db.Date
-  FileName         String?       @db.VarChar(100)
-  Documenttype     String?       @db.VarChar(20)
-  ReceivedDate     DateTime?     @db.Date
-  FollowupRequire  String        @default("N") @db.Char(1)
-  FollowupDate     DateTime      @db.Timestamptz(6)
-  FollowupAction   String        @db.VarChar(500)
-  Remarks          String?       @db.VarChar(500)
-  Public           String?       @default("N") @db.Char(1)
-  sentEmail        String?       @default("N") @db.Char(1)
-  deletedAt        Int?
-  ExternalUser     String?       @db.VarChar(100)
-  InternalUser     Int?
-  IsCompleted      String?       @default("N") @db.Char(1)
-  Subject          String?       @db.VarChar(200)
-  BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  menuMaster       MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-  internalUserMaster UserMaster? @relation(fields: [InternalUser], references: [UserMasterSid])
+  FollowupSid        Int           @id @default(autoincrement())
+  CompanyMasterSid   Int
+  BranchMasterSid    Int
+  CreatedOn          DateTime      @default(now())
+  CreatedBy          String        @db.VarChar(100)
+  UpdatedOn          DateTime      @default(now())
+  UpdatedBy          String?       @db.VarChar(100)
+  Status             String?       @default("A") @db.Char(1)
+  DocumentSid        Int?
+  MenuMasterSid      Int?
+  AttachDocmentNo    String?       @db.VarChar(20)
+  DocumentDate       DateTime?     @db.Date
+  FileName           String?       @db.VarChar(100)
+  Documenttype       String?       @db.VarChar(20)
+  ReceivedDate       DateTime?     @db.Date
+  FollowupRequire    String        @default("N") @db.Char(1)
+  FollowupDate       DateTime      @db.Timestamptz(6)
+  FollowupAction     String        @db.VarChar(500)
+  Remarks            String?       @db.VarChar(500)
+  Public             String?       @default("N") @db.Char(1)
+  sentEmail          String?       @default("N") @db.Char(1)
+  deletedAt          Int?
+  ExternalUser       String?       @db.VarChar(100)
+  InternalUser       Int?
+  IsCompleted        String?       @default("N") @db.Char(1)
+  Subject            String?       @db.VarChar(200)
+  BranchMaster       BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  CompanyMaster      CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  menuMaster         MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  internalUserMaster UserMaster?   @relation(fields: [InternalUser], references: [UserMasterSid])
 }
 
 model ContainerActivity {
@@ -3372,27 +3372,28 @@ model VoucherOthers {
 }
 
 model VoucherTDS {
-  VoucherTDSSid    Int           @id @default(autoincrement())
-  CreatedOn        DateTime      @default(now())
-  CreatedBy        String        @db.VarChar(100)
-  UpdatedOn        DateTime      @default(now())
-  UpdatedBy        String?       @db.VarChar(100)
-  Status           String        @default("A") @db.Char(1)
+  VoucherTDSSid    Int            @id @default(autoincrement())
+  CreatedOn        DateTime       @default(now())
+  CreatedBy        String         @db.VarChar(100)
+  UpdatedOn        DateTime       @default(now())
+  UpdatedBy        String?        @db.VarChar(100)
+  Status           String         @default("A") @db.Char(1)
   CompanyMasterSid Int
   BranchMasterSid  Int
   VoucherHeaderSid Int
-  VoucherDetailSid Int
+  VoucherDetailSid Int?
   TDSSetRateSid    Int
-  ITSectionCode    String        @db.VarChar(100)
+  ITSectionCode    String         @db.VarChar(100)
   TDSRate          Int
-  TaxableAmount    Decimal       @db.Decimal(15, 3)
-  TDSAmount        Decimal       @db.Decimal(15, 3)
-  Reason           String?       @db.VarChar(100)
-  BranchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  TDSSetRate       TDSSetRate    @relation(fields: [TDSSetRateSid], references: [TDSSetRateSid])
-  VoucherDetail    VoucherDetail @relation(fields: [VoucherDetailSid], references: [VoucherDetailSid])
-  VoucherHeader    VoucherHeader @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
+  TaxableAmount    Decimal        @db.Decimal(15, 3)
+  TDSAmount        Decimal        @db.Decimal(15, 3)
+  TDSPartyAmount   Decimal?       @db.Decimal(15, 3)
+  Reason           String?        @db.VarChar(100)
+  BranchMaster     BranchMaster   @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  CompanyMaster    CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  TDSSetRate       TDSSetRate     @relation(fields: [TDSSetRateSid], references: [TDSSetRateSid])
+  VoucherDetail    VoucherDetail? @relation(fields: [VoucherDetailSid], references: [VoucherDetailSid])
+  VoucherHeader    VoucherHeader  @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
 }
 
 model VoucherTransaction {
