@@ -1,6 +1,7 @@
 
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, HttpStatus, Logger, Param, ParseIntPipe, Patch, Post, Query, UnauthorizedException } from '@nestjs/common';
 import { SupplierTdsMappingService } from 'src/accounts/services/supplier-tds-mapping/supplier-tds-mapping.service';
+import { TdsCalculationService } from 'src/accounts/services/tds-calculation/tds-calculation.service';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
@@ -9,7 +10,47 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 @Controller('supplier-tds-mapping')
 @Auth()
 export class SupplierTdsMappingController {
-    constructor(private logger: Logger, private suppliertdsmappingService: SupplierTdsMappingService) { }
+    constructor(
+        private logger: Logger,
+        private suppliertdsmappingService: SupplierTdsMappingService,
+        private tdsCalculationService: TdsCalculationService,
+    ) { }
+
+    @ApiOperation({ summary: 'Get Supplier TDS context (mapping + customer type + FY cumulative) for a vendor branch' })
+    @ApiCreatedResponse({ description: 'Supplier TDS context', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Post('by-branch')
+    async getSupplierTdsByBranch(@Body() dto: {
+        CustomerBranchSid: number;
+        LedgerMasterSid: number;
+        CompanyMasterSid: number;
+        fyStartDate: string;
+        fyEndDate: string;
+        voucherDate: string;
+        excludeVoucherHeaderSid?: number;
+    }) {
+        const resp = new ResponseData();
+        try {
+            const result = await this.tdsCalculationService.getSupplierTdsContext({
+                CustomerBranchSid: dto.CustomerBranchSid,
+                LedgerMasterSid: dto.LedgerMasterSid,
+                CompanyMasterSid: dto.CompanyMasterSid,
+                fyStartDate: new Date(dto.fyStartDate),
+                fyEndDate: new Date(dto.fyEndDate),
+                voucherDate: dto.voucherDate ? new Date(dto.voucherDate) : new Date(),
+                excludeVoucherHeaderSid: dto.excludeVoucherHeaderSid,
+            });
+            resp.data = result;
+            resp.message = 'Supplier TDS context fetched successfully';
+        } catch (error) {
+            this.logger.warn(`getSupplierTdsByBranchError: ${error}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message
+                : 'Internal Server Error';
+        }
+        return resp;
+    }
 
     @ApiOperation({ summary: 'Get All Supplier TDS Mapping' })
     @ApiCreatedResponse({

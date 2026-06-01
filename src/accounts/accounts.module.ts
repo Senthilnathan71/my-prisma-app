@@ -54,6 +54,7 @@ import { VoucherCorrectionController } from './controllers/voucher-correction/vo
 import { PaymentRequestController } from './controllers/payment-request/payment-request.controller';
 import { VoucherService } from './services/voucher/voucher.service';
 import { SettingsModule } from 'src/settings/settings.module';
+import { TdsCalculationService } from './services/tds-calculation/tds-calculation.service';
 
 @Module({
     imports: [
@@ -116,9 +117,10 @@ import { SettingsModule } from 'src/settings/settings.module';
         VendorCreditNoteService,
         VoucherCorrectionService,
         VoucherMatchingService,
-        VoucherPeriodService
+        VoucherPeriodService,
+        TdsCalculationService
     ],
-    exports: [AccountsReportsService, VoucherPeriodService, VoucherService]
+    exports: [AccountsReportsService, VoucherPeriodService, VoucherService, TdsCalculationService]
 })
 export class AccountsModule { }
 

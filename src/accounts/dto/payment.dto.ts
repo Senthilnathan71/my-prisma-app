@@ -116,12 +116,18 @@ export class CreatePaymentDto {
   @Type(() => PaymentDetailDto)
   Details: PaymentDetailDto[];
 
-  // TDS deductions
+  // TDS deductions (legacy multi-row form — kept for backward compatibility)
   @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => PaymentTDSDto)
   TDSDetails?: PaymentTDSDto[];
+
+  // Single-row TDS deduction (current payment-entry flow)
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => TDSDetailDto)
+  tdsDetail?: TDSDetailDto | null;
 
   // Voucher matching (invoice payments)
   @IsOptional()
@@ -263,6 +269,62 @@ export class PaymentTDSDto {
   @IsString()
   @MaxLength(200)
   Reason?: string; // Reason for lower/NIL deduction
+}
+
+/**
+ * Single TDS deduction attached to a payment voucher.
+ * Persisted to VoucherTDS at save time (VoucherDetailSid = null) and
+ * materialised as a TDS Payable VoucherDetail + VoucherTransaction at post time.
+ */
+export class TDSDetailDto {
+  @IsNotEmpty()
+  @IsNumber()
+  TDSSetRateSid: number;
+
+  @IsOptional()
+  @IsNumber()
+  TDSSetHeaderSid?: number;
+
+  @IsNotEmpty()
+  @IsString()
+  ITSectionCode: string;
+
+  @IsOptional()
+  @IsString()
+  CompanyType?: string;
+
+  @IsOptional()
+  @IsString()
+  CertificateNo?: string;
+
+  @IsOptional()
+  @IsString()
+  CertificateAmt?: string;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  TDSRate: number;
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  TaxableAmount: number;       // FULL gross taxable (drives next payment's cumulative)
+
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  TDSAmount: number;           // Actual deduction in local currency
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  TDSPartyAmount?: number;     // TDS in party/vendor currency
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  Reason?: string;
 }
 
 /**
