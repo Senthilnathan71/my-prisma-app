@@ -2292,23 +2292,44 @@ async parseCustomerExcel(
     );
 
     const customerTypeKeys: Record<string, string> = {
-        'agent': 'agent', 'air line': 'airLine', 'carrier': 'carrier', 'cfs': 'cFS',
-        'consignee': 'consignee', 'customer': 'customer', 'feeder': 'feeder',
-        'forwarder': 'forwarder', 'nvocc': 'nVOCC', 'notify': 'notify',
-        'overseas agent': 'overseasAgent', 'shipper': 'shipper',
-        'shipping line': 'shippingLine', 'transporter': 'transporter',
-        'vendor': 'vendor', 'warehouse': 'warehouse', 'yard': 'yard'
-    };
+    'agent':          'agent',
+    'air line':       'airLine',
+    'carrier':        'carrier',
+    'cfs':            'cFS',
+    'consignee':      'consignee',
+    'customer':       'customer',
+    'feeder':         'feeder',
+    'forwarder':      'forwarder',
+    'nvocc':          'nVOCC',
+    'notify':         'notify',
+    'overseas agent': 'overseasAgent',
+    'shipper':        'shipper',
+    'shipping line':  'shippingLine',
+    'transporter':    'transporter',
+    'vendor':         'vendor',
+    'warehouse':      'warehouse',
+    'yard':           'yard'
+};
 
     const buildCustomerTypeObject = (raw: string): Record<string, string> => {
-        const result: Record<string, string> = {};
-        if (!raw) return result;
-        raw.split(',').map(t => t.trim().toLowerCase()).forEach(t => {
-            const key = customerTypeKeys[t];
-            if (key) result[key] = 'isTrue';
-        });
-        return result;
-    };
+    // Start with all keys set to 'isFalse'
+    const result: Record<string, string> = Object.fromEntries(
+        Object.values(customerTypeKeys).map(key => [key, 'isFalse'])
+    );
+
+    if (!raw) return result;
+
+    raw.split(',').map(t => t.trim().toLowerCase()).forEach(t => {
+        const key = customerTypeKeys[t];
+        if (key) {
+            result[key] = 'isTrue';
+        } else {
+            console.warn(`[buildCustomerTypeObject] Unrecognized type: "${t}"`);
+        }
+    });
+
+    return result;
+};
 
     // ── Group branches by customer name ──────────────────────────────────────
     const branchesByCustomer = new Map<string, any[]>();
@@ -2613,7 +2634,9 @@ async saveCustomerExcel(
                         CIN:               row.cin          || null,
                         TAN:               row.tan          || null,
                         Remarks:           row.remarks      || null,
-                        CustomerType:      row.customerTypeObject,
+                        CustomerType:      row.customerTypeObject
+    ? (row.customerTypeObject as Prisma.InputJsonValue)
+    : Prisma.JsonNull,
                         Network:           row.network      || null,
                         status:            row.status,
                         createdBy,
