@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
+import { TdsCalculationService } from '../tds-calculation/tds-calculation.service';
 
 @Injectable()
 export class PaymentService {
@@ -16,7 +17,8 @@ export class PaymentService {
         private readonly _db: DatabaseService,
         private readonly outstandingService: OutstandingService, // REUSE existing service
         private readonly voucherService: VoucherService,
-        private readonly companyConfigService : CompanyConfigService
+        private readonly companyConfigService : CompanyConfigService,
+        private readonly tdsCalculation : TdsCalculationService
     ) { }
 
     private ensureLocalDebitCreditBalance(
@@ -268,6 +270,20 @@ export class PaymentService {
                     select : {
                         VoucherMatchingHeaderSid : true,
                         VoucherMatchingNo : true
+                    }
+                },
+                VoucherTDS : {
+                    where : { Status : 'A' },
+                    include : {
+                        TDSSetRate : {
+                            select : {
+                                TDSSetRateSid : true,
+                                TDSSetHeaderSid : true,
+                                CompanyType : true,
+                                ITSectionCode : true,
+                                TDSRate : true,
+                            }
+                        }
                     }
                 }
             },
@@ -671,6 +687,25 @@ export class PaymentService {
                 const finalMatchingDetails = await prisma.matchingDetail.createManyAndReturn({
                     data: matchingDetails
                 });
+
+                // TDS deduction (VoucherDetailSid backfilled at post time)
+                if (payload.tdsDetail && toNumber(payload.tdsDetail.TDSAmount) > 0) {
+                    await this.tdsCalculation.createVoucherTDS({
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                        VoucherDetailSid: null,
+                        TDSSetRateSid: payload.tdsDetail.TDSSetRateSid,
+                        ITSectionCode: payload.tdsDetail.ITSectionCode,
+                        TDSRate: payload.tdsDetail.TDSRate,
+                        TaxableAmount: payload.tdsDetail.TaxableAmount,
+                        TDSAmount: payload.tdsDetail.TDSAmount,
+                        TDSPartyAmount: payload.tdsDetail.TDSPartyAmount ?? null,
+                        Reason: payload.tdsDetail.Reason ?? null,
+                        CreatedBy: payload.CreatedBy,
+                        Status: 'A',
+                    }, prisma);
+                }
 
                 if (voucherType.IsAutoPosting === 'Y') {
                     if (payload.PaymentRequestSid) {
@@ -1137,6 +1172,28 @@ export class PaymentService {
 
                 const updatedCreatedMatchings = await Promise.all(matchingOperations);
 
+                // TDS upsert / removal (VoucherDetailSid stays null until post)
+                if (payload.tdsDetail && toNumber(payload.tdsDetail.TDSAmount) > 0) {
+                    await this.tdsCalculation.upsertVoucherTDS(VoucherHeaderSid, {
+                        CompanyMasterSid,
+                        BranchMasterSid,
+                        VoucherHeaderSid,
+                        VoucherDetailSid: null,
+                        TDSSetRateSid: payload.tdsDetail.TDSSetRateSid,
+                        ITSectionCode: payload.tdsDetail.ITSectionCode,
+                        TDSRate: payload.tdsDetail.TDSRate,
+                        TaxableAmount: payload.tdsDetail.TaxableAmount,
+                        TDSAmount: payload.tdsDetail.TDSAmount,
+                        TDSPartyAmount: payload.tdsDetail.TDSPartyAmount ?? null,
+                        Reason: payload.tdsDetail.Reason ?? null,
+                        CreatedBy: updatedBy,
+                        UpdatedBy: updatedBy,
+                        Status: 'A',
+                    }, prisma);
+                } else {
+                    await this.tdsCalculation.removeVoucherTDS(VoucherHeaderSid, prisma);
+                }
+
                 return {
                     voucherHeader: updatedHeader,
                     details: updatedCreatedDetails,
@@ -1406,6 +1463,68 @@ export class PaymentService {
                     allDetails.push(taxDetail);
                 }
 
+                // ─── TDS Payable posting (inline) ───
+                // Resolve VoucherTDS for this header. If found, materialise it as a
+                // Cr VoucherDetail (TDS Payable COA) so it participates in the balance check
+                // alongside the regular detail/tax rows.
+                let tdsVoucherDetailForBackfill: { VoucherTDSSid: number; VoucherDetailSid: number } | null = null;
+                const tdsRow = await tx.voucherTDS.findFirst({
+                    where: { VoucherHeaderSid: voucher.VoucherHeaderSid, Status: 'A' },
+                });
+                if (tdsRow && toNumber(tdsRow.TDSAmount) > 0) {
+                    const tdsCOA = await tx.cOAMaster.findFirst({
+                        where: {
+                            LedgerType: 'TDS Payable',
+                            CompanyMasterSid: voucher.CompanyMasterSid,
+                            Status: 'A',
+                        },
+                        select: { COAMasterSid: true },
+                    });
+                    if (!tdsCOA) {
+                        throw new BadRequestException(
+                            'No TDS Payable ledger configured. Please set up a COA with Ledger Type = TDS Payable.'
+                        );
+                    }
+                    const tdsAmount = toNumber(tdsRow.TDSAmount);
+                    const tdsPartyAmount = toNumber(tdsRow.TDSPartyAmount ?? tdsAmount);
+                    const tdsVoucherDetail = await tx.voucherDetail.create({
+                        data: {
+                            CompanyMasterSid: voucher.CompanyMasterSid,
+                            BranchMasterSid: voucher.BranchMasterSid,
+                            VoucherHeaderSid: voucher.VoucherHeaderSid,
+                            Sno: currentSno++,
+                            ChargeDescription: `TDS Payable - ${tdsRow.ITSectionCode}`,
+                            COAMasterSid: tdsCOA.COAMasterSid,
+                            CostRevenue: 'Cost',
+                            CurrencyMasterSid: payload.localCurrencyMasterSid,
+                            CurrencyCode: payload.localCurrencyCode,
+                            ExchangeRate: 1,
+                            Rate: tdsAmount,
+                            NumberOfUnit: 1,
+                            Narration: `TDS Payable - ${tdsRow.ITSectionCode}`,
+                            DrCr: 'C',
+                            TaxableAmount: tdsAmount,
+                            Amount: tdsAmount,
+                            LocalAmount: tdsAmount,
+                            PartyAmount: tdsPartyAmount,
+                            TaxPercentage1: 0,
+                            TaxAmount1: 0,
+                            TaxPercentage2: 0,
+                            TaxAmount2: 0,
+                            YearMasterSid: payload.yearMasterSid,
+                            IsAutoGenerated: 'Y',
+                            Status: 'A',
+                            CreatedBy: payload.postedBy,
+                        }
+                    });
+                    allDetails.push(tdsVoucherDetail);
+                    tdsVoucherDetailForBackfill = {
+                        VoucherTDSSid: tdsRow.VoucherTDSSid,
+                        VoucherDetailSid: tdsVoucherDetail.VoucherDetailSid,
+                    };
+                }
+                // ─── end TDS block ───
+
                 // Prepare VoucherTransaction payload array
                 const voucherTransactionsPayload = allDetails.map((item, index) => ({
                     CreatedBy: item.CreatedBy,
@@ -1466,6 +1585,18 @@ export class PaymentService {
                         }
                     })
                     allCompleteDetails.push(completeDetail);
+                }
+
+                // Backfill VoucherTDS.VoucherDetailSid now that the TDS detail row exists
+                if (tdsVoucherDetailForBackfill) {
+                    await tx.voucherTDS.update({
+                        where: { VoucherTDSSid: tdsVoucherDetailForBackfill.VoucherTDSSid },
+                        data: {
+                            VoucherDetailSid: tdsVoucherDetailForBackfill.VoucherDetailSid,
+                            UpdatedBy: payload.postedBy,
+                            UpdatedOn: new Date(),
+                        },
+                    });
                 }
 
                 const partyDetail = allCompleteDetails.find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
