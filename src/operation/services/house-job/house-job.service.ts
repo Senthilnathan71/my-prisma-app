@@ -249,12 +249,12 @@ export class HouseJobService {
         };
     }
 
-    private buildHouseJobProductData(product: any, payload: any, HouseJobSid: number, HouseJobCargoSid: number | null, createdBy: string, updatedBy?: string | null) {
+    private buildHouseJobProductData(product: any, payload: any, HouseJobSid: number, HouseJobCargoSid: number | null, createdBy: string, updatedBy?: string | null, cargoPayload?: any) {
         return {
             HouseJobSid,
             HouseJobCargoSid,
             ProductName: product?.ProductName || '',
-            ProductDescription: product?.ProductDescription || '',
+            ProductDescription: product?.ProductDescription || cargoPayload?.CommodityDescription || '',
             ShippingBillNo: product?.ShippingBillNo || '',
             ShippingBillDate: product?.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
             ExternaPkg: product?.ExternaPkg ?? product?.ExternalPkg ?? '',
@@ -286,7 +286,7 @@ export class HouseJobService {
             DamageQty: product?.DamageQty || 0,
             DamageRemarks: product?.DamageRemarks || '',
             DeliveredQty: product?.DeliveredQty || 0,
-            MarksAndNumber: product?.MarksAndNumber || '',
+            MarksAndNumber: product?.MarksAndNumber || product?.MarksAndNumbers || cargoPayload?.MarksAndNumber || '',
             createdBy,
             updatedBy: updatedBy ?? null,
             updatedOn: new Date(),
@@ -336,7 +336,7 @@ export class HouseJobService {
                     const nestedProducts = this.getHouseJobCargoProducts(cargoPayload, []);
                     for (const product of nestedProducts) {
                         const productId = product?.HouseJobProductSid ?? product?.houseJobProductSid ?? null;
-                        const productData = this.buildHouseJobProductData(product, payload, HouseJobSid, cargoRow.HouseJobCargoSid, createdBy, updatedBy);
+                        const productData = this.buildHouseJobProductData(product, payload, HouseJobSid, cargoRow.HouseJobCargoSid, createdBy, updatedBy, cargoPayload);
                         const shouldFlagHaz = String(product?.IsHaz || '').toUpperCase() === 'Y' && product?.MasterJobContainerSid;
 
                         if (productId) {
@@ -480,7 +480,7 @@ export class HouseJobService {
 
                     const nestedProducts = this.getHouseJobCargoProducts(cargoPayload, []);
                     for (const product of nestedProducts) {
-                        const productData = this.buildHouseJobProductData(product, payload, HouseJobSid, cargoRow.HouseJobCargoSid, createdBy, updatedBy);
+                        const productData = this.buildHouseJobProductData(product, payload, HouseJobSid, cargoRow.HouseJobCargoSid, createdBy, updatedBy, cargoPayload);
                         const shouldFlagHaz = String(product?.IsHaz || '').toUpperCase() === 'Y' && product?.MasterJobContainerSid;
                         const createdProduct = await prisma.houseJobProduct.create({ data: productData });
                         createdOrUpdatedProducts.push(createdProduct);
@@ -2641,6 +2641,7 @@ private hasBoeValue(boe: any): boolean {
 }
 
 }
+
 
 
 
