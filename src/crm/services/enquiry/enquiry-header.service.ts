@@ -213,9 +213,10 @@ export class EnquiryHeaderService {
                             }
                         }
                     },
-                    orderBy: {
-                        EnquiryHeaderSid: 'desc'
-                    },
+                    orderBy: [
+                        { EnquiryDate : 'desc' },
+                        { EnquiryNumber : 'desc' }
+                    ],
                     skip,
                     take: pageSize
                 }),

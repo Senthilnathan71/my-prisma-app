@@ -86,6 +86,11 @@ export class PreCustomerMeetingService {
                         select : {
                             CustomerName : true,
                         }}
+                },
+                orderBy: {
+                    preCustomerMaster: {
+                        preCustomerName: 'asc'
+                    }
                 }
             });
             return allMeetings;
