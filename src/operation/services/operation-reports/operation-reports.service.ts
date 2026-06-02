@@ -143,6 +143,8 @@ export class OperationReportsService {
           return await this.generateFreightMoMGrowthReport(parameters);
         case 'not-booked-rates':
           return await this.generateCostRevenueNotBookedReport(parameters);
+        case 'transhipment-cargo':
+          return await this.generateTranshipmentCargoReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -5737,6 +5739,253 @@ export class OperationReportsService {
       throw error;
     }
   }
+
+  private async generateTranshipmentCargoReport(params: any) {
+  const {
+    companyId: CompanyMasterSid,
+    ToHblDt,
+    Branch: branchId,
+  } = params;
+
+  try {
+    this.logger.log(
+      `Getting Transhipment Cargo report for CompanySid=${CompanyMasterSid}, To=${ToHblDt}`,
+    );
+
+    const branches =
+      branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+            where: { BranchMasterSid: { in: branchId } },
+            select: { BranchMasterSid: true, branchName: true },
+          })
+        : await this._db.branchMaster.findMany({
+            where: { CompanyMasterSid },
+            select: { BranchMasterSid: true, branchName: true },
+          });
+
+    const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+    const resolvedBranchNames = branches.map((b) => b.branchName);
+    const branchInvolved =
+      branchId && branchId.length > 0
+        ? branches.map((b) => b.branchName).join(', ')
+        : 'All Branches';
+
+    const summarizeProducts = (products: any[] = []) =>
+      products.reduce(
+        (acc, product) => {
+          acc.packageCount += Number(product.ExternlQty || 0);
+          acc.grossWeight += Number(product.GrossWeight || 0);
+          acc.volume += Number(product.Volume || 0);
+          acc.cargoReceivedDate = product.CargoRecDate;
+          return acc;
+        },
+        {
+          packageCount: 0,
+          grossWeight: 0,
+          volume: 0,
+          cargoReceivedDate: null,
+        },
+      );
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fetch LCL Import Transhipment house jobs where cargo is received
+    // ─────────────────────────────────────────────────────────────────────────
+    const transhipmentHouseJobs = await this._db.houseJob.findMany({
+      where: {
+        CompanyMasterSid,
+        BranchMasterSid: { in: resolvedBranchIds },
+        JobType: 'Transhipment',
+        departmentMaster: { ExportImport: 'Import', FCLLCL: 'LCL' },
+        status: 'A',
+        AND: [{ HBLDate: { lte: ToHblDt } }],
+      },
+      include: {
+        masterJob: {
+          where: { Status: 'A' },
+          select: { MasterJobNumber: true, MBLNo: true },
+        },
+        bookingHeader: {
+          where: { status: 'A' },
+          select: { BookingNo: true },
+        },
+        Products: {
+          where: { status: 'A' },
+          select: {
+            ExternlQty: true,
+            GrossWeight: true,
+            Volume: true,
+            ContainerNo: true,
+            MasterJobContainerSid: true,
+            ExternaPkg: true,
+            CargoRecDate: true,
+          },
+        },
+        Others: {
+          where: { status: 'A' },
+          select: {
+            Coloader: true,
+          },
+        },
+        departmentMaster: {
+          select: {
+            departmentName: true,
+            DepartmentMasterSid: true,
+            ExportImport: true,
+            FCLLCL: true,
+          },
+        },
+      },
+      orderBy: { HBLDate: 'asc' },
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fetch linked bookings (no MasterNoSid filter — we check it manually)
+    // ─────────────────────────────────────────────────────────────────────────
+    const transhipmentBookingIds = transhipmentHouseJobs
+      .map((hj) => hj.TranshipmentBookingSid)
+      .filter((sid): sid is number => !!sid);
+
+    const transhipmentBookings = transhipmentBookingIds.length
+      ? await this._db.bookingHeader.findMany({
+          where: {
+            BookingHeaderSid: { in: transhipmentBookingIds },
+            status: 'A',
+            // ← No MasterNoSid: null filter here — checked manually below
+          },
+          select: {
+            BookingHeaderSid: true,
+            BookingNo: true,
+            BookingDateTime: true,
+            BookingStatus: true,
+            HBLNo: true,
+            MBLNo: true,
+            MasterNoSid: true, // ← required for null check
+          },
+        })
+      : [];
+
+    const transhipmentBookingBySid = new Map(
+      transhipmentBookings.map((b) => [b.BookingHeaderSid, b]),
+    );
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Filter house jobs:
+    //   Example 1 → TranshipmentBookingSid is null                  ✅ include
+    //   Example 2 → TranshipmentBookingSid = 45,
+    //               booking(BookingHeaderSid=45).MasterNoSid = null  ✅ include
+    //               booking(BookingHeaderSid=45).MasterNoSid != null ❌ exclude
+    // ─────────────────────────────────────────────────────────────────────────
+    const houseJobRows = transhipmentHouseJobs
+      .filter((houseJob) => {
+        // Example 1: no booking linked yet
+        if (!houseJob.TranshipmentBookingSid) {
+          return true;
+        }
+
+        // Example 2: booking linked — include only if MasterNoSid is null
+        const linkedBooking = transhipmentBookingBySid.get(
+          houseJob.TranshipmentBookingSid,
+        );
+        return linkedBooking ? linkedBooking.MasterNoSid === null : false;
+      })
+      .flatMap((houseJob) => {
+        const linkedBooking = houseJob.TranshipmentBookingSid
+          ? transhipmentBookingBySid.get(houseJob.TranshipmentBookingSid)
+          : null;
+
+        const pendingReason = !houseJob.TranshipmentBookingSid
+          ? 'Transhipment booking not created'
+          : 'Export booking exists but master/export job not yet generated';
+
+        const productsByContainer = new Map<
+          string,
+          {
+            containerNo: string | null;
+            masterJobContainerSid: number | null;
+            products: any[];
+          }
+        >();
+        const productsForGrouping = houseJob.Products?.length
+          ? houseJob.Products
+          : [null];
+
+        productsForGrouping.forEach((product) => {
+          const containerKey = product
+            ? `${product.MasterJobContainerSid ?? 'no-sid'}-${product.ContainerNo ?? ''}`
+            : 'no-products';
+
+          let containerGroup = productsByContainer.get(containerKey);
+          if (!containerGroup) {
+            containerGroup = {
+              containerNo: product?.ContainerNo ?? null,
+              masterJobContainerSid: product?.MasterJobContainerSid ?? null,
+              products: [],
+            };
+            productsByContainer.set(containerKey, containerGroup);
+          }
+
+          if (product) {
+            containerGroup.products.push(product);
+          }
+        });
+
+        return Array.from(productsByContainer.values()).map((containerGroup) => {
+          const productSummary = summarizeProducts(containerGroup.products);
+          const externaPkg =
+            containerGroup.products
+              .map((product) => product.ExternaPkg)
+              .filter(Boolean)
+              .join(', ') || null;
+
+          return {
+            reportType: 'Transhipment Cargo Received - Export Job Not Generated',
+            HouseJobSid: houseJob.HouseJobSid,
+            MasterJobSid: houseJob.MasterJobSid,
+            BookingHeaderSid: linkedBooking?.BookingHeaderSid ?? null,
+            BookingNo:
+              linkedBooking?.BookingNo ?? houseJob.bookingHeader?.BookingNo ?? null,
+            SourceBookingNo: houseJob.bookingHeader?.BookingNo ?? null,
+            HBLDate: houseJob.HBLDate,
+            HBLNo: houseJob.HBLNo,
+            MBLNo: houseJob.masterJob?.MBLNo ?? houseJob.MBLNo ?? null,
+            MasterJobNo: houseJob.masterJob?.MasterJobNumber ?? null,
+            Vessel: houseJob.VesselName,
+            VoyageNo: houseJob.VoyageNo,
+            OriginAgent: houseJob.AgentName,
+            ETA: houseJob.ETA,
+            CargoReceivedDate: productSummary.cargoReceivedDate,
+            POL: houseJob.POL,
+            POD: houseJob.POD,
+            FPD: houseJob.FPD,
+            ExternaPkg: externaPkg,
+            Coloader: houseJob.Others?.[0]?.Coloader ?? null,
+            ContainerNo: containerGroup.containerNo,
+            MasterJobContainerSid: containerGroup.masterJobContainerSid,
+            PackageCount: productSummary.packageCount,
+            GrossWeight: productSummary.grossWeight,
+            Volume: productSummary.volume,
+            BookingStatus: linkedBooking?.BookingStatus ?? null,
+            pendingReason,
+          };
+        });
+      });
+
+    return {
+      companyMasterSid: CompanyMasterSid,
+      branchNames: resolvedBranchNames.join(', '),
+      branchInvolved,
+      data: houseJobRows,
+      totalCount: houseJobRows.length,
+      params,
+    };
+  } catch (error) {
+    this.logger.error(
+      `Error generating Transhipment Cargo Report: ${error.message}`,
+      error.stack,
+    );
+    throw error;
+  }
+}
 
   // async getBranchNames(companyMasterSid:number,branchIds?:number[])
   // :Promise<{
