@@ -201,6 +201,7 @@ export class InvoiceService {
                   Volume:true,
                   PkgGroup:true,
                   ProductName:true,
+                  ProductDescription:true,
                   masterJobContainer: true,
                 }
               },
