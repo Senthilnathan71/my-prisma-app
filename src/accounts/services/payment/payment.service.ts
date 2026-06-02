@@ -1611,6 +1611,17 @@ export class PaymentService {
 
                 const filteredDetails = SourceMatchingDetail.filter(matching => toNumber(matching.MatchingAmount) > 0 || toNumber(matching.MatchingLocalAmount) > 0);
 
+                // Validate: a matching that contains only Debit vouchers has nothing to pair against
+                // (Dr-Dr pairing is invalid; at least one Credit invoice must be present).
+                const filteredCrMatchings = filteredDetails.filter(m => m.DrCr === 'C');
+                const filteredDrMatchings = filteredDetails.filter(m => m.DrCr === 'D');
+                if (filteredDrMatchings.length > 0 && filteredCrMatchings.length === 0) {
+                    throw new BadRequestException(
+                        'Invalid matching: Debit-only matching is not allowed. ' +
+                        'A Debit voucher in matching (e.g. a JV Debit) must be paired with at least one Credit invoice.'
+                    );
+                }
+
                 const allValidMatchings = await Promise.all(
                     filteredDetails.map(async (matching) => {
                         // taking invoice information from each matching detail

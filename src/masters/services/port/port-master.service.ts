@@ -41,7 +41,11 @@ export class PortService {
     const loginCountrySid = Number(params?.LoginCountryMasterSid || 0);
     const isOriginField = portFieldType === 'POO' || portFieldType === 'POL';
     const isDestinationField = portFieldType === 'POD' || portFieldType === 'FPOD' || portFieldType === 'FPD';
-    const shouldUseAllPorts = portFieldType === 'POO' || portFieldType === 'FPOD' || portFieldType === 'FPD';
+    const shouldUseAllPorts =
+      portFieldType === 'POO' ||
+      portFieldType === 'FPOD' ||
+      portFieldType === 'FPD' ||
+      (departmentType === 'SEA' && portFieldType === 'POL');
 
     const where: Prisma.PortMasterWhereInput = {
       status: 'A',

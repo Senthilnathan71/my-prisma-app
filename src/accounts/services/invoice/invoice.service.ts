@@ -166,6 +166,7 @@ export class InvoiceService {
                   containerType: {
                     select: {
                       ContainerIsoCode: true,
+                      ContainerName:true
                     }
                   }
                 }
@@ -194,7 +195,13 @@ export class InvoiceService {
                 select: {
                   ShippingBillNo: true,
                   MasterJobContainerSid: true,
-                  masterJobContainer: true
+                  ExternaPkg:true,
+                  ExternlQty:true,
+                  GrossWeight:true,
+                  Volume:true,
+                  PkgGroup:true,
+                  ProductName:true,
+                  masterJobContainer: true,
                 }
               },
               houseJobBOE:{

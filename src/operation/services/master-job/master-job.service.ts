@@ -1097,8 +1097,8 @@ export class MasterJobService {
                                         Volume: cargo.Volume || 0,
                                         Volumetric: cargo.Volumetric || 0,
                                         ChargeableWeight: cargo.ChargeableWeight || 0,
-                                        MarksAndNumber: '',
-                                        CommodityDescription: '',
+                                        MarksAndNumber: cargo.MarksAndNumber || '',
+                                        CommodityDescription: cargo.CommodityDescription || '',
                                         ContainerType: cargo.ContainerType,
                                         PackageType: cargo.PackageType || null,
                                         Qty: cargo.Qty || 0,
@@ -1125,7 +1125,7 @@ export class MasterJobService {
                                             HouseJobSid: houseJob.HouseJobSid,
                                             HouseJobCargoSid: createdCargo.HouseJobCargoSid,
                                             ProductName: product.ProductName || '',
-                                            ProductDescription: product.ProductDescription || '',
+                                            ProductDescription: product.ProductDescription || cargo.CommodityDescription || '',
                                             ShippingBillNo: product.ShippingBillNo || '',
                                             ShippingBillDate: product.ShippingBillDate || null,
                                             ExternaPkg: product.ExternaPkg || '',
@@ -1144,7 +1144,7 @@ export class MasterJobService {
                                             UnNo: product.UnNo || '',
                                             Width: product.Width || 0,
                                             UomMasterSid: product.UomMasterSid || null,
-                                            MarksAndNumber: '',
+                                            MarksAndNumber: product.MarksAndNumber || product.MarksAndNumbers || cargo.MarksAndNumber || '',
                                             createdBy: payload.createdBy || '',
                                         }
                                     });
@@ -2918,8 +2918,8 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                     Volume: cargo.Volume || 0,
                                     Volumetric: cargo.Volumetric || 0,
                                     ChargeableWeight: cargo.ChargeableWeight || 0,
-                                    MarksAndNumber: '',
-                                    CommodityDescription: '',
+                                    MarksAndNumber: cargo.MarksAndNumber || '',
+                                    CommodityDescription: cargo.CommodityDescription || '',
                                     ContainerType: cargo.ContainerType,
                                     PackageType: cargo.PackageType || null,
                                     Qty: cargo.Qty || 0,
@@ -2942,7 +2942,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                         HouseJobSid: houseJob.HouseJobSid,
                                         HouseJobCargoSid: createdCargo.HouseJobCargoSid,
                                         ProductName: product.ProductName || '',
-                                        ProductDescription: product.ProductDescription || '',
+                                        ProductDescription: product.ProductDescription || cargo.CommodityDescription || '',
                                         ShippingBillNo: product.ShippingBillNo || '',
                                         ShippingBillDate: product.ShippingBillDate || null,
                                         ExternaPkg: product.ExternaPkg || '',
@@ -2960,7 +2960,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                         UnNo: product.UnNo || '',
                                         Width: product.Width || 0,
                                         UomMasterSid: product.UomMasterSid || null,
-                                        MarksAndNumber: '',
+                                        MarksAndNumber: product.MarksAndNumber || product.MarksAndNumbers || cargo.MarksAndNumber || '',
                                         createdBy: payload.createdBy || '',
                                     }
                                 });
@@ -2989,7 +2989,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 UnNo: product.UnNo || '',
                                 Width: product.Width || 0,
                                 UomMasterSid: product.UomMasterSid || null,
-                                MarksAndNumber: '',
+                                MarksAndNumber: (product as any).MarksAndNumber || (product as any).MarksAndNumbers || '',
                                 createdBy: payload.createdBy || '',
                             }))
                         }).catch(err => {
@@ -4070,8 +4070,8 @@ if (houseJobsForBookingSync.length > 0) {
                                 Volume: cargo.Volume || 0,
                                 Volumetric: cargo.Volumetric || 0,
                                 ChargeableWeight: cargo.ChargeableWeight || 0,
-                                MarksAndNumber: '',
-                                CommodityDescription: '',
+                                MarksAndNumber: cargo.MarksAndNumber || '',
+                                CommodityDescription: cargo.CommodityDescription || '',
                                 ContainerType: cargo.ContainerType,
                                 PackageType: cargo.PackageType || null,
                                 Qty: cargo.Qty || 0,
@@ -4094,7 +4094,7 @@ if (houseJobsForBookingSync.length > 0) {
                                     HouseJobSid: houseJob.HouseJobSid,
                                     HouseJobCargoSid: createdCargo.HouseJobCargoSid,
                                     ProductName: product.ProductName || '',
-                                    ProductDescription: product.ProductDescription || '',
+                                    ProductDescription: product.ProductDescription || cargo.CommodityDescription || '',
                                     ShippingBillNo: product.ShippingBillNo || '',
                                     ShippingBillDate: product.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
                                     ExternaPkg: product.ExternaPkg || '',
@@ -4112,7 +4112,7 @@ if (houseJobsForBookingSync.length > 0) {
                                     UnNo: product.UnNo || '',
                                     Width: product.Width || 0,
                                     UomMasterSid: product.UomMasterSid || null,
-                                    MarksAndNumber: '',
+                                    MarksAndNumber: product.MarksAndNumber || product.MarksAndNumbers || cargo.MarksAndNumber || '',
                                     createdBy: product.createdBy,
                                 }
                             });
@@ -4142,7 +4142,7 @@ if (houseJobsForBookingSync.length > 0) {
                             UnNo: product.UnNo || '',
                             Width: product.Width || 0,
                             UomMasterSid: product.UomMasterSid || null,
-                            MarksAndNumber: '',
+                            MarksAndNumber: (product as any).MarksAndNumber || (product as any).MarksAndNumbers || '',
                             createdBy: product.createdBy,
                         }))
                     }).catch(err => {
@@ -8689,3 +8689,5 @@ async saveMasterJobExcel(
   return { created, skipped, errors };
 }
 }
+
+
