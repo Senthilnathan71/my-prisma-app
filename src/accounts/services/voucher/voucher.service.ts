@@ -2908,24 +2908,50 @@ export class VoucherService {
                 return Number(value.toFixed(decimals));
             };
 
-            // Step B: Build Source queue (receipt/payment party details) and Object queue (matched invoices)
-            const sourceQueue = partyDetails.map(detail => ({
-                VoucherHeaderSid: payload.VoucherHeaderSid,
-                VoucherDetailSid: detail.VoucherDetailSid,
-                VoucherTransactionSid: detail.VoucherTransactionSid!,
-                VoucherTypeMasterSid: payload.VoucherTypeMasterSid,
-                COAMasterSid: detail.COAMasterSid,
-                LedgerMasterSid: detail.LedgerMasterSid!,
-                CurrencyCode: detail.CurrencyCode,
-                CurrencyMasterSid: detail.CurrencyMasterSid,
-                ExchangeRate: this.toNumber(detail.ExchangeRate) || 1,
-                DrCr: detail.DrCr! || getPartyDrCr(payload.VoucherTypeCode)!,
-                Sno: detail.Sno,
-                remainingAmount: this.toNumber(detail.Amount),
-                remainingLocalAmount: this.toNumber(detail.LocalAmount),
-            }));
+            // Step B: Build Source queue and Object queue.
+            // Matching items with the same DrCr as the party row are additional Sources
+            // (e.g. JV Credit on a receipt, JV Debit on a payment).
+            const partyDrCr = partyDetails.length > 0
+                ? String(partyDetails[0].DrCr).charAt(0)
+                : getPartyDrCr(payload.VoucherTypeCode) ?? 'C';
 
-            const objectQueue = matchings.map((m, idx) => ({
+            const matchingSameAsParty   = matchings.filter(m => String(m.DrCr).charAt(0) === partyDrCr);
+            const matchingOppositeParty = matchings.filter(m => String(m.DrCr).charAt(0) !== partyDrCr);
+
+            const sourceQueue = [
+                ...partyDetails.map(detail => ({
+                    VoucherHeaderSid: payload.VoucherHeaderSid,
+                    VoucherDetailSid: detail.VoucherDetailSid,
+                    VoucherTransactionSid: detail.VoucherTransactionSid!,
+                    VoucherTypeMasterSid: payload.VoucherTypeMasterSid,
+                    COAMasterSid: detail.COAMasterSid,
+                    LedgerMasterSid: detail.LedgerMasterSid!,
+                    CurrencyCode: detail.CurrencyCode,
+                    CurrencyMasterSid: detail.CurrencyMasterSid,
+                    ExchangeRate: this.toNumber(detail.ExchangeRate) || 1,
+                    DrCr: detail.DrCr! || getPartyDrCr(payload.VoucherTypeCode)!,
+                    Sno: detail.Sno,
+                    remainingAmount: this.toNumber(detail.Amount),
+                    remainingLocalAmount: this.toNumber(detail.LocalAmount),
+                })),
+                ...matchingSameAsParty.map((m) => ({
+                    VoucherHeaderSid: m.VoucherHeaderSid,
+                    VoucherDetailSid: m.VoucherDetailSid,
+                    VoucherTransactionSid: m.VoucherTransactionSid,
+                    VoucherTypeMasterSid: parseInt(m.VoucherType) || parseInt(m.VoucherTypeMasterSid) || 0,
+                    COAMasterSid: m.COAMasterSid,
+                    LedgerMasterSid: m.LedgerMasterSid,
+                    CurrencyCode: m.CurrencyCode,
+                    CurrencyMasterSid: m.MatchingCurrency,
+                    ExchangeRate: this.toNumber(m.ExchangeRate) || 1,
+                    DrCr: partyDrCr,
+                    Sno: null as any,
+                    remainingAmount: this.toNumber(m.Amount || m.PartyAmount),
+                    remainingLocalAmount: this.toNumber(m.LocalAmount),
+                })),
+            ];
+
+            const objectQueue = matchingOppositeParty.map((m, idx) => ({
                 VoucherHeaderSid: m.VoucherHeaderSid,
                 VoucherDetailSid: m.VoucherDetailSid,
                 VoucherTransactionSid: m.VoucherTransactionSid,

@@ -1192,6 +1192,17 @@ export class ReceiptService {
 
         const filteredDetails = SourceMatchingDetail.filter(matching => toNumber(matching.MatchingAmount) > 0 || toNumber(matching.MatchingLocalAmount) > 0);
 
+        // Validate: a matching that contains only Credit vouchers has nothing to pair against
+        // (Cr-Cr pairing is invalid; at least one Debit invoice must be present).
+        const filteredCrMatchings = filteredDetails.filter(m => m.DrCr === 'C');
+        const filteredDrMatchings = filteredDetails.filter(m => m.DrCr === 'D');
+        if (filteredCrMatchings.length > 0 && filteredDrMatchings.length === 0) {
+          throw new BadRequestException(
+            'Invalid matching: Credit-only matching is not allowed. ' +
+            'A Credit voucher in matching (e.g. a JV Credit) must be paired with at least one Debit invoice.'
+          );
+        }
+
         const allValidMatchings = await Promise.all(
           filteredDetails.map(async (matching) => {
               // taking invoice information from each matching detail
