@@ -88,9 +88,7 @@ export class PreCustomerMeetingService {
                         }}
                 },
                 orderBy: {
-                    preCustomerMaster: {
-                        preCustomerName: 'asc'
-                    }
+                    meetingDate: 'desc',
                 }
             });
             return allMeetings;

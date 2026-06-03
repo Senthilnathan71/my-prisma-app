@@ -215,7 +215,7 @@ export class EnquiryHeaderService {
                     },
                     orderBy: [
                         { EnquiryDate : 'desc' },
-                        { EnquiryNumber : 'desc' }
+                        // { EnquiryNumber : 'desc' }
                     ],
                     skip,
                     take: pageSize
