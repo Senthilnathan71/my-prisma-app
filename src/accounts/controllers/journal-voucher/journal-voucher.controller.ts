@@ -11,12 +11,18 @@ import {
   ParseIntPipe, 
   Patch, 
   Post, 
-  UnauthorizedException 
+  Query, 
+  Res, 
+  UnauthorizedException,
+  UploadedFile,
+  UseInterceptors
 } from '@nestjs/common';
-import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiCreatedResponse, ApiConsumes } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { JournalVoucherService } from 'src/accounts/services/journal-voucher/journal-voucher.service';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 
 @Auth()
 @Controller('accounts/journal-voucher')
@@ -264,4 +270,128 @@ export class JournalVoucherController {
               }
               return output;
             }
+
+            // ─── TEMPLATE ─────────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Download Journal Voucher Excel template' })
+@HttpCode(HttpStatus.OK)
+@Get('template')
+async downloadJournalVoucherTemplate(
+  @Query('CompanyMasterSid') CompanyMasterSid: number,
+  @Query('BranchMasterSid') BranchMasterSid: number,
+  @Res() res: Response
+) {
+  try {
+    this.logger.log(`Generating Excel template for journal voucher upload`);
+    const buffer = await this.journalVoucherService.generateJournalVoucherTemplate(
+      Number(CompanyMasterSid),
+      Number(BranchMasterSid)
+    );
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=Journal_Voucher_Upload_Template.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    this.logger.warn(`Error generating journal voucher template: ${JSON.stringify(error)}, ${error}`);
+    res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ status: false, message: 'Error generating template' });
+  }
+}
+
+// ─── STEP 1: PARSE ────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Parse & validate Journal Voucher Excel — does NOT save to DB' })
+@ApiConsumes('multipart/form-data')
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/parse')
+@UseInterceptors(FileInterceptor('file'))
+async parseJournalVoucherExcel(
+  @UploadedFile() file: Express.Multer.File,
+  @Body('CompanyMasterSid') CompanyMasterSid: string,
+  @Body('BranchMasterSid') BranchMasterSid: string,
+  @Body('YearMasterSid') YearMasterSid: string,
+) {
+  const resp = new ResponseData();
+  try {
+    if (!file) throw new BadRequestException('No file uploaded');
+
+    const allowedMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    if (!allowedMimeTypes.includes(file.mimetype))
+      throw new BadRequestException('Invalid file type. Only .xlsx or .xls allowed');
+
+    if (file.size > 5 * 1024 * 1024)
+      throw new BadRequestException('File size exceeds 5MB limit');
+
+    if (!CompanyMasterSid) throw new BadRequestException('CompanyMasterSid is required');
+    if (!BranchMasterSid)  throw new BadRequestException('BranchMasterSid is required');
+    if (!YearMasterSid)    throw new BadRequestException('YearMasterSid is required');
+
+    const result = await this.journalVoucherService.parseJournalVoucherExcel(
+      file.buffer,
+      Number(CompanyMasterSid),
+      Number(BranchMasterSid),
+      Number(YearMasterSid)
+    );
+
+    const hasValid = result.validRows.length > 0;
+
+    resp.status = true;
+    resp.message = hasValid
+      ? `Parsed successfully. ${result.validRows.length} valid, ${result.invalidRows.length} invalid.`
+      : 'No valid rows found. Please fix the errors and re-upload.';
+    resp.data = result;
+
+  } catch (error) {
+    resp.status = false;
+    this.logger.warn(`Error parsing journal voucher Excel: ${JSON.stringify(error)}, ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
+}
+
+// ─── STEP 2: SAVE ─────────────────────────────────────────────────────────────
+@ApiOperation({ summary: 'Save validated Journal Voucher rows to DB' })
+@HttpCode(HttpStatus.OK)
+@Post('bulk-upload/save')
+async saveJournalVoucherExcel(
+  @Body() payload: {
+    validRows: any[];
+    CompanyMasterSid: number;
+    BranchMasterSid: number;
+    YearMasterSid: number;
+    createdBy: string;
+  }
+) {
+  const resp = new ResponseData();
+  try {
+    const { validRows, CompanyMasterSid, BranchMasterSid, YearMasterSid, createdBy } = payload;
+
+    if (!validRows?.length)      throw new BadRequestException('No valid rows to save');
+    if (!CompanyMasterSid)       throw new BadRequestException('CompanyMasterSid is required');
+    if (!BranchMasterSid)        throw new BadRequestException('BranchMasterSid is required');
+    if (!YearMasterSid)          throw new BadRequestException('YearMasterSid is required');
+    if (!createdBy)              throw new BadRequestException('createdBy is required');
+
+    const result = await this.journalVoucherService.saveJournalVoucherExcel(
+      validRows,
+      Number(CompanyMasterSid),
+      Number(BranchMasterSid),
+      Number(YearMasterSid),
+      createdBy
+    );
+
+    resp.status = true;
+    resp.message = `Import complete. ${result.created} created, ${result.skipped} skipped.`;
+    resp.data = result;
+
+  } catch (error) {
+    resp.status = false;
+    this.logger.warn(`Error saving journal voucher Excel: ${JSON.stringify(error)}, ${error}`);
+    resp.message = error instanceof BadRequestException
+      ? error.message
+      : 'Internal Server Error';
+  }
+  return resp;
+}
 }

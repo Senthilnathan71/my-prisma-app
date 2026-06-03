@@ -662,7 +662,9 @@ export class EnquiryHeaderService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { EnquiryHeaderSid: 'desc' },
+                orderBy: [
+                    { EnquiryDate: 'desc' },
+                ],
                 include: {
                     enquiryRoute: {
                         select: {

@@ -12,6 +12,8 @@ import { statusWhereClause, toNumber } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
 import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
+import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 
 @Injectable()
 export class JournalVoucherService {
@@ -1009,4 +1011,1107 @@ return {
                         throw new InternalServerErrorException('Failed to fetch journal vouchers');
                     }
                 }
+
+                
+    // ─────────────────────────────────────────────────────────────────────────────
+// EXCEL BULK UPLOAD
+// ─────────────────────────────────────────────────────────────────────────────
+
+async generateJournalVoucherTemplate(
+    CompanyMasterSid: number,
+    BranchMasterSid: number
+): Promise<Buffer> {
+    const workbook = new ExcelJS.Workbook();
+
+    // ── Fetch all lookup data ─────────────────────────────────────────────────
+    const [currencies, coaList, subledgerList, departments, charges, hssacList, companyInfo] =
+        await Promise.all([
+            this._db.currencyMaster.findMany({
+                select: { CurrencyMasterSid: true, currencyCode: true }
+            }),
+            this._db.cOAMaster.findMany({
+                where: { CompanyMasterSid, LedgerCategory: 'Ledger', Status: { not: 'D' } },
+                select: { COAMasterSid: true, LedgerName: true, LedgerCurrency: true }
+            }),
+            this._db.subledgerMaster.findMany({
+                where: { CompanyMasterSid, Status: { not: 'D' } },
+                select: { SubledgerMasterSid: true, SubledgerName: true }
+            }),
+            this._db.departmentMaster.findMany({
+                where: { CompanyMasterSid, Status: 'A' },
+                select: { DepartmentMasterSid: true, departmentName: true }
+            }),
+            this._db.chargeMaster.findMany({
+                where: { CompanyMasterSid, Status: 'A' },
+                select: { ChargeMasterSid: true, chargeName: true }
+            }),
+            this._db.hSSACMaster.findMany({
+                where: { status: 'A' },
+                select: { HSSACMasterSid: true, HSSACCode: true, HSNSACDescription: true, TaxRate: true }
+            }),
+            this._db.companyMaster.findUnique({
+                where: { CompanyMasterSid },
+                select: {
+                    CurrencyMasterSid: true,
+                    currencyMaster: { select: { currencyCode: true } }
+                }
+            }),
+        ]);
+
+    // ── Company base currency ─────────────────────────────────────────────────
+    const companyCurrencyCode = companyInfo?.currencyMaster?.currencyCode ?? '';
+
+    // ── Fetch exchange rates for all unique ledger currencies ─────────────────
+    const uniqueLedgerCurrencyCodes = [
+        ...new Set(
+            coaList
+                .map(x =>
+                    x.LedgerCurrency
+                        ? currencies.find(c => c.CurrencyMasterSid === x.LedgerCurrency)?.currencyCode
+                        : null
+                )
+                .filter((code): code is string => !!code && code.toLowerCase() !== companyCurrencyCode.toLowerCase())
+        )
+    ];
+
+    const today = new Date();
+    const utcToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+
+    const rateResults = await Promise.all(
+        uniqueLedgerCurrencyCodes.map(async (fromCode) => {
+            const rate = await this._db.currencyExchange.findFirst({
+                where: {
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    FromCurrency: fromCode,
+                    ToCurrency: companyCurrencyCode,
+                    status: 'A',
+                    EffectiveFrom: { lte: utcToday }
+                },
+                orderBy: [
+                    { EffectiveFrom: 'desc' },
+                    { CurrencyExchangeSid: 'desc' }
+                ]
+            });
+            return { fromCode, sellRate: rate?.SellRate?.toNumber() ?? null };
+        })
+    );
+
+    // Build a map: currencyCode (lowercase) → exchange rate
+    const exRateMap = new Map<string, number | null>();
+    rateResults.forEach(({ fromCode, sellRate }) =>
+        exRateMap.set(fromCode.toLowerCase(), sellRate)
+    );
+    // Same currency as company base → rate is always 1
+    if (companyCurrencyCode) {
+        exRateMap.set(companyCurrencyCode.toLowerCase(), 1);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SHEET 1 — VOUCHER HEADERS
+    // ══════════════════════════════════════════════════════════════════════════
+    const headerSheet = workbook.addWorksheet('Journal Vouchers');
+
+    headerSheet.addRow([
+        'Sno *',           // A — mandatory, user-assigned link key e.g. 1, 2, 3
+        'Voucher Date *',  // B — mandatory  DD-MMM-YYYY
+        'Narration *',     // C — mandatory
+        'Bill No',         // D — optional
+        'Bill Date',       // E — optional  DD-MMM-YYYY
+    ]);
+
+    const hRow1 = headerSheet.getRow(1);
+    hRow1.font = { bold: true };
+    hRow1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+    hRow1.height = 20;
+
+    // Mandatory = red
+    ['A', 'B', 'C'].forEach(col => {
+        const cell = headerSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFFF0000' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+    });
+    // Optional = amber
+    ['D', 'E'].forEach(col => {
+        const cell = headerSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFD97706' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7E5' } };
+    });
+
+    // Example rows (rows 2–3)
+    const headerExamples = [
+        [1, '01-JAN-2025', 'Sample journal entry', 'DOC-001', '01-JAN-2025'],
+        [2, '15-JAN-2025', 'Salary journal entry', '', ''],
+    ];
+    headerExamples.forEach(rowData => {
+        const r = headerSheet.addRow(rowData);
+        r.eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2FB' } };
+            cell.font = { italic: true, color: { argb: 'FF555555' } };
+        });
+        r.commit();
+    });
+
+    // Column widths: Sno | Date | Narration | DocNo | DocDate
+    [10, 20, 40, 22, 20].forEach((w, i) => { headerSheet.getColumn(i + 1).width = w; });
+
+    // Sno must be a positive integer
+    for (let r = 4; r <= 5000; r++) {
+        headerSheet.getCell(`A${r}`).dataValidation = {
+            type: 'whole', operator: 'greaterThan', allowBlank: false,
+            formulae: [0],
+            showErrorMessage: true,
+            errorTitle: 'Invalid Sno',
+            error: 'Sno must be a positive whole number (1, 2, 3…)'
+        };
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SHEET 2 — VOUCHER DETAILS
+    // ══════════════════════════════════════════════════════════════════════════
+    const detailSheet = workbook.addWorksheet('Voucher Details');
+
+    detailSheet.addRow([
+        'VoucherSno *',      // A — must match Sheet 1 col A
+        'COA / Ledger Name *', // B — mandatory
+        'Subledger Name',    // C — optional
+        'Dr/Cr *',           // D — D or C
+        'Currency',          // E — auto from COA ledger currency (yellow)
+        'Exchange Rate',     // F — auto from COA ledger currency rate (yellow)
+        'Amount *',          // G — mandatory
+        'Local Amount',      // H — auto = Amount × ExRate (yellow)
+        'Narration',         // I — optional
+        'Department',        // J — optional
+        'Charge',            // K — optional
+        'HS/SAC Code',       // L — optional
+        'Tax %',             // M — auto from HS/SAC (yellow)
+        'Tax Amount',        // N — auto = LocalAmount × Tax% (yellow)
+        'Master Job No.',    // O — optional
+        'House Job No.',     // P — optional
+        'Cost Center',       // Q — optional
+        'Profit Center',     // R — optional
+    ]);
+
+    const dRow1 = detailSheet.getRow(1);
+    dRow1.font = { bold: true };
+    dRow1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+    dRow1.height = 20;
+
+    // Mandatory = red
+    ['A', 'B', 'D', 'G'].forEach(col => {
+        const cell = detailSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFFF0000' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+    });
+    // Optional = amber  (F removed — now auto/yellow)
+    ['C', 'I', 'J', 'K', 'L', 'O', 'P', 'Q', 'R'].forEach(col => {
+        const cell = detailSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FFD97706' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7E5' } };
+    });
+    // Auto-computed = yellow  (E and F added)
+    ['E', 'F', 'H', 'M', 'N'].forEach(col => {
+        const cell = detailSheet.getCell(`${col}1`);
+        cell.font = { bold: true, color: { argb: 'FF856404' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } };
+    });
+
+    // Example rows (rows 2–5)
+    const detailExamples = [
+        [1, 'Cash Account',    '', 'D', 'INR', 1, 10000, 10000, '', '', '', '', 0, 0, '', '', '', ''],
+        [1, 'Revenue Account', '', 'C', 'INR', 1, 10000, 10000, '', '', '', '', 0, 0, '', '', '', ''],
+        [2, 'Salary Expense',  '', 'D', 'INR', 1, 50000, 50000, '', '', '', '', 0, 0, '', '', '', ''],
+        [2, 'Bank Account',    '', 'C', 'INR', 1, 50000, 50000, '', '', '', '', 0, 0, '', '', '', ''],
+    ];
+    detailExamples.forEach(rowData => {
+        const r = detailSheet.addRow(rowData);
+        r.eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEAF2FB' } };
+            cell.font = { italic: true, color: { argb: 'FF555555' } };
+        });
+        r.commit();
+    });
+
+    // Column widths: Sno | COA | Subledger | DrCr | Cur | ExRate | Amt | LocalAmt | Narr | Dept | Charge | HSSAC | Tax% | TaxAmt | MJob | HJob | CC | PC
+    [12, 36, 30, 8, 12, 14, 14, 14, 30, 22, 26, 16, 8, 12, 20, 20, 22, 22].forEach(
+        (w, i) => { detailSheet.getColumn(i + 1).width = w; }
+    );
+
+    // Sno validation — positive integer
+    for (let r = 6; r <= 5000; r++) {
+        detailSheet.getCell(`A${r}`).dataValidation = {
+            type: 'whole', operator: 'greaterThan', allowBlank: false,
+            formulae: [0],
+            showErrorMessage: true,
+            errorTitle: 'Invalid Sno',
+            error: 'Sno must match a number in the Journal Vouchers sheet'
+        };
+    }
+
+    // Dr/Cr dropdown — column D
+    for (let r = 6; r <= 5000; r++) {
+        detailSheet.getCell(`D${r}`).dataValidation = {
+            type: 'list', allowBlank: false,
+            formulae: ['"D,C"'],
+            showErrorMessage: true,
+            errorTitle: 'Invalid Dr/Cr',
+            error: 'Must be D (Debit) or C (Credit)'
+        };
+    }
+
+    // Amount > 0 — column G
+    for (let r = 6; r <= 5000; r++) {
+        detailSheet.getCell(`G${r}`).dataValidation = {
+            type: 'decimal', operator: 'greaterThan', allowBlank: true,
+            formulae: [0],
+            showErrorMessage: true,
+            errorTitle: 'Invalid Amount',
+            error: 'Amount must be greater than 0'
+        };
+    }
+
+    // Tax % 0–100 — column M
+    for (let r = 6; r <= 5000; r++) {
+        detailSheet.getCell(`M${r}`).dataValidation = {
+            type: 'decimal', operator: 'between', allowBlank: true,
+            formulae: [0, 100],
+            showErrorMessage: true,
+            errorTitle: 'Invalid Tax %',
+            error: 'Tax % must be between 0 and 100'
+        };
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // HIDDEN REFERENCE SHEETS
+    // ══════════════════════════════════════════════════════════════════════════
+    const addRef = (name: string, values: string[]) => {
+        const ws = workbook.addWorksheet(name);
+        ws.addRow(['Value']);
+        values.forEach(v => ws.addRow([v]));
+        ws.state = 'hidden';
+        return ws;
+    };
+
+    const coaNames = coaList
+        .map(x => x.LedgerName)
+        .filter((ledgerName): ledgerName is string => !!ledgerName);
+
+    addRef('_Currencies', currencies.map(x => x.currencyCode));
+    addRef('_COA', coaNames);
+    addRef('_Subledgers', subledgerList.map(x => x.SubledgerName));
+    addRef('_Departments', departments.map(x => x.departmentName));
+    addRef('_Charges', charges.map(x => x.chargeName));
+
+    // Hidden sheet: COA Name → Currency Code (for col E VLOOKUP)
+    const coaCurrencyRef = workbook.addWorksheet('_COACurrency');
+    coaCurrencyRef.addRow(['LedgerName', 'CurrencyCode']);
+    coaList.forEach(x => {
+        if (!x.LedgerName) return;
+        const currCode = x.LedgerCurrency
+            ? (currencies.find(c => c.CurrencyMasterSid === x.LedgerCurrency)?.currencyCode ?? '')
+            : '';
+        coaCurrencyRef.addRow([x.LedgerName, currCode]);
+    });
+    coaCurrencyRef.state = 'hidden';
+
+    // Hidden sheet: COA Name → Exchange Rate (for col F VLOOKUP)
+    // Rate is snapshotted at template-download time using today's effective date.
+    // Same-currency rows get 1; foreign-currency rows get the SellRate from CurrencyExchange.
+    // If no rate is configured, the cell will be blank — the user must fill it manually.
+    const coaRateRef = workbook.addWorksheet('_COAExchangeRate');
+    coaRateRef.addRow(['LedgerName', 'ExchangeRate']);
+    coaList.forEach(x => {
+        if (!x.LedgerName) return;
+        const currCode = x.LedgerCurrency
+            ? (currencies.find(c => c.CurrencyMasterSid === x.LedgerCurrency)?.currencyCode ?? '')
+            : '';
+        const rate = currCode ? (exRateMap.get(currCode.toLowerCase()) ?? '') : '';
+        coaRateRef.addRow([x.LedgerName, rate]);
+    });
+    coaRateRef.state = 'hidden';
+
+    // HSSAC reference sheet
+    const hssacRef = workbook.addWorksheet('_HSSAC');
+    hssacRef.addRow(['HSSACCode', 'Description', 'TaxRate']);
+    hssacList.forEach(x => hssacRef.addRow([x.HSSACCode, x.HSNSACDescription || '', x.TaxRate || 0]));
+    hssacRef.state = 'hidden';
+
+    // ── Apply dropdowns ───────────────────────────────────────────────────────
+    const applyStaticDV = (
+        sheet: ExcelJS.Worksheet,
+        col: string,
+        refSheet: string,
+        count: number,
+        startRow = 4
+    ) => {
+        const formula = `'${refSheet}'!$A$2:$A$${count + 1}`;
+        for (let r = startRow; r <= 5000; r++) {
+            sheet.getCell(`${col}${r}`).dataValidation = {
+                type: 'list', allowBlank: true,
+                formulae: [formula],
+                showErrorMessage: true,
+                errorTitle: 'Invalid value',
+                error: 'Please select a value from the dropdown list'
+            };
+        }
+    };
+
+    // Detail sheet dropdowns
+    applyStaticDV(detailSheet, 'B', '_COA', coaNames.length, 6);
+    applyStaticDV(detailSheet, 'C', '_Subledgers', subledgerList.length, 6);
+    applyStaticDV(detailSheet, 'J', '_Departments', departments.length, 6);
+    applyStaticDV(detailSheet, 'K', '_Charges', charges.length, 6);
+
+    // HS/SAC dropdown + auto-formulas for all data rows
+    const hssacFormula = `'_HSSAC'!$A$2:$A$${hssacList.length + 1}`;
+    for (let r = 6; r <= 5000; r++) {
+
+        // HS/SAC dropdown — col L
+        detailSheet.getCell(`L${r}`).dataValidation = {
+            type: 'list', allowBlank: true,
+            formulae: [hssacFormula],
+            showErrorMessage: true,
+            errorTitle: 'Invalid HS/SAC Code',
+            error: 'Please select from the dropdown'
+        };
+
+        // Auto Currency — col E = VLOOKUP(B, _COACurrency, 2)
+        // Shows the configured ledger currency for the selected COA.
+        detailSheet.getCell(`E${r}`).value = {
+            formula: `=IFERROR(IF(B${r}="","",VLOOKUP(B${r},'_COACurrency'!$A:$B,2,FALSE)),"")`
+        };
+        detailSheet.getCell(`E${r}`).fill = {
+            type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEA' }
+        };
+
+        // Auto Exchange Rate — col F = VLOOKUP(B, _COAExchangeRate, 2)
+        // Snapshotted SellRate as of template download date.
+        // Blank if no rate is configured — user must fill manually for that row.
+        detailSheet.getCell(`F${r}`).value = {
+            formula: `=IFERROR(IF(B${r}="","",VLOOKUP(B${r},'_COAExchangeRate'!$A:$B,2,FALSE)),"")`
+        };
+        detailSheet.getCell(`F${r}`).fill = {
+            type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEA' }
+        };
+
+        // Auto Local Amount — col H = G * F (falls back to 1 if F is blank)
+        detailSheet.getCell(`H${r}`).value = {
+            formula: `=IFERROR(IF(G${r}="","",G${r}*IF(F${r}="",1,F${r})),"")`
+        };
+        detailSheet.getCell(`H${r}`).fill = {
+            type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEA' }
+        };
+
+        // Auto Tax % — col M = VLOOKUP(L, _HSSAC, 3)
+        detailSheet.getCell(`M${r}`).value = {
+            formula: `=IFERROR(VLOOKUP(L${r},'_HSSAC'!$A:$C,3,FALSE),"")`
+        };
+        detailSheet.getCell(`M${r}`).fill = {
+            type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEA' }
+        };
+
+        // Auto Tax Amount — col N = H * M / 100
+        detailSheet.getCell(`N${r}`).value = {
+            formula: `=IFERROR(IF(H${r}="","",H${r}*IF(M${r}="",0,M${r})/100),"")`
+        };
+        detailSheet.getCell(`N${r}`).fill = {
+            type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEA' }
+        };
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // INSTRUCTIONS SHEET
+    // ══════════════════════════════════════════════════════════════════════════
+    const inst = workbook.addWorksheet('Instructions');
+
+    [
+        ['Journal Voucher Bulk Upload Template — Instructions'],
+        [],
+        ['SHEET OVERVIEW'],
+        ['  Sheet 1 "Journal Vouchers"  — One row per voucher header; assign a unique Sno (1, 2, 3…)'],
+        ['  Sheet 2 "Voucher Details"   — One row per debit/credit line; link to header via Sno'],
+        ['  Note: Sno is only a linking key for this file — the system generates the real Voucher Number on save'],
+        [],
+        ['HOW TO USE'],
+        ['  1. Fill "Journal Vouchers" sheet first — assign a unique Sno per row, starting from row 4'],
+        ['  2. Fill "Voucher Details" sheet — set Sno to match the header row the line belongs to'],
+        ['  3. Each detail line is linked to its header by Sno alone'],
+        ['  4. Debits and Credits must balance exactly per voucher (same Sno group)'],
+        ['  5. Yellow cells (Currency, Exchange Rate, Local Amount, Tax %, Tax Amount) auto-compute — do NOT type in them'],
+        [],
+        ['JOURNAL VOUCHERS SHEET — MANDATORY FIELDS (red header)'],
+        ['  Sno           — Unique positive integer per row (1, 2, 3…); used only for linking, not saved'],
+        ['  Voucher Date  — Format: DD-MMM-YYYY  e.g. 15-JAN-2025'],
+        ['  Narration     — Max 200 characters'],
+        [],
+        ['VOUCHER DETAILS SHEET — MANDATORY FIELDS (red header)'],
+        ['  Sno           — Must match exactly one row in the Journal Vouchers sheet'],
+        ['  COA / Ledger  — Select from dropdown (Chart of Accounts ledger name)'],
+        ['  Dr/Cr         — D = Debit, C = Credit'],
+        ['  Amount        — Foreign currency amount (must be > 0)'],
+        [],
+        ['AUTO-FILLED FIELDS (yellow cells — do not edit)'],
+        ['  Currency      — Auto-filled from the COA\'s configured ledger currency'],
+        ['  Exchange Rate — Auto-filled from today\'s sell rate for the COA\'s currency; blank = no rate configured (enter manually)'],
+        ['  Local Amount  — Auto-calculated as Amount × Exchange Rate'],
+        ['  Tax %         — Auto-filled from the selected HS/SAC code'],
+        ['  Tax Amount    — Auto-calculated as Local Amount × Tax % ÷ 100'],
+        [],
+        ['OPTIONAL FIELDS (amber header)'],
+        ['  Subledger     — Required only when the selected COA is configured to need one'],
+        ['  Department, Charge, HS/SAC — Required only for Charge-type subledger accounts'],
+        [],
+        ['RULES'],
+        ['  • Each voucher (Sno group) must have at least 2 detail lines (one Debit + one Credit)'],
+        ['  • Sum of Debit Local Amounts must equal sum of Credit Local Amounts per Sno group'],
+        ['  • Rows 2–3 in Sheet 1 and rows 2–5 in Sheet 2 are EXAMPLES — do not edit or delete them'],
+        ['  • Enter your data starting from row 4 (Sheet 1) or row 6 (Sheet 2)'],
+        ['  • Yellow cells are auto-filled — do not type in them manually'],
+        ['  • If Exchange Rate is blank after selecting a COA, no rate is configured — enter it manually'],
+        ['  • Sno is a temporary link key only; the system will auto-generate the real Voucher Number'],
+    ].forEach(r => inst.addRow(r));
+
+    inst.getRow(1).font = { bold: true, size: 13 };
+    ['A3', 'A8', 'A15', 'A20', 'A26', 'A33', 'A38'].forEach(cell => {
+        inst.getCell(cell).font = { bold: true, underline: true };
+    });
+    inst.getColumn(1).width = 90;
+
+    const buf = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buf);
+}
+
+// ─── STEP 1: PARSE ONLY — no DB writes ───────────────────────────────────────
+async parseJournalVoucherExcel(
+    buffer: Buffer,
+    CompanyMasterSid: number,
+    BranchMasterSid: number,
+    YearMasterSid: number
+): Promise<{ validRows: any[]; invalidRows: any[]; summary: { total: number; valid: number; invalid: number } }> {
+
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+
+    const getRows = (partialName: string, skipRows: number): any[][] => {
+        const name = workbook.SheetNames.find(n => n.toLowerCase().includes(partialName.toLowerCase()));
+        if (!name) return [];
+        const all: any[][] = XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: null, raw: false });
+        all.splice(0, skipRows);
+        return all.filter(r => r.some(cell => cell !== null && cell !== ''));
+    };
+
+    // Sheet 1: skip 3 rows (header + 2 examples), data from row 4
+    const headerRows = getRows('journal voucher', 3);
+    // Sheet 2: skip 5 rows (header + 4 examples), data from row 6
+    const detailRows = getRows('voucher detail', 5);
+
+    if (headerRows.length === 0) {
+        throw new BadRequestException('No data found in "Journal Vouchers" sheet. Please use the provided template.');
+    }
+
+    // ── Lookup tables ─────────────────────────────────────────────────────────
+    const [currencies, coaList, subledgerList, departments, charges, hssacList, yearMaster] =
+        await Promise.all([
+            this._db.currencyMaster.findMany({ select: { CurrencyMasterSid: true, currencyCode: true } }),
+            this._db.cOAMaster.findMany({
+                where: { CompanyMasterSid, LedgerCategory: 'Ledger', Status: { not: 'D' } },
+                select: { COAMasterSid: true, LedgerName: true, SubledgerName: true, LedgerCurrency: true }
+            }),
+            this._db.subledgerMaster.findMany({
+                where: { CompanyMasterSid, Status: { not: 'D' } },
+                select: { SubledgerMasterSid: true, SubledgerName: true, DrCOAMasterSid: true, CrCOAMasterSid: true }
+            }),
+            this._db.departmentMaster.findMany({
+                where: { CompanyMasterSid, Status: 'A' },
+                select: { DepartmentMasterSid: true, departmentName: true }
+            }),
+            this._db.chargeMaster.findMany({
+                where: { CompanyMasterSid, Status: 'A' },
+                select: { ChargeMasterSid: true, chargeName: true }
+            }),
+            this._db.hSSACMaster.findMany({
+                where: { status: 'A' },
+                select: { HSSACMasterSid: true, HSSACCode: true, TaxRate: true }
+            }),
+            this._db.yearMaster.findUnique({
+                where: { YearMasterSid, CompanyMasterSid, status: 'A' },
+                select: { StartDate: true, EndDate: true, YearName: true }
+            }),
+        ]);
+
+    if (!yearMaster) throw new BadRequestException('Financial year not found or inactive.');
+
+    // ── Lookup maps ───────────────────────────────────────────────────────────
+    const curMap = new Map(currencies.map(x => [x.currencyCode.trim().toLowerCase(), x.CurrencyMasterSid]));
+    const coaMap = new Map(coaList.filter(x => !!x.LedgerName).map(x => [x.LedgerName!.trim().toLowerCase(), x]));
+    const subledgerMap = new Map(subledgerList.map(x => [x.SubledgerName.trim().toLowerCase(), x]));
+    const deptMap = new Map(departments.map(x => [x.departmentName.trim().toLowerCase(), x.DepartmentMasterSid]));
+    const chargeMap = new Map(charges.map(x => [x.chargeName.trim().toLowerCase(), x.ChargeMasterSid]));
+    const hssacMap = new Map(hssacList.map(x => [x.HSSACCode.trim().toLowerCase(), x]));
+
+    const fyStart = new Date(yearMaster.StartDate); fyStart.setHours(0, 0, 0, 0);
+    const fyEnd = new Date(yearMaster.EndDate); fyEnd.setHours(23, 59, 59, 999);
+
+    // ── Group detail rows by Sno (col A, index 0) ────────────────────────────
+    const detailsBySno = new Map<string, any[]>();
+    detailRows.forEach((row, i) => {
+        const snoRaw = (row[0] || '').toString().trim();
+        if (!snoRaw) return;
+        if (!detailsBySno.has(snoRaw)) detailsBySno.set(snoRaw, []);
+        detailsBySno.get(snoRaw)!.push({ row, rowNum: i + 7 });
+    });
+
+    const seenSnos = new Set<string>();
+    const validRows: any[] = [];
+    const invalidRows: any[] = [];
+
+    for (let i = 0; i < headerRows.length; i++) {
+        const row = headerRows[i];
+        const rowNum = i + 4;
+        const rowErrors: string[] = [];
+
+        // Column mapping (0-indexed):
+        // A=0 Sno  B=1 VoucherDate  C=2 Narration  D=3 DocNumber  E=4 DocDate
+        const snoRaw    = (row[0] || '').toString().trim();
+        const rawDate   = (row[1] || '').toString().trim();
+        const narration = (row[2] || '').toString().trim();
+        const docNumber = (row[3] || '').toString().trim() || null;
+        const rawDocDate = (row[4] || '').toString().trim();
+
+        if (!snoRaw && !rawDate && !narration) continue;
+
+        // ── Sno validation ────────────────────────────────────────────────────
+        if (!snoRaw) {
+            rowErrors.push('Sno is required');
+        } else if (isNaN(Number(snoRaw)) || Number(snoRaw) <= 0 || !Number.isInteger(Number(snoRaw))) {
+            rowErrors.push(`Sno "${snoRaw}" must be a positive whole number`);
+        } else if (seenSnos.has(snoRaw)) {
+            rowErrors.push(`Duplicate Sno "${snoRaw}" — each header row must have a unique Sno`);
+        } else {
+            seenSnos.add(snoRaw);
+        }
+
+        // ── Voucher Date ──────────────────────────────────────────────────────
+        let voucherDate: Date | null = null;
+        if (!rawDate) {
+            rowErrors.push('Voucher Date is required');
+        } else {
+            voucherDate = this.parseJVDate(rawDate);
+            if (!voucherDate) {
+                rowErrors.push(`Invalid Voucher Date "${rawDate}". Use DD-MMM-YYYY format`);
+            } else {
+                const today = new Date();
+                today.setHours(23, 59, 59, 999);
+                if (voucherDate > today) {
+                    rowErrors.push(`Voucher Date "${rawDate}" cannot be a future date`);
+                } else if (voucherDate < fyStart || voucherDate > fyEnd) {
+                    rowErrors.push(`Voucher Date "${rawDate}" is outside financial year (${yearMaster.YearName})`);
+                }
+            }
+        }
+
+        // ── Narration ─────────────────────────────────────────────────────────
+        if (!narration) rowErrors.push('Narration is required');
+        else if (narration.length > 200) rowErrors.push('Narration must be ≤ 200 characters');
+
+        // ── Document Date ─────────────────────────────────────────────────────
+        let documentDate: Date | null = null;
+        if (rawDocDate) {
+            documentDate = this.parseJVDate(rawDocDate);
+            if (!documentDate) rowErrors.push(`Invalid Document Date "${rawDocDate}". Use DD-MMM-YYYY format`);
+        }
+
+        // ── Match detail lines by Sno ─────────────────────────────────────────
+        const matchedDetails = detailsBySno.get(snoRaw) || [];
+        const parsedDetails: any[] = [];
+
+        if (matchedDetails.length === 0) {
+            rowErrors.push(`No detail lines found in "Voucher Details" sheet for Sno "${snoRaw}"`);
+        } else if (matchedDetails.length < 2) {
+            rowErrors.push('Each voucher must have at least 2 detail lines (one Debit + one Credit)');
+        } else {
+            let sno = 1;
+            for (const { row: dRow, rowNum: dRowNum } of matchedDetails) {
+                parsedDetails.push(
+                    this.parseJVDetailRow(
+                        dRow, dRowNum, sno++,
+                        coaMap, subledgerMap, curMap, deptMap, chargeMap, hssacMap
+                    )
+                );
+            }
+
+            const hasDetailErrors = parsedDetails.some(d => d.errors.length > 0);
+            if (!hasDetailErrors) {
+                const debitTotal = parsedDetails
+                    .filter(d => d.drCr === 'D')
+                    .reduce((s, d) => s + d.localAmount + d.taxAmount, 0);
+                const creditTotal = parsedDetails
+                    .filter(d => d.drCr === 'C')
+                    .reduce((s, d) => s + d.localAmount + d.taxAmount, 0);
+                const diff = Math.abs(
+                    parseFloat(debitTotal.toFixed(2)) - parseFloat(creditTotal.toFixed(2))
+                );
+                if (diff > 0.01) {
+                    rowErrors.push(
+                        `Debit total (${debitTotal.toFixed(2)}) ≠ Credit total (${creditTotal.toFixed(2)}). Difference: ${diff.toFixed(2)}`
+                    );
+                }
+                if (!parsedDetails.some(d => d.drCr === 'D')) rowErrors.push('At least one Debit line is required');
+                if (!parsedDetails.some(d => d.drCr === 'C')) rowErrors.push('At least one Credit line is required');
+            }
+        }
+
+        const allDetailErrors = parsedDetails.flatMap(d => d.errors);
+
+        const rowResult: any = {
+            _linkSno: snoRaw,
+            rowNum,
+            voucherDate,
+            voucherDateRaw: rawDate,
+            narration,
+            documentNumber: docNumber,
+            documentDate,
+            details: parsedDetails,
+        };
+
+        if (rowErrors.length > 0 || allDetailErrors.length > 0) {
+            invalidRows.push({ ...rowResult, errors: [...rowErrors, ...allDetailErrors] });
+        } else {
+            validRows.push(rowResult);
+        }
+    }
+
+    return {
+        validRows,
+        invalidRows,
+        summary: {
+            total: validRows.length + invalidRows.length,
+            valid: validRows.length,
+            invalid: invalidRows.length
+        }
+    };
+}
+
+// ─── STEP 2: SAVE ONLY ────────────────────────────────────────────────────────
+async saveJournalVoucherExcel(
+    validRows: any[],
+    CompanyMasterSid: number,
+    BranchMasterSid: number,
+    YearMasterSid: number,
+    createdBy: string
+): Promise<{ created: number; skipped: number; errors: any[] }> {
+
+    const voucherTypeMaster = await this._db.voucherTypeMaster.findFirst({
+        where: {
+            DocumentTypeCode: DOC_TYPE_CODE.JOURNAL_VOUCHER,
+            CompanyMasterSid,
+            BranchMasterSid,
+            status: 'A'
+        }
+    });
+    if (!voucherTypeMaster) {
+        throw new BadRequestException('Journal Voucher type is not configured in VoucherTypeMaster.');
+    }
+
+    const defaultParty = await this._db.subledgerMaster.findFirst({
+        where: { CompanyMasterSid, Status: { not: 'D' } },
+        select: { SubledgerMasterSid: true }
+    });
+
+    if (!defaultParty) {
+        throw new BadRequestException('No subledger found for the company. Please configure a subledger first.');
+    }
+
+    let created = 0, skipped = 0;
+    const errors: any[] = [];
+
+    for (const jv of validRows) {
+
+        // Resolve Master/House Job SIDs from job numbers
+        for (const detail of jv.details) {
+            if (detail.masterJobNumber) {
+                const mj = await this._db.masterJob.findFirst({
+                    where: {
+                        CompanyMasterSid,
+                        BranchMasterSid,
+                        MasterJobNumber: detail.masterJobNumber,
+                        Status: 'A'
+                    },
+                    select: { MasterJobSid: true }
+                }).catch(() => null);
+                detail.MasterJobSid = mj?.MasterJobSid ?? null;
+            }
+            if (detail.houseJobNumber && detail.MasterJobSid) {
+                const hj = await this._db.houseJob.findFirst({
+                    where: {
+                        CompanyMasterSid,
+                        BranchMasterSid,
+                        MasterJobSid: detail.MasterJobSid,
+                        HBLNo: detail.houseJobNumber,
+                        status: 'A'
+                    },
+                    select: { HouseJobSid: true }
+                }).catch(() => null);
+                detail.HouseJobSid = hj?.HouseJobSid ?? null;
+            }
+        }
+
+        try {
+            await this._db.$transaction(async (prisma) => {
+                const voucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
+                    voucherTypeMaster,
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    YearMasterSid,
+                    prisma,
+                    jv.voucherDate
+                );
+
+                const debitTotal = jv.details
+                    .filter((d: any) => d.drCr === 'D')
+                    .reduce((s: number, d: any) => s + d.localAmount + d.taxAmount, 0);
+
+                const voucherHeader = await prisma.voucherHeader.create({
+                    data: {
+                        VoucherNumber: voucherNumber,
+                        VoucherDate: jv.voucherDate,
+                        PostDate: null,
+                        VoucherType: voucherTypeMaster.VoucherTypeMasterSid,
+                        Narration: jv.narration,
+                        CompanyMasterSid,
+                        BranchMasterSid,
+                        VoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
+                        PartyMasterSid: defaultParty.SubledgerMasterSid,
+                        PartyName: 'System Journal Entry',
+                        PartyAddress: '',
+                        PostStatus: 'U',
+                        InvoiceType: 'B2B',
+                        CurrencyMasterSid: null,
+                        CurrencyCode: null,
+                        ExchangeRate: 1,
+                        DocumentNumber: jv.documentNumber,
+                        DocumentDate: jv.documentDate,
+                        Amount: debitTotal,
+                        LocalAmount: debitTotal,
+                        NetAmount: null,
+                        CustomsDuty: 'N',
+                        Remarks: '',
+                        Status: 'A',
+                        CreatedBy: createdBy,
+                        UpdatedOn: new Date()
+                    }
+                });
+
+                for (const detail of jv.details) {
+                    await prisma.voucherDetail.create({
+                        data: {
+                            VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                            Sno: detail.sno,
+                            CompanyMasterSid,
+                            BranchMasterSid,
+                            COAMasterSid: detail.COAMasterSid,
+                            LedgerMasterSid: detail.LedgerMasterSid,
+                            CurrencyMasterSid: detail.CurrencyMasterSid,
+                            CurrencyCode: detail.currencyCode,
+                            ExchangeRate: detail.exchangeRate,
+                            Rate: detail.amount,
+                            Amount: detail.amount,
+                            LocalAmount: detail.localAmount,
+                            TaxableAmount: detail.localAmount,
+                            DrCr: detail.drCr,
+                            Narration: detail.narration || jv.narration,
+                            DepartmentMasterSid: detail.DepartmentMasterSid,
+                            ChargeMasterSid: detail.ChargeMasterSid,
+                            ChargeDescription: detail.chargeName || '',
+                            HSSACMasterSid: detail.HSSACMasterSid,
+                            TaxPercentage1: detail.taxPercentage,
+                            TaxAmount1: detail.taxAmount,
+                            MasterJobSid: detail.MasterJobSid || null,
+                            HouseJobSid: detail.HouseJobSid || null,
+                            CostCenter: detail.CostCenterMasterSid || null,
+                            ProfitCenter: detail.ProfitCenterMasterSid || null,
+                            YearMasterSid,
+                            CreatedBy: createdBy,
+                            Status: 'A'
+                        }
+                    });
+                }
+            });
+
+            created++;
+        } catch (err) {
+            this.logger.error(`Error saving JV row ${jv.rowNum}: ${err.message}`);
+            errors.push({
+                rowNum: jv.rowNum,
+                narration: jv.narration,
+                message: err.message || 'DB error'
+            });
+            skipped++;
+        }
+    }
+
+    return { created, skipped, errors };
+}
+
+// ─── COMBINED ─────────────────────────────────────────────────────────────────
+async parseAndImportJournalVoucherExcel(
+    buffer: Buffer,
+    CompanyMasterSid: number,
+    BranchMasterSid: number,
+    YearMasterSid: number,
+    createdBy: string
+): Promise<{ created: number; skipped: number; errors: any[] }> {
+
+    const { validRows, invalidRows } = await this.parseJournalVoucherExcel(
+        buffer, CompanyMasterSid, BranchMasterSid, YearMasterSid
+    );
+
+    const saveResult = await this.saveJournalVoucherExcel(
+        validRows, CompanyMasterSid, BranchMasterSid, YearMasterSid, createdBy
+    );
+
+    const parseErrors = invalidRows.map((r: any) => ({
+        rowNum: r.rowNum,
+        narration: r.narration,
+        message: r.errors.join('; ')
+    }));
+
+    return {
+        created: saveResult.created,
+        skipped: saveResult.skipped + invalidRows.length,
+        errors: [...parseErrors, ...saveResult.errors]
+    };
+}
+
+
+private parseJVDetailRow(
+    row: any[],
+    rowNum: number,
+    sno: number,
+    coaMap: Map<string, any>,
+    subledgerMap: Map<string, any>,
+    curMap: Map<string, number>,
+    deptMap: Map<string, number>,
+    chargeMap: Map<string, number>,
+    hssacMap: Map<string, any>
+): any {
+    const errors: string[] = [];
+
+    // row[0] = Sno — already used for grouping, skip
+    const coaName         = (row[1]  || '').toString().trim();
+    const subledgerName   = (row[2]  || '').toString().trim();
+    const rawDrCr         = (row[3]  || '').toString().trim().toUpperCase();
+    const rawCurrency     = (row[4]  || '').toString().trim();   // auto-filled by VLOOKUP
+    const rawExRate       = (row[5]  || '').toString().trim();   // auto-filled by VLOOKUP
+    const rawAmount       = (row[6]  || '').toString().trim();
+    // row[7] = Local Amount (formula cell — skip)
+    const lineNarration   = (row[8]  || '').toString().trim() || null;
+    const departmentName  = (row[9]  || '').toString().trim() || null;
+    const chargeName      = (row[10] || '').toString().trim() || null;
+    const hssacCode       = (row[11] || '').toString().trim() || null;
+    const rawTaxPct       = (row[12] || '').toString().trim();
+    // row[13] = Tax Amount (formula cell — skip)
+    const masterJobNumber = (row[14] || '').toString().trim() || null;
+    const houseJobNumber  = (row[15] || '').toString().trim() || null;
+    const costCenterName  = (row[16] || '').toString().trim() || null;
+    const profitCenterName = (row[17] || '').toString().trim() || null;
+
+    // ── COA ───────────────────────────────────────────────────────────────────
+    let COAMasterSid: number | null = null;
+    let coaRecord: any = null;
+    if (!coaName) {
+        errors.push(`Detail row ${rowNum}: COA / Ledger Name is required`);
+    } else {
+        coaRecord = coaMap.get(coaName.toLowerCase());
+        if (!coaRecord) {
+            errors.push(`Detail row ${rowNum}: COA "${coaName}" not found in Chart of Accounts`);
+        } else {
+            COAMasterSid = coaRecord.COAMasterSid;
+        }
+    }
+
+    // ── Subledger ─────────────────────────────────────────────────────────────
+    let LedgerMasterSid: number | null = null;
+    const subledgerRequired = coaRecord &&
+        String(coaRecord.SubledgerName || '').trim().toUpperCase() === 'Y';
+
+    if (subledgerName) {
+        if (!subledgerRequired) {
+            // COA does not need a subledger — silently ignore
+        } else {
+            const sl = subledgerMap.get(subledgerName.toLowerCase());
+            if (!sl) {
+                errors.push(
+                    `Detail row ${rowNum}: Subledger "${subledgerName}" not found. ` +
+                    `Please select the correct subledger for Ledger "${coaName}"`
+                );
+            } else if (
+                COAMasterSid &&
+                sl.DrCOAMasterSid !== COAMasterSid &&
+                sl.CrCOAMasterSid !== COAMasterSid
+            ) {
+                errors.push(
+                    `Detail row ${rowNum}: Subledger "${subledgerName}" is not linked to ` +
+                    `Ledger "${coaName}". Please select the correct subledger`
+                );
+            } else {
+                LedgerMasterSid = sl.SubledgerMasterSid;
+            }
+        }
+    } else if (subledgerRequired) {
+        errors.push(
+            `Detail row ${rowNum}: Subledger is required for Ledger "${coaName}". ` +
+            `Please select a valid subledger`
+        );
+    }
+
+    // ── Dr/Cr ─────────────────────────────────────────────────────────────────
+    let drCr: 'D' | 'C' = 'D';
+    if (!rawDrCr) {
+        errors.push(`Detail row ${rowNum}: Dr/Cr is required`);
+    } else if (rawDrCr !== 'D' && rawDrCr !== 'C') {
+        errors.push(`Detail row ${rowNum}: Dr/Cr must be "D" or "C", got "${rawDrCr}"`);
+    } else {
+        drCr = rawDrCr as 'D' | 'C';
+    }
+
+    // ── Currency (auto-filled from COA — still validated on parse) ────────────
+    let CurrencyMasterSid: number | null = null;
+    let currencyCode = '';
+    if (!rawCurrency) {
+        errors.push(
+            `Detail row ${rowNum}: Currency is required — ` +
+            `ensure the COA has a ledger currency configured or enter it manually`
+        );
+    } else {
+        const found = curMap.get(rawCurrency.toLowerCase());
+        if (!found) {
+            errors.push(`Detail row ${rowNum}: Currency "${rawCurrency}" not found`);
+        } else {
+            CurrencyMasterSid = found;
+            currencyCode = rawCurrency.toUpperCase();
+        }
+    }
+
+    // ── Exchange Rate (auto-filled from _COAExchangeRate — validated on parse) ─
+    let exchangeRate = 1;
+    if (rawExRate) {
+        const parsed = parseFloat(rawExRate);
+        if (isNaN(parsed) || parsed <= 0) {
+            errors.push(
+                `Detail row ${rowNum}: Exchange Rate must be a positive number — ` +
+                `no rate was found for the currency at template download time; please enter it manually`
+            );
+        } else {
+            exchangeRate = parsed;
+        }
+    }
+    // If rawExRate is blank, we default to 1 (same-currency or user intent).
+    // A missing rate for a foreign-currency row will surface as a debit/credit mismatch
+    // unless the user has manually filled it in.
+
+    // ── Amount ────────────────────────────────────────────────────────────────
+    let amount = 0;
+    if (!rawAmount) {
+        errors.push(`Detail row ${rowNum}: Amount is required`);
+    } else {
+        amount = parseFloat(rawAmount);
+        if (isNaN(amount) || amount <= 0) {
+            errors.push(`Detail row ${rowNum}: Amount must be > 0`);
+            amount = 0;
+        }
+    }
+    const localAmount = parseFloat((amount * exchangeRate).toFixed(6));
+
+    // ── HSSAC + Tax ───────────────────────────────────────────────────────────
+    let HSSACMasterSid: number | null = null;
+    let taxPercentage = 0;
+    if (hssacCode) {
+        const hssac = hssacMap.get(hssacCode.toLowerCase());
+        if (!hssac) {
+            errors.push(`Detail row ${rowNum}: HS/SAC Code "${hssacCode}" not found`);
+        } else {
+            HSSACMasterSid = hssac.HSSACMasterSid;
+            taxPercentage = hssac.TaxRate || 0;
+        }
+    }
+    // Allow manual override of Tax % (formula cell value read back)
+    if (rawTaxPct) {
+        const pct = parseFloat(rawTaxPct);
+        if (!isNaN(pct) && pct >= 0 && pct <= 100) taxPercentage = pct;
+    }
+    const taxAmount = parseFloat(((localAmount * taxPercentage) / 100).toFixed(6));
+
+    // ── Department ────────────────────────────────────────────────────────────
+    let DepartmentMasterSid: number | null = null;
+    if (departmentName) {
+        DepartmentMasterSid = deptMap.get(departmentName.toLowerCase()) ?? null;
+        if (!DepartmentMasterSid) {
+            errors.push(`Detail row ${rowNum}: Department "${departmentName}" not found`);
+        }
+    }
+
+    // ── Charge ────────────────────────────────────────────────────────────────
+    let ChargeMasterSid: number | null = null;
+    if (chargeName) {
+        ChargeMasterSid = chargeMap.get(chargeName.toLowerCase()) ?? null;
+        if (!ChargeMasterSid) {
+            errors.push(`Detail row ${rowNum}: Charge "${chargeName}" not found`);
+        }
+    }
+
+    return {
+        sno,
+        coaName,
+        COAMasterSid,
+        ledgerName: subledgerName || null,
+        LedgerMasterSid,
+        drCr,
+        currencyCode,
+        CurrencyMasterSid,
+        exchangeRate,
+        amount,
+        localAmount,
+        narration: lineNarration,
+        departmentName,
+        DepartmentMasterSid,
+        chargeName,
+        ChargeMasterSid,
+        hssacCode,
+        HSSACMasterSid,
+        taxPercentage,
+        taxAmount,
+        masterJobNumber,
+        MasterJobSid: null,
+        houseJobNumber,
+        HouseJobSid: null,
+        costCenterName,
+        CostCenterMasterSid: null,
+        profitCenterName,
+        ProfitCenterMasterSid: null,
+        errors,
+    };
+}
+
+private parseJVDate(raw: string): Date | null {
+    if (!raw) return null;
+    const months: Record<string, number> = {
+        jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+    };
+    const m1 = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(raw);
+    if (m1) {
+        const month = months[m1[2].toLowerCase()];
+        if (month !== undefined) {
+            const d = new Date(parseInt(m1[3]), month, parseInt(m1[1]));
+            return isNaN(d.getTime()) ? null : d;
+        }
+    }
+    const m2 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(raw);
+    if (m2) {
+        const d = new Date(parseInt(m2[3]), parseInt(m2[2]) - 1, parseInt(m2[1]));
+        return isNaN(d.getTime()) ? null : d;
+    }
+    const iso = new Date(raw);
+    return isNaN(iso.getTime()) ? null : iso;
+}
 }
