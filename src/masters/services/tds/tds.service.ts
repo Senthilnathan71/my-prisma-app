@@ -13,7 +13,6 @@ export class TdsService {
             const allTds = await this._db.tDSSetHeader.findMany({
                 where: {
                     status: 'A',
-                    CompanyMasterSid: CompanyMasterSid
 
                 }
             })

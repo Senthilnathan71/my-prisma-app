@@ -499,7 +499,7 @@ export class ChargeService {
                 }
             }),
             this._db.tDSSetHeader.findMany({
-                where: { status: 'A', CompanyMasterSid },
+                where: { status: 'A' },
                 select: { TDSSetHeaderSid: true, TDSSetName: true, EffectiveFrom: true }
             }),
         ]);
@@ -943,7 +943,7 @@ export class ChargeService {
             }),
             this._db.uOMMaster.findMany({ where: { UOMType: 'C', status: 'A' } }),
             this._db.hSSACMaster.findMany({ where: { status: 'A' } }),
-            this._db.tDSSetHeader.findMany({ where: { status: 'A', CompanyMasterSid } }),
+            this._db.tDSSetHeader.findMany({ where: { status: 'A' } }),
         ]);
  
         const cgMap = new Map(chargeGroups.map(x => [x.GroupName.trim().toLowerCase(), x.ChargeGroupSid]));
@@ -1212,7 +1212,7 @@ const normalizedUnitQty = unitQtyDisplayToValue[UnitQty.toLowerCase()] ?? UnitQt
             }),
             this._db.uOMMaster.findMany({ where: { UOMType: 'C', status: 'A' } }),
             this._db.hSSACMaster.findMany({ where: { status: 'A' } }),
-            this._db.tDSSetHeader.findMany({ where: { status: 'A', CompanyMasterSid } }),
+            this._db.tDSSetHeader.findMany({ where: { status: 'A' } })
         ]);
  
         const cgMap = new Map(chargeGroups.map(x => [x.GroupName.trim().toLowerCase(), x.ChargeGroupSid]));
