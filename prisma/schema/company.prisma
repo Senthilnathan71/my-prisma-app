@@ -2546,8 +2546,8 @@ model SupplierTdsMapping {
   TransactionLimit      Decimal        @db.Decimal(8, 2)
   CertificateNo         String?        @db.VarChar(20)
   CertificatePercentage Decimal?       @db.Decimal(4, 2)
-  EffectiveFrom         DateTime       @db.Date
-  EffectiveTo           DateTime       @db.Date
+  EffectiveFrom         DateTime?      @db.Date
+  EffectiveTo           DateTime?      @db.Date
   CertificateAmt        String?        @db.VarChar(500)
   ITSecCode             String?        @db.VarChar(20)
   companyMaster         CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
