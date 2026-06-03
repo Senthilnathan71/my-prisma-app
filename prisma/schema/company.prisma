@@ -2541,14 +2541,14 @@ model SupplierTdsMapping {
   TDSSetHeaderSid       Int
   CustomerMasterSid     Int
   CustomerBranchSid     Int
-  CompanyType           String?        @db.VarChar(20)
+  CompanyType           String?        @db.VarChar(50)
   TaxExempt             String         @default("N") @db.Char(1)
   TransactionLimit      Decimal        @db.Decimal(8, 2)
   CertificateNo         String?        @db.VarChar(20)
   CertificatePercentage Decimal?       @db.Decimal(4, 2)
   EffectiveFrom         DateTime?      @db.Date
   EffectiveTo           DateTime?      @db.Date
-  CertificateAmt        String?        @db.VarChar(500)
+  CertificateAmt        Decimal?       @db.Decimal(15, 3)
   ITSecCode             String?        @db.VarChar(20)
   companyMaster         CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch        CustomerBranch @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
