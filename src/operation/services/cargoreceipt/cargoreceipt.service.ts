@@ -21,6 +21,7 @@ export class CargoreceiptService {
           BookingNo: true,
           BookingDateTime: true,
           CustomerName: true,
+          CustomerMasterSid: true,
           HBLNo: true,
           VesselName: true,
           VoyageNo: true,
