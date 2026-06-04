@@ -3526,6 +3526,7 @@ export class AccountsReportsService {
             { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
             { MenuName: { equals: 'House Job', mode: 'insensitive' } },
             { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
             {
               MenuName: {
                 contains: 'Agent Master Air Way',
@@ -3554,6 +3555,7 @@ export class AccountsReportsService {
           const menuName = m.MenuName.toLowerCase();
           return (
             menuName === 'house job' ||
+            menuName === 'service job' ||
             menuName.includes('house air way') ||
             menuName.includes('agent master air way') ||
             menuName.includes('agentmaster air way')
@@ -3642,19 +3644,10 @@ export class AccountsReportsService {
         }
       });
 
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job', status: 'A' },
-        select: { MenuMasterSid: true },
-      });
-
-      if (!houseJobMenu) {
-        throw new BadRequestException('House Job menu not found');
-      }
-
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
           status: 'A',
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
         },
         select: {
