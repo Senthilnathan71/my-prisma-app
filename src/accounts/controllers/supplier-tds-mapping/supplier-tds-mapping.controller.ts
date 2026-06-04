@@ -105,6 +105,44 @@ export class SupplierTdsMappingController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Create multiple Supplier TDS Mappings in a single transaction' })
+    @ApiCreatedResponse({ description: 'Batch create Supplier TDS Mapping', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Post('create-batch')
+    async createBatchSupptdsMapping(@Body() body: { rows: any[] }) {
+        const resp = new ResponseData();
+        try {
+            resp.data = await this.suppliertdsmappingService.createBatchSupptdsMapping(body.rows || []);
+            resp.message = 'Supplier TDS Mappings created successfully';
+        } catch (error) {
+            this.logger.warn(`Supplier TDS Batch Creation Error: ${JSON.stringify(error), error}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message
+                : 'Internal Server Error';
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Update multiple Supplier TDS Mappings in a single transaction' })
+    @ApiCreatedResponse({ description: 'Batch update Supplier TDS Mapping', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Patch('update-batch')
+    async updateBatchSupptdsMapping(@Body() body: { rows: { SupplierTdsMappingSid: number; payload: any }[] }) {
+        const resp = new ResponseData();
+        try {
+            resp.data = await this.suppliertdsmappingService.updateBatchSupptdsMapping(body.rows || []);
+            resp.message = 'Supplier TDS Mappings updated successfully';
+        } catch (error) {
+            this.logger.warn(`Supplier TDS Batch Update Error: ${JSON.stringify(error), error}`);
+            resp.status = false;
+            resp.message = error instanceof BadRequestException || error instanceof UnauthorizedException
+                ? error.message
+                : 'Internal Server Error';
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get Supplier TDS Mapping by Id' })
     @ApiCreatedResponse({
         description: 'Get Supplier TDS Mapping by Id',
@@ -184,6 +222,25 @@ export class SupplierTdsMappingController {
             } else {
                 resp.message = "Internal Server Error";
             }
+        }
+        return resp;
+    }
+
+    @HttpCode(HttpStatus.OK)
+    @Post('by-customer')
+    async getByCustomer(@Body() body: { CustomerMasterSid: number; CompanyMasterSid: number }) {
+        const resp = new ResponseData();
+        try {
+            resp.data = await this.suppliertdsmappingService.getByCustomer(
+                body.CustomerMasterSid,
+                body.CompanyMasterSid,
+            );
+            resp.message = 'Supplier TDS mappings fetched by customer';
+        } catch (error) {
+            this.logger.warn(`getByCustomerError: ${error}`);
+            resp.status = false;
+            resp.message =
+                error instanceof BadRequestException ? error.message : 'Internal Server Error';
         }
         return resp;
     }
