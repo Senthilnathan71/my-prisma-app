@@ -332,4 +332,30 @@ export class ReportMasterController {
         }
         return resp;
     }
+
+    @ApiOperation({ summary: 'Get All Menus' })
+        @ApiCreatedResponse({
+            description: 'Get All Menus',
+            type: ResponseData
+        })
+        @HttpCode(HttpStatus.OK)
+        @Get('menu')
+        async getAllMenus() {
+            let output = new ResponseData;
+            try {
+                let menuData = await this.reportMasterService.getAllMenus();
+                this.logger.log(`getAllmenus: ${JSON.stringify(menuData)}`)
+                output.data = menuData;
+                output.message = "All Menu are successfully fetched";
+            } catch (error) {
+                this.logger.warn(`getAllmenus: ${JSON.stringify(error)}`)
+                output.status = false;
+                if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                    output.message = error.message;
+                } else {
+                    output.message = 'Internal Server Error';
+                }
+            }
+            return output
+        }
 }

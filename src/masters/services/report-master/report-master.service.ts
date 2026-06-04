@@ -494,4 +494,27 @@ export class ReportMasterService {
       throw error;
     }
   }
+
+  async getAllMenus() {
+        try {
+
+            const allowedMenuCodes = [
+                'AR1', 'OR2 ', 'MR2'
+            ];
+
+
+
+            const menuList = await this._db.menuMaster.findMany({
+                where: {
+                    status: 'A',
+                    MenuCode: { in: allowedMenuCodes },
+                }
+            });
+
+            return menuList;
+        } catch (error) {
+            console.error('getAllMenus error:', error);
+            throw error;
+        }
+    }
 }
