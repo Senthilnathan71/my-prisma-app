@@ -1333,7 +1333,7 @@ async generateJournalVoucherTemplate(
     // HSSAC reference sheet
     const hssacRef = workbook.addWorksheet('_HSSAC');
     hssacRef.addRow(['HSSACCode', 'Description', 'TaxRate']);
-    hssacList.forEach(x => hssacRef.addRow([x.HSSACCode, x.HSNSACDescription || '', x.TaxRate || 0]));
+    hssacList.forEach(x => hssacRef.addRow([x.HSSACCode, x.HSNSACDescription || '', x.TaxRate ? Number(x.TaxRate) : 0]));
     hssacRef.state = 'hidden';
 
     // ── Apply dropdowns ───────────────────────────────────────────────────────
@@ -1404,7 +1404,7 @@ async generateJournalVoucherTemplate(
 
         // Auto Tax % — col M = VLOOKUP(L, _HSSAC, 3)
         detailSheet.getCell(`M${r}`).value = {
-            formula: `=IFERROR(VLOOKUP(L${r},'_HSSAC'!$A:$C,3,FALSE),"")`
+            formula: `=IFERROR(VALUE(VLOOKUP(L${r},'_HSSAC'!$A:$C,3,FALSE)),"")`
         };
         detailSheet.getCell(`M${r}`).fill = {
             type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEA' }
@@ -1412,7 +1412,7 @@ async generateJournalVoucherTemplate(
 
         // Auto Tax Amount — col N = H * M / 100
         detailSheet.getCell(`N${r}`).value = {
-            formula: `=IFERROR(IF(H${r}="","",H${r}*IF(M${r}="",0,M${r})/100),"")`
+            formula:  `=IFERROR(IF(OR(H${r}="",M${r}="",VALUE(M${r})=0),"",H${r}*VALUE(M${r})/100),"")`
         };
         detailSheet.getCell(`N${r}`).fill = {
             type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEA' }
@@ -1518,7 +1518,7 @@ async parseJournalVoucherExcel(
             }),
             this._db.subledgerMaster.findMany({
                 where: { CompanyMasterSid, Status: { not: 'D' } },
-                select: { SubledgerMasterSid: true, SubledgerName: true, DrCOAMasterSid: true, CrCOAMasterSid: true }
+                select: { SubledgerMasterSid: true, SubledgerName: true, DrCOAMasterSid: true, CrCOAMasterSid: true, SubledgerType: true, }
             }),
             this._db.departmentMaster.findMany({
                 where: { CompanyMasterSid, Status: 'A' },
@@ -1547,6 +1547,22 @@ async parseJournalVoucherExcel(
     const deptMap = new Map(departments.map(x => [x.departmentName.trim().toLowerCase(), x.DepartmentMasterSid]));
     const chargeMap = new Map(charges.map(x => [x.chargeName.trim().toLowerCase(), x.ChargeMasterSid]));
     const hssacMap = new Map(hssacList.map(x => [x.HSSACCode.trim().toLowerCase(), x]));
+    // After building subledgerMap, add:
+// Map: COAMasterSid → SubledgerType ('Charge' | 'Customer' | 'Tax' | '' | null)
+// The subledger record linked to a COA via DrCOAMasterSid or CrCOAMasterSid carries the type.
+const coaSubledgerTypeMap = new Map<number, string>();
+coaList.forEach(coa => {
+    if (!coa.COAMasterSid) return;
+    // Find any subledger where this COA is the Dr or Cr COA
+    const linked = subledgerList.find(
+        s => s.DrCOAMasterSid === coa.COAMasterSid ||
+             s.CrCOAMasterSid === coa.COAMasterSid
+    );
+    coaSubledgerTypeMap.set(
+        coa.COAMasterSid,
+        linked?.SubledgerType ?? ''   // SubledgerType needs to be in subledgerList select
+    );
+});
 
     const fyStart = new Date(yearMaster.StartDate); fyStart.setHours(0, 0, 0, 0);
     const fyEnd = new Date(yearMaster.EndDate); fyEnd.setHours(23, 59, 59, 999);
@@ -1634,7 +1650,8 @@ async parseJournalVoucherExcel(
                 parsedDetails.push(
                     this.parseJVDetailRow(
                         dRow, dRowNum, sno++,
-                        coaMap, subledgerMap, curMap, deptMap, chargeMap, hssacMap
+                        coaMap, subledgerMap, curMap, deptMap, chargeMap, hssacMap,
+                        coaSubledgerTypeMap
                     )
                 );
             }
@@ -1892,27 +1909,25 @@ private parseJVDetailRow(
     curMap: Map<string, number>,
     deptMap: Map<string, number>,
     chargeMap: Map<string, number>,
-    hssacMap: Map<string, any>
+    hssacMap: Map<string, any>,
+    coaSubledgerTypeMap: Map<number, string>   // ← ADD
 ): any {
     const errors: string[] = [];
 
-    // row[0] = Sno — already used for grouping, skip
-    const coaName         = (row[1]  || '').toString().trim();
-    const subledgerName   = (row[2]  || '').toString().trim();
-    const rawDrCr         = (row[3]  || '').toString().trim().toUpperCase();
-    const rawCurrency     = (row[4]  || '').toString().trim();   // auto-filled by VLOOKUP
-    const rawExRate       = (row[5]  || '').toString().trim();   // auto-filled by VLOOKUP
-    const rawAmount       = (row[6]  || '').toString().trim();
-    // row[7] = Local Amount (formula cell — skip)
-    const lineNarration   = (row[8]  || '').toString().trim() || null;
-    const departmentName  = (row[9]  || '').toString().trim() || null;
-    const chargeName      = (row[10] || '').toString().trim() || null;
-    const hssacCode       = (row[11] || '').toString().trim() || null;
-    const rawTaxPct       = (row[12] || '').toString().trim();
-    // row[13] = Tax Amount (formula cell — skip)
-    const masterJobNumber = (row[14] || '').toString().trim() || null;
-    const houseJobNumber  = (row[15] || '').toString().trim() || null;
-    const costCenterName  = (row[16] || '').toString().trim() || null;
+    const coaName          = (row[1]  || '').toString().trim();
+    const subledgerName    = (row[2]  || '').toString().trim();
+    const rawDrCr          = (row[3]  || '').toString().trim().toUpperCase();
+    const rawCurrency      = (row[4]  || '').toString().trim();
+    const rawExRate        = (row[5]  || '').toString().trim();
+    const rawAmount        = (row[6]  || '').toString().trim();
+    const lineNarration    = (row[8]  || '').toString().trim() || null;
+    const departmentName   = (row[9]  || '').toString().trim() || null;
+    const chargeName       = (row[10] || '').toString().trim() || null;
+    const hssacCode        = (row[11] || '').toString().trim() || null;
+    const rawTaxPct        = (row[12] || '').toString().trim();
+    const masterJobNumber  = (row[14] || '').toString().trim() || null;
+    const houseJobNumber   = (row[15] || '').toString().trim() || null;
+    const costCenterName   = (row[16] || '').toString().trim() || null;
     const profitCenterName = (row[17] || '').toString().trim() || null;
 
     // ── COA ───────────────────────────────────────────────────────────────────
@@ -1929,6 +1944,14 @@ private parseJVDetailRow(
         }
     }
 
+    // ── Resolve subledger type for this COA ───────────────────────────────────
+    // isChargeType mirrors the Angular component's subledgerTypes[rowIndex] === 'Charge' gate.
+    // When false, all charge-section columns (Department, Charge, HS/SAC, Tax, Jobs,
+    // Cost/Profit Center) are silently discarded — same behaviour as disableChargeFieldsForRow().
+    const isChargeType = COAMasterSid
+        ? (coaSubledgerTypeMap.get(COAMasterSid) ?? '').toLowerCase() === 'charge'
+        : false;
+
     // ── Subledger ─────────────────────────────────────────────────────────────
     let LedgerMasterSid: number | null = null;
     const subledgerRequired = coaRecord &&
@@ -1936,7 +1959,7 @@ private parseJVDetailRow(
 
     if (subledgerName) {
         if (!subledgerRequired) {
-            // COA does not need a subledger — silently ignore
+            // COA does not need a subledger — silently ignore (unchanged)
         } else {
             const sl = subledgerMap.get(subledgerName.toLowerCase());
             if (!sl) {
@@ -1974,7 +1997,7 @@ private parseJVDetailRow(
         drCr = rawDrCr as 'D' | 'C';
     }
 
-    // ── Currency (auto-filled from COA — still validated on parse) ────────────
+    // ── Currency ──────────────────────────────────────────────────────────────
     let CurrencyMasterSid: number | null = null;
     let currencyCode = '';
     if (!rawCurrency) {
@@ -1992,7 +2015,7 @@ private parseJVDetailRow(
         }
     }
 
-    // ── Exchange Rate (auto-filled from _COAExchangeRate — validated on parse) ─
+    // ── Exchange Rate ─────────────────────────────────────────────────────────
     let exchangeRate = 1;
     if (rawExRate) {
         const parsed = parseFloat(rawExRate);
@@ -2005,9 +2028,6 @@ private parseJVDetailRow(
             exchangeRate = parsed;
         }
     }
-    // If rawExRate is blank, we default to 1 (same-currency or user intent).
-    // A missing rate for a foreign-currency row will surface as a debit/credit mismatch
-    // unless the user has manually filled it in.
 
     // ── Amount ────────────────────────────────────────────────────────────────
     let amount = 0;
@@ -2022,41 +2042,82 @@ private parseJVDetailRow(
     }
     const localAmount = parseFloat((amount * exchangeRate).toFixed(6));
 
-    // ── HSSAC + Tax ───────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // CHARGE-SECTION FIELDS — accepted only when subledger type === 'Charge'.
+    // When isChargeType is false the columns are silently discarded (nulled out),
+    // mirroring disableChargeFieldsForRow() in the Angular component.
+    // When isChargeType is true they are validated exactly as before.
+    // ══════════════════════════════════════════════════════════════════════════
+
     let HSSACMasterSid: number | null = null;
     let taxPercentage = 0;
-    if (hssacCode) {
-        const hssac = hssacMap.get(hssacCode.toLowerCase());
-        if (!hssac) {
-            errors.push(`Detail row ${rowNum}: HS/SAC Code "${hssacCode}" not found`);
-        } else {
-            HSSACMasterSid = hssac.HSSACMasterSid;
-            taxPercentage = hssac.TaxRate || 0;
-        }
-    }
-    // Allow manual override of Tax % (formula cell value read back)
-    if (rawTaxPct) {
-        const pct = parseFloat(rawTaxPct);
-        if (!isNaN(pct) && pct >= 0 && pct <= 100) taxPercentage = pct;
-    }
-    const taxAmount = parseFloat(((localAmount * taxPercentage) / 100).toFixed(6));
-
-    // ── Department ────────────────────────────────────────────────────────────
+    let taxAmount = 0;
     let DepartmentMasterSid: number | null = null;
-    if (departmentName) {
-        DepartmentMasterSid = deptMap.get(departmentName.toLowerCase()) ?? null;
-        if (!DepartmentMasterSid) {
-            errors.push(`Detail row ${rowNum}: Department "${departmentName}" not found`);
-        }
-    }
-
-    // ── Charge ────────────────────────────────────────────────────────────────
     let ChargeMasterSid: number | null = null;
-    if (chargeName) {
-        ChargeMasterSid = chargeMap.get(chargeName.toLowerCase()) ?? null;
-        if (!ChargeMasterSid) {
-            errors.push(`Detail row ${rowNum}: Charge "${chargeName}" not found`);
+    let resolvedChargeName: string | null = null;
+    let resolvedDepartmentName: string | null = null;
+    let resolvedHssacCode: string | null = null;
+    let resolvedMasterJobNumber: string | null = null;
+    let resolvedHouseJobNumber: string | null = null;
+    let resolvedCostCenterName: string | null = null;
+    let resolvedProfitCenterName: string | null = null;
+
+    if (isChargeType) {
+        // ── Department ────────────────────────────────────────────────────────
+        if (departmentName) {
+            resolvedDepartmentName = departmentName;
+            DepartmentMasterSid = deptMap.get(departmentName.toLowerCase()) ?? null;
+            if (!DepartmentMasterSid) {
+                errors.push(`Detail row ${rowNum}: Department "${departmentName}" not found`);
+            }
         }
+
+        // ── Charge ────────────────────────────────────────────────────────────
+        if (chargeName) {
+            resolvedChargeName = chargeName;
+            ChargeMasterSid = chargeMap.get(chargeName.toLowerCase()) ?? null;
+            if (!ChargeMasterSid) {
+                errors.push(`Detail row ${rowNum}: Charge "${chargeName}" not found`);
+            }
+        }
+
+        // ── HSSAC + Tax ───────────────────────────────────────────────────────
+        if (hssacCode) {
+            resolvedHssacCode = hssacCode;
+            const hssac = hssacMap.get(hssacCode.toLowerCase());
+            if (!hssac) {
+                errors.push(`Detail row ${rowNum}: HS/SAC Code "${hssacCode}" not found`);
+            } else {
+                HSSACMasterSid = hssac.HSSACMasterSid;
+                taxPercentage = hssac.TaxRate || 0;
+            }
+        }
+        // Allow manual override of Tax % from the formula cell read-back
+        if (rawTaxPct) {
+            const pct = parseFloat(rawTaxPct);
+            if (!isNaN(pct) && pct >= 0 && pct <= 100) taxPercentage = pct;
+        }
+        taxAmount = parseFloat(((localAmount * taxPercentage) / 100).toFixed(6));
+
+        // ── Job references ────────────────────────────────────────────────────
+        resolvedMasterJobNumber = masterJobNumber;
+        resolvedHouseJobNumber  = houseJobNumber;
+
+        // ── Cost / Profit Center ──────────────────────────────────────────────
+        resolvedCostCenterName   = costCenterName;
+        resolvedProfitCenterName = profitCenterName;
+
+    } else if (
+        // Warn only if the user actually filled something into the charge columns
+        // so they know it was ignored rather than silently misrouted.
+        departmentName || chargeName || hssacCode || rawTaxPct ||
+        masterJobNumber || houseJobNumber || costCenterName || profitCenterName
+    ) {
+        errors.push(
+            `Detail row ${rowNum}: Department, Charge, HS/SAC, Tax, Job and Cost/Profit ` +
+            `Center fields are only applicable when the subledger type is "Charge". ` +
+            `These values have been ignored for Ledger "${coaName}".`
+        );
     }
 
     return {
@@ -2072,21 +2133,21 @@ private parseJVDetailRow(
         amount,
         localAmount,
         narration: lineNarration,
-        departmentName,
+        departmentName: resolvedDepartmentName,
         DepartmentMasterSid,
-        chargeName,
+        chargeName: resolvedChargeName,
         ChargeMasterSid,
-        hssacCode,
+        hssacCode: resolvedHssacCode,
         HSSACMasterSid,
         taxPercentage,
         taxAmount,
-        masterJobNumber,
+        masterJobNumber: resolvedMasterJobNumber,
         MasterJobSid: null,
-        houseJobNumber,
+        houseJobNumber: resolvedHouseJobNumber,
         HouseJobSid: null,
-        costCenterName,
+        costCenterName: resolvedCostCenterName,
         CostCenterMasterSid: null,
-        profitCenterName,
+        profitCenterName: resolvedProfitCenterName,
         ProfitCenterMasterSid: null,
         errors,
     };
@@ -2098,20 +2159,30 @@ private parseJVDate(raw: string): Date | null {
         jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
         jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
     };
+
     const m1 = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(raw);
     if (m1) {
         const month = months[m1[2].toLowerCase()];
         if (month !== undefined) {
-            const d = new Date(parseInt(m1[3]), month, parseInt(m1[1]));
+            // ✅ Use Date.UTC to avoid local-timezone offset
+            const d = new Date(Date.UTC(parseInt(m1[3]), month, parseInt(m1[1])));
             return isNaN(d.getTime()) ? null : d;
         }
     }
+
     const m2 = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(raw);
     if (m2) {
-        const d = new Date(parseInt(m2[3]), parseInt(m2[2]) - 1, parseInt(m2[1]));
+        // ✅ Same fix here
+        const d = new Date(Date.UTC(parseInt(m2[3]), parseInt(m2[2]) - 1, parseInt(m2[1])));
         return isNaN(d.getTime()) ? null : d;
     }
+
+    // For ISO strings, strip the time part and re-parse as UTC
     const iso = new Date(raw);
-    return isNaN(iso.getTime()) ? null : iso;
+    if (!isNaN(iso.getTime())) {
+        return new Date(Date.UTC(iso.getFullYear(), iso.getMonth(), iso.getDate()));
+    }
+
+    return null;
 }
 }

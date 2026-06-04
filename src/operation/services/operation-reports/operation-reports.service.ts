@@ -145,6 +145,10 @@ export class OperationReportsService {
           return await this.generateCostRevenueNotBookedReport(parameters);
         case 'transhipment-cargo':
           return await this.generateTranshipmentCargoReport(parameters);
+        case 'nomination-booking':
+          return await this.generateImportNominationBookingReport(parameters);
+        case 'daily-job-register':
+          return await this.generateDailyJobRegisterReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -3872,6 +3876,7 @@ export class OperationReportsService {
             { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
             { MenuName: { equals: 'House Job', mode: 'insensitive' } },
             { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
             {
               MenuName: {
                 contains: 'Agent Master Air Way',
@@ -3900,6 +3905,7 @@ export class OperationReportsService {
           const menuName = m.MenuName.toLowerCase();
           return (
             menuName === 'house job' ||
+            menuName === 'service job' ||
             menuName.includes('house air way') ||
             menuName.includes('agent master air way') ||
             menuName.includes('agentmaster air way')
@@ -3988,19 +3994,10 @@ export class OperationReportsService {
         }
       });
 
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job', status: 'A' },
-        select: { MenuMasterSid: true },
-      });
-
-      if (!houseJobMenu) {
-        throw new BadRequestException('House Job menu not found');
-      }
-
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
           status: 'A',
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
         },
         select: {
@@ -8017,6 +8014,281 @@ ports.forEach((p) => {
           data: previousMonthData,
         },
         departmentWiseMoM
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Import Nonimation Booking
+
+  async generateImportNominationBookingReport(params: any) {
+    const {
+      BookingFromDate:FromDate,
+      BookingToDate:ToDate,
+      companyId: CompanyMasterSid,
+      Branch: branchId,
+    } = params;
+    
+    try {
+       const branches =
+      branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+            where: { BranchMasterSid: { in: branchId } },
+            select: { BranchMasterSid: true, branchName: true },
+          })
+        : await this._db.branchMaster.findMany({
+            where: { CompanyMasterSid },
+            select: { BranchMasterSid: true, branchName: true },
+          });
+
+    const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+    const resolvedBranchNames = branches.map((b) => b.branchName);
+    const branchInvolved =
+      branchId && branchId.length > 0
+        ? branches.map((b) => b.branchName).join(', ')
+        : 'All Branches';
+
+       const ports = await this._db.portMaster.findMany({
+          where: {
+            status: 'A',
+          },
+          select: {
+            PortCode: true,
+            PortName: true,
+          },
+        });
+
+        const deptmaster = await this._db.departmentMaster.findMany({
+          where: {
+            Status: 'A',
+          },
+          select: {
+            DepartmentMasterSid: true,
+            departmentName: true,
+          }
+        });
+
+        const usermaster = await this._db.userMaster.findMany({
+          where: {
+            status: 'A',
+          },
+          select: {
+            UserMasterSid: true,
+            userName: true,
+          }
+        });
+
+        const bookingdata = await this._db.bookingHeader.findMany({
+          where: {
+            status: 'A',
+            CompanyMasterSid,
+            BranchMasterSid: { in: resolvedBranchIds },
+            AND: [
+            { BookingDateTime: { gte: FromDate } },
+            { BookingDateTime: { lte: ToDate } },
+            ],
+            JobType : 'Import',
+            // Nominated : 'Y',
+            ShipmentType : 'Y'
+          },
+          include: {
+           bookingCargo: {
+           where: {
+            status: 'A'
+          }
+          }},
+          orderBy: {
+            BookingDateTime: 'desc',
+          },
+        });
+
+        const data = bookingdata.map(booking => ({
+          bookingNumber: booking.BookingNo,
+          bookingDate: booking.BookingDateTime,
+          Dept : deptmaster.find(d => d.DepartmentMasterSid === booking.DepartmentMasterSid)?.departmentName,
+          customerName: booking.CustomerName,
+          customerAddress: booking.CustomerAddress,
+          incoterms: booking.IncoTerms,
+          shipmentType: booking.ShipmentType,
+          nominated: booking.Nominated,
+          nominatedBy: booking.NominatedBy,
+          jobType: booking.JobType,
+          NoofPkg: booking?.bookingCargo?.reduce(
+            (sum, cargo) => sum + (Number(cargo.NoOfPackage) || 0),
+            0
+          ),
+          GrossWt : booking?.bookingCargo?.reduce(
+            (sum, cargo) => sum + (Number(cargo.GrossWeight) || 0),
+            0
+          ),
+          Volume : booking?.bookingCargo?.reduce(
+            (sum, cargo) => sum + (Number(cargo.Volume) || 0),
+            0
+          ),
+          salesperson: usermaster.find(u => u.UserMasterSid === booking.SalesmanSid)?.userName,
+          POL : ports.find((p)=>p.PortCode === booking.POL)?.PortName,
+          POO : ports.find((p)=>p.PortCode === booking.POO)?.PortName,
+          FDC : ports.find((p)=>p.PortCode === booking.FPD)?.PortName,
+          originAgent : booking?.OriginAgent
+        }));
+
+       return {
+         params,
+         data,
+         branchInvolved
+       };
+    }catch(error){
+      throw error;
+    }
+  }
+
+  // Daily Job Register
+
+  async generateDailyJobRegisterReport(params: any) {
+    const {
+      ToDate,
+      companyId: CompanyMasterSid,
+      Branch: branchId,
+    } = params;
+    try {
+       const branches =
+      branchId && branchId.length > 0
+       ? await this._db.branchMaster.findMany({
+            where: { BranchMasterSid: { in: branchId } },
+            select: { BranchMasterSid: true, branchName: true },
+          })
+        : await this._db.branchMaster.findMany({
+            where: { CompanyMasterSid },
+            select: { BranchMasterSid: true, branchName: true },
+          });
+
+      const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+      const branchInvolved =
+        branchId && branchId.length > 0
+          ? branches.map((b) => b.branchName).join(', ')
+          : 'All Branches';
+
+      const selectedDate = new Date(ToDate);
+      const startOfDay = new Date(selectedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(selectedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+
+      const formatDateLabel = (value: Date) => {
+        const day = String(value.getDate()).padStart(2, '0');
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const year = value.getFullYear();
+        return `${day}-${month}-${year}`;
+      };
+
+      const bookings = await this._db.bookingHeader.findMany({
+        where: {
+          status: 'A',
+          CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
+          BookingDateTime: {
+            gte: startOfMonth,
+            lte: endOfDay,
+          },
+        },
+        include: {
+          bookingCargo: {
+            where: {
+              status: 'A',
+            },
+            select: {
+              Volume: true,
+            },
+          },
+        },
+        orderBy: {
+          BookingDateTime: 'desc',
+        },
+      });
+
+      const isSameDay = (value: Date | null | undefined) => {
+        if (!value) return false;
+        const bookingDate = new Date(value);
+        return bookingDate >= startOfDay && bookingDate <= endOfDay;
+      };
+
+      const sumVolume = (rows: typeof bookings) =>
+        rows.reduce(
+          (total, booking) =>
+            total +
+            (booking.bookingCargo || []).reduce(
+              (cargoTotal, cargo) => cargoTotal + (Number(cargo.Volume) || 0),
+              0,
+            ),
+          0,
+        );
+
+      const buildCountRow = (
+        job: string,
+        predicate: (booking: (typeof bookings)[number]) => boolean,
+      ) => {
+        const totalRows = bookings.filter(predicate);
+        const dayRows = totalRows.filter((booking) => isSameDay(booking.BookingDateTime));
+
+        return {
+          job,
+          date: formatDateLabel(selectedDate),
+          dateCount: dayRows.length,
+          total: totalRows.length,
+        };
+      };
+
+      const buildVolumeRow = (
+        job: string,
+        predicate: (booking: (typeof bookings)[number]) => boolean,
+      ) => {
+        const totalRows = bookings.filter(predicate);
+        const dayRows = totalRows.filter((booking) => isSameDay(booking.BookingDateTime));
+
+        return {
+          job,
+          date: formatDateLabel(selectedDate),
+          dateCount: sumVolume(dayRows),
+          total: sumVolume(totalRows),
+        };
+      };
+
+      const data = [
+        buildCountRow('Jobs Opened', () => true),
+        buildVolumeRow('M3 Booked', () => true),
+        buildCountRow('Import Jobs', (booking) => booking.JobType === 'Import'),
+        buildCountRow('Export Jobs', (booking) => booking.JobType === 'Export'),
+        buildCountRow(
+          'Transhipment Jobs',
+          (booking) => booking.JobType === 'Transhipment',
+        ),
+        buildCountRow(
+          'Nominated Jobs',
+          (booking) => String(booking.Nominated || '').toLowerCase() === 'y',
+        ),
+        buildCountRow(
+          'LCL Jobs',
+          (booking) => String(booking.ShipmentType || '').toLowerCase() === 'lcl',
+        ),
+        buildCountRow(
+          'FCL Jobs',
+          (booking) => String(booking.ShipmentType || '').toLowerCase() === 'fcl',
+        ),
+        buildCountRow(
+          'Air Jobs',
+          (booking) => String(booking.ShipmentType || '').toLowerCase() === 'air',
+        ),
+      ];
+
+      return {
+        params,
+        branchInvolved,
+        dateLabel: formatDateLabel(selectedDate),
+        data,
       };
     } catch (error) {
       throw error;
