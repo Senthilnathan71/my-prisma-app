@@ -3386,6 +3386,8 @@ model VoucherTDS {
   TDSAmount        Decimal        @db.Decimal(15, 3)
   TDSPartyAmount   Decimal?       @db.Decimal(15, 3)
   Reason           String?        @db.VarChar(100)
+  CertificateNo    String?        @db.VarChar(50)
+  NotificationNo   String?        @db.VarChar(50)
   BranchMaster     BranchMaster   @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster    CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   TDSSetRate       TDSSetRate     @relation(fields: [TDSSetRateSid], references: [TDSSetRateSid])
