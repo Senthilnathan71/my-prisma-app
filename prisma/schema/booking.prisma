@@ -64,7 +64,6 @@ model BookingHeader {
   NotifyAddress              String?                      @db.VarChar(200)
   PODTerminal                String?
   ShipmentNo                 String?                      @db.VarChar(200)
-  OriginAgent                String?                      @db.VarChar(200)
   BookingStatus              String?                      @db.VarChar(100)
   CarrierSid                 Int?
   JobType                    String?                      @db.VarChar(12)
@@ -227,6 +226,8 @@ model BookingOthers {
   BookingHeaderSid    Int?
   Forwarder           String?        @db.VarChar(200)
   ForwarderAddress    String?        @db.VarChar(200)
+  OriginAgent         String?        @db.VarChar(200)
+  OriginAgentAddress  String?        @db.VarChar(300)
   HBLNo               String?        @db.VarChar(200)
   BacktoBack          String?        @db.VarChar(200)
   Depo                String?        @db.VarChar(200)

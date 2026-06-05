@@ -8093,11 +8093,17 @@ ports.forEach((p) => {
             ShipmentType : 'Y'
           },
           include: {
-           bookingCargo: {
-           where: {
-            status: 'A'
-          }
-          }},
+            bookingCargo: {
+              where: {
+                status: 'A'
+              }
+            },
+            bookingOthers : {
+              where: {
+                status: 'A',
+              }
+            }
+          },
           orderBy: {
             BookingDateTime: 'desc',
           },
@@ -8130,7 +8136,7 @@ ports.forEach((p) => {
           POL : ports.find((p)=>p.PortCode === booking.POL)?.PortName,
           POO : ports.find((p)=>p.PortCode === booking.POO)?.PortName,
           FDC : ports.find((p)=>p.PortCode === booking.FPD)?.PortName,
-          originAgent : booking?.OriginAgent
+          originAgent : booking?.bookingOthers?.[0]?.OriginAgent || ''
         }));
 
        return {

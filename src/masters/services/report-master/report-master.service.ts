@@ -14,15 +14,60 @@ export class ReportMasterService {
   }
 
   private sanitizeReportDetail(detail: any) {
-    return {
-      ReportMasterDetailSid: detail?.ReportMasterDetailSid || null,
-      Status: detail?.Status || 'A',
-      ParameterName: detail?.ParameterName?.trim(),
-      ParameterFieldType: detail?.ParameterFieldType || null,
-      DropDownValue: detail?.DropDownValue ?? null,
-      ParameterQuery: detail?.ParameterQuery?.trim() || null,
-    };
+  let dropDownValue = detail?.DropDownValue ?? null;
+
+  // If it's a string, try to parse it to avoid double-stringification
+  if (typeof dropDownValue === 'string') {
+    const trimmed = dropDownValue.trim();
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        dropDownValue = JSON.parse(trimmed);
+      } catch {
+        // leave as-is if it fails
+      }
+    } else if (trimmed === '') {
+      dropDownValue = null;
+    }
   }
+
+  let validationRules = detail?.ValidationRules ?? null;
+
+  // If it's a string, try to parse it to avoid double-stringification
+  if (typeof validationRules === 'string') {
+    const trimmed = validationRules.trim();
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try {
+        validationRules = JSON.parse(trimmed);
+      } catch {
+        // leave as-is if it fails
+      }
+    } else if (trimmed === '') {
+      validationRules = null;
+    }
+  }
+
+  return {
+    ReportMasterDetailSid: detail?.ReportMasterDetailSid || null,
+    Status: detail?.Status || 'A',
+    ParameterName: detail?.ParameterName?.trim(),
+    ParameterFieldType: detail?.ParameterFieldType || null,
+    DropDownValue: dropDownValue,
+    ValidationRules: validationRules,
+    ParameterQuery: detail?.ParameterQuery?.trim() || null,
+  };
+}
+
+// Helper to parse DropDownValue safely
+private parseDropDownValue(raw: any): any {
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
+      try { return JSON.parse(trimmed); } catch { }
+    }
+    return trimmed || null;
+  }
+  return raw ?? null;
+}
 
   private validateDuplicateDetails(details: any[]) {
     const seen = new Set<string>();
@@ -31,7 +76,8 @@ export class ReportMasterService {
       const key = [
         (detail.ParameterName || '').toLowerCase(),
         detail.ParameterFieldType || '',
-        JSON.stringify(detail.DropDownValue ?? null),
+        detail.DropDownValue || '',
+        detail.ValidationRules || '',
         detail.ParameterQuery || '',
       ].join('|');
 
@@ -67,6 +113,7 @@ export class ReportMasterService {
         ParameterName: detail.ParameterName,
         ParameterFieldType: detail.ParameterFieldType,
         DropDownValue: detail.DropDownValue,
+        ValidationRules: detail.ValidationRules,
         ParameterQuery: detail.ParameterQuery,
       };
 
@@ -88,7 +135,8 @@ export class ReportMasterService {
         !retainedIds.has(existingDetail.ReportMasterDetailSid)
         && existingDetail.ParameterName === detail.ParameterName
         && existingDetail.ParameterFieldType === detail.ParameterFieldType
-        && JSON.stringify(existingDetail.DropDownValue ?? null) === JSON.stringify(detail.DropDownValue ?? null)
+        && (existingDetail.DropDownValue || null) === detail.DropDownValue
+        && (existingDetail.ValidationRules || null) === detail.ValidationRules
         && (existingDetail.ParameterQuery || null) === detail.ParameterQuery,
       );
 
@@ -396,7 +444,8 @@ export class ReportMasterService {
           Status: parameterData.Status || "A",
           ParameterName: parameterData.ParameterName,
           ParameterFieldType: parameterData.ParameterFieldType,
-          DropDownValue: parameterData.DropDownValue,
+          DropDownValue: this.parseDropDownValue(parameterData.DropDownValue),
+          ValidationRules: this.parseDropDownValue(parameterData.ValidationRules),
           ParameterQuery: parameterData.ParameterQuery,
           ReportMasterSid: reportId
         }
@@ -426,7 +475,8 @@ export class ReportMasterService {
           UpdatedOn: new Date(),
           ParameterName: parameterData.ParameterName,
           ParameterFieldType: parameterData.ParameterFieldType,
-          DropDownValue: parameterData.DropDownValue,
+          DropDownValue: this.parseDropDownValue(parameterData.DropDownValue),
+          ValidationRules: this.parseDropDownValue(parameterData.ValidationRules),
           ParameterQuery: parameterData.ParameterQuery,
         }
       });
