@@ -1453,6 +1453,30 @@ export class AccountsReportsService {
         where: { SubledgerMasterSid: ledgerMasterSid },
       });
 
+      if(!subledger) {
+        throw new Error(`Subledger-${ledgerMasterSid} not found`);
+      }
+
+      if(!subledger.SubledgerMappingSid) {
+        throw new Error(`No customer found for Subledger-${ledgerMasterSid}`);
+      }
+
+      const customer = await this._db.customerMaster.findFirst({
+        where : { CustomerMasterSid : subledger?.SubledgerMappingSid , status : 'A'},
+        select : {
+          CustomerAddress1 : true,
+          CustomerAddress2 : true,
+          CustomerBranch:{
+            where:{
+              status : 'A'
+            },
+            select : {
+              ContactNo : true
+            }
+          }
+        }
+      })
+
       const ledger = await this._db.cOAMaster.findUnique({
         where: { COAMasterSid: coaMasterSid },
       });
@@ -1681,6 +1705,8 @@ export class AccountsReportsService {
         subledgerName: subledger?.SubledgerName,
         ledgerName: ledger?.LedgerName,
         ledgerType: ledger?.LedgerType,
+        customerAddress : customer?.CustomerAddress1 || customer?.CustomerAddress2 || '',
+        contactNo : customer?.CustomerBranch?.[0]?.ContactNo || '',
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         openingBalance: openingBalance,

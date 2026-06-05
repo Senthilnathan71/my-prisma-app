@@ -143,6 +143,8 @@ export class OperationReportsService {
           return await this.generateFreightMoMGrowthReport(parameters);
         case 'not-booked-rates':
           return await this.generateCostRevenueNotBookedReport(parameters);
+        case 'unpicked-cargo':
+          return await this.generateUnpickedCargoReport(parameters);
         case 'transhipment-cargo':
           return await this.generateTranshipmentCargoReport(parameters);
         case 'nomination-booking':
@@ -761,6 +763,7 @@ export class OperationReportsService {
             { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
             { MenuName: { equals: 'House Job', mode: 'insensitive' } },
             { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
             {
               MenuName: {
                 contains: 'Agent Master Air Way',
@@ -789,6 +792,7 @@ export class OperationReportsService {
           const menuName = m.MenuName.toLowerCase();
           return (
             menuName === 'house job' ||
+            menuName === 'service job' ||
             menuName.includes('house air way') ||
             menuName.includes('agent master air way') ||
             menuName.includes('agentmaster air way')
@@ -900,19 +904,19 @@ export class OperationReportsService {
         }
       });
 
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job', status: 'A' },
-        select: { MenuMasterSid: true },
-      });
+      // const houseJobMenu = await this._db.menuMaster.findFirst({
+      //   where: { MenuName: 'House Job', status: 'A' },
+      //   select: { MenuMasterSid: true },
+      // });
 
-      if (!houseJobMenu) {
-        throw new BadRequestException('House Job menu not found');
-      }
+      // if (!houseJobMenu) {
+      //   throw new BadRequestException('House Job menu not found');
+      // }
 
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
           status: 'A',
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
+          MenuMasterSid: {in: allHouseMenuSids},
           TransactionSid: { in: houseJobIds },
         },
         select: {
@@ -1694,6 +1698,7 @@ export class OperationReportsService {
             { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
             { MenuName: { equals: 'House Job', mode: 'insensitive' } },
             { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
             {
               MenuName: {
                 contains: 'Agent Master Air Way',
@@ -1722,6 +1727,7 @@ export class OperationReportsService {
           const menuName = m.MenuName.toLowerCase();
           return (
             menuName === 'house job' ||
+            menuName === 'service job' ||
             menuName.includes('house air way') ||
             menuName.includes('agent master air way') ||
             menuName.includes('agentmaster air way')
@@ -2831,6 +2837,7 @@ export class OperationReportsService {
             { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
             { MenuName: { equals: 'House Job', mode: 'insensitive' } },
             { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
             {
               MenuName: {
                 contains: 'Agent Master Air Way',
@@ -2856,6 +2863,7 @@ export class OperationReportsService {
           const menuName = m.MenuName.toLowerCase();
           return (
             menuName === 'house job' ||
+            menuName === 'service job' ||
             menuName.includes('house air way') ||
             menuName.includes('agent master air way')
           );
@@ -3245,6 +3253,7 @@ export class OperationReportsService {
             { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
             { MenuName: { equals: 'House Job', mode: 'insensitive' } },
             { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
             {
               MenuName: {
                 contains: 'Agent Master Air Way',
@@ -3270,6 +3279,7 @@ export class OperationReportsService {
           const menuName = m.MenuName.toLowerCase();
           return (
             menuName === 'house job' ||
+            menuName === 'service job' ||
             menuName.includes('house air way') ||
             menuName.includes('agent master air way') 
           );
@@ -5284,6 +5294,7 @@ export class OperationReportsService {
             { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
             { MenuName: { equals: 'House Job', mode: 'insensitive' } },
             { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
             {
               MenuName: {
                 contains: 'Agent Master Air Way',
@@ -5300,6 +5311,7 @@ export class OperationReportsService {
           const menuName = m.MenuName.toLowerCase();
           return (
             menuName === 'house job' ||
+            menuName === 'service job' ||
             menuName.includes('house air way') ||
             menuName.includes('agent master air way')
           );
@@ -5574,6 +5586,7 @@ export class OperationReportsService {
             { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
             { MenuName: { equals: 'House Job', mode: 'insensitive' } },
             { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+            { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
             {
               MenuName: {
                 contains: 'Agent Master Air Way',
@@ -5590,6 +5603,7 @@ export class OperationReportsService {
           const menuName = m.MenuName.toLowerCase();
           return (
             menuName === 'house job' ||
+            menuName === 'service job' ||
             menuName.includes('house air way') ||
             menuName.includes('agent master air way') 
           );
@@ -7758,6 +7772,7 @@ ports.forEach((p) => {
               { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
               { MenuName: { equals: 'House Job', mode: 'insensitive' } },
               { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
+              { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
               {
                 MenuName: {
                   contains: 'Agent Master Air Way',
@@ -7789,6 +7804,7 @@ ports.forEach((p) => {
             const menuName = m.MenuName.toLowerCase();
             return (
               menuName === 'house job' ||
+              menuName.includes('Service Job') ||
               menuName.includes('house air way') ||
               menuName.includes('agent master air way') ||
               menuName.includes('agentmaster air way')
@@ -8020,8 +8036,76 @@ ports.forEach((p) => {
     }
   }
 
-  // Import Nonimation Booking
+  // Unpicked Cargo
+  async generateUnpickedCargoReport(params: any) {
+    const {
+      FromHblDt:FromDate,
+      ToHblDt:ToDate,
+      companyId: CompanyMasterSid,
+      Branch: branchId,
+    } = params;
+    
+    try {
+       const branches =
+      branchId && branchId.length > 0
+        ? await this._db.branchMaster.findMany({
+            where: { BranchMasterSid: { in: branchId } },
+            select: { BranchMasterSid: true, branchName: true },
+          })
+        : await this._db.branchMaster.findMany({
+            where: { CompanyMasterSid },
+            select: { BranchMasterSid: true, branchName: true },
+          });
 
+    const resolvedBranchIds = branches.map((b) => b.BranchMasterSid);
+    const resolvedBranchNames = branches.map((b) => b.branchName);
+    const branchInvolved =
+      branchId && branchId.length > 0
+        ? branches.map((b) => b.branchName).join(', ')
+        : 'All Branches';
+
+        const housedata = await this._db.houseJob.findMany({
+          where: {
+            status: 'A',
+            CompanyMasterSid,
+            BranchMasterSid: { in: resolvedBranchIds },
+            AND: [
+              { HBLDate: { gte: FromDate } },
+              { HBLDate: { lte: ToDate } },
+            ],
+          },
+          include:{
+            masterJob:true
+          },
+          orderBy: {
+            HBLDate:'asc'
+          }
+        });
+
+        const data = housedata.map((h) => {
+          return {
+            HBLDate:h.HBLDate,
+            HBLNo:h.HBLNo,
+            MBLNo:h.masterJob?.MBLNo,
+            POL:h.POL,
+            POD:h.POD,
+            FPD:h.FPD,
+            consigneeName:h.ConsigneeName,
+            notify:h.Notify
+          };
+        });
+        
+        return {
+          params,
+          data,
+          branchInvolved
+        };
+        }catch(error){
+          throw error;
+        }
+  }
+
+  // Import Nonimation Booking
   async generateImportNominationBookingReport(params: any) {
     const {
       BookingFromDate:FromDate,
@@ -8102,6 +8186,11 @@ ports.forEach((p) => {
               where: {
                 status: 'A',
               }
+            },
+            houseJob:{
+              where:{
+                status: 'A',
+              }
             }
           },
           orderBy: {
@@ -8136,7 +8225,8 @@ ports.forEach((p) => {
           POL : ports.find((p)=>p.PortCode === booking.POL)?.PortName,
           POO : ports.find((p)=>p.PortCode === booking.POO)?.PortName,
           FDC : ports.find((p)=>p.PortCode === booking.FPD)?.PortName,
-          originAgent : booking?.bookingOthers?.[0]?.OriginAgent || ''
+          originAgent : booking?.bookingOthers?.[0]?.OriginAgent || '',
+          HBLNo:booking?.houseJob?.HBLNo || '',
         }));
 
        return {
@@ -8150,7 +8240,6 @@ ports.forEach((p) => {
   }
 
   // Daily Job Register
-
   async generateDailyJobRegisterReport(params: any) {
     const {
       ToDate,
@@ -8190,6 +8279,18 @@ ports.forEach((p) => {
         const year = value.getFullYear();
         return `${day}-${month}-${year}`;
       };
+
+      const departments = await this._db.departmentMaster.findMany({
+        where: {
+          Status: 'A',
+          CompanyMasterSid,
+        },
+        select: {
+          DepartmentMasterSid:true,
+          departmentName: true,
+          FCLLCL: true,
+        },
+      });
 
       const bookings = await this._db.bookingHeader.findMany({
         where: {
@@ -8274,27 +8375,89 @@ ports.forEach((p) => {
         ),
         buildCountRow(
           'Nominated Jobs',
-          (booking) => String(booking.Nominated || '').toLowerCase() === 'y',
+          (booking) => String(booking.ShipmentType || '').toLowerCase() === 'y',
         ),
         buildCountRow(
           'LCL Jobs',
-          (booking) => String(booking.ShipmentType || '').toLowerCase() === 'lcl',
+          (booking) => departments.find((d) => d.DepartmentMasterSid === booking.DepartmentMasterSid)?.FCLLCL === 'LCL',  
         ),
         buildCountRow(
           'FCL Jobs',
-          (booking) => String(booking.ShipmentType || '').toLowerCase() === 'fcl',
+          (booking) => departments.find((d) => d.DepartmentMasterSid === booking.DepartmentMasterSid)?.FCLLCL === 'FCL',
         ),
         buildCountRow(
           'Air Jobs',
-          (booking) => String(booking.ShipmentType || '').toLowerCase() === 'air',
+          (booking) => departments.find((d) => d.DepartmentMasterSid === booking.DepartmentMasterSid)?.FCLLCL === 'Air',
         ),
       ];
+
+      const customerMap = new Map<
+        string,
+        {
+          customerName: string;
+          jobsOpenedCount: number;
+          m3Booked: number;
+          importCount: number;
+          exportCount: number;
+          transhipmentCount: number;
+          nominatedCount: number;
+          lclCount: number;
+          fclCount: number;
+          airCount: number;
+          total: number;
+        }
+      >();
+
+      bookings.forEach((booking) => {
+        const customerName = String(booking.CustomerName || '').trim() || 'Unknown Customer';
+        const current = customerMap.get(customerName) || {
+          customerName,
+          jobsOpenedCount: 0,
+          m3Booked: 0,
+          importCount: 0,
+          exportCount: 0,
+          transhipmentCount: 0,
+          nominatedCount: 0,
+          lclCount: 0,
+          fclCount: 0,
+          airCount: 0,
+          total: 0,
+        };
+
+        current.jobsOpenedCount += 1;
+        current.total += 1;
+        current.m3Booked += (booking.bookingCargo || []).reduce(
+          (sum, cargo) => sum + (Number(cargo.Volume) || 0),
+          0,
+        );
+        if (booking.JobType === 'Import') current.importCount += 1;
+        if (booking.JobType === 'Export') current.exportCount += 1;
+        if (booking.JobType === 'Transhipment') current.transhipmentCount += 1;
+        if (String(booking.ShipmentType || '').toLowerCase() === 'y') {
+          current.nominatedCount += 1;
+        }
+
+        const shipmentCategory = departments.find(
+          (d) => d.DepartmentMasterSid === booking.DepartmentMasterSid,
+        )?.FCLLCL;
+
+        if (shipmentCategory === 'LCL') current.lclCount += 1;
+        if (shipmentCategory === 'FCL') current.fclCount += 1;
+        if (shipmentCategory === 'Air') current.airCount += 1;
+
+        customerMap.set(customerName, current);
+      });
+
+      const customerData = Array.from(customerMap.values()).sort((a, b) =>
+        a.customerName.localeCompare(b.customerName),
+      );
 
       return {
         params,
         branchInvolved,
         dateLabel: formatDateLabel(selectedDate),
         data,
+        customerData,
       };
     } catch (error) {
       throw error;
