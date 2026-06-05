@@ -75,8 +75,8 @@ export const getTaxLedger = (voucherType: TaxVoucherType): TaxLedgerType | undef
 // Ledger Types allowed per Voucher Type (for COA dropdown filtering)
 // ==============================
 export const VOUCHER_LEDGER_TYPE_MAP: Record<string, string[]> = {
-  PMT: ['Other Cost', 'Cost' ,'Expenses GST', 'Imprest', 'Income Tax Payable', 'Input Tax', 'Sy Cr','Cash','Bank',"Asset"],
-  RPT: ['Other Cost', 'Other Revenue', 'Income GST', 'Output Tax', 'Sy Dr','Cash','Bank'],
+  PMT: ['Other Cost', 'Cost' ,'Expenses GST', 'Imprest', 'Income Tax Payable', 'TDS Payable','Input Tax', 'Sy Cr','Cash','Bank',"Asset"],
+  RPT: ['Other Cost', 'Other Revenue', 'Income GST','TDS Receivable','Output Tax', 'Sy Dr','Cash','Bank'],
 };
 
 export const getAllowedLedgerTypes = (voucherType: string): string[] => {

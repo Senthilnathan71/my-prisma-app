@@ -36,6 +36,8 @@ export interface CreateVoucherTDSDto {
   TDSAmount: number;
   TDSPartyAmount?: number | null;
   Reason?: string | null;
+  CertificateNo?: string | null;
+  NotificationNo?: string | null;
   CreatedBy?: string;
   UpdatedBy?: string;
   Status?: string;
@@ -62,8 +64,23 @@ export class TdsCalculationService {
           CustomerBranchSid: dto.CustomerBranchSid,
           CompanyMasterSid: dto.CompanyMasterSid,
           Status: 'A',
-          EffectiveFrom: { lte: voucherDate },
-          EffectiveTo: { gte: voucherDate },
+          OR: [
+            // Non-exempt rows: null dates mean "no restriction" — always active.
+            {
+              TaxExempt: 'N',
+              AND: [
+                { OR: [{ EffectiveFrom: null }, { EffectiveFrom: { lte: voucherDate } }] },
+                { OR: [{ EffectiveTo: null },   { EffectiveTo:   { gte: voucherDate } }] },
+              ],
+            },
+            // Exempt rows (lower-deduction certificate): dates define certificate validity
+            // and must be explicitly set — null dates mean the cert is not yet configured.
+            {
+              TaxExempt: 'Y',
+              EffectiveFrom: { lte: voucherDate },
+              EffectiveTo:   { gte: voucherDate },
+            },
+          ],
         },
         include: {
           tdsSetHeader: {
@@ -133,7 +150,7 @@ export class TdsCalculationService {
         _sum: { TDSAmount: true },
       });
       certificateCumulativeDeducted = toNumber(aggDeducted._sum.TDSAmount ?? 0);
-      certificateExhausted = certificateCumulativeDeducted >= Number(mapping.CertificateAmt);
+      certificateExhausted = certificateCumulativeDeducted >= Number(mapping.TransactionLimit ?? 0);
     }
 
     return {
@@ -208,6 +225,8 @@ export class TdsCalculationService {
         TDSAmount: data.TDSAmount,
         TDSPartyAmount: data.TDSPartyAmount ?? null,
         Reason: data.Reason ?? null,
+        CertificateNo: data.CertificateNo ?? null,
+        NotificationNo: data.NotificationNo ?? null,
         CreatedBy: data.CreatedBy ?? 'system',
         Status: data.Status ?? 'A',
       },
@@ -229,6 +248,8 @@ export class TdsCalculationService {
           TDSAmount: data.TDSAmount,
           TDSPartyAmount: data.TDSPartyAmount ?? null,
           Reason: data.Reason ?? null,
+          CertificateNo: data.CertificateNo ?? null,
+          NotificationNo: data.NotificationNo ?? null,
           UpdatedBy: data.UpdatedBy ?? 'system',
           UpdatedOn: new Date(),
         },

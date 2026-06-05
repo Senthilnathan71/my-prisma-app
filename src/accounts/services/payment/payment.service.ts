@@ -476,6 +476,9 @@ export class PaymentService {
                         VoucherType: voucherType.VoucherTypeMasterSid,
                         PostDate: null,
                         Narration: payload.Narration || "",
+                        // PR-converted payments settle operational charges / expenses.
+                        // Party FK fields are intentionally null — party ledger, sub-ledger, and
+                        // COA do not apply, and must not trigger outstanding or sub-ledger logic.
                         PartyMasterSid: payload.PaymentRequestSid ? null : payload.PartyMasterSid,
                         PartyName: payload.PaymentRequestSid ? "" : (payload.PartyName || ""),
                         PartyAddress: payload.PaymentRequestSid ? "" : (payload.PartyAddress || ""),
@@ -520,16 +523,9 @@ export class PaymentService {
                 });
 
                 // 5. Prepare VoucherDetail payload array
-                const detailItems = (payload.detailItems || []).filter((item: any) => {
-                    if (!payload.PaymentRequestSid) return true;
-                    const isPaymentRequestPartyRow =
-                        payload.PartyMasterSid &&
-                        item.LedgerMasterSid === payload.PartyMasterSid &&
-                        !item.SourceDetailSid &&
-                        !item.ChargeMasterSid &&
-                        item.COAMasterSid !== payload.BankCOA;
-                    return !isPaymentRequestPartyRow;
-                });
+                // No filtering needed — the frontend sends the exact rows to persist,
+                // including the party row for PR-converted payments.
+                const detailItems = payload.detailItems || [];
                 const allDetailPayload = detailItems.map((item, index) => ({
                     CreatedBy: payload.CreatedBy,
                     Status: 'A',
@@ -688,8 +684,11 @@ export class PaymentService {
                     data: matchingDetails
                 });
 
-                // TDS deduction (VoucherDetailSid backfilled at post time)
-                if (payload.tdsDetail && toNumber(payload.tdsDetail.TDSAmount) > 0) {
+                // TDS deduction (VoucherDetailSid backfilled at post time).
+                // Always persist when tdsDetail is present — even TDSAmount=0 rows are needed
+                // so the backend's cumulative TaxableAmount aggregation stays accurate and
+                // threshold triggers fire correctly on future payments.
+                if (payload.tdsDetail) {
                     await this.tdsCalculation.createVoucherTDS({
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
@@ -702,6 +701,8 @@ export class PaymentService {
                         TDSAmount: payload.tdsDetail.TDSAmount,
                         TDSPartyAmount: payload.tdsDetail.TDSPartyAmount ?? null,
                         Reason: payload.tdsDetail.Reason ?? null,
+                        CertificateNo: payload.tdsDetail.CertificateNo ?? null,
+                        NotificationNo: payload.tdsDetail.NotificationNo ?? null,
                         CreatedBy: payload.CreatedBy,
                         Status: 'A',
                     }, prisma);
@@ -870,7 +871,7 @@ export class PaymentService {
                         COAMasterSid: isPaymentRequestPayment ? null : (payload.COAMasterSid ?? existingHeader.COAMasterSid),
                         BankCOA: payload.BankCOA ?? null,
                         BankPartyName: isPaymentRequestPayment ? (paymentRequest?.PayableTo || payload.BankPartyName || "") : (payload.BankPartyName || ""),
-                        GST_VAT: isPaymentRequestPayment ? "" : (payload.GST_VAT || ""),
+                        GST_VAT: payload.GST_VAT || "",
                         InvoiceType: payload.InvoiceType || "",
                         ReversalVoucher: isPaymentRequestPayment ? paymentRequestSid : (payload.ReversalVoucher ?? existingHeader.ReversalVoucher ?? null),
                         TaxNumber: payload.TaxNumber ?? null,
@@ -1172,8 +1173,11 @@ export class PaymentService {
 
                 const updatedCreatedMatchings = await Promise.all(matchingOperations);
 
-                // TDS upsert / removal (VoucherDetailSid stays null until post)
-                if (payload.tdsDetail && toNumber(payload.tdsDetail.TDSAmount) > 0) {
+                // TDS upsert / removal (VoucherDetailSid stays null until post).
+                // Upsert whenever tdsDetail is present (including TDSAmount=0) so the
+                // cumulative TaxableAmount base remains complete.  Only remove when
+                // the frontend sends no tdsDetail (TDS mapping was cleared entirely).
+                if (payload.tdsDetail) {
                     await this.tdsCalculation.upsertVoucherTDS(VoucherHeaderSid, {
                         CompanyMasterSid,
                         BranchMasterSid,
@@ -1186,6 +1190,8 @@ export class PaymentService {
                         TDSAmount: payload.tdsDetail.TDSAmount,
                         TDSPartyAmount: payload.tdsDetail.TDSPartyAmount ?? null,
                         Reason: payload.tdsDetail.Reason ?? null,
+                        CertificateNo: payload.tdsDetail.CertificateNo ?? null,
+                        NotificationNo: payload.tdsDetail.NotificationNo ?? null,
                         CreatedBy: updatedBy,
                         UpdatedBy: updatedBy,
                         Status: 'A',
@@ -1408,12 +1414,30 @@ export class PaymentService {
                 const isExportWithoutPayment = voucher.InvoiceType === 'BOS' || voucher.InvoiceType === 'EXE' || voucher.InvoiceType === 'OOS' || voucher.InvoiceType === 'REIMB';
                 const isZeroRated = voucher.InvoiceType === 'NONGST';
 
-                const taxSummaries = isExportWithoutPayment
+                // Defensive fallback: PR payments (no party) created before the PlaceOfSupply
+                // fix may have an empty PlaceOfSupply. Resolve it from the branch state so
+                // CGST+SGST (India) / VAT (UAE) tax rows are still generated on posting.
+                let effectivePlaceOfSupply = voucher.PlaceOfSupply?.trim() || '';
+                let effectiveTaxCategory: 'Inter' | 'Intra' = payload.taxDetails.TaxCategory || 'Inter';
+                if (!effectivePlaceOfSupply && !voucher.CustomerBranchSid) {
+                    const branch = await tx.branchMaster.findUnique({
+                        where: { BranchMasterSid: voucher.BranchMasterSid },
+                        select: { stateMaster: { select: { stateName: true } } },
+                    });
+                    effectivePlaceOfSupply = branch?.stateMaster?.stateName || '';
+                    if (effectivePlaceOfSupply && payload.taxDetails.countryCode === 'in') {
+                        effectiveTaxCategory = 'Intra';
+                    }
+                }
+                const hasPlaceOfSupply = !!effectivePlaceOfSupply;
+                const effectiveTaxDetails = { ...payload.taxDetails, TaxCategory: effectiveTaxCategory };
+
+                const taxSummaries = (isExportWithoutPayment || !hasPlaceOfSupply)
                     ? []
                     : await this.voucherService.summarizeTaxes(
                         VoucherDetail as any,
                         'PMT',
-                        payload.taxDetails,
+                        effectiveTaxDetails,
                         payload.companyMasterSid,
                         tx,
                         isZeroRated,
