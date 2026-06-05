@@ -1,3 +1,4 @@
+import { SubledgerMaster } from './../../../../node_modules/.prisma/client/index.d';
 
 import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
@@ -255,6 +256,17 @@ export class InvoiceService {
             include: {
               stateMaster: {
                 select: { StateMasterSid: true, stateName: true, IsUnionTerritory: true }
+              },
+              customerMaster:{
+                select:{
+                  PanType: true,
+                  countryMaster:{
+                    select:{
+                      CountryMasterSid: true,
+                      countryCode: true,
+                    }
+                  }
+                }
               }
             }
           },
