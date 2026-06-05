@@ -1073,7 +1073,7 @@ export class MasterJobService {
                                 Nominated: bookingHeader.Nominated || '',
                                 PODTerminal: bookingHeader.PODTerminal || '',
                                 ShipmentNo: bookingHeader.ShipmentNo || '',
-                                OriginAgent: bookingHeader.OriginAgent || ''
+                                OriginAgent: bookingOthers?.[0].OriginAgent || ''
                             },
                         }).catch(err => {
                             console.error('HouseJobCargo createMany error:', err);
@@ -2883,7 +2883,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             Nominated: bookingHeader.Nominated || '',
                             PODTerminal: bookingHeader.PODTerminal || '',
                             ShipmentNo: bookingHeader.ShipmentNo || '',
-                            OriginAgent: bookingHeader.OriginAgent || '',
+                            OriginAgent: bookingOthers?.[0].OriginAgent || '',
                         },
                     }).catch(err => {
                         console.error('HouseJobCargo createMany error:', err);
@@ -4035,7 +4035,7 @@ if (houseJobsForBookingSync.length > 0) {
                         NominatedBy: bookingHeader.NominatedBy || '',
                         PODTerminal: bookingHeader.PODTerminal || '',
                         ShipmentNo: bookingHeader.ShipmentNo || '',
-                        OriginAgent: bookingHeader.OriginAgent || ''
+                        OriginAgent: bookingOthers?.[0]?.OriginAgent || ''
                     }
                 }).catch(err => {
                     console.error('HouseJobCargo createMany error:', err);
@@ -4808,7 +4808,7 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
             NotifyAddress: houseJob.NotifyAddress,
             // PODTerminal: houseJob.PODTerminal,
             ShipmentNo: houseJob.ShipmentNo,
-            OriginAgent: houseJob.OriginAgent,
+            // OriginAgent: houseJob.OriginAgent,
             BookingStatus: bookingStatus,
             CarrierSid: houseJob.CarrierSid,
             JobType: houseJob.JobType,
@@ -4958,6 +4958,7 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
                     SwitchBLShipper: othersData.SwitchBLShipper || '',
                     SwitchBLConsignee: othersData.SwitchBLConsignee || '',
                     SwitchLocation: othersData.SwitchLocation || '',
+                    OriginAgent : houseJob.OriginAgent || '',
                     createdBy
                 }
             });
