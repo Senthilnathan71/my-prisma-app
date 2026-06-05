@@ -152,6 +152,8 @@ export class AuditLogService {
                     return this.getCityLogs(recordId);
                 case 'User':
                     return this.getUserLogs(recordId);
+                case 'ReportMaster':
+                    return this.getReportMasterLogs(recordId);
             }
         } catch (error) {
             this.logger.warn(`getAuditLog Error: ${error.message}`);
@@ -7593,6 +7595,139 @@ export class AuditLogService {
                     rowLabel: this.getUserRowLabel(log, rowLabelMaps,oldVal,newVal),
                 };
             })
+            return formattedLogs;
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            throw new Error(`Error fetching audit logs: ${error.message}`);
+        }
+    }
+
+    private getReportMasterRowLabel(
+        log: any,
+        rowLabelMaps: {
+            detailMap: Map<string, string>;
+        },
+        oldVal: Record<string, any>,
+        newVal: Record<string, any>
+    ): string | null {
+        const recordId = String(log.recordId ?? '');
+        switch (log.tableName) {
+            case 'ReportMasterDetail':
+                return (
+                    rowLabelMaps.detailMap.get(recordId) ||
+                    `Parameter [${newVal.ParameterName || oldVal.ParameterName || recordId}]`
+                );
+            default:
+                return null;
+        }
+    }
+
+    private getReportMasterLabel(tableName: string): string {
+        const sectionMap: Record<string, string> = {
+            ReportMaster: 'Report',
+            ReportMasterDetail: 'Parameter',        
+        };
+        return sectionMap[tableName] || tableName;
+    }
+
+    private async getReportMasterLogs(recordId?: string) {
+        try {
+            let conditions: any[] = [];
+            let detailRows: any[] = [];
+
+            const reportSid = Number(recordId);
+
+            const [
+                fetchedDetails
+            ] = await Promise.all([
+                this._db.reportMasterDetail.findMany({
+                    where: { ReportMasterDetailSid: reportSid },
+                    select: {
+                        ReportMasterDetailSid: true,
+                        ParameterName: true,
+                    }
+                })
+            ])
+
+            detailRows = fetchedDetails;
+
+            conditions = [
+                {
+                    tableName: 'ReportMaster',
+                    recordId: recordId
+                },
+                ...(detailRows.length
+                    ? [{
+                        tableName: 'ReportMasterDetail',
+                        recordId: { in: detailRows.map(x => String(x.ReportMasterDetailSid)) }
+                    }]
+                    : [])
+            ];
+
+            const logs = await this._db.auditLog.findMany({
+                where: {
+                    OR: conditions
+                },
+                orderBy: {
+                    changedAt: 'desc'
+                }
+            });
+
+            const [company] = await Promise.all([
+                this._db.companyMaster.findMany({
+                    select: {
+                        CompanyMasterSid: true,
+                        companyName: true
+                    }
+                })
+            ])
+
+            const companyMap = new Map<string, string>(
+                company.map(c => [String(c.CompanyMasterSid), c.companyName])
+            );
+
+            const detailMap = new Map<string, string>(
+                detailRows.map((d) => {
+                    const parameter = d.ParameterName?.toString().trim() || d.ReportMasterDetailSid;
+                    return [String(d.ReportMasterDetailSid), `Detail [${parameter}]`];
+                })
+            );
+
+            const ignoredFields = [
+                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
+            ];
+
+            const statusMap = {
+                A: 'Active',
+                S: 'Suspended',
+                D: 'Deleted'
+            };
+
+            const rowLabelMaps = {
+                detailMap
+            }
+
+            const formattedLogs = logs.map((log: any) => {
+                const oldVal = { ...(log.oldVal || {}) };
+                const newVal = { ...(log.newVal || {}) };
+
+                this.replaceValueFromMap(oldVal, 'Status', statusMap);
+                this.replaceValueFromMap(newVal, 'Status', statusMap);
+
+                this.replaceArrayIdsWithNames(oldVal, 'ReportExcludedCompany', companyMap);    
+                this.replaceArrayIdsWithNames(newVal, 'ReportExcludedCompany', companyMap);
+
+                this.removeIgnoredFields(oldVal, ignoredFields);
+                this.removeIgnoredFields(newVal, ignoredFields);
+
+                return {
+                    ...log,
+                    sectionLabel: this.getReportMasterLabel(log.tableName),
+                    rowLabel: this.getReportMasterRowLabel(log, rowLabelMaps, oldVal, newVal),
+                    oldVal,
+                    newVal
+                };
+            });
             return formattedLogs;
         } catch (error) {
             this.logger.warn(`getAuditLogsError: ${error}`);
