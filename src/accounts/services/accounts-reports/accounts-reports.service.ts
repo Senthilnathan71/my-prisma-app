@@ -6199,7 +6199,7 @@ export class AccountsReportsService {
         state,
         StateMasterSid,
         stateMasterSid,
-        city,
+        // city,
         voucherType: voucherTypeLower,
         VoucherType: voucherTypeUpper,
       } = params;
@@ -6304,15 +6304,15 @@ export class AccountsReportsService {
             };
       }
 
-      if (city && String(city).trim().length > 0) {
-        const cityName = String(city).trim();
-        whereClause.BranchMaster = {
-          ...(whereClause.BranchMaster || {}),
-          cityMaster: {
-            cityName: { contains: cityName, mode: 'insensitive' },
-          },
-        };
-      }
+      // if (city && String(city).trim().length > 0) {
+      //   const cityName = String(city).trim();
+      //   whereClause.BranchMaster = {
+      //     ...(whereClause.BranchMaster || {}),
+      //     cityMaster: {
+      //       cityName: { contains: cityName, mode: 'insensitive' },
+      //     },
+      //   };
+      // }
 
       const voucherHeaders = await this._db.voucherHeader.findMany({
         where: whereClause,
