@@ -836,28 +836,24 @@ export class CustomerService {
                     CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
-                    CustomerBranch: true,
-                    countryMaster : {
-                        select:{
-                            countryName : true
+                    countryMaster: {
+                        select: {
+                            CountryMasterSid: true,
+                            countryName: true
                         }
                     }
                 }
             });
-            const formattedCustomerList = customerList.flatMap(customer => {
-                const cusBranches = customer.CustomerBranch.map(branch => ({
-                    CustomerMasterSid: customer.CustomerMasterSid,
-                    CustomerBranchSid: branch.CustomerBranchSid,
-                    CustomerName: customer.CustomerName,
-                    BranchName: branch.BranchName,
-                    Address: branch.Address,
-                    Email: branch.Email,
-                    PanType: customer.PanType,
-                    CompanyType: customer.CompanyType,
-                    CountryName: customer.countryMaster?.countryName,
-                }));
-                return cusBranches;
-            })
+            const formattedCustomerList = customerList.map(customer => ({
+                CustomerMasterSid: customer.CustomerMasterSid,
+                CustomerName: customer.CustomerName,
+                PanType: customer.PanType,
+                PanName: customer.PanName,
+                CompanyType: customer.CompanyType,
+                RegistrationNo: customer.RegistrationNo,
+                CountryMasterSid: customer.countryMaster?.CountryMasterSid,
+                CountryName: customer.countryMaster?.countryName,
+            }));
             return formattedCustomerList;
         } catch (error) {
             throw error;

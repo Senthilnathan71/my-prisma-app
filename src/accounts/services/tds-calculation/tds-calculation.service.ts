@@ -15,6 +15,15 @@ export interface GetSupplierTdsContextDto {
   excludeVoucherHeaderSid?: number;
 }
 
+export interface ApplicableRateParams {
+  isLocal: boolean;
+  isSpecified: boolean;
+  hasPAN: boolean;
+  isExempt: boolean;
+  certPct: number;
+  baseRate: number | null;
+}
+
 export interface CreateVoucherTDSDto {
   CompanyMasterSid: number;
   BranchMasterSid: number;
@@ -27,6 +36,8 @@ export interface CreateVoucherTDSDto {
   TDSAmount: number;
   TDSPartyAmount?: number | null;
   Reason?: string | null;
+  CertificateNo?: string | null;
+  NotificationNo?: string | null;
   CreatedBy?: string;
   UpdatedBy?: string;
   Status?: string;
@@ -53,8 +64,23 @@ export class TdsCalculationService {
           CustomerBranchSid: dto.CustomerBranchSid,
           CompanyMasterSid: dto.CompanyMasterSid,
           Status: 'A',
-          EffectiveFrom: { lte: voucherDate },
-          EffectiveTo: { gte: voucherDate },
+          OR: [
+            // Non-exempt rows: null dates mean "no restriction" — always active.
+            {
+              TaxExempt: 'N',
+              AND: [
+                { OR: [{ EffectiveFrom: null }, { EffectiveFrom: { lte: voucherDate } }] },
+                { OR: [{ EffectiveTo: null },   { EffectiveTo:   { gte: voucherDate } }] },
+              ],
+            },
+            // Exempt rows (lower-deduction certificate): dates define certificate validity
+            // and must be explicitly set — null dates mean the cert is not yet configured.
+            {
+              TaxExempt: 'Y',
+              EffectiveFrom: { lte: voucherDate },
+              EffectiveTo:   { gte: voucherDate },
+            },
+          ],
         },
         include: {
           tdsSetHeader: {
@@ -93,11 +119,85 @@ export class TdsCalculationService {
     const customerCompanyType =
       mapping?.CompanyType ?? customerBranch?.customerMaster?.CompanyType ?? null;
 
+    // SM-9: enforce the lower-deduction certificate amount cap.
+    // No dedicated "TDS Payable" line is auto-generated in VoucherTransaction during posting,
+    // so VoucherTDS.TDSAmount is the only authoritative store of "what was deducted."
+    // Join the vendor through VoucherTransaction.LedgerMasterSid (same path the base
+    // aggregation above uses) — VoucherHeader.PartyMasterSid points to SubledgerMaster,
+    // not CustomerMaster, so we can't filter by customer directly.
+    let certificateCumulativeDeducted = 0;
+    let certificateExhausted = false;
+    if (mapping?.TaxExempt === 'Y' && Number(mapping.CertificateAmt ?? 0) > 0) {
+      const aggDeducted = await this._db.voucherTDS.aggregate({
+        where: {
+          Status: 'A',
+          CompanyMasterSid: dto.CompanyMasterSid,
+          VoucherHeader: {
+            PostStatus: 'P',
+            VoucherDate: { gte: dto.fyStartDate, lte: dto.fyEndDate },
+            ...(dto.excludeVoucherHeaderSid
+              ? { VoucherHeaderSid: { not: dto.excludeVoucherHeaderSid } }
+              : {}),
+            VoucherTransaction: {
+              some: {
+                LedgerMasterSid: dto.LedgerMasterSid,
+                DrCr: 'D',
+                Status: 'A',
+              },
+            },
+          },
+        },
+        _sum: { TDSAmount: true },
+      });
+      certificateCumulativeDeducted = toNumber(aggDeducted._sum.TDSAmount ?? 0);
+      certificateExhausted = certificateCumulativeDeducted >= Number(mapping.TransactionLimit ?? 0);
+    }
+
     return {
       mapping,
       customerCompanyType,
       cumulativeTaxableAmount: toNumber(agg._sum.LocalAmount ?? 0),
+      certificateCumulativeDeducted,
+      certificateExhausted,
     };
+  }
+
+  /**
+   * Pure TDS matrix computation — no DB access.
+   * Returns the numeric rate to apply, or null when a required input is missing
+   * (e.g. no baseRate and no certificate entered yet).
+   *
+   * Future extensions (Transporter / Vessel Operator exemption, Sec 206AB filing-status)
+   * should be added here so all callers pick up the change automatically.
+   */
+  computeApplicableRate(params: ApplicableRateParams): number | null {
+    const { isLocal, isSpecified, hasPAN, isExempt, certPct, baseRate } = params;
+
+    if (!isLocal) {
+      if (isExempt) return certPct > 0 ? this.capRate(certPct) : null;
+      return baseRate;
+    }
+
+    if (isSpecified) {
+      if (hasPAN) {
+        if (isExempt) return certPct > 0 ? Math.max(5, this.capRate(certPct * 2)) : null;
+        return baseRate != null ? Math.max(5, this.capRate(baseRate * 2)) : null;
+      }
+      if (isExempt) return certPct > 0 ? Math.max(this.capRate(certPct * 2), 20) : null;
+      return baseRate != null ? Math.max(this.capRate(baseRate * 2), 20) : null;
+    }
+
+    // Non-Specified
+    if (hasPAN) {
+      if (isExempt) return certPct > 0 ? this.capRate(certPct) : null;
+      return baseRate;
+    }
+    if (isExempt) return certPct > 0 ? Math.max(this.capRate(certPct), 20) : null;
+    return baseRate != null ? Math.max(baseRate, 20) : 20;
+  }
+
+  capRate(rate: number): number {
+    return Math.round(Math.min(Math.max(rate, 0), 100) * 100) / 100;
   }
 
   resolveApplicableRate(rates: any[], voucherDate: Date): any | null {
@@ -120,11 +220,13 @@ export class TdsCalculationService {
         VoucherDetailSid: data.VoucherDetailSid ?? null,
         TDSSetRateSid: data.TDSSetRateSid,
         ITSectionCode: data.ITSectionCode,
-        TDSRate: Math.round(Number(data.TDSRate) || 0),
+        TDSRate: Number(data.TDSRate) || 0,
         TaxableAmount: data.TaxableAmount,
         TDSAmount: data.TDSAmount,
         TDSPartyAmount: data.TDSPartyAmount ?? null,
         Reason: data.Reason ?? null,
+        CertificateNo: data.CertificateNo ?? null,
+        NotificationNo: data.NotificationNo ?? null,
         CreatedBy: data.CreatedBy ?? 'system',
         Status: data.Status ?? 'A',
       },
@@ -141,11 +243,13 @@ export class TdsCalculationService {
         data: {
           TDSSetRateSid: data.TDSSetRateSid,
           ITSectionCode: data.ITSectionCode,
-          TDSRate: Math.round(Number(data.TDSRate) || 0),
+          TDSRate: Number(data.TDSRate) || 0,
           TaxableAmount: data.TaxableAmount,
           TDSAmount: data.TDSAmount,
           TDSPartyAmount: data.TDSPartyAmount ?? null,
           Reason: data.Reason ?? null,
+          CertificateNo: data.CertificateNo ?? null,
+          NotificationNo: data.NotificationNo ?? null,
           UpdatedBy: data.UpdatedBy ?? 'system',
           UpdatedOn: new Date(),
         },

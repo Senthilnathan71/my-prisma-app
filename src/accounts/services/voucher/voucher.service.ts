@@ -293,15 +293,15 @@ export class VoucherService {
                 LIMIT 1
                 FOR UPDATE
             `;
-            this.logger.log(`[VOUCHER-GEN] Query: ${query}`);
-            this.logger.log(`[VOUCHER-GEN] QueryPrefix: ${queryPrefix}, DisplayPrefix: ${displayPrefix}, ResetValue: ${resetValue}`);
+            //this.logger.log(`[VOUCHER-GEN] Query: ${query}`);
+            //this.logger.log(`[VOUCHER-GEN] QueryPrefix: ${queryPrefix}, DisplayPrefix: ${displayPrefix}, ResetValue: ${resetValue}`);
 
             // Use raw SQL with FOR UPDATE to lock the row during transaction
             // This prevents race conditions where multiple requests get the same sequence
             const result: any[] = await tx.$queryRawUnsafe(query);
 
             const lastVoucher = result[0];
-            this.logger.log(`[VOUCHER-GEN] Last voucher found: ${JSON.stringify(lastVoucher)}`);
+            //this.logger.log(`[VOUCHER-GEN] Last voucher found: ${JSON.stringify(lastVoucher)}`);
 
             // Calculate next sequence number
             let nextNumber = Number(voucherTypeMaster.DocumentStartingNo || 1);
@@ -318,7 +318,7 @@ export class VoucherService {
                     nextNumber = parsed + 1;
                 }
             }
-            this.logger.log(`[VOUCHER-GEN] Next number: ${nextNumber}, DocumentStartingNo: ${voucherTypeMaster.DocumentStartingNo}`);
+            //this.logger.log(`[VOUCHER-GEN] Next number: ${nextNumber}, DocumentStartingNo: ${voucherTypeMaster.DocumentStartingNo}`);
 
             // Format serial number with specified length
             const serialNumber = String(nextNumber).padStart(slNoLength, '0');
@@ -438,11 +438,11 @@ export class VoucherService {
                 LIMIT 1
                 FOR UPDATE
             `;
-            this.logger.log(`[VM-GEN] Query: ${query}`);
+            //this.logger.log(`[VM-GEN] Query: ${query}`);
 
             const result: any[] = await tx.$queryRawUnsafe(query);
             const lastVoucher = result[0];
-            this.logger.log(`[VM-GEN] Last matching number: ${JSON.stringify(lastVoucher)}`);
+            //this.logger.log(`[VM-GEN] Last matching number: ${JSON.stringify(lastVoucher)}`);
 
             let nextNumber = Number(voucherTypeMaster.DocumentStartingNo || 1);
             if (lastVoucher?.VoucherNumber) {
@@ -543,7 +543,7 @@ export class VoucherService {
     //                 throw new BadRequestException('Billing party is required for voucher generation');
     //             }
 
-    //             this.logger.log(`Validating billing party with ID: ${payload.billingPartySid}`);
+    //             //this.logger.log(`Validating billing party with ID: ${payload.billingPartySid}`);
 
     //             // 5. Get billing party details and validate existence
     //             const billingParty = await tx.customerMaster.findUnique({
@@ -564,7 +564,7 @@ export class VoucherService {
     //                 );
     //             }
 
-    //             this.logger.log(`Billing party found: ${billingParty.CustomerName} (ID: ${billingParty.CustomerMasterSid})`);
+    //             //this.logger.log(`Billing party found: ${billingParty.CustomerName} (ID: ${billingParty.CustomerMasterSid})`);
 
     //             // 6. Find or create Subledger for the billing party
     //             // PartyMasterSid in VoucherHeader references SubledgerMaster, not CustomerMaster
@@ -581,7 +581,7 @@ export class VoucherService {
     //             });
 
     //             if (!subledger) {
-    //                 this.logger.log(`Subledger not found for billing party ${payload.billingPartySid}, creating new subledger`);
+    //                 //this.logger.log(`Subledger not found for billing party ${payload.billingPartySid}, creating new subledger`);
 
     //                 // Get subledger COA from VoucherTypeMaster configuration
     //                 const subledgerCOA = voucherTypeMaster.Subledger || voucherTypeMaster.COALedger;
@@ -606,9 +606,9 @@ export class VoucherService {
     //                     }
     //                 });
 
-    //                 this.logger.log(`Created new subledger: ${subledger.SubledgerName} (ID: ${subledger.SubledgerMasterSid})`);
+    //                 //this.logger.log(`Created new subledger: ${subledger.SubledgerName} (ID: ${subledger.SubledgerMasterSid})`);
     //             } else {
-    //                 this.logger.log(`Found existing subledger: ${subledger.SubledgerName} (ID: ${subledger.SubledgerMasterSid})`);
+    //                 //this.logger.log(`Found existing subledger: ${subledger.SubledgerName} (ID: ${subledger.SubledgerMasterSid})`);
     //             }
 
     //             // 7. Generate voucher number using VoucherTypeMaster configuration
@@ -636,7 +636,7 @@ export class VoucherService {
     //                 payload.chargeTaxGroups.forEach(ctg => {
     //                     chargeTaxGroupMap.set(ctg.RateSid, ctg);
     //                 });
-    //                 this.logger.log(`Using ${payload.chargeTaxGroups.length} manually selected tax groups from frontend`);
+    //                 //this.logger.log(`Using ${payload.chargeTaxGroups.length} manually selected tax groups from frontend`);
     //             }
 
     //             // Enrich booking rates with charge master and currency details for voucher creation
@@ -684,7 +684,7 @@ export class VoucherService {
 
     //                             if (hssacMaster) {
     //                                 hsnSACMasterSid = hssacMaster.HSSACMasterSid;
-    //                                 this.logger.log(`HSN/SAC for charge ${rate.ChargeMasterSid}: HSNCode = ${hsnCode}, HSSACMasterSid = ${hsnSACMasterSid}`);
+    //                                 //this.logger.log(`HSN/SAC for charge ${rate.ChargeMasterSid}: HSNCode = ${hsnCode}, HSSACMasterSid = ${hsnSACMasterSid}`);
     //                             } else {
     //                                 this.logger.warn(`No HSSACMaster found for HSNCode: ${hsnCode} (ChargeMasterSid: ${rate.ChargeMasterSid})`);
     //                             }
@@ -715,7 +715,7 @@ export class VoucherService {
     //                     const isGSTType = manualTaxGroup.taxType === 'GST' || manualTaxGroup.taxType === 'Input' || manualTaxGroup.taxType === 'Output';
     //                     const isInterState = manualTaxGroup.isInterState || false;
 
-    //                     this.logger.log(`Using manual tax for charge ${rate.BookingRatesSid}: ${manualTaxGroup.taxName} (${taxRate}%, ${manualTaxGroup.taxType}, InterState: ${isInterState})`);
+    //                     //this.logger.log(`Using manual tax for charge ${rate.BookingRatesSid}: ${manualTaxGroup.taxName} (${taxRate}%, ${manualTaxGroup.taxType}, InterState: ${isInterState})`);
 
     //                     if (isGSTType) {
     //                         if (isInterState) {
@@ -724,14 +724,14 @@ export class VoucherService {
     //                             taxAmount1 = (amount * taxPercentage1) / 100;
     //                             taxPercentageIGST = taxRate; // For frontend display
     //                             taxAmountIGST = taxAmount1;  // For frontend display
-    //                             this.logger.log(`Applying IGST ${taxRate}% = ${taxAmount1} (stored in Tax1 field)`);
+    //                             //this.logger.log(`Applying IGST ${taxRate}% = ${taxAmount1} (stored in Tax1 field)`);
     //                         } else {
     //                             // Intra-state: CGST + SGST (split evenly)
     //                             taxPercentage1 = taxRate / 2; // CGST
     //                             taxPercentage2 = taxRate / 2; // SGST
     //                             taxAmount1 = (amount * taxPercentage1) / 100;
     //                             taxAmount2 = (amount * taxPercentage2) / 100;
-    //                             this.logger.log(`Applying CGST ${taxPercentage1}% = ${taxAmount1}, SGST ${taxPercentage2}% = ${taxAmount2}`);
+    //                             //this.logger.log(`Applying CGST ${taxPercentage1}% = ${taxAmount1}, SGST ${taxPercentage2}% = ${taxAmount2}`);
     //                         }
     //                     } else if (manualTaxGroup.taxType === 'VAT') {
     //                         // For VAT: single tax
@@ -790,7 +790,7 @@ export class VoucherService {
     //                 throw new BadRequestException(`COA with ID ${voucherTypeMaster.COALedger} not found. Please verify VoucherTypeMaster configuration.`);
     //             }
 
-    //             this.logger.log(`Creating voucher header with PartyMasterSid (SubledgerMasterSid): ${subledger.SubledgerMasterSid} for Customer: ${payload.billingPartySid}, VoucherNumber: ${voucherNumber}`);
+    //             //this.logger.log(`Creating voucher header with PartyMasterSid (SubledgerMasterSid): ${subledger.SubledgerMasterSid} for Customer: ${payload.billingPartySid}, VoucherNumber: ${voucherNumber}`);
 
     //             // Get currency and exchange rate from invoice header or use defaults
     //             let currencyMasterSid: number | undefined;
@@ -799,7 +799,7 @@ export class VoucherService {
     //             if (payload.invoiceHeader) {
     //                 currencyMasterSid = payload.invoiceHeader.currencyMasterSid;
     //                 exchangeRate = payload.invoiceHeader.exchangeRate || 1;
-    //                 this.logger.log(`Using invoice header currency: ${payload.invoiceHeader.currencyCode} (SID: ${currencyMasterSid}), Exchange Rate: ${exchangeRate}`);
+    //                 //this.logger.log(`Using invoice header currency: ${payload.invoiceHeader.currencyCode} (SID: ${currencyMasterSid}), Exchange Rate: ${exchangeRate}`);
     //             }
 
     //             const voucherHeader = await tx.voucherHeader.create({
@@ -875,7 +875,7 @@ export class VoucherService {
     //                         // Calculate TDS amount
     //                         const tdsAmount = (totalTaxableAmount * Number(tdsConfig.tdsRate)) / 100;
 
-    //                         this.logger.log(`Creating TDS record: Taxable=${totalTaxableAmount}, Rate=${tdsConfig.tdsRate}%, Amount=${tdsAmount}`);
+    //                         //this.logger.log(`Creating TDS record: Taxable=${totalTaxableAmount}, Rate=${tdsConfig.tdsRate}%, Amount=${tdsAmount}`);
 
     //                         // Create VoucherTDS record
     //                         await tx.voucherTDS.create({
@@ -895,7 +895,7 @@ export class VoucherService {
     //                             }
     //                         });
 
-    //                         this.logger.log('TDS record created successfully');
+    //                         //this.logger.log('TDS record created successfully');
     //                     } else {
     //                         this.logger.warn(`No TDS configuration found for vendor ${payload.billingPartySid}`);
     //                     }
@@ -1293,7 +1293,7 @@ export class VoucherService {
     //                 throw new BadRequestException('Billing party is required for voucher generation');
     //             }
 
-    //             this.logger.log(`Validating billing party with ID: ${payload.billingPartySid}`);
+    //             //this.logger.log(`Validating billing party with ID: ${payload.billingPartySid}`);
 
     //             // 5. Get billing party details and validate existence
     //             const billingParty = await tx.customerMaster.findUnique({
@@ -1314,7 +1314,7 @@ export class VoucherService {
     //                 );
     //             }
 
-    //             this.logger.log(`Billing party found: ${billingParty.CustomerName} (ID: ${billingParty.CustomerMasterSid})`);
+    //             //this.logger.log(`Billing party found: ${billingParty.CustomerName} (ID: ${billingParty.CustomerMasterSid})`);
 
     //             // 6. Find or create Subledger for the billing party
     //             // PartyMasterSid in VoucherHeader references SubledgerMaster, not CustomerMaster
@@ -1330,7 +1330,7 @@ export class VoucherService {
     //                 }
     //             });
     //             if (!subledger) {
-    //                 this.logger.log(`Subledger not found for billing party ${payload.billingPartySid}, creating new subledger`);
+    //                 //this.logger.log(`Subledger not found for billing party ${payload.billingPartySid}, creating new subledger`);
 
     //                 // Get subledger COA from VoucherTypeMaster configuration
     //                 const subledgerCOA = voucherTypeMaster.Subledger || voucherTypeMaster.COALedger;
@@ -1355,9 +1355,9 @@ export class VoucherService {
     //                     }
     //                 });
 
-    //                 this.logger.log(`Created new subledger: ${subledger.SubledgerName} (ID: ${subledger.SubledgerMasterSid})`);
+    //                 //this.logger.log(`Created new subledger: ${subledger.SubledgerName} (ID: ${subledger.SubledgerMasterSid})`);
     //             } else {
-    //                 this.logger.log(`Found existing subledger: ${subledger.SubledgerName} (ID: ${subledger.SubledgerMasterSid})`);
+    //                 //this.logger.log(`Found existing subledger: ${subledger.SubledgerName} (ID: ${subledger.SubledgerMasterSid})`);
     //             }
 
     //             // 7. Generate voucher number using VoucherTypeMaster configuration
@@ -1385,7 +1385,7 @@ export class VoucherService {
     //                 payload.chargeTaxGroups.forEach(ctg => {
     //                     chargeTaxGroupMap.set(ctg.RateSid, ctg);
     //                 });
-    //                 this.logger.log(`Using ${payload.chargeTaxGroups.length} manually selected tax groups from frontend`);
+    //                 //this.logger.log(`Using ${payload.chargeTaxGroups.length} manually selected tax groups from frontend`);
     //             }
 
     //             // Enrich cost revenue charges with charge master and currency details for voucher creation
@@ -1433,7 +1433,7 @@ export class VoucherService {
 
     //                             if (hssacMaster) {
     //                                 hsnSACMasterSid = hssacMaster.HSSACMasterSid;
-    //                                 this.logger.log(`HSN/SAC for charge ${rate.ChargeMasterSid}: HSNCode = ${hsnCode}, HSSACMasterSid = ${hsnSACMasterSid}`);
+    //                                 //this.logger.log(`HSN/SAC for charge ${rate.ChargeMasterSid}: HSNCode = ${hsnCode}, HSSACMasterSid = ${hsnSACMasterSid}`);
     //                             } else {
     //                                 this.logger.warn(`No HSSACMaster found for HSNCode: ${hsnCode} (ChargeMasterSid: ${rate.ChargeMasterSid})`);
     //                             }
@@ -1464,7 +1464,7 @@ export class VoucherService {
     //                     const isGSTType = manualTaxGroup.taxType === 'GST' || manualTaxGroup.taxType === 'Input' || manualTaxGroup.taxType === 'Output';
     //                     const isInterState = manualTaxGroup.isInterState || false;
 
-    //                     this.logger.log(`Using manual tax for charge ${rate.CostRevenueChargesSid}: ${manualTaxGroup.taxName} (${taxRate}%, ${manualTaxGroup.taxType}, InterState: ${isInterState})`);
+    //                     //this.logger.log(`Using manual tax for charge ${rate.CostRevenueChargesSid}: ${manualTaxGroup.taxName} (${taxRate}%, ${manualTaxGroup.taxType}, InterState: ${isInterState})`);
 
     //                     if (isGSTType) {
     //                         if (isInterState) {
@@ -1473,14 +1473,14 @@ export class VoucherService {
     //                             taxAmount1 = (amount * taxPercentage1) / 100;
     //                             taxPercentageIGST = taxRate; // For frontend display
     //                             taxAmountIGST = taxAmount1;  // For frontend display
-    //                             this.logger.log(`Applying IGST ${taxRate}% = ${taxAmount1} (stored in Tax1 field)`);
+    //                             //this.logger.log(`Applying IGST ${taxRate}% = ${taxAmount1} (stored in Tax1 field)`);
     //                         } else {
     //                             // Intra-state: CGST + SGST (split evenly)
     //                             taxPercentage1 = taxRate / 2; // CGST
     //                             taxPercentage2 = taxRate / 2; // SGST
     //                             taxAmount1 = (amount * taxPercentage1) / 100;
     //                             taxAmount2 = (amount * taxPercentage2) / 100;
-    //                             this.logger.log(`Applying CGST ${taxPercentage1}% = ${taxAmount1}, SGST ${taxPercentage2}% = ${taxAmount2}`);
+    //                             //this.logger.log(`Applying CGST ${taxPercentage1}% = ${taxAmount1}, SGST ${taxPercentage2}% = ${taxAmount2}`);
     //                         }
     //                     } else if (manualTaxGroup.taxType === 'VAT') {
     //                         // For VAT: single tax
@@ -1539,7 +1539,7 @@ export class VoucherService {
     //                 throw new BadRequestException(`COA with ID ${voucherTypeMaster.COALedger} not found. Please verify VoucherTypeMaster configuration.`);
     //             }
 
-    //             this.logger.log(`Creating voucher header with PartyMasterSid (SubledgerMasterSid): ${subledger.SubledgerMasterSid} for Customer: ${payload.billingPartySid}, VoucherNumber: ${voucherNumber}`);
+    //             //this.logger.log(`Creating voucher header with PartyMasterSid (SubledgerMasterSid): ${subledger.SubledgerMasterSid} for Customer: ${payload.billingPartySid}, VoucherNumber: ${voucherNumber}`);
 
     //             // Get currency and exchange rate from invoice header or use defaults
     //             let currencyMasterSid: number | undefined;
@@ -1548,7 +1548,7 @@ export class VoucherService {
     //             if (payload.invoiceHeader) {
     //                 currencyMasterSid = payload.invoiceHeader.currencyMasterSid;
     //                 exchangeRate = payload.invoiceHeader.exchangeRate || 1;
-    //                 this.logger.log(`Using invoice header currency: ${payload.invoiceHeader.currencyCode} (SID: ${currencyMasterSid}), Exchange Rate: ${exchangeRate}`);
+    //                 //this.logger.log(`Using invoice header currency: ${payload.invoiceHeader.currencyCode} (SID: ${currencyMasterSid}), Exchange Rate: ${exchangeRate}`);
     //             }
 
     //             const voucherHeader = await tx.voucherHeader.create({
@@ -1628,7 +1628,7 @@ export class VoucherService {
     //                         // Calculate TDS amount
     //                         const tdsAmount = (totalTaxableAmount * Number(tdsConfig.tdsRate)) / 100;
 
-    //                         this.logger.log(`Creating TDS record: Taxable=${totalTaxableAmount}, Rate=${tdsConfig.tdsRate}%, Amount=${tdsAmount}`);
+    //                         //this.logger.log(`Creating TDS record: Taxable=${totalTaxableAmount}, Rate=${tdsConfig.tdsRate}%, Amount=${tdsAmount}`);
 
     //                         // Create VoucherTDS record
     //                         await tx.voucherTDS.create({
@@ -1648,7 +1648,7 @@ export class VoucherService {
     //                             }
     //                         });
 
-    //                         this.logger.log('TDS record created successfully');
+    //                         //this.logger.log('TDS record created successfully');
     //                     } else {
     //                         this.logger.warn(`No TDS configuration found for vendor ${payload.billingPartySid}`);
     //                     }
@@ -2418,7 +2418,7 @@ export class VoucherService {
         //     }
         // }
 
-        this.logger.log(`Successfully posted voucher ${voucherHeaderSid}: ${transactionSids.length} transactions created`);
+        //this.logger.log(`Successfully posted voucher ${voucherHeaderSid}: ${transactionSids.length} transactions created`);
 
         return {
             success: true,
@@ -2459,7 +2459,7 @@ export class VoucherService {
         invoiceType: string = ''
     ): Promise<TaxSummaryDto[]> {
         try {
-            this.logger.log('Summarizing taxes by HS/SAC code');
+            //this.logger.log('Summarizing taxes by HS/SAC code');
 
             const db = tx || this._db;
             // Group details by HS/SAC code and tax type
@@ -2707,7 +2707,7 @@ export class VoucherService {
             }
 
             const result = Array.from(taxGroups.values());
-            this.logger.log(`Summarized ${result.length} tax entries : ${JSON.stringify(result)}`);
+            //this.logger.log(`Summarized ${result.length} tax entries : ${JSON.stringify(result)}`);
             return result;
 
         } catch (error) {
@@ -2828,7 +2828,7 @@ export class VoucherService {
             throw new BadRequestException(`Voucher detail with ID ${VoucherDetailSid} not found or already deleted`);
         }
 
-        this.logger.log(`Soft deleted voucher detail with ID: ${VoucherDetailSid}`);
+        //this.logger.log(`Soft deleted voucher detail with ID: ${VoucherDetailSid}`);
         return result;
     } catch (error) {
         throw error;

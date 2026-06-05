@@ -3,19 +3,32 @@ import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { TdsFilterDto } from 'src/masters/DTO/tds-filter.dto';
 
 @Injectable()
 export class TdsService {
     constructor(private _db: DatabaseService, private logger: Logger) { }
 
-    async getAllTds(CompanyMasterSid: number) {
+    async getAllTds(filter: TdsFilterDto = {}) {
         try {
+            const { CompanyType, CountryMasterSid } = filter;
             const allTds = await this._db.tDSSetHeader.findMany({
                 where: {
                     status: 'A',
-
-                }
-            })
+                    EffectiveFrom: { lte: new Date() },
+                    ...(CompanyType || CountryMasterSid
+                        ? {
+                              tdsSetRate: {
+                                  some: {
+                                      status: 'A',
+                                      ...(CompanyType ? { CompanyType } : {}),
+                                      ...(CountryMasterSid ? { CountryMasterSid } : {}),
+                                  },
+                              },
+                          }
+                        : {}),
+                },
+            });
             return allTds;
         } catch (error) {
             throw error;
@@ -23,29 +36,28 @@ export class TdsService {
     }
 
     async createNewTds(payload) {
+        this.validateLimitOrdering(payload);
+        this.validateNewEffectiveFrom(payload);
 
         const existing = await this._db.tDSSetHeader.findFirst({
             where: {
                 TDSSetName: {
-                    equals: payload.TDSSetName.trim(),
-                    mode: 'insensitive'
+                    equals: payload.TDSSetName?.trim(),
+                    mode: 'insensitive',
                 },
-                status: 'A'
-            }
+                status: 'A',
+            },
         });
 
         if (existing) {
-            if (existing.TDSSetName === payload.TDSSetName) {
-                throw new BadRequestException('TDS name already exists.');
-            }
+            throw new BadRequestException(
+                `TDS Set Name "${payload.TDSSetName}" already exists (effective from ${this.formatDate(existing.EffectiveFrom)}). Open the existing set or choose a different name.`,
+            );
         }
 
         try {
             const createdTds = await this._db.tDSSetHeader.create({
-                data: {
-                    ...payload,
-
-                }
+                data: { ...payload },
             });
             return createdTds;
         } catch (error) {
@@ -75,44 +87,39 @@ export class TdsService {
     }
 
     async updateTdsById(TDSSetHeaderSid: number, payload) {
+        this.validateLimitOrdering(payload);
 
         const duplicate = await this._db.tDSSetHeader.findFirst({
             where: {
                 AND: [
-                    {
-                        TDSSetHeaderSid: { not: TDSSetHeaderSid }
-                    },
+                    { TDSSetHeaderSid: { not: TDSSetHeaderSid } },
                     {
                         TDSSetName: {
                             equals: payload.TDSSetName?.trim(),
-                            mode: 'insensitive'
-                        }
-                    }
+                            mode: 'insensitive',
+                        },
+                    },
                 ],
-                status: 'A'
-            }
+                status: 'A',
+            },
         });
 
         if (duplicate) {
-            if (duplicate.TDSSetName === payload.TDSSetName) {
-                throw new BadRequestException('TDS name already exists.');
-            }
+            throw new BadRequestException(
+                `TDS Set Name "${payload.TDSSetName}" already exists (effective from ${this.formatDate(duplicate.EffectiveFrom)}). Open the existing set or choose a different name.`,
+            );
         }
 
         try {
             const exist = await this._db.tDSSetHeader.findUnique({
-                where: {
-                    TDSSetHeaderSid: TDSSetHeaderSid
-                }
+                where: { TDSSetHeaderSid },
             });
             if (!exist) {
                 throw new BadRequestException(`Tds with Id : ${TDSSetHeaderSid} not exists`);
             }
             const updatedTds = await this._db.tDSSetHeader.update({
-                where: {
-                    TDSSetHeaderSid: TDSSetHeaderSid
-                },
-                data: payload
+                where: { TDSSetHeaderSid },
+                data: payload,
             });
             return updatedTds;
         } catch (error) {
@@ -152,9 +159,6 @@ export class TdsService {
     async searchTds(params: filterDto) {
         const { search = '', page = 1, pageSize = 15 } = params;
         const skip = (page - 1) * pageSize;
-        console.log(search);
-        let sec = Date.parse(search);
-        console.log(new Date(search));
         const where: Prisma.TDSSetHeaderWhereInput = {
             status: statusWhereClause,
             ...(search
@@ -214,5 +218,33 @@ export class TdsService {
             this.logger.warn(`getAuditLogsError: ${error}`);
             throw new Error(`Error fetching audit logs: ${error.message}`);
         }
+    }
+
+    // MH-6: per-payment threshold cannot exceed the annual aggregate threshold.
+    private validateLimitOrdering(payload: any): void {
+        const tx = Number(payload?.TransactionLimit ?? 0);
+        const an = Number(payload?.AnnualLimit ?? 0);
+        if (tx > an) {
+            throw new BadRequestException(
+                `Transaction Limit (${tx}) cannot exceed Annual Limit (${an}). Per-payment threshold must be ≤ annual aggregate threshold.`,
+            );
+        }
+    }
+
+    // MH-4: new headers cannot start in the past.
+    private validateNewEffectiveFrom(payload: any): void {
+        if (!payload?.EffectiveFrom) return;
+        const eff = new Date(payload.EffectiveFrom);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (eff < today) {
+            throw new BadRequestException(
+                `EffectiveFrom ${this.formatDate(eff)} cannot be earlier than today (${this.formatDate(today)}). Pick a future date or today.`,
+            );
+        }
+    }
+
+    private formatDate(d: Date): string {
+        return new Date(d).toISOString().slice(0, 10);
     }
 }

@@ -4,10 +4,8 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { TdsFilterDto } from 'src/masters/DTO/tds-filter.dto';
 import { TdsService } from 'src/masters/services/tds/tds.service';
-class CompanyIdDto {
-    CompanyMasterSid: number;
-}
 
 @Auth()
 
@@ -52,10 +50,10 @@ export class TdsController {
     })
     @HttpCode(HttpStatus.OK)
     @Post()
-    async getAllTdsSet(@Body() body: CompanyIdDto) {
+    async getAllTdsSet(@Body() body: TdsFilterDto) {
         let resp = new ResponseData();
         try {
-            let res = await this.tdsService.getAllTds(body.CompanyMasterSid);
+            let res = await this.tdsService.getAllTds(body);
             this.logger.log(`All TdsSet Fetched : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "All TdsSet are successfully fetched";
