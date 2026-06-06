@@ -3,6 +3,7 @@
 // ==============================
 export const DOC_TYPE_CODE = {
   INVOICE: 'INV',
+  INVOICE_NON_JOB: 'NIN',
   VENDOR_INVOICE: 'VIN',
   CREDIT_NOTE: 'CRN',
   RECEIPT: 'RPT',
@@ -20,6 +21,7 @@ export type DocTypeCode = typeof DOC_TYPE_CODE[keyof typeof DOC_TYPE_CODE];
 // ==============================
 export const PARTY_VTYPE_DRCR_MAP = {
   "INV": { DrCr: "D" },   // Party (Customer) Debited
+  "NIN": { DrCr: "D" },   // Party (Customer) Debited - Non Job Invoice
   "VIN": { DrCr: "C" },   // Party (Vendor) Credited
   "RPT": { DrCr: "C" },   // Party Credited (Customer pays)
   "PMT": { DrCr: "D" },   // Party Debited (We pay Vendor)
@@ -44,6 +46,7 @@ export const getPartyDrCr = (voucherType: VoucherType | string): DrCrType | unde
 // - For Receipts/Payments, depends on nature of underlying transaction
 export const TAX_VTYPE_DRCR_MAP = {
   "INV": { DrCr: "C" , Tax_Type : "Output" ,Ledger : 'Creditor'},
+  "NIN": { DrCr: "C" , Tax_Type : "Output" ,Ledger : 'Creditor'},
   "VIN": { DrCr: "D", Tax_Type : "Input" , Ledger : "Debtor" },
   "RPT": { DrCr: "C" , Tax_Type : null , Ledger : null },
   "PMT": { DrCr: "D" , Tax_Type : "Input" , Ledger : "Debtor" },

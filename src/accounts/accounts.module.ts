@@ -30,6 +30,8 @@ import { OperationModule } from 'src/operation/operation.module';
 import { BankReconciliationController } from './controllers/bank-reconciliation/bank-reconciliation.controller';
 import { InvoiceController } from './controllers/invoice/invoice.controller';
 import { InvoiceService } from './services/invoice/invoice.service';
+import { InvoiceNonJobController } from './controllers/invoice-non-job.controller';
+import { InvoiceNonJobService } from './services/invoice-non-job.service';
 import { VoucherPeriodController } from './controllers/voucher-period/voucher-period.controller';
 import { VoucherPeriodService } from './services/voucher-period/voucher-period.service';
 import { EmailModule } from 'src/email/email.module';
@@ -64,6 +66,7 @@ import { TdsCalculationService } from './services/tds-calculation/tds-calculatio
     ],
     controllers: [
         InvoiceController,
+        InvoiceNonJobController,
         CoaController,
         CreditNoteController,
         DocumentController,
@@ -92,6 +95,7 @@ import { TdsCalculationService } from './services/tds-calculation/tds-calculatio
         DocumentService,
         GlobalConfigService,
         InvoiceService,
+        InvoiceNonJobService,
         CoaService,
         CreditNoteService,
         DocVendorInvoiceService,
