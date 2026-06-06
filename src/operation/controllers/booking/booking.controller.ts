@@ -104,11 +104,13 @@ export class BookingController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:BookingHeaderSid')
-    async getBookingById(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number) {
+    @Post('fetch')
+    async getBookingById(
+    @Body() payload: any
+    ) {
         const output = new ResponseData();
         try {
-            const booking = await this.bookingService.findBookingById(BookingHeaderSid)
+            const booking = await this.bookingService.findBookingById(payload.BookingHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid)
             this.logger.debug(`getBookingById: ${JSON.stringify(booking)}`)
             output.data = booking
             output.message = "Booking data fetched successfully by ID"

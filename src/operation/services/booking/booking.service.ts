@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -728,11 +728,13 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
         }
     }
 
-    async findBookingById(BookingHeaderSid: number) {
+    async findBookingById(BookingHeaderSid: number,CompanyMasterSid: number,BranchMasterSid: number) {
         try {
             const ourBooking = await this._db.bookingHeader.findUnique({
                 where: {
-                    BookingHeaderSid: BookingHeaderSid
+                    BookingHeaderSid: BookingHeaderSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     departmentMaster: { select: { departmentName: true } },
@@ -754,8 +756,8 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                 }
             })
             if (!ourBooking) {
-                throw new BadRequestException('Error fetching booking record.');
-            }
+      throw new UnauthorizedException('Access denied.');
+    }
             const costRevenuePayload: RateDTO = {
                 CompanyMasterSid: ourBooking.CompanyMasterSid,
                 BranchMasterSid: ourBooking.BranchMasterSid!,
