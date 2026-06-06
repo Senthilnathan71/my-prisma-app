@@ -1955,7 +1955,7 @@ export class VoucherService {
                         DepartmentMasterSid: voucher.DepartmentMasterSid,
                         HouseJobSid: voucher.HouseJobSid,
                         MasterJobSid: voucher.MasterJobSid,
-                        CostRevenue: voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.INVOICE || voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost",
+                        CostRevenue: voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.INVOICE || voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.INVOICE_NON_JOB || voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost",
                         CurrencyMasterSid: payload.localCurrencyMasterSid,
                         CurrencyCode: payload.localCurrencyCode,
                         ExchangeRate: new Decimal(1),
@@ -2041,7 +2041,7 @@ export class VoucherService {
                     COAMasterSid: voucher.COAMasterSid!,
                     HouseJobSid: voucher.HouseJobSid,
                     MasterJobSid: voucher.MasterJobSid,
-                    CostRevenue: voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.INVOICE || voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost",
+                    CostRevenue: voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.INVOICE || voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.INVOICE_NON_JOB || voucher.voucherTypeMaster.DocumentTypeCode === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost",
                     CurrencyMasterSid: voucher.CurrencyMasterSid!,
                     CurrencyCode: voucher.CurrencyCode!,
                     ExchangeRate: voucher.ExchangeRate || new Decimal(1),
@@ -2066,7 +2066,7 @@ export class VoucherService {
             const allDetailsWithParty = [...allDetails, partyDetail];
             for (const detail of allDetailsWithParty) {
                 const documentType = voucher.voucherTypeMaster.DocumentTypeCode;
-                const costRevenue = documentType === DOC_TYPE_CODE.INVOICE || documentType === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost";
+                const costRevenue = documentType === DOC_TYPE_CODE.INVOICE || documentType === DOC_TYPE_CODE.INVOICE_NON_JOB || documentType === DOC_TYPE_CODE.CREDIT_NOTE ? "Revenue" : "Cost";
                 const transaction = await tx.voucherTransaction.create({
                     data: {
                         CompanyMasterSid: voucher.CompanyMasterSid,
