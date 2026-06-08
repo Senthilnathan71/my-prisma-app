@@ -151,6 +151,8 @@ export class OperationReportsService {
           return await this.generateImportNominationBookingReport(parameters);
         case 'daily-job-register':
           return await this.generateDailyJobRegisterReport(parameters);
+        case 'destuffing':
+          return await this.generateDestuffingReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -7129,17 +7131,17 @@ export class OperationReportsService {
       }
 
     const ports = await this._db.portMaster.findMany({
-  select: {
-    PortCode: true,
-    PortName: true,
-  },
-});
+      select: {
+        PortCode: true,
+        PortName: true,
+        },
+      });
 
-const portMap = new Map<string, string>();
+      const portMap = new Map<string, string>();
 
-ports.forEach((p) => {
-  portMap.set(p.PortCode, p.PortName);
-});
+      ports.forEach((p) => {
+        portMap.set(p.PortCode, p.PortName);
+      });
 
       const branches = await this._db.branchMaster.findMany({
         where: { CompanyMasterSid },
@@ -8459,6 +8461,124 @@ ports.forEach((p) => {
         data,
         customerData,
       };
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Destuffing Report
+  async generateDestuffingReport(params: any) {    
+    const {
+      FromHblDate:FromDate,
+      ToHblDate:ToDate,
+      companyId: CompanyMasterSid,
+    } = params;
+    try {
+      const containerTypesMaster = await this._db.containerTypeMaster.findMany({
+        select: { ContainerTypeMasterSid: true, ContainerSize: true },
+      });
+
+      const containerTypeMap = new Map(
+        containerTypesMaster.map((ct) => [
+          ct.ContainerTypeMasterSid,
+          ct.ContainerSize,
+        ]),
+      );
+
+      const housejob = await this._db.houseJob.findMany({
+        where: {
+          status: 'A',
+          AND: [{ HBLDate: { gte: FromDate, lte: ToDate } }],
+          CompanyMasterSid: CompanyMasterSid,
+          JobType: 'Import',
+        },
+        include: {
+          Cargo: true ,
+          Connections:true,
+          Products: true,
+          Others:true,
+          masterJob: {
+            where: {
+              Status: 'A',
+            },
+            select: {
+              voyages:true,
+              containers: {
+                where: { Status: 'A' },
+                include: {
+                  containerType: {
+                    select: {
+                      ContainerSize: true,
+                      ContainerTypeMasterSid: true,
+                      NoOfTeu: true,
+                      ContainerName: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          HBLDate: 'asc',
+        },
+      });
+
+      const data = housejob.map((h) => {
+       const masterJob = Array.isArray(h.masterJob) ? h.masterJob[0] : h.masterJob;
+       const masterContainerSid =
+         masterJob?.containers?.[0]?.MasterJobContainerSid;
+
+       const containerInfo: any[] = [];
+
+       const houseProducts = h.Products || [];
+       const allContainers = masterJob?.containers || [];
+
+       houseProducts.forEach((hp) => {
+         const ourMJContainer = allContainers.find(
+           (mc) => mc.MasterJobContainerSid === hp.MasterJobContainerSid,
+         );
+
+         const ourContainerType = ourMJContainer?.containerType;
+         
+         containerInfo.push({
+           MasterJobContainerSid : hp.MasterJobContainerSid,
+           containerTypeMasterSid : ourContainerType?.ContainerTypeMasterSid,
+           containerNumber: hp?.ContainerNo ?? '',
+           containerType: ourContainerType?.ContainerName ?? '',
+         });
+       });
+
+       return {
+        houseJobSid: h.HouseJobSid,
+        HBLDate : h.HBLDate,
+        HBLNo : h.HBLNo,
+        OriginAgent : h.AgentName,
+        VesselName : h.VesselName,
+        VoyageNo : h.VoyageNo,
+        CFS : h.Others?.[0]?.YardCFS,
+        ETD : h.ETD,
+        ETA : h.ETA,
+        ATA : h.masterJob?.voyages?.[0]?.ATA,
+        ATD : h.masterJob?.voyages?.[0]?.ATD,
+        Remarks : h?.GeneralNote,
+        containerInfo,
+        containerNoList: containerInfo
+          .map((c) => c.containerNumber)
+          .filter(Boolean)
+          .join(', '),
+        containerTypeList: containerInfo
+          .map((c) => c.containerType)
+          .filter(Boolean)
+          .join(', '),
+       };
+      });
+
+      return {
+        params,
+        data,
+      }
+
     } catch (error) {
       throw error;
     }
