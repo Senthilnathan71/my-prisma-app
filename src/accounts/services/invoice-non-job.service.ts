@@ -101,7 +101,7 @@ export class InvoiceNonJobService {
         await this.createVoucherOthers(tx, voucherHeader.VoucherHeaderSid, normalized);
 
         return {
-          newVoucher: await this.findVoucherHeaderById(voucherHeader.VoucherHeaderSid, tx),
+          newVoucher: await this.findVoucherHeaderById(voucherHeader.VoucherHeaderSid,voucherHeader.CompanyMasterSid,voucherHeader.BranchMasterSid, tx),
           VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
           VoucherNumber: voucherNumber,
         };
@@ -113,11 +113,13 @@ export class InvoiceNonJobService {
     }
   }
 
-  async findVoucherHeaderById(voucherHeaderSid: number, tx?: any) {
+  async findVoucherHeaderById(voucherHeaderSid: number, CompanyMasterSid: number, BranchMasterSid: number,tx?: any) {
     const db = tx || this._db;
     const voucherHeader = await db.voucherHeader.findFirst({
       where: {
         VoucherHeaderSid: voucherHeaderSid,
+        CompanyMasterSid: CompanyMasterSid,
+        BranchMasterSid: BranchMasterSid,
         Status: statusWhereClause,
         CashOrBank: 'Y',
         voucherTypeMaster: { DocumentTypeCode: INVOICE_NON_JOB_DOC_TYPE_CODE },
@@ -251,7 +253,7 @@ export class InvoiceNonJobService {
           await this.createVoucherOthers(tx, voucherHeaderSid, normalized);
         }
 
-        return this.findVoucherHeaderById(voucherHeaderSid, tx);
+        return this.findVoucherHeaderById(voucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid, tx);
       });
     } catch (error) {
       this.logger.error(`updateInvoiceNonJob error: ${error?.message}`, error?.stack);

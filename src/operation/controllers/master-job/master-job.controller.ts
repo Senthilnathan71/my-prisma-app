@@ -119,7 +119,7 @@ export class MasterJobController {
     @HttpCode(HttpStatus.OK)
     @Post('fetch')
     async getMasterJobById(
-        @Body() payload:{MasterJobSid:number,screenName:string}
+        @Body() payload:any
     ){
         let resp = new ResponseData();
         try {
@@ -130,7 +130,7 @@ export class MasterJobController {
                 throw new BadRequestException('screenName is required');
             }
             this.logger.log(`Fetching Master Job by MasterJobSid : ${JSON.stringify(payload)}`);
-            const result = await this.masterJobService.getMasterJobById(payload);
+            const result = await this.masterJobService.getMasterJobById(payload.MasterJobSid, payload.screenName,payload.CompanyMasterSid,payload.BranchMasterSid);
             this.logger.debug(`Fetched Master Job by MasterJobSid : ${JSON.stringify(result)}`);
             resp.message = 'Master Job fetched successfully';
             resp.data = result;

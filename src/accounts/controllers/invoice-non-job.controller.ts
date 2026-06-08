@@ -69,11 +69,11 @@ export class InvoiceNonJobController {
   @ApiOperation({ summary: 'Get Invoice Non Job by ID' })
   @ApiCreatedResponse({ description: 'Invoice Non Job data fetched successfully by ID', type: ResponseData })
   @HttpCode(HttpStatus.OK)
-  @Get('fetch/:voucherHeaderSid')
-  async getVoucherHeaderById(@Param('voucherHeaderSid', ParseIntPipe) voucherHeaderSid: number) {
+  @Post('fetch')
+  async getVoucherHeaderById(@Body() payload: any) {
     const output = new ResponseData();
     try {
-      output.data = await this.invoiceNonJobService.findVoucherHeaderById(voucherHeaderSid);
+      output.data = await this.invoiceNonJobService.findVoucherHeaderById(payload.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
       output.message = 'Invoice Non Job data fetched successfully by ID';
     } catch (error) {
       this.logger.warn('getInvoiceNonJobById error', (error as any)?.stack || (error as any)?.message || error);

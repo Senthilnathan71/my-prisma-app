@@ -303,29 +303,29 @@ export class CreditRequestController {
     type: ResponseData,
   })
   @HttpCode(HttpStatus.OK)
-  @Get(':customerMasterSid')
+  @Post('fetch')
   async getCreditRequestOfCustomer(
-    @Param('customerMasterSid', ParseIntPipe) customerMasterSid: number,
+    @Body() payload: any
   ) {
     const output = new ResponseData();
     this.logger.debug(
-      `getCreditRequestOfCustomer: customerMasterSid=${customerMasterSid}`,
+      `getCreditRequestOfCustomer: customerMasterSid=${payload.CustomerMasterSid}`,
     );
  
     try {
       const creditRequests =
         await this.creditRequestService.getCreditRequestOfCustomer(
-          customerMasterSid,
+          payload.CustomerMasterSid,payload.CompanyMasterSid
         );
  
       if (!creditRequests || creditRequests.length === 0) {
-        output.message = `No credit requests found for customer ${customerMasterSid}`;
+        output.message = `No credit requests found for customer ${payload.CustomerMasterSid}`;
         output.data = [];
         return output;
       }
  
       output.data = creditRequests;
-      output.message = `Credit requests retrieved successfully for customer ${customerMasterSid}`;
+      output.message = `Credit requests retrieved successfully for customer ${payload.CustomerMasterSid}`;
     } catch (error) {
       this.logger.warn(
         `getCreditRequestOfCustomer: ${JSON.stringify(error)}, ${error}`,

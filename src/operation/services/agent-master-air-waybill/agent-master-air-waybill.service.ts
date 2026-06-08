@@ -270,8 +270,8 @@ export class AgentMasterAirWaybillService {
     }
   }
 
-  async fetchAgentMasterAirWaybillById(houseJobSid: number) {
-    const result = await this.houseJobService.getHouseJobById(houseJobSid);
+  async fetchAgentMasterAirWaybillById(houseJobSid: number,CompanyMasterSid: number,BranchMasterSid: number) {
+    const result = await this.houseJobService.getHouseJobById(houseJobSid,CompanyMasterSid,BranchMasterSid);
     if (!result || String(result.JobType || '').toLowerCase() !== 'agent') {
       throw new NotFoundException(`Agent Master Air Waybill with ID ${houseJobSid} not found.`);
     }
@@ -310,7 +310,7 @@ export class AgentMasterAirWaybillService {
       JobType: 'Agent',
     };
     await this.houseJobService.updateHouseJobById(houseJobSid, housePayload);
-    return this.fetchAgentMasterAirWaybillById(houseJobSid);
+    return this.fetchAgentMasterAirWaybillById(houseJobSid,payload.CompanyMasterSid,payload.BranchMasterSid);
   }
 
   async searchAgentMasterAirWaybill(payload: any) {

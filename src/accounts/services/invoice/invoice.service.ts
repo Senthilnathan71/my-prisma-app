@@ -1,6 +1,6 @@
 import { SubledgerMaster } from './../../../../node_modules/.prisma/client/index.d';
 
-import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { Prisma } from '@prisma/client';
@@ -116,10 +116,15 @@ export class InvoiceService {
   }
 
 
-  async findVoucherHeaderById(VoucherHeaderSid: number) {
+  async findVoucherHeaderById(VoucherHeaderSid: number,CompanyMasterSid: number,BranchMasterSid: number) {
     try {
       const voucherHeader = await this._db.voucherHeader.findUnique({
-        where: { VoucherHeaderSid: VoucherHeaderSid, Status: statusWhereClause },
+        where: { 
+          VoucherHeaderSid: VoucherHeaderSid,
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid: BranchMasterSid,
+          Status: statusWhereClause 
+        },
         include: {
           VoucherDetail: {
             where: {
@@ -276,7 +281,7 @@ export class InvoiceService {
       });
 
       if (!voucherHeader) {
-        throw new BadRequestException('Voucher not found');
+        throw new UnauthorizedException('Access denied.');
       }
 
       return voucherHeader;

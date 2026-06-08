@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
 import { MenuService } from 'src/settings/services/menu/menu.service';
@@ -1086,11 +1086,13 @@ export class HouseJobService {
 
 
 
-    async getHouseJobById(HouseJobSid: number) {
+    async getHouseJobById(HouseJobSid: number,CompanyMasterSid: number,BranchMasterSid: number) {
         try {
             const ourHouseJob = await this._db.houseJob.findUnique({
                 where: {
-                    HouseJobSid: HouseJobSid
+                    HouseJobSid: HouseJobSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     departmentMaster: {
@@ -1199,7 +1201,7 @@ export class HouseJobService {
                 }
             })
             if (!ourHouseJob) {
-                throw new BadRequestException('Error fetching house job record.');
+                throw new UnauthorizedException('Access denied.');
             }
 
             const menuId = await this.resolveHouseJobMenuSid(

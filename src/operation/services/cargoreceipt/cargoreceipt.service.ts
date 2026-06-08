@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -7,11 +7,13 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 export class CargoreceiptService {
   constructor(private _db: DatabaseService, private logger: Logger) { }
 
-  async getLCLExportBookingById(BookingHeaderSid: number) {
+  async getLCLExportBookingById(BookingHeaderSid: number,CompanyMasterSid: number,BranchMasterSid: number) {
     try {
       const booking = await this._db.bookingHeader.findFirst({
         where: {
-          BookingHeaderSid,
+          BookingHeaderSid: BookingHeaderSid,
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid: BranchMasterSid,
           departmentMaster: { ExportImport: 'Export', FCLLCL: 'LCL' },
           HBLNo: null,
           status: 'A',
@@ -48,7 +50,9 @@ export class CargoreceiptService {
         },
       });
 
-      if (!booking) return null;
+      if (!booking) {
+            throw new UnauthorizedException('Access denied.');
+          }
 
       // Format decimals and dates
       const formattedProducts = booking.bookingProduct.map(p => ({

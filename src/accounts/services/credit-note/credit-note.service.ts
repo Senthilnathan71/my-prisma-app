@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -194,10 +194,14 @@ export class CreditNoteService {
     }
   }
 
-  async findVoucherHeaderById(VoucherHeaderSid: number) {
+  async findVoucherHeaderById(VoucherHeaderSid: number,CompanyMasterSid: number,BranchMasterSid: number) {
     try {
       const creditNote = await this._db.voucherHeader.findUnique({
-        where: { VoucherHeaderSid: VoucherHeaderSid },
+        where: { 
+          VoucherHeaderSid: VoucherHeaderSid,
+          CompanyMasterSid: CompanyMasterSid,
+          BranchMasterSid: BranchMasterSid,
+        },
         include: {
           VoucherDetail: {
             where: { Status: 'A' },
@@ -226,7 +230,7 @@ export class CreditNoteService {
       });
 
       if (!creditNote) {
-        throw new BadRequestException('Voucher not found');
+        throw new UnauthorizedException('Access denied.');
       }
 
       if (creditNote.ReversalVoucher) {

@@ -1664,13 +1664,14 @@ export class MasterJobService {
         }
     }
 
-    async getMasterJobById(payload:{MasterJobSid:number,screenName:string}){
+    async getMasterJobById(MasterJobSid:number,screenName:string,CompanyMasterSid: number,BranchMasterSid: number) {
     try {
         return this._db.$transaction(async (prisma) => {
-            const { MasterJobSid , screenName} = payload;
             const masterJobDetails = await prisma.masterJob.findUnique({
                 where: {
-                    MasterJobSid: MasterJobSid
+                    MasterJobSid: MasterJobSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
                 },
                 include: {
                     voyages: { where: { Status: 'A' } },

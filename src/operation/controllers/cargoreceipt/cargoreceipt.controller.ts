@@ -19,15 +19,15 @@ export class CargoreceiptController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:BookingHeaderSid')
-    async getLCLExportBookingById(@Param('BookingHeaderSid', ParseIntPipe) BookingHeaderSid: number) {
+    @Post('fetch')
+    async getLCLExportBookingById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting LCL Export Booking By Id: ${BookingHeaderSid}`);
-            let res = await this.cargoreceiptService.getLCLExportBookingById(BookingHeaderSid);
+            this.logger.log(`Getting LCL Export Booking By Id`);
+            let res = await this.cargoreceiptService.getLCLExportBookingById(payload.BookingHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
             this.logger.debug(`GetLCLExportBookingById Data: ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Get LCL Export Booking By Id : ${BookingHeaderSid} is fetched`
+            resp.message = `Get LCL Export Booking By Id is fetched`
         } catch (error) {
             this.logger.warn(`LCL Export Booking Fetch By Id Error: ${JSON.stringify(error)}`);
             resp.status = false;

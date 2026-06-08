@@ -74,11 +74,11 @@ export class InvoiceController {
   })
   @HttpCode(HttpStatus.OK)
   // route uses lowercase param name - keep it consistent here
-  @Get('fetch/:voucherHeaderSid')
-  async getVoucherHeaderById(@Param('voucherHeaderSid', ParseIntPipe) voucherHeaderSid: number) {
+  @Post('fetch')
+  async getVoucherHeaderById(@Body() payload: any) {
     const output = new ResponseData();
     try {
-      const finalOutput = await this.invoiceService.findVoucherHeaderById(voucherHeaderSid);
+      const finalOutput = await this.invoiceService.findVoucherHeaderById(payload.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
 
       output.data = finalOutput;
       output.message = "Invoice data fetched successfully by ID";

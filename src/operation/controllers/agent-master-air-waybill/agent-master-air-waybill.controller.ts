@@ -59,11 +59,11 @@ export class AgentMasterAirWaybillController {
     type: ResponseData,
   })
   @HttpCode(HttpStatus.OK)
-  @Get('fetch/:id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
+  @Post('fetch')
+  async findOne(@Body() payload: any) {
     const output = new ResponseData();
     try {
-      const result = await this.agentMasterAirWaybillService.fetchAgentMasterAirWaybillById(id);
+      const result = await this.agentMasterAirWaybillService.fetchAgentMasterAirWaybillById(payload.HouseJobSid,payload.CompanyMasterSid,payload.BranchMasterSid);
       output.data = result;
       output.message = 'Agent Master Air Waybill Data Fetched Successfully';
     } catch (error) {

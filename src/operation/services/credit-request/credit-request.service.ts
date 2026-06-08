@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ApprovalStatus, Prisma, PrismaClient } from '@prisma/client';
 import { OutstandingReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
@@ -270,11 +270,12 @@ export class CreditRequestService {
    * @param CustomerMasterSid - Customer Master SID
    * @returns Array of credit requests with related KYC records
    */
-  async getCreditRequestOfCustomer(CustomerMasterSid: number) {
+  async getCreditRequestOfCustomer(CustomerMasterSid: number,CompanyMasterSid: number) {
     try {
       const creditRequests = await this._db.customerMaster.findMany({
         where: {
           CustomerMasterSid: CustomerMasterSid,
+          CompanyMasterSid: CompanyMasterSid,
         },
         include: {
             countryMaster: {
@@ -315,6 +316,9 @@ export class CreditRequestService {
         },
        
       });
+      if (!creditRequests) {
+        throw new UnauthorizedException('Access denied.');
+      }
  
       return creditRequests;
     } catch (error) {
