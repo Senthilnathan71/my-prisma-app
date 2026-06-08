@@ -2591,7 +2591,7 @@ model AuthorityLog {
   Status             String          @default("A") @db.Char(1)
   AuthorityDetailSid Int
   AuthorisedDate     DateTime
-  ApprovalStatus     String          @default("Approved") @db.VarChar(10)
+  ApprovalStatus     ApprovalStatus @default(Pending)
   DocumentSid        Int
   Remarks            String?         @db.VarChar(500)
   AuthorityDetail    AuthorityDetail @relation(fields: [AuthorityDetailSid], references: [AuthorityDetailSid])
