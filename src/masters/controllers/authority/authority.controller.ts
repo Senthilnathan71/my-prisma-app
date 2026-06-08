@@ -240,12 +240,19 @@ export class AuthorityController {
     @Get('approval-status/:MenuMasterSid/:DocumentSid')
     async getApprovalStatus(
         @Param('MenuMasterSid', ParseIntPipe) MenuMasterSid: number,
-        @Param('DocumentSid', ParseIntPipe) DocumentSid: number
+        @Param('DocumentSid', ParseIntPipe) DocumentSid: number,
+        @Query('CompanyMasterSid') CompanyMasterSid?: string,
+        @Query('BranchMasterSid') BranchMasterSid?: string
     ) {
         const resp = new ResponseData();
 
         try {
-            const result = await this.authorityService.getApprovalStatusData(MenuMasterSid, DocumentSid);
+            const result = await this.authorityService.getApprovalStatusData(
+                MenuMasterSid,
+                DocumentSid,
+                CompanyMasterSid ? Number(CompanyMasterSid) : undefined,
+                BranchMasterSid ? Number(BranchMasterSid) : undefined
+            );
             resp.data = result;
             resp.message = "Document's approval log has been fetched.";
         } catch (error) {

@@ -426,7 +426,35 @@ export class QuotationService {
     async updateQuote(QuoteHeaderSid: number, payload) {
         try {
             // Approval Based Payload
-            const authPayload = payload.authDetails;
+            const authPayload = payload.authDetails || {};
+            const validApprovalStatuses = new Set(Object.values(ApprovalStatus));
+            const approvalTargets = Array.isArray(authPayload.approvalTargets)
+                ? authPayload.approvalTargets
+                : [];
+            const formatApprovalTarget = (target: any) =>
+                `Route:${target.QuoteRouteSid || 'NA'} Carrier:${target.QuoteCarrierSid || 'NA'} Status:${target.ApprovalStatus}`;
+            let existingAuthLog: any = null;
+
+            if(authPayload.canAuthorize){
+                existingAuthLog = await this._db.authorityLog.findFirst({
+                    where: {
+                        AuthorityDetailSid: Number(authPayload.AuthorityDetailSid),
+                        DocumentSid: Number(QuoteHeaderSid),
+                        Status: 'A',
+                    },
+                });
+
+                if (existingAuthLog) {
+                    const existingRemarks = existingAuthLog.Remarks || '';
+                    const alreadyLoggedTargets = approvalTargets.length > 0 && approvalTargets.every((target: any) =>
+                        existingRemarks.includes(formatApprovalTarget(target))
+                    );
+
+                    if (!approvalTargets.length || alreadyLoggedTargets) {
+                        throw new BadRequestException('You have already approved this route/carrier.');
+                    }
+                }
+            }
 
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
@@ -450,7 +478,7 @@ export class QuotationService {
                     TransportBy: payload.TransportBy,
                     Remarks: payload.Remarks,
                     updatedBy: payload.updatedBy,
-                    InternalApprovedBy : authPayload.InternalApprovedBy || null,
+                    ...(authPayload.InternalApprovedBy ? { InternalApprovedBy: authPayload.InternalApprovedBy } : {}),
                     updatedOn: new Date(),
 
                 }
@@ -517,6 +545,24 @@ export class QuotationService {
                 const allCarriers = route.quoteCarriers || [];
                 for (const carrier of allCarriers) {
                     let currentCarrier;
+                    const existingCarrier = carrier.QuoteCarrierSid
+                        ? await this._db.quoteCarrier.findFirst({
+                            where: {
+                                QuoteCarrierSid: Number(carrier.QuoteCarrierSid),
+                                QuoteRouteSid: Number(currentRoute.QuoteRouteSid),
+                                QuoteHeaderSid: Number(updatedQuoteHeader.QuoteHeaderSid),
+                                status: 'A'
+                            }
+                        })
+                        : null;
+                    const requestedApprovalStatus = validApprovalStatuses.has(String(carrier.ApprovalStatus || carrier.authorizerStatus) as ApprovalStatus)
+                        ? String(carrier.ApprovalStatus || carrier.authorizerStatus) as ApprovalStatus
+                        : ApprovalStatus.Pending;
+                    const finalApprovalStatus =
+                        existingCarrier?.ApprovalStatus === ApprovalStatus.Approved
+                            ? ApprovalStatus.Approved
+                            : requestedApprovalStatus;
+
                     if(carrier.QuoteCarrierSid) {
                         currentCarrier = await this._db.quoteCarrier.update({
                             where: { QuoteCarrierSid: carrier.QuoteCarrierSid },
@@ -526,9 +572,11 @@ export class QuotationService {
                                 TransitTime: carrier.TransitTime,
                                 CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                                ApprovalStatus: carrier.authorizerStatus || ApprovalStatus.Pending,
-                                ApprovedBy : carrier.ApprovedBy,
-                                Remarks : carrier.authorizerRemarks,
+                                ApprovalStatus: finalApprovalStatus,
+                                ApprovedBy : finalApprovalStatus === ApprovalStatus.Approved || finalApprovalStatus === ApprovalStatus.Rejected
+                                    ? (carrier.ApprovedBy || authPayload.ApprovedBy || null)
+                                    : null,
+                                Remarks : carrier.authorizerRemarks || carrier.Remarks || null,
                                 updatedBy: payload.updatedBy,
                                 updatedOn: new Date(),
                             },
@@ -544,8 +592,11 @@ export class QuotationService {
                                 TransitTime: carrier.TransitTime,
                                 CompanyMasterSid: updatedQuoteHeader.CompanyMasterSid,
                                 BranchMasterSid: updatedQuoteHeader.BranchMasterSid,
-                                ApprovalStatus: ApprovalStatus.Pending,
-                                Remarks : carrier.authorizerRemarks,
+                                ApprovalStatus: requestedApprovalStatus,
+                                ApprovedBy : requestedApprovalStatus === ApprovalStatus.Approved || requestedApprovalStatus === ApprovalStatus.Rejected
+                                    ? (carrier.ApprovedBy || authPayload.ApprovedBy || null)
+                                    : null,
+                                Remarks : carrier.authorizerRemarks || carrier.Remarks || null,
                                 createdBy: payload.updatedBy,
                             },
                         });
@@ -746,7 +797,22 @@ export class QuotationService {
             let createdAuthLog;
             
             if(authPayload.canAuthorize){
-
+                const approvalRemarks = approvalTargets.map(formatApprovalTarget).join('; ') || payload.AuthorizerRemarks || '';
+                if (existingAuthLog) {
+                    const appendedRemarks = [existingAuthLog.Remarks, approvalRemarks].filter(Boolean).join('; ');
+                    createdAuthLog = await this._db.authorityLog.update({
+                        where: {
+                            AuthorityLogSid: existingAuthLog.AuthorityLogSid,
+                        },
+                        data: {
+                            UpdatedBy: payload.updatedBy,
+                            UpdatedOn: new Date(),
+                            ApprovalStatus: authPayload.ApprovalStatus,
+                            AuthorisedDate: new Date(),
+                            Remarks: appendedRemarks,
+                        },
+                    });
+                } else {
                createdAuthLog = await this._db.authorityLog.create({
                     data: {
                         CompanyMasterSid: payload.CompanyMasterSid,
@@ -757,9 +823,10 @@ export class QuotationService {
                         AuthorisedDate: new Date(),
                         ApprovalStatus: authPayload.ApprovalStatus,
                         DocumentSid: updatedQuoteHeader.QuoteHeaderSid,
-                        Remarks: payload.AuthorizerRemarks || '',
+                        Remarks: approvalRemarks,
                     },
                 });
+                }
             }
 
             const atleastOneApprovedCarrier = finalRoutes.some(route => {

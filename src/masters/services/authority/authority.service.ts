@@ -573,6 +573,7 @@ export class AuthorityService {
             select: {
                 AuthorityDetailSid: true,
                 AuthorityLevel: true,
+                FinalAuthority: true,
             }
         });
 
@@ -598,6 +599,7 @@ export class AuthorityService {
                 alreadyApproved: false,
                 AuthorityDetailSid: null,
                 AuthorityLevel: null,
+                FinalAuthority: null,
                 totalNumberOfAuthorizers,
                 message: "User is not an authorizer for this menu."
             };
@@ -622,6 +624,7 @@ export class AuthorityService {
                 alreadyApproved: true,
                 AuthorityDetailSid: authorizer.AuthorityDetailSid,
                 AuthorityLevel: authorizer.AuthorityLevel,
+                FinalAuthority: authorizer.FinalAuthority,
                 totalNumberOfAuthorizers,
                 message: "User has already authorized this document."
             };
@@ -632,22 +635,29 @@ export class AuthorityService {
             alreadyApproved: false,
             AuthorityDetailSid: authorizer.AuthorityDetailSid,
             AuthorityLevel: authorizer.AuthorityLevel,
+            FinalAuthority: authorizer.FinalAuthority,
             totalNumberOfAuthorizers,
             message: "User is a valid authorizer for this menu."
         };
     }
 
 
-    async getApprovalStatusData(menuMasterSid: number, documentSid: number) {
+    async getApprovalStatusData(menuMasterSid: number, documentSid: number, companyMasterSid?: number, branchMasterSid?: number) {
+        const scopeWhere: any = {};
+        if (companyMasterSid) {
+            scopeWhere.CompanyMasterSid = companyMasterSid;
+        }
+        if (branchMasterSid) {
+            scopeWhere.BranchMasterSid = branchMasterSid;
+        }
+
         // 1. Fetch authority users for the given menu
         const authorityUsers = await this._db.authorityDetail.findMany({
             where: {
-                CompanyMasterSid: 7,
-                BranchMasterSid: 50,
+                ...scopeWhere,
                 status: 'A',
                 authorityMaster: {
-                    CompanyMasterSid: 7,
-                    BranchMasterSid: 50,
+                    ...scopeWhere,
                     MenuMaster: menuMasterSid,
                     status: 'A',
                 },
@@ -662,16 +672,16 @@ export class AuthorityService {
             },
         });
 
-        console.log(authorityUsers);
-
         // 2. Fetch authority logs for this document
         const logs = await this._db.authorityLog.findMany({
             where: {
                 DocumentSid: documentSid,
+                ...scopeWhere,
                 Status: 'A',
                 AuthorityDetail: {
                     status: 'A',
                     authorityMaster: {
+                        ...scopeWhere,
                         MenuMaster: menuMasterSid,
                         status: 'A',
                     },
@@ -713,6 +723,8 @@ export class AuthorityService {
             if (log) {
                 baseItem = {
                     approvedBy: userName,
+                    approvalLevel: detail.AuthorityLevel,
+                    isFinalAuthorizer: detail.FinalAuthority === 'Y',
                     approvalStatus: log.ApprovalStatus,
                     approvalDate: log.AuthorisedDate,
                     Remarks: log.Remarks,
@@ -720,6 +732,8 @@ export class AuthorityService {
             } else {
                 baseItem = {
                     approvedBy: userName,
+                    approvalLevel: detail.AuthorityLevel,
+                    isFinalAuthorizer: detail.FinalAuthority === 'Y',
                     approvalStatus: 'Pending',
                     approvalDate: null,
                     Remarks: null,
@@ -796,3 +810,6 @@ export class AuthorityService {
     }
 
 }
+
+
+
