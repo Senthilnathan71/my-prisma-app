@@ -1,5 +1,5 @@
 
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { getAllowedLedgerTypes } from 'src/common/config/voucher-type.config';
@@ -325,15 +325,16 @@ export class CoaService {
         }
     }
 
-    async fetchCoaById(COAMasterSid: number) {
+    async fetchCoaById(COAMasterSid: number,CompanyMasterSid: number) {
         try {
             const ourCoa = await this._db.cOAMaster.findUnique({
                 where: {
                     COAMasterSid: COAMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
                 }
             })
             if (!ourCoa) {
-                throw new BadRequestException(`Coa with Id : ${COAMasterSid} not exists`);
+                throw new UnauthorizedException(`Access denied`);
             }
             return ourCoa;
         } catch (error) {

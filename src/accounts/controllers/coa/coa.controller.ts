@@ -181,15 +181,15 @@ export class CoaController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:COAMasterSid')
-    async getCoaById(@Param('COAMasterSid', ParseIntPipe) COAMasterSid: number) {
+    @Post('fetch')
+    async getCoaById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
 
-            let res = await this.coaService.fetchCoaById(COAMasterSid);
+            let res = await this.coaService.fetchCoaById(payload.COAMasterSid,payload.CompanyMasterSid);
 
             resp.data = res;
-            resp.message = `Coa with id : ${COAMasterSid} is successfully fetched`;
+            resp.message = `Coa with id : ${payload.COAMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Coa by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;

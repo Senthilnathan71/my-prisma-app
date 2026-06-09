@@ -70,11 +70,11 @@ export class PaymentRequestController {
   }
 
   @ApiOperation({ summary: 'Fetch payment request by id' })
-  @Get('fetch/:paymentRequestSid')
-  async fetch(@Param('paymentRequestSid', ParseIntPipe) paymentRequestSid: number) {
+  @Post('fetch')
+  async fetch(@Body() payload: any) {
     const resp = new ResponseData();
     try {
-      resp.data = await this.paymentRequestService.getPaymentRequestById(paymentRequestSid);
+      resp.data = await this.paymentRequestService.getPaymentRequestById(payload.PaymentRequestSid,payload.CompanyMasterSid,payload.BranchMasterSid);
       resp.message = 'Payment request fetched successfully';
     } catch (error) {
       this.logger.warn(`Payment request fetch error: ${JSON.stringify(error)}`);

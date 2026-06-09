@@ -32,7 +32,7 @@ export class OperationReportsService {
     private readonly voucherService: VoucherService,
   ) {}
 
-  async getAvailableReports(companyId: number) {
+  async getAvailableReports(CompanyMasterSid: number) {
     try {
       // Get all operation reports
       const operationMenu = await this._db.menuMaster.findFirst({
@@ -66,7 +66,7 @@ export class OperationReportsService {
         const excludedCompanies = Array.isArray(report.ReportExcludedCompany)
           ? report.ReportExcludedCompany
           : [];
-        return !excludedCompanies.includes(companyId);
+        return !excludedCompanies.includes(CompanyMasterSid);
       });
 
       return filteredReports;
