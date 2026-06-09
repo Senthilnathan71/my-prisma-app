@@ -153,6 +153,8 @@ export class OperationReportsService {
           return await this.generateDailyJobRegisterReport(parameters);
         case 'destuffing':
           return await this.generateDestuffingReport(parameters);
+        case 'outturn':
+          return await this.generateOutTurnReport(parameters);
         default:
           throw new BadRequestException(`Report ${reportName} not implemented`);
       }
@@ -8580,6 +8582,321 @@ export class OperationReportsService {
       }
 
     } catch (error) {
+      throw error;
+    }
+  }
+  
+  // OutTurn Report
+  async generateOutTurnReport(params: any) {    
+    const {
+      FromDate, 
+      ToDate,
+      companyId: CompanyMasterSid,
+    } = params;
+    try {
+     
+      const isOutturnJobType = (jobType: any) => {
+        const normalized = String(jobType || '').trim().toLowerCase();
+        return (
+          normalized === 'import' ||
+          normalized === 'transhipment' ||
+          normalized === 'cross stuffing' ||
+          normalized === 'crossstuffing' ||
+          normalized === 'cross stuff'
+        );
+      };
+
+      const customers = await this._db.customerMaster.findMany({
+        where: {
+          status: 'A',
+          CompanyMasterSid,
+        },
+        select: {
+          CustomerMasterSid: true,
+          CustomerName: true,
+        },
+      });
+
+      const customerMap = new Map(
+        customers.map((customer) => [
+          customer.CustomerMasterSid,
+          customer.CustomerName,
+        ]),
+      );
+
+      const buildHblRow = (house: any, products: any[]) => {
+        const cargoRows = Array.isArray(house.Cargo) ? house.Cargo : [];
+        const houseOthers = Array.isArray(house.Others) ? house.Others[0] : house.Others?.[0];
+        const houseConnection = Array.isArray(house.Connections)
+          ? house.Connections[0]
+          : house.Connections?.[0];
+
+        const manifestedQtyFromProducts = products.reduce(
+          (sum, product) => sum + toNumber(product?.ExternlQty),
+          0,
+        );
+        const qtyLanded = products.reduce(
+          (sum, product) => sum + toNumber(product?.ReceivedQty),
+          0,
+        );
+        const damageQty = products.reduce(
+          (sum, product) => sum + toNumber(product?.DamageQty),
+          0,
+        );
+        const deliveredQty = products.reduce(
+          (sum, product) => sum + toNumber(product?.DeliveredQty),
+          0,
+        );
+        const manifestedQty =
+          manifestedQtyFromProducts ||
+          cargoRows.reduce((sum, cargo) => sum + toNumber(cargo?.NoOfPackage), 0);
+
+        const grossWeightFromProducts = products.reduce(
+          (sum, product) =>
+            sum + toNumber(product?.ActualGrWeight || product?.GrossWeight),
+          0,
+        );
+        const cbmFromProducts = products.reduce(
+          (sum, product) =>
+            sum + toNumber(product?.ActualVolume || product?.Volume),
+          0,
+        );
+
+        const marksAndNos = Array.from(
+          new Set(
+            [
+              ...products.map((product) => String(product?.MarksAndNumber || '').trim()),
+              ...cargoRows.map((cargo) => String(cargo?.MarksAndNumber || '').trim()),
+            ].filter(Boolean),
+          ),
+        ).join(', ');
+
+        const landedMarksAndNos = Array.from(
+          new Set(
+            cargoRows
+              .map((cargo) => String(cargo?.LandedMarksandNumber || '').trim())
+              .filter(Boolean),
+          ),
+        ).join(', ');
+
+        return {
+          houseJobSid: house.HouseJobSid,
+          hblNo: house.HBLNo || '',
+          hblDate: house.HBLDate,
+          jobType: house.JobType || '',
+          marksAndNos,
+          landedMarksAndNos,
+          packageType:
+            products.map((product) => product?.ExternaPkg).filter(Boolean).join(', ') ||
+            '',
+          manifestedQty,
+          qtyLanded,
+          shortQty: Math.max(manifestedQty - qtyLanded, 0),
+          excessQty: Math.max(qtyLanded - manifestedQty, 0),
+          damageQty,
+          deliveredQty,
+          weight:
+            grossWeightFromProducts ||
+            cargoRows.reduce((sum, cargo) => sum + toNumber(cargo?.GrossWeight), 0),
+          cbm:
+            cbmFromProducts ||
+            cargoRows.reduce((sum, cargo) => sum + toNumber(cargo?.Volume), 0),
+          remarks:house?.GeneralNote ||'',
+          cfs: houseOthers?.YardCFS || '',
+          doNo: houseOthers?.DONo || '',
+          doDate: houseOthers?.DODate || null,
+        };
+      };
+
+      const masterJobs = await this._db.masterJob.findMany({
+        where: {
+          Status: 'A',
+          CompanyMasterSid,
+          houseJob: {
+            some: {
+              status: 'A',
+              HBLDate: { gte: FromDate, lte: ToDate },
+            },
+          },
+        },
+        include: {
+          voyages: { where: { Status: 'A' } },
+          others: { where: { Status: 'A' } },
+          containers: {
+            where: { Status: 'A' },
+            include: {
+              containerType: {
+                where: { status: 'A' },
+                select: {
+                  ContainerTypeMasterSid: true,
+                  ContainerName: true,
+                  ContainerSize: true,
+                  NoOfTeu: true,
+                },
+              },
+            },
+          },
+          houseJob: {
+            where: {
+              status: 'A',
+              HBLDate: { gte: FromDate, lte: ToDate },
+            },
+            include: {
+              Cargo: { where: { status: 'A' } },
+              Products: { where: { status: 'A' } },
+              Others: { where: { status: 'A' } },
+              Connections: { where: { status: 'A' } },
+            },
+          },
+        },
+        orderBy: {
+          MBLDate: 'asc',
+        },
+      });
+
+      const data = masterJobs
+        .map((master) => {
+          const relevantHouseJobs = (master.houseJob || []).filter((house) =>
+            isOutturnJobType(house.JobType),
+          );
+
+          if (!relevantHouseJobs.length) {
+            return null;
+          }
+
+          const containerGroups = new Map<any, any>();
+
+          (master.containers || []).forEach((container) => {
+            containerGroups.set(container.MasterJobContainerSid, {
+              masterJobContainerSid: container.MasterJobContainerSid,
+              containerNo: container.ContainerNumber || '',
+              containerType:
+                container.containerType?.ContainerName || '',
+              containerTypeMasterSid:
+                container.containerType?.ContainerTypeMasterSid || container.ContainerType,
+              containerSize: container.containerType?.ContainerSize || '',
+              lineSeal: container.LineSeal || '',
+              customsSeal: container.CustomsSeal || '',
+              sealNo: container.LineSeal || container.CustomsSeal || '',
+              vesselName:
+                relevantHouseJobs[0]?.VesselName ||
+                '',
+              voyageNo:
+                relevantHouseJobs[0]?.VoyageNo ||
+                '',
+              ata: master.voyages?.[0]?.ATA || null,
+              atd: master.voyages?.[0]?.ATD || null,
+              originAgent:
+                master?.OriginAgent != null
+                  ? customerMap.get(master.OriginAgent) || ''
+                  : '',
+              POL : master?.POL,
+              hblRows: [],
+            });
+          });
+
+          relevantHouseJobs.forEach((house) => {
+            const groupedProducts = new Map<any, any[]>();
+            const mappedProducts = (house.Products || []).filter(
+              (product) => product?.MasterJobContainerSid || product?.ContainerNo,
+            );
+
+            mappedProducts.forEach((product) => {
+              const key =
+                product.MasterJobContainerSid ||
+                `container-no-${String(product.ContainerNo || '').trim().toUpperCase()}`;
+              if (!groupedProducts.has(key)) {
+                groupedProducts.set(key, []);
+              }
+              groupedProducts.get(key)!.push(product);
+            });
+
+            if (!groupedProducts.size) {
+              return;
+            }
+
+            groupedProducts.forEach((products) => {
+              const firstProduct = products[0];
+              const matchedContainer =
+                (firstProduct?.MasterJobContainerSid
+                  ? (master.containers || []).find(
+                      (container) =>
+                        container.MasterJobContainerSid ===
+                        firstProduct.MasterJobContainerSid,
+                    )
+                  : null) ||
+                (firstProduct?.ContainerNo
+                  ? (master.containers || []).find(
+                      (container) =>
+                        String(container.ContainerNumber || '').trim().toUpperCase() ===
+                        String(firstProduct.ContainerNo || '').trim().toUpperCase(),
+                    )
+                  : null);
+
+              if (!matchedContainer) {
+                return;
+              }
+
+              if (!containerGroups.has(matchedContainer.MasterJobContainerSid)) {
+                containerGroups.set(matchedContainer.MasterJobContainerSid, {
+                  masterJobContainerSid: matchedContainer.MasterJobContainerSid,
+                  containerNo: matchedContainer.ContainerNumber || firstProduct?.ContainerNo || '',
+                  containerType:
+                    matchedContainer.containerType?.ContainerName ||
+                    matchedContainer.containerType?.ContainerSize ||
+                    '',
+                  containerTypeMasterSid:
+                    matchedContainer.containerType?.ContainerTypeMasterSid ||
+                    matchedContainer.ContainerType,
+                  containerSize: matchedContainer.containerType?.ContainerSize || '',
+                  lineSeal: matchedContainer.LineSeal || '',
+                  customsSeal: matchedContainer.CustomsSeal || '',
+                  sealNo: matchedContainer.LineSeal || matchedContainer.CustomsSeal || '',
+                  vesselName:
+                    house.VesselName ||
+                    '',
+                  voyageNo:
+                    house.VoyageNo ||
+                    '',
+                  ata: master.voyages?.[0]?.ATA || null,
+                  atd: master.voyages?.[0]?.ATD || null,
+                  hblRows: [],
+                });
+              }
+
+              containerGroups
+                .get(matchedContainer.MasterJobContainerSid)
+                .hblRows.push(buildHblRow(house, products));
+            });
+          });
+
+          return {
+            masterJobSid: master.MasterJobSid,
+            masterJobNo: master.MasterJobNumber || '',
+            mblNo: master.MBLNo || '',
+            masterDate: master.MBLDate || null,
+            vesselName:
+              relevantHouseJobs[0]?.VesselName ||
+              '',
+            voyageNo:
+              relevantHouseJobs[0]?.VoyageNo ||
+              '',
+            ata: master.voyages?.[0]?.ATA || null,
+            atd: master.voyages?.[0]?.ATD || null,
+            containers: Array.from(containerGroups.values()).filter(
+              (container) => container.hblRows.length > 0,
+            ),
+          };
+        })
+        .filter((master): master is NonNullable<typeof master> => Boolean(master))
+        .filter((master) => master.containers.length > 0);
+
+      return {
+        params,
+        data,
+      };
+    }
+    catch (error) {
       throw error;
     }
   }
