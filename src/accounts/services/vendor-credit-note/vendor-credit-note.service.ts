@@ -432,12 +432,12 @@ export class VendorCreditNoteService {
         }
     }
 
-    async fetchVendorCreditNoteById(VoucherHeaderSid: number, tx?: Prisma.TransactionClient): Promise<any> {
+    async fetchVendorCreditNoteById(VoucherHeaderSid: number, CompanyMasterSid: number,BranchMasterSid: number, tx?: Prisma.TransactionClient): Promise<any> {
         try {
             const db = tx || this._db;
 
             const vendorCreditNote = await db.voucherHeader.findUnique({
-                where: { VoucherHeaderSid },
+                where: { VoucherHeaderSid ,CompanyMasterSid,BranchMasterSid },
                 include: {
                     VoucherDetail: {
                         where: { Status: 'A' },
@@ -910,7 +910,7 @@ export class VendorCreditNoteService {
                 }
 
                 // Fetch updated vendor invoice
-                return await this.fetchVendorCreditNoteById(VoucherHeaderSid, tx);
+                return await this.fetchVendorCreditNoteById(VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid, tx);
             });
         } catch (error) {
             this.logger.error(`Error updating vendor creditNote: ${error.message}`);

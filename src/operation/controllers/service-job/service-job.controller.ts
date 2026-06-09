@@ -96,11 +96,11 @@ export class ServiceJobController {
     type: ResponseData,
   })
   @HttpCode(HttpStatus.OK)
-  @Get('fetch/:id')
-  async findOne(@Param('id',ParseIntPipe) id: number) {
+  @Post('fetch')
+  async findOne(@Body() payload: any) {
     const output = new ResponseData();
     try {
-      const serviceJob = await this.serviceJobService.fetchServiceJobById(+id);
+      const serviceJob = await this.serviceJobService.fetchServiceJobById(payload.HouseJobSid,payload.CompanyMasterSid,payload.BranchMasterSid);
 
       if (!serviceJob) {
         this.logger.warn(`Service job data fetched failed: ${serviceJob}`);

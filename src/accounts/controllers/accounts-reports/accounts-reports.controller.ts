@@ -29,11 +29,11 @@ export class AccountsReportsController {
   @ApiOperation({ summary: 'Get all available accounts reports for company' })
   @ApiCreatedResponse({ description: 'Fetch available reports', type: ResponseData })
   @HttpCode(HttpStatus.OK)
-  @Get()
-  async getAvailableReports(@Query('companyId', ParseIntPipe) companyId: number) {
+  @Post('fetch')
+  async getAvailableReports(@Body() payload: any) {
     const resp = new ResponseData();
     try {
-      const reports = await this.accountsReportsService.getAvailableReports(companyId);
+      const reports = await this.accountsReportsService.getAvailableReports(payload.CompanyMasterSid);
       resp.data = reports;
       resp.message = 'Available reports fetched successfully';
     } catch (error) {

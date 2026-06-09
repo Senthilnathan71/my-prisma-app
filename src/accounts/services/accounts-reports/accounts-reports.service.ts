@@ -51,7 +51,7 @@ export class AccountsReportsService {
     private readonly voucherService: VoucherService,
   ) {}
 
-  async getAvailableReports(companyId: number) {
+  async getAvailableReports(CompanyMasterSid: number) {
     try {
       // Get all accounts reports
       const accountsMenu = await this._db.menuMaster.findFirst({
@@ -85,7 +85,7 @@ export class AccountsReportsService {
         const excludedCompanies = Array.isArray(report.ReportExcludedCompany)
           ? report.ReportExcludedCompany
           : [];
-        return !excludedCompanies.includes(companyId);
+        return !excludedCompanies.includes(CompanyMasterSid);
       });
 
       return filteredReports;

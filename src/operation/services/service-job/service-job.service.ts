@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { MenuService } from 'src/settings/services/menu/menu.service';
@@ -450,12 +450,14 @@ export class ServiceJobService {
     /**
      * Fetches a single Service Job by HouseJobSid
      */
-    async fetchServiceJobById(houseJobSid: number) {
+    async fetchServiceJobById(HouseJobSid: number,CompanyMasterSid: number,BranchMasterSid: number) {
         try {
             const serviceJob = await this._db.houseJob.findUnique({
                 where: {
-                    HouseJobSid: houseJobSid,
+                    HouseJobSid: HouseJobSid,
                     IsServiceJob: 'Y',
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
                 },
                 include: {
                     Cargo: { where: { status: 'A' } },
@@ -477,7 +479,7 @@ export class ServiceJobService {
             });
 
             if (!serviceJob) {
-                throw new NotFoundException(`Service job with ID ${houseJobSid} not found.`);
+                throw new UnauthorizedException('Access denied.');
             }
 
             const costRevenuePayload = {
@@ -799,7 +801,7 @@ export class ServiceJobService {
             }
 
 
-            return this.fetchServiceJobById(houseJobSid);
+            return this.fetchServiceJobById(houseJobSid,payload.CompanyMasterSid,payload.BranchMasterSid);
         });
     }
 

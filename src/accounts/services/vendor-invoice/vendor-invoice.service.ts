@@ -260,7 +260,7 @@ export class VendorInvoiceService {
                 }
 
                 // Fetch complete vendor invoice with relations
-                const completeVendorInvoice = await this.fetchVendorInvoiceById(voucherHeader.VoucherHeaderSid, tx);
+                const completeVendorInvoice = await this.fetchVendorInvoiceById(voucherHeader.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid, tx);
 
                 return {
                     newVoucher: completeVendorInvoice,
@@ -314,12 +314,12 @@ export class VendorInvoiceService {
     /**
      * Fetch vendor invoice by ID
      */
-    async fetchVendorInvoiceById(VoucherHeaderSid: number, tx?: Prisma.TransactionClient): Promise<any> {
+    async fetchVendorInvoiceById(VoucherHeaderSid: number,CompanyMasterSid:number, BranchMasterSid:number, tx?: Prisma.TransactionClient): Promise<any> {
         try {
             const db = tx || this._db;
 
             const vendorInvoice = await db.voucherHeader.findUnique({
-                where: { VoucherHeaderSid },
+                where: { VoucherHeaderSid, CompanyMasterSid, BranchMasterSid },
                 include: {
                     VoucherDetail: {
                         where: { Status: 'A' },
@@ -766,7 +766,7 @@ export class VendorInvoiceService {
                 }
 
                 // Fetch updated vendor invoice
-                return await this.fetchVendorInvoiceById(VoucherHeaderSid, tx);
+                return await this.fetchVendorInvoiceById(VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid, tx);
             });
         } catch (error) {
             this.logger.error(`Error updating vendor invoice: ${error.message}`);

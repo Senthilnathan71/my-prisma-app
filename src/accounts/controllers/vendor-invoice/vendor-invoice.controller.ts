@@ -72,16 +72,16 @@ export class VendorInvoiceController {
     type: ResponseData
   })
   @HttpCode(HttpStatus.OK)
-  @Get('fetch/:VoucherHeaderSid')
-  async getVendorInvoiceById(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+  @Post('fetch')
+  async getVendorInvoiceById(@Body() payload: any) {
     const output = new ResponseData();
     try {
-      const finalOutput = await this.vendorInvoiceService.fetchVendorInvoiceById(VoucherHeaderSid);
+      const finalOutput = await this.vendorInvoiceService.fetchVendorInvoiceById(payload.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
 
       output.data = finalOutput;
       output.message = "Vendor Invoice data fetched successfully";
     } catch (error) {
-      this.logger.warn(`getVendorInvoiceById error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      this.logger.warn(`getVendorInvoiceById error for ID ${payload.VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
       output.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         output.message = (error as any).message || 'Bad request';

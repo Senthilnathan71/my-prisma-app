@@ -68,7 +68,7 @@ export class PaymentRequestService {
           payload,
         );
 
-        return this.getPaymentRequestById(header.PaymentRequestSid, tx);
+        return this.getPaymentRequestById(header.PaymentRequestSid, payload.CompanyMasterSid, payload.BranchMasterSid,tx);
       });
     } catch (error) {
       this.logger.error(`createPaymentRequest failed: ${error?.message || error}`);
@@ -184,13 +184,13 @@ export class PaymentRequestService {
         payload,
       );
 
-      return this.getPaymentRequestById(paymentRequestSid, tx);
+      return this.getPaymentRequestById(paymentRequestSid, payload.CompanyMasterSid, payload.BranchMasterSid,tx);
     });
   }
 
-  async getPaymentRequestById(paymentRequestSid: number, tx: any = this.db) {
+  async getPaymentRequestById(PaymentRequestSid: number , CompanyMasterSid: number,BranchMasterSid: number,tx: any = this.db) {
     const header = await tx.paymentRequest.findUnique({
-      where: { PaymentRequestSid: paymentRequestSid },
+      where: { PaymentRequestSid: PaymentRequestSid , CompanyMasterSid: CompanyMasterSid, BranchMasterSid: BranchMasterSid },
       include: {
         bookingHeader: true,
         masterJob: true,
