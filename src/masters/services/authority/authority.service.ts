@@ -555,7 +555,39 @@ export class AuthorityService {
     * }>} An object indicating whether the user can authorize, has already approved,
     * and how many total active authorizers exist for that menu.
     */
+    private async getAuthorityDepartmentName(payload: any): Promise<string | null> {
+        const departmentName = String(payload.DepartmentMaster || payload.departmentName || '').trim();
+        if (departmentName) {
+            return departmentName;
+        }
+
+        const departmentSid = Number(payload.DepartmentMasterSid || payload.departmentMasterSid || 0);
+        if (!departmentSid) {
+            return null;
+        }
+
+        const department = await this._db.departmentMaster.findFirst({
+            where: {
+                DepartmentMasterSid: departmentSid,
+                CompanyMasterSid: payload.CompanyMasterSid,
+                Status: 'A'
+            },
+            select: { departmentName: true }
+        });
+
+        return department?.departmentName || null;
+    }
+
     async isUserAuthorizer(payload: any) {
+        const authorityDepartmentName = await this.getAuthorityDepartmentName(payload);
+        const authorityMasterScope: Prisma.AuthorityMasterWhereInput = {
+            status: 'A',
+            MenuMaster: payload.MenuMasterSid,
+            CompanyMasterSid: payload.CompanyMasterSid,
+            BranchMasterSid: payload.BranchMasterSid,
+            ...(authorityDepartmentName ? { DepartmentMaster: { has: authorityDepartmentName } } : {})
+        };
+
         // 1. Find if user is an active authorizer
         const authorizer = await this._db.authorityDetail.findFirst({
             where: {
@@ -563,12 +595,7 @@ export class AuthorityService {
                 CompanyMasterSid: payload.CompanyMasterSid,
                 BranchMasterSid: payload.BranchMasterSid,
                 status: 'A',
-                authorityMaster: {
-                    status: 'A',
-                    MenuMaster: payload.MenuMasterSid,
-                    CompanyMasterSid: payload.CompanyMasterSid,
-                    BranchMasterSid: payload.BranchMasterSid
-                }
+                authorityMaster: authorityMasterScope
             },
             select: {
                 AuthorityDetailSid: true,
@@ -583,12 +610,7 @@ export class AuthorityService {
                 status: 'A',
                 CompanyMasterSid: payload.CompanyMasterSid,
                 BranchMasterSid: payload.BranchMasterSid,
-                authorityMaster: {
-                    status: 'A',
-                    MenuMaster: payload.MenuMasterSid,
-                    CompanyMasterSid: payload.CompanyMasterSid,
-                    BranchMasterSid: payload.BranchMasterSid
-                }
+                authorityMaster: authorityMasterScope
             }
         });
 
@@ -605,17 +627,19 @@ export class AuthorityService {
             };
         }
 
-        // 4. Check if user already authorized this document
-        const alreadyAuthorized = await this._db.authorityLog.findFirst({
-            where: {
-                AuthorityDetailSid: authorizer.AuthorityDetailSid,
-                DocumentSid: payload.DocumentSid,
-                Status: 'A'
-            },
-            select: {
-                AuthorityLogSid: true
-            }
-        });
+        // 4. Check if user already authorized this document. New quotations do not have a document id yet.
+        const alreadyAuthorized = payload.DocumentSid
+            ? await this._db.authorityLog.findFirst({
+                where: {
+                    AuthorityDetailSid: authorizer.AuthorityDetailSid,
+                    DocumentSid: Number(payload.DocumentSid),
+                    Status: 'A'
+                },
+                select: {
+                    AuthorityLogSid: true
+                }
+            })
+            : null;
 
         // 5. Return based on already authorized state
         if (alreadyAuthorized) {
@@ -642,7 +666,7 @@ export class AuthorityService {
     }
 
 
-    async getApprovalStatusData(menuMasterSid: number, documentSid: number, companyMasterSid?: number, branchMasterSid?: number) {
+    async getApprovalStatusData(menuMasterSid: number, documentSid: number, companyMasterSid?: number, branchMasterSid?: number, departmentMasterSid?: number, departmentMaster?: string) {
         const scopeWhere: any = {};
         if (companyMasterSid) {
             scopeWhere.CompanyMasterSid = companyMasterSid;
@@ -650,17 +674,24 @@ export class AuthorityService {
         if (branchMasterSid) {
             scopeWhere.BranchMasterSid = branchMasterSid;
         }
+        const authorityDepartmentName = await this.getAuthorityDepartmentName({
+            CompanyMasterSid: companyMasterSid,
+            DepartmentMasterSid: departmentMasterSid,
+            DepartmentMaster: departmentMaster
+        });
+        const authorityMasterScope: Prisma.AuthorityMasterWhereInput = {
+            ...scopeWhere,
+            MenuMaster: menuMasterSid,
+            status: 'A',
+            ...(authorityDepartmentName ? { DepartmentMaster: { has: authorityDepartmentName } } : {})
+        };
 
         // 1. Fetch authority users for the given menu
         const authorityUsers = await this._db.authorityDetail.findMany({
             where: {
                 ...scopeWhere,
                 status: 'A',
-                authorityMaster: {
-                    ...scopeWhere,
-                    MenuMaster: menuMasterSid,
-                    status: 'A',
-                },
+                authorityMaster: authorityMasterScope,
             },
             include: {
                 userMaster: {
@@ -680,11 +711,7 @@ export class AuthorityService {
                 Status: 'A',
                 AuthorityDetail: {
                     status: 'A',
-                    authorityMaster: {
-                        ...scopeWhere,
-                        MenuMaster: menuMasterSid,
-                        status: 'A',
-                    },
+                    authorityMaster: authorityMasterScope,
                 },
             },
             include: {
@@ -810,6 +837,7 @@ export class AuthorityService {
     }
 
 }
+
 
 
 

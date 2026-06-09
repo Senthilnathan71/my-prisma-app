@@ -433,29 +433,47 @@ export class QuotationService {
                 : [];
             const formatApprovalTarget = (target: any) =>
                 `Route:${target.QuoteRouteSid || 'NA'} Carrier:${target.QuoteCarrierSid || 'NA'} Status:${target.ApprovalStatus}`;
-            let existingAuthLog: any = null;
+            const getTargetAuthorityDetailSid = (target: any) => Number(target?.AuthorityDetailSid || authPayload.AuthorityDetailSid || 0);
+            const approvalTargetsByAuthorityDetailSid = new Map<number, any[]>();
+            approvalTargets.forEach((target: any) => {
+                const authorityDetailSid = getTargetAuthorityDetailSid(target);
+                if (!authorityDetailSid) return;
+                const targets = approvalTargetsByAuthorityDetailSid.get(authorityDetailSid) || [];
+                targets.push(target);
+                approvalTargetsByAuthorityDetailSid.set(authorityDetailSid, targets);
+            });
+            const existingAuthLogByAuthorityDetailSid = new Map<number, any>();
+            const createdAuthLogs: any[] = [];
 
             if(authPayload.canAuthorize){
-                existingAuthLog = await this._db.authorityLog.findFirst({
+                const authorityDetailSids = Array.from(approvalTargetsByAuthorityDetailSid.keys());
+                if (!authorityDetailSids.length) {
+                    throw new BadRequestException('Authority detail is required to approve this route/carrier.');
+                }
+
+                const existingAuthLogs = await this._db.authorityLog.findMany({
                     where: {
-                        AuthorityDetailSid: Number(authPayload.AuthorityDetailSid),
+                        AuthorityDetailSid: { in: authorityDetailSids },
                         DocumentSid: Number(QuoteHeaderSid),
                         Status: 'A',
                     },
                 });
+                existingAuthLogs.forEach(log => existingAuthLogByAuthorityDetailSid.set(Number(log.AuthorityDetailSid), log));
 
-                if (existingAuthLog) {
+                for (const [authorityDetailSid, targets] of approvalTargetsByAuthorityDetailSid.entries()) {
+                    const existingAuthLog = existingAuthLogByAuthorityDetailSid.get(authorityDetailSid);
+                    if (!existingAuthLog) continue;
+
                     const existingRemarks = existingAuthLog.Remarks || '';
-                    const alreadyLoggedTargets = approvalTargets.length > 0 && approvalTargets.every((target: any) =>
+                    const alreadyLoggedTargets = targets.length > 0 && targets.every((target: any) =>
                         existingRemarks.includes(formatApprovalTarget(target))
                     );
 
-                    if (!approvalTargets.length || alreadyLoggedTargets) {
+                    if (!targets.length || alreadyLoggedTargets) {
                         throw new BadRequestException('You have already approved this route/carrier.');
                     }
                 }
             }
-
             const updatedQuoteHeader = await this._db.quoteHeader.update({
                 where: { QuoteHeaderSid: QuoteHeaderSid },
                 data: {
@@ -794,41 +812,45 @@ export class QuotationService {
                 finalRoutes.push(currentRoute);
             }
 
-            let createdAuthLog;
-            
             if(authPayload.canAuthorize){
-                const approvalRemarks = approvalTargets.map(formatApprovalTarget).join('; ') || payload.AuthorizerRemarks || '';
-                if (existingAuthLog) {
-                    const appendedRemarks = [existingAuthLog.Remarks, approvalRemarks].filter(Boolean).join('; ');
-                    createdAuthLog = await this._db.authorityLog.update({
-                        where: {
-                            AuthorityLogSid: existingAuthLog.AuthorityLogSid,
-                        },
-                        data: {
-                            UpdatedBy: payload.updatedBy,
-                            UpdatedOn: new Date(),
-                            ApprovalStatus: authPayload.ApprovalStatus,
-                            AuthorisedDate: new Date(),
-                            Remarks: appendedRemarks,
-                        },
-                    });
-                } else {
-               createdAuthLog = await this._db.authorityLog.create({
-                    data: {
-                        CompanyMasterSid: payload.CompanyMasterSid,
-                        BranchMasterSid: payload.BranchMasterSid,
-                        CreatedBy: payload.updatedBy,
-                        Status: 'A',
-                        AuthorityDetailSid: authPayload.AuthorityDetailSid,
-                        AuthorisedDate: new Date(),
-                        ApprovalStatus: authPayload.ApprovalStatus,
-                        DocumentSid: updatedQuoteHeader.QuoteHeaderSid,
-                        Remarks: approvalRemarks,
-                    },
-                });
+                for (const [authorityDetailSid, targets] of approvalTargetsByAuthorityDetailSid.entries()) {
+                    const approvalRemarks = targets.map(formatApprovalTarget).join('; ') || payload.AuthorizerRemarks || '';
+                    const approvalStatus = targets[targets.length - 1]?.ApprovalStatus || authPayload.ApprovalStatus;
+                    const existingAuthLog = existingAuthLogByAuthorityDetailSid.get(authorityDetailSid);
+
+                    if (existingAuthLog) {
+                        const appendedRemarks = [existingAuthLog.Remarks, approvalRemarks].filter(Boolean).join('; ');
+                        const updatedAuthLog = await this._db.authorityLog.update({
+                            where: {
+                                AuthorityLogSid: existingAuthLog.AuthorityLogSid,
+                            },
+                            data: {
+                                UpdatedBy: payload.updatedBy,
+                                UpdatedOn: new Date(),
+                                ApprovalStatus: approvalStatus,
+                                AuthorisedDate: new Date(),
+                                Remarks: appendedRemarks,
+                            },
+                        });
+                        createdAuthLogs.push(updatedAuthLog);
+                    } else {
+                        const createdAuthLog = await this._db.authorityLog.create({
+                            data: {
+                                CompanyMasterSid: payload.CompanyMasterSid,
+                                BranchMasterSid: payload.BranchMasterSid,
+                                CreatedBy: payload.updatedBy,
+                                Status: 'A',
+                                AuthorityDetailSid: authorityDetailSid,
+                                AuthorisedDate: new Date(),
+                                ApprovalStatus: approvalStatus,
+                                DocumentSid: updatedQuoteHeader.QuoteHeaderSid,
+                                Remarks: approvalRemarks,
+                            },
+                        });
+                        createdAuthLogs.push(createdAuthLog);
+                    }
                 }
             }
-
             const atleastOneApprovedCarrier = finalRoutes.some(route => {
                 return route.quoteCarriers.some(carrier => {
                     return carrier.ApprovalStatus === "Approved"
@@ -911,7 +933,7 @@ export class QuotationService {
 
             return {
                 ...updatedQuoteHeader,
-                createdAuthLog,
+                createdAuthLog: createdAuthLogs,
                 createdCustomer
             }
         } catch (error) {

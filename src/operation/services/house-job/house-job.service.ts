@@ -1088,11 +1088,23 @@ export class HouseJobService {
 
     async getHouseJobById(HouseJobSid: number,CompanyMasterSid: number,BranchMasterSid: number) {
         try {
+            const houseJobSid = Number(HouseJobSid);
+            const companyMasterSid = Number(CompanyMasterSid);
+            const branchMasterSid = Number(BranchMasterSid);
+
+            if (!Number.isInteger(houseJobSid)) {
+                throw new BadRequestException('HouseJobSid must be a single valid number.');
+            }
+
+            if (!Number.isInteger(companyMasterSid) || !Number.isInteger(branchMasterSid)) {
+                throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required.');
+            }
+
             const ourHouseJob = await this._db.houseJob.findUnique({
                 where: {
-                    HouseJobSid: HouseJobSid,
-                    CompanyMasterSid: CompanyMasterSid,
-                    BranchMasterSid: BranchMasterSid
+                    HouseJobSid: houseJobSid,
+                    CompanyMasterSid: companyMasterSid,
+                    BranchMasterSid: branchMasterSid
                 },
                 include: {
                     departmentMaster: {
@@ -2643,6 +2655,7 @@ private hasBoeValue(boe: any): boolean {
 }
 
 }
+
 
 
 

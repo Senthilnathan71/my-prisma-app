@@ -242,7 +242,9 @@ export class AuthorityController {
         @Param('MenuMasterSid', ParseIntPipe) MenuMasterSid: number,
         @Param('DocumentSid', ParseIntPipe) DocumentSid: number,
         @Query('CompanyMasterSid') CompanyMasterSid?: string,
-        @Query('BranchMasterSid') BranchMasterSid?: string
+        @Query('BranchMasterSid') BranchMasterSid?: string,
+        @Query('DepartmentMasterSid') DepartmentMasterSid?: string,
+        @Query('DepartmentMaster') DepartmentMaster?: string
     ) {
         const resp = new ResponseData();
 
@@ -251,7 +253,9 @@ export class AuthorityController {
                 MenuMasterSid,
                 DocumentSid,
                 CompanyMasterSid ? Number(CompanyMasterSid) : undefined,
-                BranchMasterSid ? Number(BranchMasterSid) : undefined
+                BranchMasterSid ? Number(BranchMasterSid) : undefined,
+                DepartmentMasterSid ? Number(DepartmentMasterSid) : undefined,
+                DepartmentMaster
             );
             resp.data = result;
             resp.message = "Document's approval log has been fetched.";
