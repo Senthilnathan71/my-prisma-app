@@ -76,16 +76,16 @@ export class ReverseVoucherController {
                 type: ResponseData
               })
               @HttpCode(HttpStatus.OK)
-              @Get('fetch/:VoucherHeaderSid')
-              async fetchReverseVoucherById(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+              @Post('fetch')
+              async fetchReverseVoucherById(@Body() payload: any) {
                 const output = new ResponseData();
                 try {
-                  const finalOutput = await this.reverseVoucherService.fetchReverseVoucherById(VoucherHeaderSid);
+                  const finalOutput = await this.reverseVoucherService.fetchReverseVoucherById(payload.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
 
                   output.data = finalOutput;
                   output.message = "Reverse Voucher data fetched successfully";
                 } catch (error) {
-                  this.logger.warn(`fetchReverseVoucherById error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+                  this.logger.warn(`fetchReverseVoucherById error for ID ${payload.VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
                   output.status = false;
                   if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                     output.message = (error as any).message || 'Bad request';

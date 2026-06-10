@@ -92,16 +92,16 @@ export class JournalVoucherController {
     type: ResponseData
   })
   @HttpCode(HttpStatus.OK)
-  @Get('fetch/:VoucherHeaderSid')
-  async getJournalVoucherById(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+  @Post('fetch')
+  async getJournalVoucherById(@Body() payload: any) {
     const output = new ResponseData();
     try {
-      const finalOutput = await this.journalVoucherService.fetchJournalVoucherById(VoucherHeaderSid);
+      const finalOutput = await this.journalVoucherService.fetchJournalVoucherById(payload.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
 
       output.data = finalOutput;
       output.message = "Journal Voucher data fetched successfully";
     } catch (error) {
-      this.logger.warn(`getJournalVoucherById error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      this.logger.warn(`getJournalVoucherById error for ID ${payload.VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
       output.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         output.message = (error as any).message || 'Bad request';

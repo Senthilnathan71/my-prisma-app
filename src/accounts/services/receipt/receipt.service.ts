@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException, InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OutstandingService } from '../outstanding/outstanding.service';
 import {
@@ -274,7 +274,7 @@ export class ReceiptService {
     });
 
     if (!receipt) {
-      throw new NotFoundException(`Receipt ${voucherHeaderSid} not found`);
+      throw new UnauthorizedException('Access denied');
     }
 
     const {SourceMatchingDetail,VoucherDetail,voucherMatchingHeader ,...VoucherHeader} = receipt;

@@ -11,7 +11,7 @@ export class ManagementReportsService {
     private logger: Logger,
   ) {}
 
-  async getAvailableReports(companyId: number): Promise<any[]> {
+  async getAvailableReports(CompanyMasterSid: number): Promise<any[]> {
     try {
       const managementMenu = await this._db.menuMaster.findFirst({
         where: {
@@ -42,7 +42,7 @@ export class ManagementReportsService {
         const excludedCompanies = Array.isArray(report.ReportExcludedCompany)
           ? report.ReportExcludedCompany
           : [];
-        return !excludedCompanies.includes(companyId);
+        return !excludedCompanies.includes(CompanyMasterSid);
       });
 
       return filteredReports;

@@ -100,15 +100,15 @@ export class LeadController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:PreCustomerMasterSid')
-    async getLeadById(@UserData() user:any,@Param('PreCustomerMasterSid', ParseIntPipe) PreCustomerMasterSid: number) {
+    @Post('fetch')
+    async getLeadById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Lead with id : ${PreCustomerMasterSid}`);
-            let res = await this.leadService.fetchLeadById(PreCustomerMasterSid);
+            this.logger.log(`Getting Lead with id : ${payload.PreCustomerMasterSid}`);
+            let res = await this.leadService.fetchLeadById(payload.PreCustomerMasterSid, payload.CompanyMasterSid, payload.BranchMasterSid);
             this.logger.debug(`Fetched Lead : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Lead with id : ${PreCustomerMasterSid} is successfully fetched`;
+            resp.message = `Lead with id : ${payload.PreCustomerMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Lead by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;

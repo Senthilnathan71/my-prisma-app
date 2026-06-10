@@ -214,11 +214,15 @@ export class ReverseVoucherService {
         }
     }
 
-    async fetchReverseVoucherById(VoucherHeaderSid: number) {
+    async fetchReverseVoucherById(VoucherHeaderSid: number,CompanyMasterSid: number, BranchMasterSid: number) {
         try {
 
             const reverseVoucher = await this._db.voucherHeader.findUnique({
-                where: { VoucherHeaderSid },
+                where: { 
+                    VoucherHeaderSid ,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
+                },
                 include: {
                     VoucherDetail: {
                         where: { Status: 'A' },
@@ -461,7 +465,7 @@ export class ReverseVoucherService {
                     });
                 }
 
-                return await this.fetchReverseVoucherById(VoucherHeaderSid);
+                return await this.fetchReverseVoucherById(VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid);
             });
         } catch (error) {
             this.logger.error(`Error updating reverse voucher: ${error.message}`);

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -218,15 +218,17 @@ async getAllCustomer(user,CompanyMasterSid:number) {
     }
 }
 
-    async fetchLeadById(PreCustomerMasterSid: number) {
+    async fetchLeadById(PreCustomerMasterSid: number, CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const ourLead = await this._db.preCustomerMaster.findUnique({
                 where: {
-                    PreCustomerMasterSid: PreCustomerMasterSid
+                    PreCustomerMasterSid: PreCustomerMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 }
             })
             if (!ourLead) {
-                throw new BadRequestException(`Lead with Id : ${PreCustomerMasterSid} not exists`);
+                throw new UnauthorizedException(`Access denied`);
             }
             return ourLead;
         } catch (error) {

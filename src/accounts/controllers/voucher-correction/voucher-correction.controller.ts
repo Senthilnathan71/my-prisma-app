@@ -76,11 +76,11 @@ export class VoucherCorrectionController {
         description: 'Fetch Voucher Correction',
         type: ResponseData,
     })
-    @Get('fetch/:VoucherHeaderSid')
-  async getVoucherById(@Param('VoucherHeaderSid', ParseIntPipe) VoucherHeaderSid: number) {
+    @Post('fetch')
+  async getVoucherById(@Body() payload: any) {
     const output = new ResponseData();
     try {
-      const finalOutput = await this.voucherCorrectionService.findVoucherById(VoucherHeaderSid);
+      const finalOutput = await this.voucherCorrectionService.findVoucherById(payload.VoucherHeaderSid, payload.CompanyMasterSid, payload.BranchMasterSid);
 
       output.data = finalOutput;
       output.message = "Voucher data fetched successfully by ID";

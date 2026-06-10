@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OutstandingService } from '../outstanding/outstanding.service';
 import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
@@ -290,7 +290,7 @@ export class PaymentService {
         });
 
         if (!payment) {
-            throw new NotFoundException(`Payment ${voucherHeaderSid} not found`);
+            throw new UnauthorizedException('Access denied');
         }
 
         const { SourceMatchingDetail, VoucherDetail,voucherMatchingHeader, ...VoucherHeader } = payment;

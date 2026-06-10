@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -278,10 +278,10 @@ export class VoucherCorrectionService {
   }
 
 
-  async findVoucherById(VoucherHeaderSid: number) {
+  async findVoucherById(VoucherHeaderSid: number, CompanyMasterSid: number, BranchMasterSid: number) {
     try {
       const voucherHeader = await this._db.voucherHeader.findUnique({
-        where: { VoucherHeaderSid: VoucherHeaderSid, Status: statusWhereClause },
+        where: { VoucherHeaderSid: VoucherHeaderSid, Status: statusWhereClause , CompanyMasterSid: CompanyMasterSid, BranchMasterSid: BranchMasterSid },
         include: {
           VoucherDetail: {
             where: { Status: 'A' },
@@ -388,7 +388,7 @@ export class VoucherCorrectionService {
       });
 
       if (!voucherHeader) {
-        throw new BadRequestException('Voucher not found');
+        throw new UnauthorizedException('Access denied.');
       }
 
       if (voucherHeader.ReversalVoucher) {

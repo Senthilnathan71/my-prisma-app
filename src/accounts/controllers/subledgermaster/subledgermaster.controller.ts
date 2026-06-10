@@ -397,11 +397,11 @@ export class SubledgermasterController {
     type: ResponseData
 })
 @HttpCode(HttpStatus.OK)
-@Get('type/:subledgerType')
-async getSubledgerMasterByType(@Param('subledgerType') subledgerType: string,  @Query('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number) {
+@Post('type/fetch')
+async getSubledgerMasterByType(@Body() payload: any) {
     let resp = new ResponseData();
     try {
-        let res = await this.SubledgermasterService.getSubledgerMasterByType(subledgerType,CompanyMasterSid);
+        let res = await this.SubledgermasterService.getSubledgerMasterByType(payload.subledgerType,payload.CompanyMasterSid);
 
         resp.data = res;
         resp.message = "SubledgerMaster by type successfully fetched";

@@ -76,15 +76,15 @@ export class CurrencyExchangeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:CurrencyExchangeSid')
-    async getCurrencyExById(@Param('CurrencyExchangeSid', ParseIntPipe) CurrencyExchangeSid: number) {
+    @Post('fetch')
+    async getCurrencyExById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Fetching Currency Exchange with id : ${CurrencyExchangeSid}`);
-            let res = await this.currencyExService.getCurrencyExById(CurrencyExchangeSid);
+            this.logger.log(`Fetching Currency Exchange with id : ${payload.CurrencyExchangeSid}`);
+            let res = await this.currencyExService.getCurrencyExById(payload.CurrencyExchangeSid, payload.CompanyMasterSid, payload.BranchMasterSid);
             this.logger.debug(`Fetched Currency Exchange Id : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Currency Exchange with id : ${CurrencyExchangeSid} is successfully fetched`;
+            resp.message = `Currency Exchange with id : ${payload.CurrencyExchangeSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Currency Exchange by Id Error : ${JSON.stringify(error), error}`)
             resp.status = false;
