@@ -222,7 +222,7 @@ export class JournalVoucherService {
                 }
 
                 // Fetch complete journal voucher with relations
-                const completeJournalVoucher = await this.fetchJournalVoucherById(voucherHeader.VoucherHeaderSid, tx);
+                const completeJournalVoucher = await this.fetchJournalVoucherById(voucherHeader.VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid, tx);
 
                 if (voucherTypeMaster.IsAutoPosting === 'Y') {
                     const postResult = await this.postJournalInternal({
@@ -287,12 +287,12 @@ export class JournalVoucherService {
     /**
      * Fetch journal voucher by ID
      */
-    async fetchJournalVoucherById(VoucherHeaderSid: number, tx?: any): Promise<any> {
+    async fetchJournalVoucherById(VoucherHeaderSid: number,CompanyMasterSid:number,BranchMasterSid: number, tx?: any): Promise<any> {
         try {
             const db = tx || this._db;
 
             const journalVoucher = await db.voucherHeader.findUnique({
-                where: { VoucherHeaderSid },
+                where: { VoucherHeaderSid , CompanyMasterSid: CompanyMasterSid, BranchMasterSid: BranchMasterSid },
                 include: {
                     VoucherDetail: {
                         where: { Status: 'A' },
@@ -478,7 +478,7 @@ export class JournalVoucherService {
 }
 
                 // Fetch updated journal voucher
-const updatedVoucher = await this.fetchJournalVoucherById(VoucherHeaderSid, tx);
+const updatedVoucher = await this.fetchJournalVoucherById(VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid, tx);
 
 return {
   newVoucher: updatedVoucher,

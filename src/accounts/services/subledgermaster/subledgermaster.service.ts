@@ -330,7 +330,7 @@ export class SubledgermasterService {
             const subledgers = await this._db.subledgerMaster.findMany({
                 where: {
                     SubledgerType: subledgerType,
-                     CompanyMasterSid: CompanyMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
                     Status: { in: ["A", "S"] } // Include both Active and Suspended
                 },
                 include: {

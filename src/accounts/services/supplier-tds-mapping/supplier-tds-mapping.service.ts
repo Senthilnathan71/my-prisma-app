@@ -62,11 +62,12 @@ export class SupplierTdsMappingService {
         );
     }
 
-    async fetchSuppliertdsMappingById(SupplierTdsMappingSid: number) {
+    async fetchSuppliertdsMappingById(SupplierTdsMappingSid: number, CompanyMasterSid: number) {
         try {
             const ourSupplierTDSMapping = await this._db.supplierTdsMapping.findUnique({
                 where: {
-                    SupplierTdsMappingSid: SupplierTdsMappingSid
+                    SupplierTdsMappingSid: SupplierTdsMappingSid,
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
                     customerMaster: {

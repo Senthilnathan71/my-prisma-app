@@ -319,7 +319,7 @@ export class VendorInvoiceService {
             const db = tx || this._db;
 
             const vendorInvoice = await db.voucherHeader.findUnique({
-                where: { VoucherHeaderSid, CompanyMasterSid, BranchMasterSid },
+                where: { VoucherHeaderSid, CompanyMasterSid: CompanyMasterSid, BranchMasterSid: BranchMasterSid },
                 include: {
                     VoucherDetail: {
                         where: { Status: 'A' },

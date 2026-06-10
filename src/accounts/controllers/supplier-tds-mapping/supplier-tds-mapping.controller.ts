@@ -149,15 +149,15 @@ export class SupplierTdsMappingController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:SupplierTdsMappingSid')
-    async getSuppliertdsMappingId(@Param('SupplierTdsMappingSid', ParseIntPipe) SupplierTdsMappingSid: number) {
+    @Post('fetch')
+    async getSuppliertdsMappingId(@Body() payload: any) {
         let resp = new ResponseData();
         try {
 
-            let res = await this.suppliertdsmappingService.fetchSuppliertdsMappingById(SupplierTdsMappingSid);
+            let res = await this.suppliertdsmappingService.fetchSuppliertdsMappingById(payload.SupplierTdsMappingSid,payload.CompanyMasterSid);
 
             resp.data = res;
-            resp.message = `Supplier TDS Mapping with id : ${SupplierTdsMappingSid} is successfully fetched`;
+            resp.message = `Supplier TDS Mapping with id : ${payload.SupplierTdsMappingSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Supplier TDS Mapping by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;

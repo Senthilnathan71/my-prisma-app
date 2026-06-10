@@ -40,11 +40,13 @@ export class CurrencyExchangeService {
     }
 
 
-    async getCurrencyExById(CurrencyExchangeSid: number) {
+    async getCurrencyExById(CurrencyExchangeSid: number, CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const ourCurrencyEx = await this._db.currencyExchange.findUnique({
                 where: {
-                    CurrencyExchangeSid: CurrencyExchangeSid
+                    CurrencyExchangeSid: CurrencyExchangeSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 }
             })
             if (!ourCurrencyEx) {
