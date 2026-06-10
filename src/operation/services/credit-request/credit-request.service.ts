@@ -644,8 +644,11 @@ export class CreditRequestService {
     CustomerBranchSid: number | null;
     DepartmentMasterSid: number | null;
     VoucherDate: Date;
+    current_date?: Date;
+    CurrentDate?: Date;
   }): Promise<any> {
     const result = await this._db.$transaction(async (prisma) => {
+      const baseDate = new Date((payload as any).current_date || payload.CurrentDate || new Date());
       const customerMaster = await prisma.customerMaster.findUnique({
         where: { CustomerMasterSid: payload.CustomerMasterSid },
         select: { CashCredit: true },
@@ -656,10 +659,9 @@ export class CreditRequestService {
       }
 
       if (customerMaster.CashCredit === 'Cash') {
-        // Business rule: cash = 1 day
         return {
           creditDays : 1,
-          dueDate : addDaysCalendar(payload.VoucherDate, 2),
+          dueDate : addDaysCalendar(baseDate, 5),
         }
       }
 
@@ -667,8 +669,8 @@ export class CreditRequestService {
         CompanyMasterSid: payload.CompanyMasterSid,
         CustomerMasterSid: payload.CustomerMasterSid,
         ApprovalStatus: ApprovalStatus.Approved,
-        EffectiveFrom: { lte: new Date(payload.VoucherDate) },
-        EffectiveTo: { gte: new Date(payload.VoucherDate) },
+        EffectiveFrom: { lte: baseDate },
+        EffectiveTo: { gte: baseDate },
         Status: 'A',
       };
 
@@ -685,7 +687,7 @@ export class CreditRequestService {
       if (departmentSpecific?.CreditDays != null) {
         return {
           creditDays : departmentSpecific?.CreditDays,
-          dueDate : addDaysCalendar(payload.VoucherDate,  departmentSpecific?.CreditDays + 1),
+          dueDate : addDaysCalendar(baseDate, departmentSpecific?.CreditDays),
         }
       }
 
@@ -702,7 +704,7 @@ export class CreditRequestService {
       if (branchSpecific?.CreditDays != null) {
         return {
           creditDays : branchSpecific?.CreditDays,
-          dueDate : addDaysCalendar(payload.VoucherDate,  branchSpecific?.CreditDays + 1),
+          dueDate : addDaysCalendar(baseDate, branchSpecific?.CreditDays),
         }
       }
 
@@ -719,7 +721,7 @@ export class CreditRequestService {
       if (partySpecific?.CreditDays != null) {
         return {
           creditDays : partySpecific?.CreditDays,
-          dueDate : addDaysCalendar(payload.VoucherDate, partySpecific?.CreditDays + 1),
+          dueDate : addDaysCalendar(baseDate, partySpecific?.CreditDays),
         }
       }
 
