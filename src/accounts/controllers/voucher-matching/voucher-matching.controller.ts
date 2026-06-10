@@ -3,7 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoucherMatchingService } from 'src/accounts/services/voucher-matching/voucher-matching.service';
-import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, FetchOutstandingVouchers, CancelVoucherMatchingDto } from 'src/accounts/dto/voucher-matching.dto';
+import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, FetchOutstandingVouchers, CancelVoucherMatchingDto, EnquireVoucherDto } from 'src/accounts/dto/voucher-matching.dto';
 import { Auth } from 'src/common/decorators/auth.decorator';
 
 @Auth()
@@ -261,6 +261,36 @@ export class VoucherMatchingController {
       resp.message = 'Voucher matching posted successfully';
     } catch (error) {
       this.logger.warn(`postVoucherMatching Error: ${error}`);
+      resp.status = false;
+      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+        resp.message = error.message;
+      } else {
+        resp.message = 'Internal Server Error';
+      }
+    }
+    return resp;
+  }
+
+  @ApiOperation({ summary: 'Enquire all voucher matchings for a given voucher number' })
+  @ApiCreatedResponse({
+    description: 'Voucher enquiry data fetched successfully',
+    type: ResponseData,
+  })
+  @HttpCode(HttpStatus.OK)
+  @Post('enquiry')
+  @UsePipes(new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    forbidNonWhitelisted: true
+  }))
+  async enquireVoucher(@Body() dto: EnquireVoucherDto) {
+    const resp = new ResponseData();
+    try {
+      const res = await this.voucherMatchingService.enquireVoucher(dto);
+      resp.data = res;
+      resp.message = 'Voucher enquiry fetched successfully';
+    } catch (error) {
+      this.logger.warn(`enquireVoucher Error: ${error}`);
       resp.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = error.message;

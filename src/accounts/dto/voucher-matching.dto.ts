@@ -10,7 +10,7 @@ import {
   Length,
   IsIn,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { Decimal } from '@prisma/client/runtime/library';
 
 /**
@@ -294,6 +294,25 @@ export class MatchingDetailDto {
   @IsIn(['Source', 'Object'], { message: "MatchingType must be Source, Object" })
   @IsString()
   MatchingType: 'Source' | 'Object';
+}
+
+export class EnquireVoucherDto {
+  @IsNotEmpty({ message: 'VoucherNumber is required' })
+  @IsString()
+  @Transform(({ value }) => value?.trim())
+  VoucherNumber: string;
+
+  @IsNotEmpty({ message: 'CompanyMasterSid is required' })
+  @IsInt()
+  CompanyMasterSid: number;
+
+  @IsNotEmpty({ message: 'BranchMasterSid is required' })
+  @IsInt()
+  BranchMasterSid: number;
+
+  @IsNotEmpty({ message: 'LocalCurrencyMasterSid is required' })
+  @IsInt()
+  LocalCurrencyMasterSid: number;
 }
 
 export interface CreateVoucherMatchingResponse {
