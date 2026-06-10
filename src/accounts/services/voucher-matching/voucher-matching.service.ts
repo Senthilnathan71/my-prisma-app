@@ -2,10 +2,10 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger }
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { Prisma, VoucherHeader } from '@prisma/client';
-import { statusWhereClause, toNumber } from 'src/common/helper';
+import { statusWhereClause, toNumber, roundAmount } from 'src/common/helper';
 import { VoucherService } from '../voucher/voucher.service';
-import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, CreateVoucherMatchingResponse, FetchVoucherMatchingResponse, PostVoucherMatchingResponse, FetchOutstandingVouchers, CancelVoucherMatchingDto, VoucherMatchingCancellationWarnings } from 'src/accounts/dto/voucher-matching.dto';
-import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
+import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, CreateVoucherMatchingResponse, FetchVoucherMatchingResponse, PostVoucherMatchingResponse, FetchOutstandingVouchers, CancelVoucherMatchingDto, VoucherMatchingCancellationWarnings, EnquireVoucherDto } from 'src/accounts/dto/voucher-matching.dto';
+import { DOC_TYPE_CODE, getPartyDrCr } from 'src/common/config/voucher-type.config';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 
@@ -1901,6 +1901,331 @@ export class VoucherMatchingService {
             current_date: now,
             postedBy: params.cancelledBy,
         }, tx);
+    }
+
+    async enquireVoucher(dto: EnquireVoucherDto) {
+        const { CompanyMasterSid, BranchMasterSid, LocalCurrencyMasterSid } = dto;
+        const voucherNumber = dto.VoucherNumber?.trim();
+
+        // 1. Find the voucher header
+        const voucherHeader = await this._db.voucherHeader.findFirst({
+            where: {
+                VoucherNumber: { equals: voucherNumber, mode: 'insensitive' },
+                CompanyMasterSid,
+                BranchMasterSid,
+                Status: 'A',
+            },
+        });
+
+        if (!voucherHeader) {
+            throw new BadRequestException(`Voucher "${voucherNumber}" not found`);
+        }
+
+        // 2. Party transactions — subledgerMaster.SubledgerType = 'Customer'
+        // All scalar fields of VoucherTransaction are returned (COAMasterSid is available)
+        const partyTransactions = await this._db.voucherTransaction.findMany({
+            where: {
+                VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                CompanyMasterSid,
+                BranchMasterSid,
+                Status: 'A',
+                subledgerMaster: { SubledgerType: 'Customer' },
+            },
+            include: {
+                subledgerMaster: { select: { SubledgerName: true } },
+                voucherTypeMaster: { select: { DocumentTypeName: true, DocumentTypeCode: true } },
+            },
+        });
+
+        if (partyTransactions.length === 0) {
+            throw new BadRequestException(`No party transactions found for voucher "${voucherNumber}"`);
+        }
+
+        const partyTransactionSids = partyTransactions.map(t => t.VoucherTransactionSid);
+        const partyName = partyTransactions[0]?.subledgerMaster?.SubledgerName ?? '';
+        const partyCurrencyCode = partyTransactions[0]?.CurrencyCode ?? '';
+        const voucherTypeName = partyTransactions[0]?.voucherTypeMaster?.DocumentTypeName ?? '';
+        const voucherDocTypeCode = partyTransactions[0]?.voucherTypeMaster?.DocumentTypeCode ?? '';
+        const partyCoaMasterSid = partyTransactions[0]?.COAMasterSid;
+
+        // 3. Currency decimal lookups — one query; returns 1 row if local = party currency
+        const currencyRecords = await this._db.currencyMaster.findMany({
+            where: {
+                OR: [
+                    { CurrencyMasterSid: LocalCurrencyMasterSid },
+                    { currencyCode: partyCurrencyCode },
+                ],
+            },
+            select: { CurrencyMasterSid: true, currencyCode: true, amountDecimal: true, exchangeDecimal: true },
+        });
+        const localCurrRecord = currencyRecords.find(r => r.CurrencyMasterSid === LocalCurrencyMasterSid);
+        const partyCurrRecord = currencyRecords.find(r => r.currencyCode === partyCurrencyCode) ?? localCurrRecord;
+        const localCurrencyCode = localCurrRecord?.currencyCode ?? '';
+        const localDecimals = localCurrRecord?.amountDecimal ?? 2;
+        const partyDecimals = partyCurrRecord?.amountDecimal ?? 2;
+        const partyExchangeDecimals = partyCurrRecord?.exchangeDecimal ?? 4;
+        const voucherExchangeRate = toNumber(partyTransactions[0]?.ExchangeRate) || 1;
+
+        // 4. Determine sign convention for DrCr summing:
+        // JV/RJV: party DrCr depends on COAMaster.LedgerType (not fixed by config)
+        //   'Sy Cr' typed ledger → party side is Credit ('C'); others → Debit ('D')
+        // All other types: use PARTY_VTYPE_DRCR_MAP via getPartyDrCr
+        let expectedPartyDrCr: string | undefined;
+        if ((voucherDocTypeCode === 'JV' || voucherDocTypeCode === 'RJV') && partyCoaMasterSid) {
+            const coaRecord = await this._db.cOAMaster.findUnique({
+                where: { COAMasterSid: partyCoaMasterSid },
+                select: { LedgerType: true },
+            });
+            expectedPartyDrCr = (coaRecord?.LedgerType ?? '').includes('Cr') ? 'C' : 'D';
+        } else {
+            expectedPartyDrCr = getPartyDrCr(voucherDocTypeCode);
+        }
+
+        // Party DrCr = +1; opposite (reversal/correction) = -1
+        const signForDrCr = (drCr: string) =>
+            expectedPartyDrCr ? (drCr === expectedPartyDrCr ? 1 : -1) : (drCr === 'D' ? 1 : -1);
+
+        // 5. Original amounts — LocalAmount (local currency) and Amount (party currency) separately
+        const originalLocalAmount = roundAmount(
+            Math.abs(partyTransactions.reduce((sum, t) => sum + signForDrCr(t.DrCr) * toNumber(t.LocalAmount), 0)),
+            localDecimals
+        );
+        const originalPartyAmount = roundAmount(
+            Math.abs(partyTransactions.reduce((sum, t) => sum + signForDrCr(t.DrCr) * toNumber(t.Amount), 0)),
+            partyDecimals
+        );
+
+        // 6. Active VoucherMatching rows for party transactions
+        const activeMatchings = await this._db.voucherMatching.findMany({
+            where: {
+                VoucherTransactionSid: { in: partyTransactionSids },
+                Status: 'A',
+                CompanyMasterSid,
+                BranchMasterSid,
+            },
+        });
+
+        const totalMatchedLocalAmount = roundAmount(
+            Math.abs(activeMatchings.reduce((sum, m) => sum + signForDrCr(m.DrCr) * toNumber(m.LocalAmount), 0)),
+            localDecimals
+        );
+        const outstandingLocalAmount = roundAmount(originalLocalAmount - totalMatchedLocalAmount, localDecimals);
+
+        // 7. VMH details for active matchings
+        const uniqueVMHSids = [...new Set(activeMatchings.map(m => m.VoucherMatchingHeaderSid))];
+        const vmHeaders = await this._db.voucherMatchingHeader.findMany({
+            where: { VoucherMatchingHeaderSid: { in: uniqueVMHSids } },
+            select: {
+                VoucherMatchingHeaderSid: true,
+                VoucherMatchingNo: true,
+                VoucherMatchingDate: true,
+                PostStatus: true,
+                Status: true,
+            },
+        });
+        const vmHeaderMap = new Map(vmHeaders.map(h => [h.VoucherMatchingHeaderSid, h]));
+
+        // 8. Counter transactions and the complete VM composition
+        const counterTxSids = [...new Set(
+            activeMatchings.map(m => m.MatchingTransactionSid).filter((s): s is number => s != null)
+        )];
+        const counterTransactions = await this._db.voucherTransaction.findMany({
+            where: { VoucherTransactionSid: { in: counterTxSids } },
+            include: {
+                VoucherHeader: { select: { VoucherHeaderSid: true, VoucherNumber: true } },
+                voucherTypeMaster: { select: { DocumentTypeName: true, DocumentTypeCode: true } },
+            },
+        });
+        const counterTxMap = new Map(counterTransactions.map(t => [t.VoucherTransactionSid, t]));
+
+        const allRowsForActiveHeaders = await this._db.voucherMatching.findMany({
+            where: {
+                VoucherMatchingHeaderSid: { in: uniqueVMHSids },
+                Status: 'A',
+                CompanyMasterSid,
+                BranchMasterSid,
+            },
+            include: {
+                VoucherTransaction: {
+                    include: {
+                        VoucherHeader: { select: { VoucherHeaderSid: true, VoucherNumber: true } },
+                        voucherTypeMaster: { select: { DocumentTypeName: true, DocumentTypeCode: true } },
+                    },
+                },
+            },
+            orderBy: [
+                { VoucherMatchingHeaderSid: 'asc' },
+                { Sno: 'asc' },
+                { VoucherMatchingSid: 'asc' },
+            ],
+        });
+
+        // 9. Group by VMH and build rows
+        const matchingsByVMH = new Map<number, typeof activeMatchings>();
+        for (const m of activeMatchings) {
+            const arr = matchingsByVMH.get(m.VoucherMatchingHeaderSid) ?? [];
+            arr.push(m);
+            matchingsByVMH.set(m.VoucherMatchingHeaderSid, arr);
+        }
+
+        const allRowsByVMH = new Map<number, any[]>();
+        for (const row of allRowsForActiveHeaders) {
+            const arr = allRowsByVMH.get(row.VoucherMatchingHeaderSid) ?? [];
+            arr.push(row);
+            allRowsByVMH.set(row.VoucherMatchingHeaderSid, arr);
+        }
+
+        const buildVoucherSummaries = (rows: any[], matchingType: 'Source' | 'Object') => {
+            const voucherMap = new Map<number, any>();
+            for (const row of rows) {
+                if (row.MatchingType !== matchingType) continue;
+
+                const txHeader = row.VoucherTransaction?.VoucherHeader;
+                const voucherHeaderSid = txHeader?.VoucherHeaderSid ?? row.VoucherHeaderSid;
+                if (!voucherHeaderSid) continue;
+
+                const current = voucherMap.get(voucherHeaderSid) ?? {
+                    voucherHeaderSid,
+                    voucherNumber: txHeader?.VoucherNumber ?? row.VoucherTransaction?.VoucherNumber ?? '',
+                    voucherType: row.VoucherTransaction?.voucherTypeMaster?.DocumentTypeName ?? '',
+                    voucherTypeCode: row.VoucherTransaction?.voucherTypeMaster?.DocumentTypeCode ?? '',
+                    matchingType,
+                    currencyCode: row.CurrencyCode,
+                    matchedPartyAmount: 0,
+                    matchedLocalAmount: 0,
+                };
+
+                current.matchedPartyAmount = roundAmount(current.matchedPartyAmount + Math.abs(toNumber(row.Amount)), partyDecimals);
+                current.matchedLocalAmount = roundAmount(current.matchedLocalAmount + Math.abs(toNumber(row.LocalAmount)), localDecimals);
+                voucherMap.set(voucherHeaderSid, current);
+            }
+
+            return Array.from(voucherMap.values());
+        };
+
+        const buildCounterSummaries = (rows: typeof activeMatchings) => {
+            const voucherMap = new Map<number, any>();
+            for (const row of rows) {
+                const counterTx = row.MatchingTransactionSid ? counterTxMap.get(row.MatchingTransactionSid) : null;
+                const counterHeader = counterTx?.VoucherHeader;
+                const voucherHeaderSid = counterHeader?.VoucherHeaderSid ?? counterTx?.VoucherHeaderSid;
+                if (!voucherHeaderSid || voucherHeaderSid === voucherHeader.VoucherHeaderSid) continue;
+
+                const current = voucherMap.get(voucherHeaderSid) ?? {
+                    voucherHeaderSid,
+                    voucherNumber: counterHeader?.VoucherNumber ?? counterTx?.VoucherNumber ?? '',
+                    voucherType: counterTx?.voucherTypeMaster?.DocumentTypeName ?? '',
+                    voucherTypeCode: counterTx?.voucherTypeMaster?.DocumentTypeCode ?? '',
+                    currencyCode: row.CurrencyCode,
+                    matchedPartyAmount: 0,
+                    matchedLocalAmount: 0,
+                };
+
+                current.matchedPartyAmount = roundAmount(current.matchedPartyAmount + Math.abs(toNumber(row.Amount)), partyDecimals);
+                current.matchedLocalAmount = roundAmount(current.matchedLocalAmount + Math.abs(toNumber(row.LocalAmount)), localDecimals);
+                voucherMap.set(voucherHeaderSid, current);
+            }
+
+            return Array.from(voucherMap.values());
+        };
+
+        const matchings = uniqueVMHSids.map(vmhSid => {
+            const vmh = vmHeaderMap.get(vmhSid);
+            const rows = matchingsByVMH.get(vmhSid) ?? [];
+            const allRows = allRowsByVMH.get(vmhSid) ?? [];
+            const firstRow = rows[0];
+            const rowCurrencyCode = firstRow?.CurrencyCode ?? partyCurrencyCode;
+            const counterVouchers = buildCounterSummaries(rows);
+            const sourceVouchers = buildVoucherSummaries(allRows, 'Source');
+            const objectVouchers = buildVoucherSummaries(allRows, 'Object');
+            const primaryCounter = counterVouchers[0];
+
+            const sumMatchedLocal = roundAmount(
+                Math.abs(rows.reduce((sum, r) => sum + signForDrCr(r.DrCr) * toNumber(r.LocalAmount), 0)),
+                localDecimals
+            );
+            const sumMatchedPartyAmount = roundAmount(
+                Math.abs(rows.reduce((sum, r) => sum + signForDrCr(r.DrCr) * toNumber(r.Amount), 0)),
+                partyDecimals
+            );
+
+            return {
+                VoucherMatchingHeaderSid: vmhSid,
+                VoucherMatchingNo: vmh?.VoucherMatchingNo ?? '',
+                VoucherMatchingDate: vmh?.VoucherMatchingDate ?? null,
+                PostStatus: vmh?.PostStatus ?? 'U',
+                Status: vmh?.Status ?? 'A',
+                MatchingType: firstRow?.MatchingType ?? '',
+                counterVoucherHeaderSid: primaryCounter?.voucherHeaderSid ?? null,
+                counterVoucherNumber: counterVouchers.map(v => v.voucherNumber).filter(Boolean).join(', '),
+                counterVoucherType: [...new Set(counterVouchers.map(v => v.voucherType).filter(Boolean))].join(', '),
+                counterVouchers,
+                sourceVouchers,
+                objectVouchers,
+                sourceVoucherCount: sourceVouchers.length,
+                objectVoucherCount: objectVouchers.length,
+                matchedLocalAmount: sumMatchedLocal,
+                matchedPartyAmount: sumMatchedPartyAmount,
+                currencyCode: rowCurrencyCode,
+            };
+        });
+
+        // 10. Cancelled VMH headers for this voucher
+        const cancelledHeaders = await this._db.voucherMatchingHeader.findMany({
+            where: {
+                VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                CompanyMasterSid,
+                BranchMasterSid,
+                Status: 'S',
+            },
+            select: {
+                VoucherMatchingHeaderSid: true,
+                VoucherMatchingNo: true,
+                VoucherMatchingDate: true,
+                UpdatedOn: true,
+            },
+        });
+
+        // 11. Insight — contribution % per VMH by local amount
+        const insightDivisor = totalMatchedLocalAmount || 1;
+        const insight = matchings.map(m => ({
+            VoucherMatchingNo: m.VoucherMatchingNo,
+            VoucherMatchingHeaderSid: m.VoucherMatchingHeaderSid,
+            matchedLocalAmount: m.matchedLocalAmount,
+            contributionPercent: roundAmount((m.matchedLocalAmount / insightDivisor) * 100, 1),
+        }));
+
+        return {
+            voucherDetails: {
+                VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
+                VoucherNumber: voucherHeader.VoucherNumber,
+                VoucherType: voucherTypeName,
+                VoucherDate: voucherHeader.VoucherDate,
+                PostStatus: voucherHeader.PostStatus,
+                Narration: voucherHeader.Narration ?? null,
+                partyName,
+                currencyCode: partyCurrencyCode,
+                localCurrencyCode,
+                exchangeRate: voucherExchangeRate,
+                exchangeDecimal: partyExchangeDecimals,
+                originalLocalAmount,
+                originalPartyAmount,
+            },
+            stats: {
+                originalLocalAmount,
+                totalMatchedLocalAmount,
+                outstandingLocalAmount,
+                localCurrencyCode,
+                exchangeDecimal: partyExchangeDecimals,
+                matchingCount: uniqueVMHSids.length,
+                cancelledCount: cancelledHeaders.length,
+                sourceVoucherCount: new Set(matchings.flatMap(m => m.sourceVouchers.map(v => v.voucherHeaderSid))).size,
+                objectVoucherCount: new Set(matchings.flatMap(m => m.objectVouchers.map(v => v.voucherHeaderSid))).size,
+            },
+            matchings,
+            cancelledMatchings: cancelledHeaders,
+            insight,
+        };
     }
 
     async cancelVoucherMatching(dto: CancelVoucherMatchingDto) {
