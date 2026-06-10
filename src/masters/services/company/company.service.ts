@@ -91,7 +91,7 @@ export class CompanyService {
                     remarks: newData.remarks,
                     CIN: newData.CIN,
                     TAN: newData.TAN,
-                    config: currencySync || {},
+                    config: currencySync?.config || {},
                     createdBy: user.userEmail,
                     companyLogo: companyLogoPath,
                     reportLogo: reportLogoPath
@@ -108,6 +108,7 @@ export class CompanyService {
 
                 if (newData.branches && newData.branches.length > 0) {
                     for (const branchData of newData.branches) {
+                        const taxRegistrationNo = await this.normalizeBranchTaxRegistrationNo(branchData, prisma);
                         // Prepare branch payload
                         const branchPayload = {
                             branchName: branchData.branchName,
@@ -120,7 +121,7 @@ export class CompanyService {
                             email: branchData.email,
                             timeZone: branchData.timeZone,
                             remarks: branchData.remarks || null,
-                            taxRegistrationNo: branchData.taxRegistrationNo,
+                            taxRegistrationNo,
                             status: branchData.status,
                             CityMasterSid: parseInt(branchData.CityMasterSid),
                             StateMasterSid: parseInt(branchData.StateMasterSid),
@@ -452,6 +453,7 @@ export class CompanyService {
 
                 if (updateData.branches && updateData.branches.length > 0) {
                     for (const branchData of updateData.branches) {
+                        const taxRegistrationNo = await this.normalizeBranchTaxRegistrationNo(branchData, prisma);
                         // Prepare branch payload without destructuring
                         const branchPayload = {
                             branchName: branchData.branchName,
@@ -464,7 +466,7 @@ export class CompanyService {
                             email: branchData.email || null,
                             timeZone: branchData.timeZone || null,
                             remarks: branchData.remarks || null,
-                            taxRegistrationNo: branchData.taxRegistrationNo || null,
+                            taxRegistrationNo,
                             status: branchData.status,
                             CityMasterSid: Number(branchData.CityMasterSid),
                             StateMasterSid: Number(branchData.StateMasterSid),
@@ -1066,6 +1068,37 @@ export class CompanyService {
         } catch (error) {
             throw error;
         }
+    }
+
+    private async normalizeBranchTaxRegistrationNo(branchData: any, prisma: Prisma.TransactionClient) {
+        const rawTaxRegistrationNo = branchData?.taxRegistrationNo;
+        const taxRegistrationNo = rawTaxRegistrationNo == null ? '' : String(rawTaxRegistrationNo).trim();
+
+        if (!taxRegistrationNo) {
+            return null;
+        }
+
+        const countryId = Number(branchData?.CountryMasterSid);
+        const country = Number.isFinite(countryId)
+            ? await prisma.countryMaster.findUnique({
+                where: { CountryMasterSid: countryId },
+                select: { countryName: true }
+            })
+            : null;
+
+        const isIndia = country?.countryName?.toLowerCase().includes('india') || false;
+        if (!isIndia) {
+            return taxRegistrationNo;
+        }
+
+        const gstin = taxRegistrationNo.replace(/\s/g, '').toUpperCase();
+        const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+
+        if (!GST_REGEX.test(gstin)) {
+            throw new BadRequestException('Provided GST number is invalid.');
+        }
+
+        return gstin;
     }
 
     async syncCompanyCurrencyWithConfig(
