@@ -3217,7 +3217,7 @@ model VoucherHeader {
   ReversalVoucher           Int?
   TaxNumber                 Int?
   GSTType                   String?                     @db.VarChar(10)
-  Remarks                   String?                     @db.VarChar(100)
+  Remarks                   String?                     @db.VarChar(300)
   DepartmentMasterSid       Int?
   HouseNumber               String?                     @db.VarChar(50)
   MasterNumber              String?                     @db.VarChar(50)
@@ -3302,7 +3302,7 @@ model VoucherDetail {
   ExchangeRate          Decimal             @db.Decimal(8, 5)
   Rate                  Decimal             @db.Decimal(15, 3)
   NumberOfUnit          Decimal?            @db.Decimal(9, 3)
-  Narration             String?             @db.VarChar(200)
+  Narration             String?             @db.VarChar(300)
   DrCr                  String              @db.VarChar(50)
   TaxableAmount         Decimal             @db.Decimal(15, 3)
   TaxPercentage1        Decimal?            @db.Decimal(5, 3)
@@ -3314,7 +3314,7 @@ model VoucherDetail {
   InvoiceType           String?             @db.VarChar(10)
   CostCenter            Int?
   ProfitCenter          Int?
-  Remarks               String?             @db.VarChar(200)
+  Remarks               String?             @db.VarChar(300)
   ChargeUOMSid          Int?
   YearMasterSid         Int?
   PartyAmount           Decimal?            @db.Decimal(15, 3)
