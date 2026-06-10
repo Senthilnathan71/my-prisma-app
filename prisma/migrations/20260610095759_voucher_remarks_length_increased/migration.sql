@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "VoucherDetail" ALTER COLUMN "Narration" SET DATA TYPE VARCHAR(300),
+ALTER COLUMN "Remarks" SET DATA TYPE VARCHAR(300);
+
+-- AlterTable
+ALTER TABLE "VoucherHeader" ALTER COLUMN "Remarks" SET DATA TYPE VARCHAR(300);
