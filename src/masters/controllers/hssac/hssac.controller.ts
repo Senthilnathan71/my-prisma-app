@@ -72,6 +72,36 @@ export class HssacController {
     }
 
 
+    @ApiOperation({ summary: 'Get Hssac By Country' })
+    @ApiCreatedResponse({
+        description: 'Get Hssac By Country',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('country/:countryMasterSid')
+    async getHssacByCountry(
+        @Param('countryMasterSid', ParseIntPipe) countryMasterSid: number,
+        @Query('taxType') taxType?: string,
+    ) {
+        let output = new ResponseData;
+        try {
+            let HssacData = await this.hssacService.getHssacByCountry(countryMasterSid, taxType);
+            this.logger.log(`getHssacByCountry: ${JSON.stringify(HssacData)}`)
+            output.data = HssacData;
+            output.message = "Country Hssac are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`getHssacByCountry: ${JSON.stringify(error)}`)
+            output.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = 'Internal Server Error';
+            }
+        }
+        return output
+    }
+
+
 
     @ApiOperation({ summary: 'Get Hssac By Id' })
     @ApiCreatedResponse({

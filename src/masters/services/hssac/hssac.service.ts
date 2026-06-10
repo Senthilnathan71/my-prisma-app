@@ -74,6 +74,42 @@ export class HssacService {
         }
     }
 
+    async getHssacByCountry(countryMasterSid: number, taxType?: string) {
+        try {
+            const taxWhere: Prisma.TaxMasterWhereInput = {
+                Status: 'A',
+                CountryMasterSid: countryMasterSid,
+                TaxGroupSid: { not: null },
+                ...(taxType ? { TaxType: taxType } : {}),
+            };
+
+            const countryTaxGroups = await this._db.taxMaster.findMany({
+                where: taxWhere,
+                select: { TaxGroupSid: true },
+                distinct: ['TaxGroupSid'],
+            });
+
+            const taxGroupSids = countryTaxGroups
+                .map((tax) => tax.TaxGroupSid)
+                .filter((taxGroupSid): taxGroupSid is number => taxGroupSid !== null && taxGroupSid !== undefined);
+
+            if (!taxGroupSids.length) return [];
+
+            return await this._db.hSSACMaster.findMany({
+                where: {
+                    status: 'A',
+                    TaxGroupSid: { in: taxGroupSids },
+                },
+                include: {
+                    taxGroup: true,
+                },
+                orderBy: { HSSACMasterSid: 'asc' },
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
 
 
 

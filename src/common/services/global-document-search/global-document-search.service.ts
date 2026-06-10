@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 
@@ -457,10 +458,21 @@ export class GlobalDocumentSearchService {
                 let queryString = '';
 
                 switch (voucherType) {
+                    case DOC_TYPE_CODE.INVOICE_NON_JOB:
+                        basePath = '/accounts/invoice-non-job/entry';
+                        displayType = 'Invoice Non Job';
+                        documentType = 'INVOICE_NON_JOB';
+                        break;
                     case 'INV':
-                        basePath = '/operation/invoice/entry';
-                        displayType = 'Invoice';
-                        documentType = 'INVOICE';
+                        if (v.CashOrBank === 'Y') {
+                            basePath = '/accounts/invoice-non-job/entry';
+                            displayType = 'Invoice Non Job';
+                            documentType = 'INVOICE_NON_JOB';
+                        } else {
+                            basePath = '/operation/invoice/entry';
+                            displayType = 'Invoice';
+                            documentType = 'INVOICE';
+                        }
                         break;
                     case 'VIN':
                         basePath = '/operation/vendor-invoice/entry';
