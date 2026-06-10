@@ -92,6 +92,7 @@ export interface CustomerCreditRequestInterface {
   CustomerCreditRequestSid?: number;
   CustomerMasterSid: number;
   CompanyMasterSid: number;
+  BranchMasterSid?: number | null;
   DepartmentMasterSid?: number | null;
   CustomerBranchSid?: number | null;
   SalesmanSid?: number | null;
@@ -102,6 +103,7 @@ export interface CustomerCreditRequestInterface {
   EffectiveFrom: Date | string;
   EffectiveTo: Date | string;
   ApprovalStatus?: ApprovalStatus | null;
+  ApprovedBy?: string | null;
   CreatedBy: string;
   UpdatedBy?: string;
   Status?: string;
@@ -442,19 +444,141 @@ export class CreditRequestService {
     });
   }
 
+  private normalizeCreditRequestPayload(payload: any): { creditRequests: any[]; authDetails: any } {
+    if (Array.isArray(payload)) {
+      return {
+        creditRequests: payload,
+        authDetails: {},
+      };
+    }
+
+    return {
+      creditRequests: Array.isArray(payload?.creditRequests) ? payload.creditRequests : [],
+      authDetails: payload?.authDetails || {},
+    };
+  }
+
+  private normalizeApprovalStatus(status: any, fallback: ApprovalStatus): ApprovalStatus {
+    const value = typeof status === 'string' ? status : status?.value;
+    return Object.values(ApprovalStatus).includes(value as ApprovalStatus)
+      ? (value as ApprovalStatus)
+      : fallback;
+  }
+
+  private getCreditApprovalTarget(authDetails: any, creditRequestSid: number): any | null {
+    const targets = Array.isArray(authDetails?.approvalTargets) ? authDetails.approvalTargets : [];
+    return targets.find((target: any) =>
+      Number(target?.CustomerCreditRequestSid || target?.DocumentSid) === Number(creditRequestSid)
+    ) || null;
+  }
+
+  private async resolveCreditRequestApprovalStatus(
+    prisma: any,
+    item: any,
+    authDetails: any,
+    existingStatus: ApprovalStatus,
+    requestedStatus: ApprovalStatus,
+  ): Promise<ApprovalStatus> {
+    if (existingStatus === ApprovalStatus.Approved) {
+      return ApprovalStatus.Approved;
+    }
+
+    if (existingStatus === requestedStatus) {
+      return existingStatus;
+    }
+
+    const target = this.getCreditApprovalTarget(authDetails, item.CustomerCreditRequestSid);
+    if (!target?.AuthorizationRequired) {
+      return requestedStatus;
+    }
+
+    const authorityDetailSid = Number(target?.AuthorityDetailSid || authDetails?.AuthorityDetailSid || 0);
+    if (!authDetails?.canAuthorize || !authorityDetailSid) {
+      throw new BadRequestException('Authority detail is required to approve this credit request.');
+    }
+
+    const authorityDetail = await prisma.authorityDetail.findFirst({
+      where: {
+        AuthorityDetailSid: authorityDetailSid,
+        status: 'A',
+      },
+      select: {
+        FinalAuthority: true,
+        AuthorityLevel: true,
+      },
+    });
+
+    if (!authorityDetail) {
+      throw new BadRequestException('Authority detail not found for this credit request.');
+    }
+
+    if (requestedStatus === ApprovalStatus.Approved && authorityDetail.FinalAuthority !== 'Y') {
+      return ApprovalStatus.WaitingForFinalApproval;
+    }
+
+    return requestedStatus;
+  }
+
+  private async writeCreditRequestAuthorityLog(
+    prisma: any,
+    creditRequestSid: number,
+    item: any,
+    authDetails: any,
+    finalApprovalStatus: ApprovalStatus,
+  ): Promise<void> {
+    const target = this.getCreditApprovalTarget(authDetails, creditRequestSid);
+    if (!target?.AuthorizationRequired) {
+      return;
+    }
+
+    const authorityDetailSid = Number(target?.AuthorityDetailSid || authDetails?.AuthorityDetailSid || 0);
+    if (!authDetails?.canAuthorize || !authorityDetailSid) {
+      throw new BadRequestException('Authority detail is required to approve this credit request.');
+    }
+
+    const existingAuthLog = await prisma.authorityLog.findFirst({
+      where: {
+        AuthorityDetailSid: authorityDetailSid,
+        DocumentSid: Number(creditRequestSid),
+        Status: 'A',
+      },
+    });
+
+    if (existingAuthLog) {
+      throw new BadRequestException('You have already approved this credit request.');
+    }
+
+    await prisma.authorityLog.create({
+      data: {
+        CompanyMasterSid: Number(item.CompanyMasterSid),
+        BranchMasterSid: Number(item.BranchMasterSid || authDetails?.BranchMasterSid || 0),
+        AuthorityDetailSid: authorityDetailSid,
+        AuthorisedDate: new Date(),
+        ApprovalStatus: finalApprovalStatus,
+        DocumentSid: Number(creditRequestSid),
+        Remarks: target?.Remarks || `CreditRequest:${creditRequestSid} Status:${finalApprovalStatus}`,
+        CreatedBy: authDetails?.ApprovedBy || item.UpdatedBy || item.CreatedBy || 'system',
+        UpdatedBy: item.UpdatedBy || item.CreatedBy || null,
+        Status: 'A',
+      },
+    });
+  }
+
     /**
    * Create credit requests with KYC documents in a transaction
    * @param payload - Array of credit requests with nested KYC documents
    * @returns Array of created credit requests with their KYC records
    */
   async createCustomerCreditReqWithKyc(
-    payload: CustomerCreditRequestWithKycInterface[],
+    payload: any,
   ) {
     try {
+      const { creditRequests, authDetails } = this.normalizeCreditRequestPayload(payload);
       const result = await this._db.$transaction(async (prisma) => {
         const createdRecords : any[] = [];
  
-        for (const item of payload) {
+        for (const item of creditRequests) {
+          const requestedApprovalStatus = this.normalizeApprovalStatus(item.ApprovalStatus, ApprovalStatus.Pending);
           // Create credit request
           const creditRequest = await this.createSingleCustomerCreditReq({
               CustomerMasterSid: item.CustomerMasterSid,
@@ -468,10 +592,17 @@ export class CreditRequestService {
               PublishedLimit: item.PublishedLimit,
               EffectiveFrom: new Date(item.EffectiveFrom),
               EffectiveTo: new Date(item.EffectiveTo),
-              ApprovalStatus: item.ApprovalStatus,
+              ApprovalStatus: requestedApprovalStatus,
               CreatedBy: item.CreatedBy,
               Status: 'A',
             })
+          await this.writeCreditRequestAuthorityLog(
+            prisma,
+            creditRequest.CustomerCreditRequestSid,
+            item,
+            authDetails,
+            requestedApprovalStatus,
+          );
  
           const kycRecords : any[] = [];
  
@@ -519,17 +650,34 @@ export class CreditRequestService {
    * @returns Array of updated/created credit requests with their KYC records
    */
   async updateCustomerCreditReqWithKyc(
-    payload: any[]
+    payload: any
   ) {
     try {
+      const { creditRequests, authDetails } = this.normalizeCreditRequestPayload(payload);
       const result = await this._db.$transaction(async (prisma) => {
         const processedRecords : any[] = [];
  
-        for (const item of payload) {
+        for (const item of creditRequests) {
           let creditRequest;
+          const requestedApprovalStatus = this.normalizeApprovalStatus(item.ApprovalStatus, ApprovalStatus.Pending);
  
           // Update or create credit request
           if (item.CustomerCreditRequestSid) {
+            const existingCreditRequest = await prisma.customerCreditRequest.findUnique({
+              where: {
+                CustomerCreditRequestSid: item.CustomerCreditRequestSid,
+              },
+              select: {
+                ApprovalStatus: true,
+              },
+            });
+            const finalApprovalStatus = await this.resolveCreditRequestApprovalStatus(
+              prisma,
+              item,
+              authDetails,
+              existingCreditRequest?.ApprovalStatus || ApprovalStatus.Pending,
+              requestedApprovalStatus,
+            );
             // Update existing credit request
             creditRequest = await prisma.customerCreditRequest.update({
               where: {
@@ -547,13 +695,20 @@ export class CreditRequestService {
                 PublishedLimit: item.PublishedLimit,
                 EffectiveFrom: new Date(item.EffectiveFrom),
                 EffectiveTo: new Date(item.EffectiveTo),
-                ApprovalStatus: item.ApprovalStatus,
+                ApprovalStatus: finalApprovalStatus,
                 UpdatedBy: item.UpdatedBy || item.CreatedBy,
                 UpdatedOn: new Date(),
                 Status : String(item.Status).charAt(0),
               },
             });
           } else {
+            const finalApprovalStatus = await this.resolveCreditRequestApprovalStatus(
+              prisma,
+              item,
+              authDetails,
+              ApprovalStatus.Pending,
+              requestedApprovalStatus,
+            );
             // Create new credit request
             creditRequest = await this.createSingleCustomerCreditReq({
                 CustomerMasterSid: item.CustomerMasterSid,
@@ -567,11 +722,18 @@ export class CreditRequestService {
                 PublishedLimit: item.PublishedLimit,
                 EffectiveFrom: new Date(item.EffectiveFrom),
                 EffectiveTo: new Date(item.EffectiveTo),
-                ApprovalStatus: item.ApprovalStatus,
+                ApprovalStatus: finalApprovalStatus,
                 CreatedBy: item.CreatedBy,
                 Status: 'A',
             });
           }
+          await this.writeCreditRequestAuthorityLog(
+            prisma,
+            creditRequest.CustomerCreditRequestSid,
+            item,
+            authDetails,
+            creditRequest.ApprovalStatus,
+          );
  
           const kycRecords : any[] = [];
  
