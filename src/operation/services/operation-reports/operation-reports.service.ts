@@ -8268,7 +8268,11 @@ export class OperationReportsService {
           ? branches.map((b) => b.branchName).join(', ')
           : 'All Branches';
 
-      const selectedDate = new Date(ToDate);
+      const parsedToDate = ToDate ? new Date(ToDate) : null;
+      const selectedDate =
+        parsedToDate && !Number.isNaN(parsedToDate.getTime())
+          ? parsedToDate
+          : new Date();
       const startOfDay = new Date(selectedDate);
       startOfDay.setHours(0, 0, 0, 0);
 
@@ -8290,60 +8294,56 @@ export class OperationReportsService {
           CompanyMasterSid,
         },
         select: {
-          DepartmentMasterSid:true,
-          departmentName: true,
+          DepartmentMasterSid: true,
+          ExportImport: true,
           FCLLCL: true,
         },
       });
 
-      const bookings = await this._db.bookingHeader.findMany({
+      const departmentMap = new Map(
+        departments.map((department) => [
+          department.DepartmentMasterSid,
+          department,
+        ]),
+      );
+
+      const masterJobs = await this._db.masterJob.findMany({
         where: {
-          status: 'A',
+          Status: 'A',
           CompanyMasterSid,
           BranchMasterSid: { in: resolvedBranchIds },
-          BookingDateTime: {
+          CreatedOn: {
             gte: startOfMonth,
             lte: endOfDay,
           },
         },
-        include: {
-          bookingCargo: {
-            where: {
-              status: 'A',
-            },
-            select: {
-              Volume: true,
-            },
-          },
+        select: {
+          CreatedBy: true,
+          CreatedOn: true,
+          Volume: true,
+          TsPortSid: true,
+          DestinationAgent: true,
+          DepartmentMasterSid: true,
         },
         orderBy: {
-          BookingDateTime: 'desc',
+          CreatedOn: 'desc',
         },
       });
 
       const isSameDay = (value: Date | null | undefined) => {
         if (!value) return false;
-        const bookingDate = new Date(value);
-        return bookingDate >= startOfDay && bookingDate <= endOfDay;
+        const rowDate = new Date(value);
+        return rowDate >= startOfDay && rowDate <= endOfDay;
       };
-
-      const sumVolume = (rows: typeof bookings) =>
-        rows.reduce(
-          (total, booking) =>
-            total +
-            (booking.bookingCargo || []).reduce(
-              (cargoTotal, cargo) => cargoTotal + (Number(cargo.Volume) || 0),
-              0,
-            ),
-          0,
-        );
 
       const buildCountRow = (
         job: string,
-        predicate: (booking: (typeof bookings)[number]) => boolean,
+        predicate: (masterJob: (typeof masterJobs)[number]) => boolean,
       ) => {
-        const totalRows = bookings.filter(predicate);
-        const dayRows = totalRows.filter((booking) => isSameDay(booking.BookingDateTime));
+        const totalRows = masterJobs.filter(predicate);
+        const dayRows = totalRows.filter((masterJob) =>
+          isSameDay(masterJob.CreatedOn),
+        );
 
         return {
           job,
@@ -8353,12 +8353,17 @@ export class OperationReportsService {
         };
       };
 
+      const sumVolume = (rows: typeof masterJobs) =>
+        rows.reduce((total, masterJob) => total + (Number(masterJob.Volume) || 0), 0);
+
       const buildVolumeRow = (
         job: string,
-        predicate: (booking: (typeof bookings)[number]) => boolean,
+        predicate: (masterJob: (typeof masterJobs)[number]) => boolean,
       ) => {
-        const totalRows = bookings.filter(predicate);
-        const dayRows = totalRows.filter((booking) => isSameDay(booking.BookingDateTime));
+        const totalRows = masterJobs.filter(predicate);
+        const dayRows = totalRows.filter((masterJob) =>
+          isSameDay(masterJob.CreatedOn),
+        );
 
         return {
           job,
@@ -8368,100 +8373,66 @@ export class OperationReportsService {
         };
       };
 
+      const getDepartment = (departmentMasterSid: number | null | undefined) =>
+        departmentMasterSid ? departmentMap.get(departmentMasterSid) : undefined;
+
+      const employeeNames = Array.from(
+        new Set(
+          masterJobs.map(
+            (masterJob) =>
+              String(masterJob.CreatedBy || '').trim() || 'Unknown Employee',
+          ),
+        ),
+      ).sort((a, b) => a.localeCompare(b));
+
       const data = [
         buildCountRow('Jobs Opened', () => true),
         buildVolumeRow('M3 Booked', () => true),
-        buildCountRow('Import Jobs', (booking) => booking.JobType === 'Import'),
-        buildCountRow('Export Jobs', (booking) => booking.JobType === 'Export'),
+        buildCountRow(
+          'Import Jobs',
+          (masterJob) =>
+            getDepartment(masterJob.DepartmentMasterSid)?.ExportImport === 'Import',
+        ),
+        buildCountRow(
+          'Export Jobs',
+          (masterJob) =>
+            getDepartment(masterJob.DepartmentMasterSid)?.ExportImport === 'Export',
+        ),
         buildCountRow(
           'Transhipment Jobs',
-          (booking) => booking.JobType === 'Transhipment',
+          (masterJob) => Boolean(masterJob.TsPortSid),
         ),
         buildCountRow(
           'Nominated Jobs',
-          (booking) => String(booking.ShipmentType || '').toLowerCase() === 'y',
+          (masterJob) => Boolean(masterJob.DestinationAgent),
         ),
         buildCountRow(
           'LCL Jobs',
-          (booking) => departments.find((d) => d.DepartmentMasterSid === booking.DepartmentMasterSid)?.FCLLCL === 'LCL',  
+          (masterJob) => getDepartment(masterJob.DepartmentMasterSid)?.FCLLCL === 'LCL',
         ),
         buildCountRow(
           'FCL Jobs',
-          (booking) => departments.find((d) => d.DepartmentMasterSid === booking.DepartmentMasterSid)?.FCLLCL === 'FCL',
+          (masterJob) => getDepartment(masterJob.DepartmentMasterSid)?.FCLLCL === 'FCL',
         ),
         buildCountRow(
           'Air Jobs',
-          (booking) => departments.find((d) => d.DepartmentMasterSid === booking.DepartmentMasterSid)?.FCLLCL === 'Air',
+          (masterJob) => getDepartment(masterJob.DepartmentMasterSid)?.FCLLCL === 'Air',
+        ),
+        ...employeeNames.map((employeeName) =>
+          buildCountRow(
+            `${employeeName} (No. of Job)`,
+            (masterJob) =>
+              (String(masterJob.CreatedBy || '').trim() || 'Unknown Employee') ===
+              employeeName,
+          ),
         ),
       ];
-
-      const customerMap = new Map<
-        string,
-        {
-          customerName: string;
-          jobsOpenedCount: number;
-          m3Booked: number;
-          importCount: number;
-          exportCount: number;
-          transhipmentCount: number;
-          nominatedCount: number;
-          lclCount: number;
-          fclCount: number;
-          airCount: number;
-          total: number;
-        }
-      >();
-
-      bookings.forEach((booking) => {
-        const customerName = String(booking.CustomerName || '').trim() || 'Unknown Customer';
-        const current = customerMap.get(customerName) || {
-          customerName,
-          jobsOpenedCount: 0,
-          m3Booked: 0,
-          importCount: 0,
-          exportCount: 0,
-          transhipmentCount: 0,
-          nominatedCount: 0,
-          lclCount: 0,
-          fclCount: 0,
-          airCount: 0,
-          total: 0,
-        };
-
-        current.jobsOpenedCount += 1;
-        current.total += 1;
-        current.m3Booked += (booking.bookingCargo || []).reduce(
-          (sum, cargo) => sum + (Number(cargo.Volume) || 0),
-          0,
-        );
-        if (booking.JobType === 'Import') current.importCount += 1;
-        if (booking.JobType === 'Export') current.exportCount += 1;
-        if (booking.JobType === 'Transhipment') current.transhipmentCount += 1;
-        if (String(booking.ShipmentType || '').toLowerCase() === 'y') {
-          current.nominatedCount += 1;
-        }
-
-        const shipmentCategory = departments.find(
-          (d) => d.DepartmentMasterSid === booking.DepartmentMasterSid,
-        )?.FCLLCL;
-
-        if (shipmentCategory === 'LCL') current.lclCount += 1;
-        if (shipmentCategory === 'FCL') current.fclCount += 1;
-        if (shipmentCategory === 'Air') current.airCount += 1;
-
-        customerMap.set(customerName, current);
-      });
-
-      const customerData = Array.from(customerMap.values()).sort((a, b) =>
-        a.customerName.localeCompare(b.customerName),
-      );
 
       return {
         params,
         branchInvolved,
         dateLabel: formatDateLabel(selectedDate),
         data,
-        customerData,
       };
     } catch (error) {
       throw error;
