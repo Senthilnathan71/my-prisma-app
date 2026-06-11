@@ -70,11 +70,19 @@ export class AuthorityController {
     })
     @HttpCode(HttpStatus.OK)
     @Get('fetch/:AuthorityMasterSid')
-    async getAuthorityById(@Param('AuthorityMasterSid', ParseIntPipe) AuthorityMasterSid: number) {
+    async getAuthorityById(
+        @Param('AuthorityMasterSid', ParseIntPipe) AuthorityMasterSid: number,
+        @Query('CompanyMasterSid') CompanyMasterSid?: string,
+        @Query('BranchMasterSid') BranchMasterSid?: string
+    ) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Getting Authority with id : ${AuthorityMasterSid}`);
-            let res = await this.authorityService.fetchAuthorityById(AuthorityMasterSid);
+            let res = await this.authorityService.fetchAuthorityById(
+                AuthorityMasterSid,
+                CompanyMasterSid ? Number(CompanyMasterSid) : undefined,
+                BranchMasterSid ? Number(BranchMasterSid) : undefined
+            );
             this.logger.debug(`Fetched Authority : ${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = `Authority with id : ${AuthorityMasterSid} is successfully fetched`;

@@ -43,6 +43,11 @@ export class AuthorityService {
 
     async createNewAuthority(payload: any) {
         try {
+            payload.CompanyMasterSid = Number(payload.CompanyMasterSid);
+            payload.BranchMasterSid = Number(payload.BranchMasterSid);
+            if (!payload.CompanyMasterSid || !payload.BranchMasterSid) {
+                throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required');
+            }
             if (!payload.authDetails || payload.authDetails.length === 0) {
                 throw new BadRequestException('At least one authority detail is required');
             }
@@ -104,7 +109,7 @@ export class AuthorityService {
         }
     }
 
-    async fetchAuthorityById(AuthorityMasterSid: number) {
+    async fetchAuthorityById(AuthorityMasterSid: number, CompanyMasterSid?: number, BranchMasterSid?: number) {
         try {
             const authority = await this._db.authorityMaster.findUnique({
                 where: {
@@ -119,7 +124,11 @@ export class AuthorityService {
                     }
                 }
             });
-            if (!authority) {
+            if (
+                !authority ||
+                (CompanyMasterSid && authority.CompanyMasterSid !== CompanyMasterSid) ||
+                (BranchMasterSid && authority.BranchMasterSid !== BranchMasterSid)
+            ) {
                 throw new BadRequestException(`Authority with Id : ${AuthorityMasterSid} not exists`);
             }
             return authority;
@@ -140,13 +149,18 @@ export class AuthorityService {
             const {
                 DepartmentMaster,
                 MenuMaster,
-                BranchMasterSid,
-                CompanyMasterSid,
+                BranchMasterSid: rawBranchMasterSid,
+                CompanyMasterSid: rawCompanyMasterSid,
                 status,
                 Remarks,
                 authDetails = [],
                 updatedBy,
             } = payload;
+            const CompanyMasterSid = Number(rawCompanyMasterSid);
+            const BranchMasterSid = Number(rawBranchMasterSid);
+            if (!CompanyMasterSid || !BranchMasterSid) {
+                throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required');
+            }
 
             const existing = await this._db.authorityMaster.findFirst({
                 where: {
@@ -195,6 +209,8 @@ export class AuthorityService {
                                 AuthorityDetailSid: authDetail.AuthorityDetailSid
                             },
                             data: {
+                                CompanyMasterSid: authority.CompanyMasterSid,
+                                BranchMasterSid: authority.BranchMasterSid,
                                 UserMasterSid: parseInt(authDetail.UserMasterSid),
                                 AuthorityLevel: parseInt(authDetail.AuthorityLevel),
                                 FinalAuthority: authDetail.FinalAuthority,
@@ -270,11 +286,13 @@ export class AuthorityService {
     }
 
     async newSearchAuthority(param: filterDto) {
-        const { search = '', page = 1, pageSize = 15 } = param;
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = param;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.AuthorityMasterWhereInput = {
             status: statusWhereClause,
+            ...(activeCompanyId ? { CompanyMasterSid: Number(activeCompanyId) } : {}),
+            ...(activeBranchId ? { BranchMasterSid: Number(activeBranchId) } : {}),
             ...(search ? {
                 OR: [
                     { DepartmentMaster: { has: search } },

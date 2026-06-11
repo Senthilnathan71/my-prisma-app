@@ -54,6 +54,8 @@ import { AccountsModule } from 'src/accounts/accounts.module';
 import { AuditLogService } from './services/audit-log/audit-log.service';
 import { AuditLogController } from './controllers/audit-log/audit-log.controller';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TrackingController } from './controllers/tracking/tracking.controller';
+import { TrackingService } from './services/tracking/tracking.service';
 
 @Module({
 	imports: [
@@ -111,6 +113,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 		ProRateService,
 		ShippingInstructionService,
 		AuditLogService,
+		TrackingService,
 	],
 	controllers: [
 		BookingController,
@@ -132,7 +135,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 		AgentMasterAirWaybillController,
 		ProRateController,
 		ShippingInstructionController,
-		AuditLogController
+		AuditLogController,
+		TrackingController
 	],
 	exports: [ProRateService]
 })
