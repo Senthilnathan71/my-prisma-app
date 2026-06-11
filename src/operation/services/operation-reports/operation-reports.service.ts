@@ -8247,6 +8247,7 @@ export class OperationReportsService {
   async generateDailyJobRegisterReport(params: any) {
     const {
       ToDate,
+      ['To Date']: ToDateWithSpace,
       companyId: CompanyMasterSid,
       Branch: branchId,
     } = params;
@@ -8268,7 +8269,8 @@ export class OperationReportsService {
           ? branches.map((b) => b.branchName).join(', ')
           : 'All Branches';
 
-      const parsedToDate = ToDate ? new Date(ToDate) : null;
+      const reportToDate = ToDate ?? ToDateWithSpace;
+      const parsedToDate = reportToDate ? new Date(reportToDate) : null;
       const selectedDate =
         parsedToDate && !Number.isNaN(parsedToDate.getTime())
           ? parsedToDate
@@ -8464,6 +8466,12 @@ export class OperationReportsService {
           AND: [{ HBLDate: { gte: FromDate, lte: ToDate } }],
           CompanyMasterSid: CompanyMasterSid,
           JobType: 'Import',
+          BookingHeaderSid: { not: null },
+          bookingHeader: {
+            is: {
+              status: 'A',
+            },
+          },
         },
         include: {
           Cargo: true ,
