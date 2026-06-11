@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
@@ -50,15 +50,17 @@ export class DocumentTypeService {
         }
     }
 
-    async fetchDocTypeById(VoucherTypeMasterSid: number) {
+    async fetchDocTypeById(VoucherTypeMasterSid: number, CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const ourDocType = await this._db.voucherTypeMaster.findUnique({
                 where: {
-                    VoucherTypeMasterSid: VoucherTypeMasterSid
+                    VoucherTypeMasterSid: VoucherTypeMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 }
             })
             if (!ourDocType) {
-                throw new BadRequestException(`DocType with Id : ${VoucherTypeMasterSid} not exists`);
+                throw new UnauthorizedException(`Access denied.`);
             }
             return ourDocType;
         } catch (error) {

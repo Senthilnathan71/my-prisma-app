@@ -32,7 +32,7 @@ export class QuotationController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.CREATED)
-    @Post()
+    @Post('create')
     async createQuoteHeader(@Body() body: any) {
         this.logger.debug(`createQuoteHeader: ${JSON.stringify(body)}`)
         let output = new ResponseData
@@ -94,14 +94,14 @@ export class QuotationController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('header/:id')
-    async getQuoterHeaderById(@Param('id', ParseIntPipe) quoteId: number) {
+    @Post('fetch')
+    async getQuoterHeaderById(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const quote = await this.quotationService.findOne(quoteId)
+            const quote = await this.quotationService.findOne(payload.QuoteHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid)
             this.logger.debug(`getQuoterHeaderById: ${JSON.stringify(quote)}`)
             output.data = quote
-            output.message = `Quotation with id : ${quoteId} is successfully fetched`;
+            output.message = `Quotation with id : ${payload.QuoteHeaderSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getQuoterHeaderById: ${JSON.stringify(error)}`)
             output.status = false;

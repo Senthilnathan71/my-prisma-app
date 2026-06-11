@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
@@ -57,18 +57,19 @@ export class ChargeGroupService {
         }
     }
 
-    async getChargeGroupById(ChargeGroupSid: number) {
+    async getChargeGroupById(ChargeGroupSid: number, CompanyMasterSid: number) {
         try {
             const group = await this._db.chargeGroup.findUnique({
                 where: {
-                    ChargeGroupSid: ChargeGroupSid
+                    ChargeGroupSid: ChargeGroupSid,
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
                     companyMaster: true
                 }
             });
             if (!group) {
-                throw new BadRequestException(`Charge group with id: ${ChargeGroupSid} does not exist`);
+                throw new UnauthorizedException(`Access denied.`);
             }
             return group;
         } catch (error) {

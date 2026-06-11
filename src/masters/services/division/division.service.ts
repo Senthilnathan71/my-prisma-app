@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -68,15 +68,16 @@ export class DivisionService {
         }
     }
 
-    async getDivisionById(divisionId: number) {
+    async getDivisionById(DivisionMasterSid: number, CompanyMasterSid: number) {
         try {
             const ourDivision = await this._db.divisionMaster.findUnique({
                 where: {
-                    DivisionMasterSid: divisionId
+                    DivisionMasterSid: DivisionMasterSid,
+                    CompanyMasterSid: CompanyMasterSid
                 }
             })
             if (!ourDivision) {
-                throw new BadRequestException(`Division with id : ${divisionId} not exist`);
+                throw new UnauthorizedException(`Access denied.`);
             }
             return ourDivision;
         } catch (error) {

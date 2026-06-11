@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ApprovalStatus, LeadStatus, Prisma } from '@prisma/client';
 import { contains } from 'class-validator';
 import * as moment from 'moment-timezone';
@@ -217,11 +217,13 @@ export class EnquiryHeaderService {
     }
 
 
-    async findOne(enquiryId: any) {
+    async findOne(EnquiryHeaderSid:number,CompanyMasterSid:number,BranchMasterSid:number) {
         try {
-            return await this._db.enquiryHeader.findUnique({
+            const enquiry = await this._db.enquiryHeader.findUnique({
                 where: {
-                    EnquiryHeaderSid: enquiryId
+                    EnquiryHeaderSid: EnquiryHeaderSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     enquiryRoute: {
@@ -238,6 +240,10 @@ export class EnquiryHeaderService {
                     enquiryOther: true
                 }
             });
+            if (!enquiry) {
+                throw new UnauthorizedException('Access denied.');
+            }
+            return enquiry;
         } catch (error) {
             throw error;
         }

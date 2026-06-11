@@ -113,18 +113,22 @@ export class ChargeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:id')
-    async getChargeById(@Param('id', ParseIntPipe) ChargeId: number) {
+    @Post('fetch')
+    async getChargeById(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const Charge = await this.chargeService.findOne(ChargeId)
+            const Charge = await this.chargeService.findOne(payload.ChargeMasterSid,payload.CompanyMasterSid)
             this.logger.log(`getChargeById: ${JSON.stringify(Charge)}`)
             output.data = Charge;
-            output.message = `Charge with id : ${ChargeId} is successfully fetched`;
+            output.message = `Charge with id : ${payload.ChargeMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getChargeById: ${JSON.stringify(error)}`)
             output.status = false;
-            output.message = error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
         }
         return output;
     }

@@ -83,20 +83,22 @@ export class EnquiryHeaderController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('header/:id')
-    async getEnquiryById(@Param('id', ParseIntPipe) enquiryId: number) {
+    @Post('header/fetch')
+    async getEnquiryById(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const enquiry = await this.enquiryHeaderService.findOne(enquiryId)
-            output.data = enquiry
+            const enquiry = await this.enquiryHeaderService.findOne(payload.EnquiryHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid)
             this.logger.debug(`getEnquiryById: Fetch Enquiry Data- ${JSON.stringify(enquiry)}`)
             output.data = enquiry;
-            output.message = `Enquiry with id : ${enquiryId} is successfully fetched`;
+            output.message = `Enquiry with id : ${payload.EnquiryHeaderSid} is successfully fetched`;
         } catch (error) {
             this.logger.debug(`getEnquiryById: Enquiry Fetching failed - ${JSON.stringify(error)}`)
-
             output.status = false;
-            output.message = error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
         }
         return output;
     }

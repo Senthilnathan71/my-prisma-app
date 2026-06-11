@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { LeadStatus, Prisma, UserTypeCode } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -341,11 +341,12 @@ export class CustomerService {
         return results;
     }
 
-    async findOne(customerMasterSid: any) {
+    async findOne(CustomerMasterSid: number, CompanyMasterSid: number) {
         try {
             const customerData: any = await this._db.customerMaster.findUnique({
                 where: {
-                    CustomerMasterSid: customerMasterSid,
+                    CustomerMasterSid: CustomerMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
                     status: statusWhereClause,
                 },
                 select: {
@@ -596,6 +597,9 @@ export class CustomerService {
                     }
                 }
             });
+            if (!customerData) {
+                throw new UnauthorizedException('Access denied.');
+            }
             // fetch department reference data
             const departments = await this._db.departmentMaster.findMany({
                 where: { Status: 'A' },

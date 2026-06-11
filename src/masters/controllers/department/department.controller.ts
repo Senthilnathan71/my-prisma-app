@@ -103,14 +103,14 @@ async getDepartmentByType(
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:id')
-    async getDepartmentById(@Param('id', ParseIntPipe) DepartmentId: number) {
+    @Post('fetch')
+    async getDepartmentById(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const Department = await this.departmentService.findOne(DepartmentId)
+            const Department = await this.departmentService.findOne(payload.DepartmentMasterSid,payload.CompanyMasterSid)
             this.logger.log(`getDepartmentById: ${JSON.stringify(Department)}`)
             output.data = Department;
-            output.message = `Department with id : ${DepartmentId} is successfully fetched`;
+            output.message = `Department with id : ${payload.DepartmentMasterSid} is successfully fetched`;
 
         } catch (error) {
             this.logger.warn(`getDepartmentById Error: ${JSON.stringify(error)}`)

@@ -170,14 +170,14 @@ export class CustomerController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:id')
-    async getCustomerById(@Param('id', ParseIntPipe) customerId: number) {
+    @Post('fetch')
+    async getCustomerById(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const Customer = await this.customerService.findOne(customerId)
+            const Customer = await this.customerService.findOne(payload.CustomerMasterSid,payload.CompanyMasterSid)
             this.logger.log(`getCustomerById: ${JSON.stringify(Customer)}`)
             output.data = Customer
-            output.message = `Organization with id : ${customerId} is successfully fetched`;
+            output.message = `Organization with id : ${payload.CustomerMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`getCustomerById: ${JSON.stringify(error)}`)
             output.status = false;

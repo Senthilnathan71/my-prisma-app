@@ -72,15 +72,15 @@ export class MawbStockController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:MawbStockSid')
-    async getMawbStockById(@Param('MawbStockSid', ParseIntPipe) MawbStockSid: number) {
+    @Post('fetch')
+    async getMawbStockById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting MAWB Stock with id : ${MawbStockSid}`);
-            let res = await this.mawbStockService.fetchMawbStockById(MawbStockSid);
+            this.logger.log(`Getting MAWB Stock with id : ${payload.MawbStockSid}`);
+            let res = await this.mawbStockService.fetchMawbStockById(payload.MawbStockSid, payload.CompanyMasterSid, payload.BranchMasterSid);
             this.logger.debug(`Fetched MAWB Stock : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `MAWB Stock with id : ${MawbStockSid} is successfully fetched`;
+            resp.message = `MAWB Stock with id : ${payload.MawbStockSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get MAWB Stock by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;

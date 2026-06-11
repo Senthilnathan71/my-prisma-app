@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
@@ -178,11 +178,13 @@ export class MawbStockService {
         }
     }
 
-    async fetchMawbStockById(MawbStockSid: number) {
+    async fetchMawbStockById(MawbStockSid: number, CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const mawbStock = await this._db.mawbStock.findUnique({
                 where: {
-                    MawbStockSid: MawbStockSid
+                    MawbStockSid: MawbStockSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     branchMaster: true,
@@ -191,7 +193,7 @@ export class MawbStockService {
                 }
             });
             if (!mawbStock) {
-                throw new BadRequestException(`MAWB Stock with Id : ${MawbStockSid} not exists`);
+                throw new UnauthorizedException(`Access denied.`);
             }
             return mawbStock;
         } catch (error) {

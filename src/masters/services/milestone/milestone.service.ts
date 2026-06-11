@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -45,11 +45,13 @@ export class MilestoneService {
         }
     }
 
-    async fetchMilestoneById(MilestoneMasterSid: number) {
+    async fetchMilestoneById(MilestoneMasterSid: number,CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             const milestone = await this._db.milestoneMaster.findUnique({
                 where: {
-                    MilestoneMasterSid: MilestoneMasterSid
+                    MilestoneMasterSid: MilestoneMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     branchMaster: true,
@@ -57,7 +59,7 @@ export class MilestoneService {
                 }
             });
             if (!milestone) {
-                throw new BadRequestException(`Milestone with Id : ${MilestoneMasterSid} not exists`);
+                throw new UnauthorizedException(`Access denied.`);
             }
             return milestone;
         } catch (error) {

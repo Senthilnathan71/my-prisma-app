@@ -71,15 +71,15 @@ export class YearController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:YearMasterSid')
-    async getYearById(@Param('YearMasterSid', ParseIntPipe) YearMasterSid: number) {
+    @Post('fetch')
+    async getYearById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Year with id : ${YearMasterSid}`);
-            let res = await this.yearService.fetchYearById(YearMasterSid);
+            this.logger.log(`Getting Year with id : ${payload.YearMasterSid}`);
+            let res = await this.yearService.fetchYearById(payload.YearMasterSid,payload.CompanyMasterSid);
             this.logger.debug(`Fetched Year : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Year with id : ${YearMasterSid} is successfully fetched`;
+            resp.message = `Year with id : ${payload.YearMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Year by Id Error : ${JSON.stringify(error)}`);
             resp.status = false;
