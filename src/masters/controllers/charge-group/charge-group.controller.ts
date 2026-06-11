@@ -72,15 +72,15 @@ export class ChargeGroupController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:ChargeGroupSid')
-    async getChargeGroupById(@Param('ChargeGroupSid', ParseIntPipe) ChargeGroupSid: number) {
+    @Post('fetch')
+    async getChargeGroupById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Charge Group with id: ${ChargeGroupSid}`);
-            let res = await this.chargeGroupService.getChargeGroupById(ChargeGroupSid);
+            this.logger.log(`Getting Charge Group with id: ${payload.ChargeGroupSid}`);
+            let res = await this.chargeGroupService.getChargeGroupById(payload.ChargeGroupSid,payload.CompanyMasterSid);
             this.logger.debug(`Fetched Charge Group: ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Charge group with id: ${ChargeGroupSid} is successfully fetched`;
+            resp.message = `Charge group with id: ${payload.ChargeGroupSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Charge Group By Id Error: ${JSON.stringify(error)}`);
             resp.status = false;

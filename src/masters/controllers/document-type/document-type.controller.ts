@@ -77,15 +77,15 @@ export class DocumentTypeController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:VoucherTypeMasterSid')
-    async getDocTypeById(@Param('VoucherTypeMasterSid', ParseIntPipe) VoucherTypeMasterSid: number) {
+    @Post('fetch')
+    async getDocTypeById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Document Type with id : ${VoucherTypeMasterSid}`);
-            let res = await this.documentTypeService.fetchDocTypeById(VoucherTypeMasterSid);
+            this.logger.log(`Getting Document Type with id : ${payload.VoucherTypeMasterSid}`);
+            let res = await this.documentTypeService.fetchDocTypeById(payload.VoucherTypeMasterSid,payload.CompanyMasterSid,payload.BranchMasterSid);
             this.logger.debug(`Fetched Document Type : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Document Type with id : ${VoucherTypeMasterSid} is successfully fetched`;
+            resp.message = `Document Type with id : ${payload.VoucherTypeMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Document Type by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;

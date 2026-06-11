@@ -73,15 +73,15 @@ export class HawbStockController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:HawbStockSid')
-    async getHawbStockById(@Param('HawbStockSid', ParseIntPipe) HawbStockSid: number) {
+    @Post('fetch')
+    async getHawbStockById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting HAWB Stock with id : ${HawbStockSid}`);
-            let res = await this.hawbStockService.fetchHawbStockById(HawbStockSid);
+            this.logger.log(`Getting HAWB Stock with id : ${payload.HawbStockSid}`);
+            let res = await this.hawbStockService.fetchHawbStockById(payload.HawbStockSid,payload.CompanyMasterSid,payload.BranchMasterSid);
             this.logger.debug(`Fetched HAWB Stock : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `HAWB Stock with id : ${HawbStockSid} is successfully fetched`;
+            resp.message = `HAWB Stock with id : ${payload.HawbStockSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get HAWB Stock by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;

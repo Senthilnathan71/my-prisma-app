@@ -73,15 +73,15 @@ export class DivisionController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:DivisionMasterSid')
-    async getDivisionById(@Param('DivisionMasterSid', ParseIntPipe) DivisionMasterSid: number) {
+    @Post('fetch')
+    async getDivisionById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Division with Id : ${DivisionMasterSid}`);
-            let res = await this.divisionService.getDivisionById(DivisionMasterSid);
+            this.logger.log(`Getting Division with Id : ${payload.DivisionMasterSid}`);
+            let res = await this.divisionService.getDivisionById(payload.DivisionMasterSid,payload.CompanyMasterSid);
             this.logger.debug(`GetDivisionById Data : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Division with Id : ${DivisionMasterSid} is fetched`
+            resp.message = `Division with Id : ${payload.DivisionMasterSid} is fetched`
         } catch (error) {
             this.logger.warn(`Division Fetch By Id Error: ${JSON.stringify(error)}`);
             resp.status = false;

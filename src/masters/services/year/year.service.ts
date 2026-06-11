@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -65,18 +65,19 @@ export class YearService {
     }
 
 
-    async fetchYearById(YearMasterSid: number) {
+    async fetchYearById(YearMasterSid: number, CompanyMasterSid: number) {
         try {
             const year = await this._db.yearMaster.findUnique({
                 where: {
-                    YearMasterSid: YearMasterSid
+                    YearMasterSid: YearMasterSid,
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
                     companyMaster: true
                 }
             });
             if (!year) {
-                throw new BadRequestException(`Year with Id : ${YearMasterSid} not exists`);
+                throw new UnauthorizedException(`Access denied.`);
             }
             return year;
         } catch (error) {

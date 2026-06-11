@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ApprovalStatus, LeadStatus, Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
@@ -374,11 +374,13 @@ export class QuotationService {
     }
 
 
-    async findOne(quoteId: any) {
+    async findOne(QuoteHeaderSid:number,CompanyMasterSid:number,BranchMasterSid:number) {
         try {
-            return await this._db.quoteHeader.findUnique({
+            const quote = await this._db.quoteHeader.findUnique({
                 where: {
-                    QuoteHeaderSid: quoteId
+                    QuoteHeaderSid: QuoteHeaderSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     quoteRoute : {
@@ -418,6 +420,10 @@ export class QuotationService {
                     }
                 }
             });
+            if (!quote) {
+                throw new UnauthorizedException('Access denied.');
+            }
+            return quote;
         } catch (error) {
             throw error;
         }

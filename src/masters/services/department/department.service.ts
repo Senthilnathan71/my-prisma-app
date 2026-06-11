@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { CompanyIdDto } from 'src/masters/DTO/company-id.dto';
@@ -89,13 +89,18 @@ async getDepartmentByType(payload : CompanyIdDto) {
 }
 
 
-    async findOne(DepartmentMasterSid: any) {
+    async findOne(DepartmentMasterSid: number, CompanyMasterSid: number) {
         try {
-            return await this._db.departmentMaster.findUnique({
+            const department =  await this._db.departmentMaster.findUnique({
                 where: {
-                    DepartmentMasterSid: DepartmentMasterSid
+                    DepartmentMasterSid: DepartmentMasterSid,
+                    CompanyMasterSid: CompanyMasterSid
                 },
             });
+            if (!department) {
+                throw new UnauthorizedException(`Access denied.`);
+            }
+            return department;
         } catch (error) {
             throw error;
         }

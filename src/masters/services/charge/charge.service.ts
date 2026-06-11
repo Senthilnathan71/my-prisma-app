@@ -1,5 +1,5 @@
 import { Prisma } from '.prisma/client/default';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -137,12 +137,12 @@ export class ChargeService {
 
 
 
-    async findOne(ChargeMasterSid: any) {
+    async findOne(ChargeMasterSid: number,CompanyMasterSid: number) {
         try {
-            return await this._db.chargeMaster.findUnique({
+            const charge = await this._db.chargeMaster.findUnique({
                 where: {
                     ChargeMasterSid: ChargeMasterSid,
-
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
                     chargeTaxMaster: {
@@ -157,6 +157,10 @@ export class ChargeService {
                     }
                 }
             });
+            if (!charge) {
+                throw new UnauthorizedException('Access denied.');
+            }
+            return charge;
         } catch (error) {
             throw error;
         }

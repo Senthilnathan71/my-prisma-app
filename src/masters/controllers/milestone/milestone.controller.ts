@@ -72,15 +72,15 @@ export class MilestoneController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:MilestoneMasterSid')
-    async getMilestoneById(@Param('MilestoneMasterSid', ParseIntPipe) MilestoneMasterSid: number) {
+    @Post('fetch')
+    async getMilestoneById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Milestone with id : ${MilestoneMasterSid}`);
-            let res = await this.milestoneService.fetchMilestoneById(MilestoneMasterSid);
+            this.logger.log(`Getting Milestone with id : ${payload.MilestoneMasterSid}`);
+            let res = await this.milestoneService.fetchMilestoneById(payload.MilestoneMasterSid,payload.CompanyMasterSid,payload.BranchMasterSid);
             this.logger.debug(`Fetched Milestone : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Milestone with id : ${MilestoneMasterSid} is successfully fetched`;
+            resp.message = `Milestone with id : ${payload.MilestoneMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Milestone by Id Error : ${JSON.stringify(error)}`);
             resp.status = false;
