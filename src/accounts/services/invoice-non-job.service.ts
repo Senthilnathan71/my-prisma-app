@@ -355,7 +355,7 @@ export class InvoiceNonJobService {
       BranchMasterSid: payload.BranchMasterSid,
       Sno: index + 1,
       ChargeMasterSid: null,
-      ChargeDescription: detail.ChargeDescription || payload.Narration || '',
+      ChargeDescription: payload.Narration || '',
       LedgerMasterSid: detail.LedgerMasterSid ? Number(detail.LedgerMasterSid) : null,
       COAMasterSid: detail.COAMasterSid ? Number(detail.COAMasterSid) : null,
       HSSACMasterSid: detail.HSSACMasterSid ? Number(detail.HSSACMasterSid) : null,
@@ -378,7 +378,7 @@ export class InvoiceNonJobService {
       MasterJobSid: null,
       HouseJobSid: null,
       DepartmentMasterSid: null,
-      Narration: detail.Narration || payload.Narration || '',
+      Narration: payload.Narration || '',
     }));
 
     if (details.length) {
@@ -439,8 +439,8 @@ export class InvoiceNonJobService {
             BookingRateSid: null,
             BookingRatesSid: null,
             CostRevenueChargesSid: null,
-            Narration: detail.Narration || narration,
-            ChargeDescription: detail.ChargeDescription || narration,
+            Narration: narration,
+            ChargeDescription: narration,
           }))
         : [],
     };
