@@ -305,10 +305,14 @@ export class AccountsReportsService {
 
       const signedOSCurrencyAmount = sign * outstandingCurr;
       const signedOSLocalAmount = sign * outstandingLocal;
+      // On Account memo = the reducing side opposite the ledger's normal balance
+      // (Sy Cr -> Dr, Sy Dr -> Cr) — i.e. exactly the sign-flipped entries: advances,
+      // unapplied receipts/payments, JV corrections. (The old `drCr === 'C'` test was
+      // only correct for Sy Dr ledgers.) Matches getAgeingReportBySalesman.
       const signedOnAccountCreditCurr =
-        drCr === 'C' ? sign * outstandingCurr : 0;
+        sign === -1 ? signedOSCurrencyAmount : 0;
       const signedOnAccountCreditLocal =
-        drCr === 'C' ? sign * outstandingLocal : 0;
+        sign === -1 ? signedOSLocalAmount : 0;
 
       return {
         VoucherTransactionSid: v.VoucherTransactionSid,
