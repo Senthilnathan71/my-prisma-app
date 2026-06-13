@@ -125,7 +125,13 @@ export class AccountsReportsService {
       // Route to specific report generator
       switch (reportName) {
         case 'ageing-report':
-          return await this.getAgeingReport(parameters);
+          // "Salesman" checkbox -> regroup by Customer/Branch/Salesperson via salesteam.
+          // Flag is consumed here; the original getAgeingReport is left untouched.
+          return (parameters?.Salesman === true ||
+            parameters?.Salesman === 'Y' ||
+            parameters?.Salesman === 'true')
+            ? await this.getAgeingReportBySalesman(parameters)
+            : await this.getAgeingReport(parameters);
         case 'outstanding-report':
           return await this.generateOutstandingReport(parameters);
         case 'statement-ledger-report':
@@ -579,6 +585,689 @@ export class AccountsReportsService {
       grandTotalOnAccountCreditLocal,
       overallBucketTotals,
       ageingResult, // Currency -> Subledgers structure
+    };
+  }
+
+  /**
+   * Ageing bucket ranges + labels. Pure helper used by the salesman variant.
+   * Mirrors the inline logic in getAgeingReport (kept separate so that method stays untouched).
+   */
+  private buildAgeingBuckets(AgeingType: string): {
+    bucketRanges: number[];
+    bucketLabels: string[];
+  } {
+    let bucketRanges: number[] = [];
+    if (AgeingType === '30_60_90') bucketRanges = [30, 60, 90];
+    else if (AgeingType === '15_30_45_60') bucketRanges = [15, 30, 45, 60];
+    else if (AgeingType && AgeingType.includes('-')) {
+      bucketRanges = AgeingType.split('-')
+        .map((s) => +s)
+        .filter((n) => !Number.isNaN(n));
+      bucketRanges.sort((a, b) => a - b);
+    }
+    if (!bucketRanges.length) throw new BadRequestException('Invalid ageingType');
+
+    const bucketLabels: string[] = [];
+    for (let i = 0; i < bucketRanges.length; i++) {
+      bucketLabels.push(
+        i === 0
+          ? `0-${bucketRanges[i]}`
+          : `${bucketRanges[i - 1] + 1}-${bucketRanges[i]}`,
+      );
+    }
+    bucketLabels.push(`${bucketRanges[bucketRanges.length - 1] + 1}+`);
+    return { bucketRanges, bucketLabels };
+  }
+
+  /**
+   * Ageing Report grouped by Customer -> Branch -> Salesperson -> Department.
+   * Triggered when the "Salesman" checkbox is ticked on the Ageing Report.
+   *
+   * Uses the SAME outstanding + ageing math as getAgeingReport but works in LOCAL
+   * amounts only, so totals reconcile to the plain report's grandTotalLocal and stay
+   * comparable across currencies. The original getAgeingReport is intentionally untouched.
+   *
+   * Attribution per outstanding line:
+   *   customer = SubledgerMaster.SubledgerMappingSid   (SubledgerType = 'Customer')
+   *   branch   = VoucherHeader.CustomerBranchSid
+   *   dept     = VoucherHeader.DepartmentMasterSid -> HouseJob -> MasterJob -> BookingHeader -> "Others"
+   * matched against active CustomerSalesTeam rows; most-specific wins
+   * (branch-specific beats all-branch; dept-specific beats all-dept), tie-break = latest EffectiveFrom <= ToDate.
+   *
+   * @param params.Drilldown 'Y'/true -> also return every underlying OS line (Postman/testing only; not used by the UI).
+   */
+  async getAgeingReportBySalesman(params: any) {
+    const {
+      companyId: CompanyMasterSid,
+      Branch: SelectedBranches,
+      Ledger: COAMasterSid,
+      ToDate,
+      ageingType: AgeingType = '30_60_90',
+    } = params;
+
+    const wantDrilldown =
+      params?.Drilldown === true ||
+      params?.Drilldown === 'Y' ||
+      params?.Drilldown === 'y' ||
+      params?.Drilldown === 'true';
+
+    const toDateObj = new Date(ToDate);
+
+    // --- Ledger (for sign convention + display name) ---
+    const coa = await this._db.cOAMaster.findFirst({
+      where: { CompanyMasterSid, COAMasterSid, Status: 'A' },
+      select: { LedgerName: true, LedgerType: true },
+    });
+    if (!coa) throw new BadRequestException('No ledger found for this company');
+
+    // --- Branch label text (same convention as getAgeingReport) ---
+    let branchInvolvedText = 'All Branches';
+    if (SelectedBranches && SelectedBranches.length > 0) {
+      const br = await this._db.branchMaster.findMany({
+        where: {
+          CompanyMasterSid,
+          status: 'A',
+          BranchMasterSid: { in: SelectedBranches },
+        },
+        select: { branchName: true },
+      });
+      branchInvolvedText = br.map((b) => b.branchName).join(', ');
+    }
+
+    // --- Where clause: identical to getAgeingReport ---
+    const whereClause: any = {
+      CompanyMasterSid,
+      COAMasterSid,
+      Status: 'A',
+      VoucherDate: { lte: toDateObj },
+    };
+    if (SelectedBranches && SelectedBranches.length > 0) {
+      whereClause.BranchMasterSid = { in: SelectedBranches };
+    }
+
+    const vouchers = await this._db.voucherTransaction.findMany({
+      where: whereClause,
+      include: {
+        subledgerMaster: true,
+        voucherMatchings: {
+          where: { Status: 'A', VoucherMatchingDate: { lte: toDateObj } },
+        },
+      },
+      orderBy: [
+        { LedgerMasterSid: 'asc' },
+        { VoucherDate: 'asc' },
+        { VoucherTransactionSid: 'asc' },
+      ],
+    });
+
+    if (!vouchers || vouchers.length === 0) {
+      throw new BadRequestException('No vouchers found for the given criteria');
+    }
+
+    const { bucketRanges, bucketLabels } = this.buildAgeingBuckets(AgeingType);
+    const lastBucket = bucketLabels[bucketLabels.length - 1];
+    const emptyBuckets = (): Record<string, number> => {
+      const b: Record<string, number> = {};
+      bucketLabels.forEach((l) => (b[l] = 0));
+      return b;
+    };
+    const addToBucket = (
+      buckets: Record<string, number>,
+      ageing: number,
+      amount: number,
+    ) => {
+      for (let i = 0; i < bucketRanges.length; i++) {
+        if (ageing <= bucketRanges[i]) {
+          buckets[bucketLabels[i]] += amount;
+          return;
+        }
+      }
+      buckets[lastBucket] += amount;
+    };
+
+    // --- Reference data for branch + department attribution ---
+    const headerSids = [
+      ...new Set(vouchers.map((v) => v.VoucherHeaderSid).filter((x: any) => x != null)),
+    ] as number[];
+    const houseJobSids = [
+      ...new Set(vouchers.map((v) => v.HouseJobSid).filter((x: any) => x != null)),
+    ] as number[];
+    const masterJobSids = [
+      ...new Set(vouchers.map((v) => v.MasterJobSid).filter((x: any) => x != null)),
+    ] as number[];
+
+    const headers = headerSids.length
+      ? await this._db.voucherHeader.findMany({
+          where: { VoucherHeaderSid: { in: headerSids } },
+          select: {
+            VoucherHeaderSid: true,
+            CustomerBranchSid: true,
+            DepartmentMasterSid: true,
+            BookingHeaderSid: true,
+          },
+        })
+      : [];
+    const headerMap = new Map<number, any>(
+      headers.map((h) => [h.VoucherHeaderSid, h]),
+    );
+    const bookingSids = [
+      ...new Set(headers.map((h) => h.BookingHeaderSid).filter((x: any) => x != null)),
+    ] as number[];
+
+    const [houseJobs, masterJobs, bookings] = await Promise.all([
+      houseJobSids.length
+        ? this._db.houseJob.findMany({
+            where: { HouseJobSid: { in: houseJobSids } },
+            select: { HouseJobSid: true, DepartmentMasterSid: true },
+          })
+        : Promise.resolve([] as any[]),
+      masterJobSids.length
+        ? this._db.masterJob.findMany({
+            where: { MasterJobSid: { in: masterJobSids } },
+            select: { MasterJobSid: true, DepartmentMasterSid: true },
+          })
+        : Promise.resolve([] as any[]),
+      bookingSids.length
+        ? this._db.bookingHeader.findMany({
+            where: { BookingHeaderSid: { in: bookingSids } },
+            select: { BookingHeaderSid: true, DepartmentMasterSid: true },
+          })
+        : Promise.resolve([] as any[]),
+    ]);
+    const houseJobDept = new Map<number, number>(
+      houseJobs.map((j) => [j.HouseJobSid, j.DepartmentMasterSid]),
+    );
+    const masterJobDept = new Map<number, number>(
+      masterJobs.map((j) => [j.MasterJobSid, j.DepartmentMasterSid]),
+    );
+    const bookingDept = new Map<number, number>(
+      bookings.map((b) => [b.BookingHeaderSid, b.DepartmentMasterSid]),
+    );
+
+    // --- Departments (names + active set for "All" detection) ---
+    const activeDepartments = await this._db.departmentMaster.findMany({
+      where: { CompanyMasterSid, Status: 'A' },
+      select: { DepartmentMasterSid: true, departmentName: true },
+    });
+    const deptNameMap = new Map<number, string>(
+      activeDepartments.map((d) => [d.DepartmentMasterSid, d.departmentName]),
+    );
+
+    // --- Salesteam rows for the customers in scope ---
+    const customerSids = [
+      ...new Set(
+        vouchers
+          .map((v) =>
+            v.subledgerMaster?.SubledgerType === 'Customer'
+              ? v.subledgerMaster?.SubledgerMappingSid
+              : null,
+          )
+          .filter((x: any) => x != null),
+      ),
+    ] as number[];
+
+    const salesteamRows = customerSids.length
+      ? await this._db.customerSalesTeam.findMany({
+          where: {
+            CustomerMasterSid: { in: customerSids },
+            status: 'A',
+            deletedAt: null,
+            EffectiveFrom: { lte: toDateObj },
+          },
+          include: {
+            salesManUser: { select: { UserMasterSid: true, userName: true } },
+          },
+        })
+      : [];
+    const salesteamByCustomer = new Map<number, any[]>();
+    for (const r of salesteamRows) {
+      if (r.CustomerMasterSid == null) continue;
+      const list = salesteamByCustomer.get(r.CustomerMasterSid) ?? [];
+      list.push(r);
+      salesteamByCustomer.set(r.CustomerMasterSid, list);
+    }
+
+    // Most-specific salesteam record for a (customer, branch, dept) line.
+    const resolveSalesteam = (
+      customerSid: number,
+      branchSid: number | null,
+      deptSid: number | null,
+    ): any | null => {
+      const records = salesteamByCustomer.get(customerSid);
+      if (!records || !records.length) return null;
+      let best: any = null;
+      let bestScore = -1;
+      let bestEff = -Infinity;
+      for (const rec of records) {
+        const recBranch: number | null = rec.CustomerBranchSid ?? null;
+        if (recBranch != null && recBranch !== branchSid) continue; // branch mismatch
+        const recDepts: number[] = (rec.DepartmentMasterSid ?? [])
+          .map((d: any) => Number(d))
+          .filter((n: number) => !Number.isNaN(n));
+        const coversAllDepts = recDepts.length === 0; // empty array = all departments (legacy catch-all)
+        const deptMatches = coversAllDepts
+          ? true
+          : deptSid != null && recDepts.includes(deptSid);
+        if (!deptMatches) continue;
+        // specificity: branch-specific (+2) beats all-branch; dept-specific (+1) beats all-dept
+        const score = (recBranch != null ? 2 : 0) + (coversAllDepts ? 0 : 1);
+        const eff = new Date(rec.EffectiveFrom).getTime();
+        if (score > bestScore || (score === bestScore && eff > bestEff)) {
+          best = rec;
+          bestScore = score;
+          bestEff = eff;
+        }
+      }
+      return best;
+    };
+
+    // --- Per-line: compute OS (local), resolve dimensions, accumulate into leaves ---
+    // Leaf grain: dept-bearing lines -> (customer, branch, salesperson, department);
+    // department-less lines -> a single per-customer "On Account" leaf (no salesperson).
+    const leafMap = new Map<string, any>();
+    // customerKey -> { customerSid, customerName, subledgerSid }
+    const customerInfo = new Map<string, any>();
+    const drilldown: any[] = [];
+    const branchTokens = new Set<string>();
+    const currencyTokens = new Set<string>();
+    let grandTotalLocal = 0;
+    let overallOnAccountLocal = 0;
+    const overallBucketTotals = emptyBuckets();
+
+    for (const v of vouchers) {
+      // Mirror getAgeingReport: skip transactions with no subledger (party) line,
+      // so the grand total reconciles exactly to the plain ageing report.
+      if (v.LedgerMasterSid == null) continue;
+
+      const matchLocal = v.voucherMatchings.reduce(
+        (acc: number, m: any) =>
+          acc + (m.DrCr === 'D' ? +m.LocalAmount : -m.LocalAmount),
+        0,
+      );
+      const matchCurr = v.voucherMatchings.reduce(
+        (acc: number, m: any) => acc + (m.DrCr === 'D' ? +m.Amount : -m.Amount),
+        0,
+      );
+      const ageing =
+        Math.floor(
+          (+toDateObj - +new Date(v.VoucherDate)) / (1000 * 60 * 60 * 24),
+        ) + 1;
+      const outstandingLocal = toNumber(v.LocalAmount) - Math.abs(matchLocal);
+      const outstandingCurr = toNumber(v.Amount) - Math.abs(matchCurr);
+      const drCr = v.DrCr?.trim().toUpperCase();
+      let sign = 1;
+      if (
+        (coa.LedgerType?.trim() === 'Sy Cr' && drCr === 'D') ||
+        (coa.LedgerType?.trim() === 'Sy Dr' && drCr === 'C')
+      ) {
+        sign = -1;
+      }
+      const signedOSLocal = sign * outstandingLocal;
+      const signedOSCurr = sign * outstandingCurr;
+      // On Account memo = the reducing side opposite the ledger's normal balance
+      // (Sy Cr -> Dr, Sy Dr -> Cr) — i.e. exactly the sign-flipped entries: advances,
+      // unapplied receipts/payments, JV corrections. (`drCr === 'C'` was right only for Sy Dr.)
+      const onAccountLocal = sign === -1 ? signedOSLocal : 0;
+      const onAccountCurr = sign === -1 ? signedOSCurr : 0;
+
+      // customer
+      const sub = v.subledgerMaster;
+      const isCustomer = sub?.SubledgerType === 'Customer';
+      const customerSid: number | null = isCustomer
+        ? sub?.SubledgerMappingSid ?? null
+        : null;
+      const customerName = sub?.SubledgerName ?? 'Unknown';
+      const customerKey =
+        customerSid != null ? `c:${customerSid}` : `s:${v.LedgerMasterSid ?? 'x'}`;
+      if (!customerInfo.has(customerKey)) {
+        customerInfo.set(customerKey, {
+          customerSid,
+          customerName,
+          subledgerSid: v.LedgerMasterSid ?? null, // representative subledger (O/S button)
+        });
+      }
+
+      // branch (customer branch from the voucher header)
+      const header = headerMap.get(v.VoucherHeaderSid);
+      const branchSid: number | null = header?.CustomerBranchSid ?? null;
+      branchTokens.add(branchSid != null ? String(branchSid) : '∅');
+
+      // currency (transaction currency — leaves split by it so every row is single-currency)
+      const currencyCode: string | null = v.CurrencyCode ?? null;
+      currencyTokens.add(currencyCode ?? '∅');
+
+      // department: header -> houseJob -> masterJob -> booking -> On Account(null)
+      const deptSid: number | null =
+        (header?.DepartmentMasterSid ?? null) ??
+        (v.HouseJobSid != null ? houseJobDept.get(v.HouseJobSid) ?? null : null) ??
+        (v.MasterJobSid != null ? masterJobDept.get(v.MasterJobSid) ?? null : null) ??
+        (header?.BookingHeaderSid != null
+          ? bookingDept.get(header.BookingHeaderSid) ?? null
+          : null) ??
+        null;
+
+      // Department-less outstanding (advances, JVs, non-job, receipts) is "On Account":
+      // no salesperson, one leaf per customer.
+      const isOnAccount = deptSid == null;
+
+      // salesperson (only for dept-bearing lines)
+      const rec =
+        !isOnAccount && customerSid != null
+          ? resolveSalesteam(customerSid, branchSid, deptSid)
+          : null;
+      const salespersonId: number | null = rec?.Salesman ?? null;
+      const salespersonName: string | null = rec?.salesManUser?.userName ?? null;
+
+      // grand totals across ALL lines (so they reconcile to the plain ageing report)
+      grandTotalLocal += signedOSLocal;
+      overallOnAccountLocal += onAccountLocal;
+      addToBucket(overallBucketTotals, ageing, signedOSLocal);
+
+      if (wantDrilldown) {
+        drilldown.push({
+          VoucherTransactionSid: v.VoucherTransactionSid,
+          VoucherNumber: v.VoucherNumber,
+          VoucherDate: v.VoucherDate,
+          CurrencyCode: v.CurrencyCode,
+          CustomerMasterSid: customerSid,
+          CustomerName: customerName,
+          CustomerBranchSid: branchSid,
+          DepartmentMasterSid: deptSid,
+          DepartmentName: isOnAccount
+            ? 'Unallocated'
+            : deptNameMap.get(deptSid!) ?? `Dept ${deptSid}`,
+          Ageing: ageing,
+          OSLocalAmount: signedOSLocal,
+          OSCurrencyAmount: signedOSCurr,
+          OnAccountLocal: onAccountLocal,
+          OnAccountCurr: onAccountCurr,
+          SalespersonId: salespersonId,
+          SalespersonName: salespersonName,
+          MatchedSalesSid: rec?.CustomerSalesSid ?? null,
+        });
+      }
+
+      const curKey = currencyCode ?? '';
+      const leafKey = isOnAccount
+        ? `${customerKey}|onaccount|cur:${curKey}`
+        : `${customerKey}|b:${branchSid ?? 0}|sp:${salespersonId ?? 0}|d:${deptSid}|cur:${curKey}`;
+      let leaf = leafMap.get(leafKey);
+      if (!leaf) {
+        leaf = {
+          customerKey,
+          branchSid: isOnAccount ? null : branchSid,
+          salespersonId: isOnAccount ? null : salespersonId,
+          salespersonName: isOnAccount ? null : salespersonName,
+          deptSid: isOnAccount ? null : deptSid,
+          // isOnAccount = the department-less bucket; display label = "Unallocated"
+          deptName: isOnAccount
+            ? 'Unallocated'
+            : deptNameMap.get(deptSid!) ?? `Dept ${deptSid}`,
+          currencyCode,
+          isOnAccount,
+          outstandingLocal: 0,
+          outstandingCurr: 0,
+          onAccountLocal: 0,
+          onAccountCurr: 0,
+          buckets: emptyBuckets(),
+        };
+        leafMap.set(leafKey, leaf);
+      }
+      leaf.outstandingLocal += signedOSLocal;
+      leaf.outstandingCurr += signedOSCurr;
+      leaf.onAccountLocal += onAccountLocal;
+      leaf.onAccountCurr += onAccountCurr;
+      // Per-row buckets are in transaction currency (rows are single-currency); the overall
+      // bucket totals stay local (above) so the Grand Total row reconciles to grandTotalLocal.
+      addToBucket(leaf.buckets, ageing, signedOSCurr);
+    }
+
+    // --- Branch display names ---
+    const branchSidsPresent = [
+      ...new Set(
+        [...leafMap.values()].map((r) => r.branchSid).filter((x: any) => x != null),
+      ),
+    ] as number[];
+    const branchNameMap = new Map<number, string>();
+    if (branchSidsPresent.length) {
+      const brs = await this._db.customerBranch.findMany({
+        where: { CustomerBranchSid: { in: branchSidsPresent } },
+        select: { CustomerBranchSid: true, BranchName: true },
+      });
+      brs.forEach((b) => branchNameMap.set(b.CustomerBranchSid, b.BranchName));
+    }
+
+    // --- Credit Days / Limit per customer (batch; same rule as getCreditRequest) ---
+    const creditByCustomer = new Map<
+      number,
+      { CreditDays: number; CreditLimit: number }
+    >();
+    if (customerSids.length) {
+      const custs = await this._db.customerMaster.findMany({
+        where: { CustomerMasterSid: { in: customerSids } },
+        select: {
+          CustomerMasterSid: true,
+          CashCredit: true,
+          customerCreditRequest: {
+            where: { ApprovalStatus: ApprovalStatus.Approved, Status: 'A' },
+            select: { CreditDays: true, CreditLimit: true },
+          },
+        },
+      });
+      for (const c of custs) {
+        const reqs = c.customerCreditRequest ?? [];
+        if (c.CashCredit === 'C' || reqs.length === 0) {
+          creditByCustomer.set(c.CustomerMasterSid, {
+            CreditDays: 0,
+            CreditLimit: 0,
+          });
+          continue;
+        }
+        const top = reqs.reduce((acc, r) =>
+          toNumber(r.CreditLimit) > toNumber(acc.CreditLimit) ? r : acc,
+        );
+        creditByCustomer.set(c.CustomerMasterSid, {
+          CreditDays: toNumber(top.CreditDays),
+          CreditLimit: toNumber(top.CreditLimit),
+        });
+      }
+    }
+
+    // Merge a set of leaves (used by branch-collapse).
+    const mergeLeaves = (leaves: any[]) => {
+      const buckets = emptyBuckets();
+      let outstandingLocal = 0;
+      let outstandingCurr = 0;
+      let onAccountLocal = 0;
+      let onAccountCurr = 0;
+      for (const l of leaves) {
+        outstandingLocal += l.outstandingLocal;
+        outstandingCurr += l.outstandingCurr;
+        onAccountLocal += l.onAccountLocal;
+        onAccountCurr += l.onAccountCurr;
+        bucketLabels.forEach((lab) => (buckets[lab] += l.buckets[lab]));
+      }
+      return {
+        outstandingLocal,
+        outstandingCurr,
+        onAccountLocal,
+        onAccountCurr,
+        buckets,
+      };
+    };
+
+    // --- Group leaves per customer into ONE row per (branch, salesperson), each carrying a
+    //     per-department breakdown for on-screen expansion. On Account stays separate. ---
+    const leavesByCustomer = new Map<string, any[]>();
+    for (const leaf of leafMap.values()) {
+      const list = leavesByCustomer.get(leaf.customerKey) ?? [];
+      list.push(leaf);
+      leavesByCustomer.set(leaf.customerKey, list);
+    }
+
+    const finalRows: any[] = [];
+    for (const [customerKey, leaves] of leavesByCustomer.entries()) {
+      const built: any[] = [];
+
+      // dept-bearing leaves -> one collapsed row per (branch, salesperson, currency) +
+      // departmentBreakdown. Currency is in the key so every row stays single-currency.
+      const deptLeaves = leaves.filter((l) => !l.isOnAccount);
+      const groups = new Map<string, any[]>();
+      for (const l of deptLeaves) {
+        const key = `${l.branchSid ?? 0}||${l.salespersonId ?? 0}||${
+          l.currencyCode ?? ''
+        }`;
+        const list = groups.get(key) ?? [];
+        list.push(l);
+        groups.set(key, list);
+      }
+      for (const grp of groups.values()) {
+        const head = grp[0];
+        const departmentBreakdown = grp
+          .filter((l) => Math.round(l.outstandingLocal * 100) !== 0)
+          .map((l) => ({
+            departmentName: l.deptName,
+            outstandingLocal: l.outstandingLocal,
+            outstandingCurr: l.outstandingCurr,
+            onAccountLocal: l.onAccountLocal,
+            onAccountCurr: l.onAccountCurr,
+            buckets: l.buckets,
+          }))
+          .sort((a, b) => a.departmentName.localeCompare(b.departmentName));
+        const departmentCount = departmentBreakdown.length;
+        built.push({
+          customerKey,
+          branchLabel:
+            head.branchSid != null
+              ? branchNameMap.get(head.branchSid) ?? `Branch ${head.branchSid}`
+              : '',
+          branchSid: head.branchSid,
+          salespersonId: head.salespersonId,
+          salespersonName: head.salespersonName,
+          currencyCode: head.currencyCode,
+          // single dept -> show the name; many -> blank (frontend renders an "N Departments" chip)
+          departmentText:
+            departmentCount === 1 ? departmentBreakdown[0].departmentName : '',
+          departmentCount,
+          departmentBreakdown,
+          isOnAccount: false,
+          ...mergeLeaves(grp),
+        });
+      }
+
+      // Unallocated leaves (department-less; one per currency) -> rendered last in the customer block.
+      for (const l of leaves.filter((x) => x.isOnAccount)) {
+        built.push({
+          customerKey,
+          branchLabel: '',
+          branchSid: null,
+          salespersonId: null,
+          salespersonName: null,
+          currencyCode: l.currencyCode,
+          departmentText: 'Unallocated',
+          departmentCount: 0,
+          departmentBreakdown: [],
+          isOnAccount: true,
+          outstandingLocal: l.outstandingLocal,
+          outstandingCurr: l.outstandingCurr,
+          onAccountLocal: l.onAccountLocal,
+          onAccountCurr: l.onAccountCurr,
+          buckets: l.buckets,
+        });
+      }
+
+      // drop rows that net to zero (matches the plain report's zero filter)
+      finalRows.push(
+        ...built.filter((r) => Math.round(r.outstandingLocal * 100) !== 0),
+      );
+    }
+
+    // --- Customer totals over displayed rows (includes the On Account row) ---
+    const customerTotals = new Map<string, number>();
+    for (const r of finalRows) {
+      customerTotals.set(
+        r.customerKey,
+        (customerTotals.get(r.customerKey) ?? 0) + r.outstandingLocal,
+      );
+    }
+
+    // --- Sort: customer -> (On Account last) -> branch (specific, All, blank) ->
+    //     salesperson -> department ---
+    const branchRank = (r: any) =>
+      r.branchLabel === '' ? 2 : r.branchLabel === 'All' ? 1 : 0;
+    finalRows.sort((a, b) => {
+      const an0 = customerInfo.get(a.customerKey)?.customerName ?? '';
+      const bn0 = customerInfo.get(b.customerKey)?.customerName ?? '';
+      if (an0 !== bn0) return an0.localeCompare(bn0);
+      if (a.isOnAccount !== b.isOnAccount) return a.isOnAccount ? 1 : -1;
+      if (branchRank(a) !== branchRank(b)) return branchRank(a) - branchRank(b);
+      if (a.branchLabel !== b.branchLabel)
+        return a.branchLabel.localeCompare(b.branchLabel);
+      const an = a.salespersonName ?? '~';
+      const bn = b.salespersonName ?? '~';
+      if (an !== bn) return an.localeCompare(bn);
+      const ac = a.currencyCode ?? '';
+      const bc = b.currencyCode ?? '';
+      if (ac !== bc) return ac.localeCompare(bc);
+      return (a.departmentText ?? '').localeCompare(b.departmentText ?? '');
+    });
+
+    // --- Per-row output + band flag (isFirstOfCustomer renders the customer band) ---
+    let prevCustomer: string | null = null;
+    const rowsOut = finalRows.map((r) => {
+      const info = customerInfo.get(r.customerKey) ?? {};
+      const credit =
+        info.customerSid != null
+          ? creditByCustomer.get(info.customerSid) ?? {
+              CreditDays: 0,
+              CreditLimit: 0,
+            }
+          : { CreditDays: 0, CreditLimit: 0 };
+      const out = {
+        customerKey: r.customerKey,
+        CustomerMasterSid: info.customerSid ?? null,
+        SubledgerMasterSid: info.subledgerSid ?? null,
+        customerName: info.customerName ?? '',
+        customerTotalLocal: customerTotals.get(r.customerKey) ?? 0,
+        CreditDays: credit.CreditDays,
+        CreditLimit: credit.CreditLimit,
+        branchLabel: r.branchLabel,
+        salespersonId: r.salespersonId,
+        salespersonName: r.salespersonName,
+        currencyCode: r.currencyCode ?? null,
+        departmentText: r.departmentText,
+        departmentCount: r.departmentCount,
+        departmentBreakdown: r.departmentBreakdown,
+        outstandingLocal: r.outstandingLocal,
+        outstandingCurr: r.outstandingCurr,
+        onAccountLocal: r.onAccountLocal,
+        onAccountCurr: r.onAccountCurr,
+        buckets: r.buckets,
+        isOnAccount: r.isOnAccount,
+        isUnassigned: !r.isOnAccount && r.salespersonId == null,
+        isFirstOfCustomer: r.customerKey !== prevCustomer,
+      };
+      prevCustomer = r.customerKey;
+      return out;
+    });
+
+    return {
+      concludedUpto: ToDate,
+      asOfDate: ToDate,
+      LedgerName: coa.LedgerName || '',
+      params,
+      groupedBySalesman: true,
+      branchInvolvedText,
+      singleBranch: branchTokens.size <= 1, // drives Branch-column hide on the frontend
+      singleCurrency: currencyTokens.size <= 1, // drives Currency-column hide on the frontend
+      bucketLabels,
+      grandTotalLocal,
+      overallBucketTotals,
+      overallOnAccountLocal,
+      customerCount: leavesByCustomer.size,
+      rowCount: rowsOut.length,
+      rows: rowsOut,
+      ...(wantDrilldown ? { drilldown } : {}),
     };
   }
 

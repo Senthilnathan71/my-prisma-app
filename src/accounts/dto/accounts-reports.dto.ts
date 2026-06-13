@@ -69,6 +69,16 @@ export class AgeingReportQueryDto {
   @IsOptional()
   @IsInt()
   Branch?: number[];
+
+  // When true (or 'Y'), regroups the report by Customer -> Branch -> Salesperson via salesteam.
+  @ApiPropertyOptional()
+  @IsOptional()
+  Salesman?: boolean | string;
+
+  // Testing/Postman only: 'Y'/true also returns every underlying outstanding line. Not used by the UI.
+  @ApiPropertyOptional()
+  @IsOptional()
+  Drilldown?: boolean | string;
 }
 
 // Outstanding Report DTOs
