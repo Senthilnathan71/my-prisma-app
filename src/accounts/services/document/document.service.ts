@@ -737,38 +737,23 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as pdfParse from 'pdf-parse';
 
 export interface BillOfLadingData {
-  // Document Information
   blNumber?: string;
   dateOfIssue?: string;
   placeOfIssue?: string;
   freightTerms?: string;
-  
-  // Shipper Information
   shipper: string;
   shipperAddress: string;
-  
-  // Consignee Information
   consignee: string;
   consigneeAddress: string;
-  
-  // Notify Party Information
   notifyParty: string;
   notifyPartyAddress: string;
-  
-  // Delivery Agent Information
   deliveryAgent: string;
   deliveryAgentAddress: string;
-  
-  // Ports and Places
   portOfLoading: string;
   portOfDischarge: string;
   placeOfReceipt: string;
   placeOfDelivery: string;
-  
-  // Vessel Information
   vesselVoyage: string;
-  
-  // Cargo Information
   cargoDetails: string;
   cargoDescription: string;
   marksAndNumbers: string;
@@ -776,12 +761,8 @@ export interface BillOfLadingData {
   packageType: string;
   grossWeight: string;
   measurement: string;
-  
-  // Container Information
   containerDetails: string;
   consolNumber: string;
-  
-  // System Fields
   confidence: number;
   extractedText?: string;
 }
@@ -793,16 +774,9 @@ export class DocumentService {
   async processBillOfLading(file: Express.Multer.File): Promise<BillOfLadingData> {
     try {
       this.logger.log('Starting Bill of Lading processing...');
-      
-      // Extract text from PDF
       const pdfText = await this.extractTextFromPDF(file.buffer);
-      this.logger.log(`Extracted ${pdfText.length} characters from PDF`);
-      
-      // Extract structured data using regex patterns
       const extractedData = this.extractBillOfLadingData(pdfText);
-      
       this.logger.log(`Processing completed with confidence: ${Math.round(extractedData.confidence * 100)}%`);
-      
       return extractedData;
     } catch (error) {
       this.logger.error('Failed to process Bill of Lading:', error);
@@ -811,270 +785,36 @@ export class DocumentService {
   }
 
   private async extractTextFromPDF(buffer: Buffer): Promise<string> {
-    try {
-      // First try regular PDF text extraction
-      const data = await pdfParse(buffer, {
-        normalizeWhitespace: true,
-        disableCombineTextItems: false,
-        max: 0,
-      });
-      
-      this.logger.log(`PDF parsing result: ${data.text ? data.text.length : 0} characters`);
-      
-      // Check if we got meaningful text
-      if (data.text && data.text.trim().length >= 50) {
-        this.logger.log('✅ PDF text extraction successful');
-        return data.text;
-      }
-      
-      this.logger.log('⚠️ PDF has insufficient text, trying OCR...');
-      
-      // Fallback to OCR for image-based PDFs
-      return await this.extractTextWithOCR(buffer);
-      
-    } catch (error) {
-      this.logger.warn('PDF text extraction failed, trying OCR as fallback...');
-      
-      try {
-        return await this.extractTextWithOCR(buffer);
-      } catch (ocrError) {
-        this.logger.error('Both PDF parsing and OCR failed:', ocrError);
-        throw new Error(`Could not process this document: ${error.message}`);
-      }
+    const data = await pdfParse(buffer);
+    const text = data.text || '';
+    if (text.trim().length < 50) {
+      throw new Error('PDF has insufficient text content');
     }
-  }
-
-//   private async extractTextWithOCR(buffer: Buffer): Promise<string> {
-//     try {
-//       this.logger.log('🔍 Starting OCR processing...');
-      
-//       // Import required modules
-//       const { createWorker } = require('tesseract.js');
-      
-//       // Create worker
-//       this.logger.log('🤖 Creating OCR worker...');
-//       const worker = await createWorker('eng');
-      
-//       // Convert buffer to base64 for Tesseract
-//       const base64Image = `data:image/png;base64,${buffer.toString('base64')}`;
-      
-//       this.logger.log('🔍 Processing with OCR...');
-//       const { data: { text } } = await worker.recognize(base64Image);
-      
-//       await worker.terminate();
-      
-//       if (!text || text.trim().length < 50) {
-//         throw new Error('OCR could not extract sufficient text');
-//       }
-      
-//       this.logger.log(`✅ OCR completed successfully. Extracted ${text.length} characters`);
-//       return text;
-      
-//     } catch (error) {
-//       this.logger.error('OCR processing failed:', error);
-      
-//       // Return mock data for development
-//       this.logger.log('📋 OCR failed, using mock data for testing...');
-//       return this.getMockBillOfLadingText();
-//     }
-//   }
-    private async extractTextWithOCR(buffer: Buffer): Promise<string> {
-        try {
-            this.logger.log('🔍 Starting OCR processing...');
-
-            // Install: npm install sharp pdf-poppler tesseract.js
-            const sharp = require('sharp');
-            const fs = require('fs').promises;
-            const path = require('path');
-            const os = require('os');
-            const { createWorker } = require('tesseract.js');
-
-            // Create temp directory
-            const tempDir = path.join(os.tmpdir(), `pdf-ocr-${Date.now()}`);
-            await fs.mkdir(tempDir, { recursive: true });
-
-            try {
-                // Step 1: Save PDF to temp file
-                const tempPdfPath = path.join(tempDir, 'input.pdf');
-                await fs.writeFile(tempPdfPath, buffer);
-
-                // Step 2: Convert PDF to images using pdf-poppler
-                const poppler = require('pdf-poppler');
-                const options = {
-                    format: 'png',
-                    out_dir: tempDir,
-                    out_prefix: 'page',
-                    page: null // All pages
-                };
-
-                this.logger.log('📄 Converting PDF to images...');
-                await poppler.convert(tempPdfPath, options);
-
-                // Step 2.1: Get all generated images
-                let imageFiles = await fs.readdir(tempDir);
-                imageFiles = imageFiles
-                    .filter(f => f.endsWith('.png'))
-                    .map(f => path.join(tempDir, f))
-                    .sort(); // keep page order
-
-                if (imageFiles.length === 0) {
-                    throw new Error('No images generated from PDF');
-                }
-
-                // Step 3: OCR each image
-                this.logger.log('🤖 Starting OCR on images...');
-                const worker = await createWorker('eng');
-
-                let allText = '';
-
-                for (let i = 0; i < imageFiles.length; i++) {
-                    const imagePath = imageFiles[i];
-                    this.logger.log(`🔍 OCR page ${i + 1}/${imageFiles.length}...`);
-
-                    // Optimize image with Sharp for better OCR
-                    const optimizedImagePath = path.join(tempDir, `optimized_${i}.png`);
-                    await sharp(imagePath)
-                        .resize({ width: 2000 }) // Resize for better OCR
-                        .sharpen()
-                        .png({ quality: 100 })
-                        .toFile(optimizedImagePath);
-
-                    const { data: { text } } = await worker.recognize(optimizedImagePath);
-                    allText += text + '\n\n';
-                }
-
-                await worker.terminate();
-
-                // Cleanup
-                await fs.rm(tempDir, { recursive: true, force: true });
-
-                if (!allText || allText.trim().length < 50) {
-                    throw new Error('OCR extracted insufficient text');
-                }
-
-                this.logger.log(`✅ OCR completed: ${allText.length} characters`);
-                return allText;
-
-            } catch (ocrError) {
-                // Cleanup on error
-                try {
-                    await fs.rm(tempDir, { recursive: true, force: true });
-                } catch (cleanupError) {
-                    // Ignore cleanup errors
-                }
-                throw ocrError;
-            }
-
-        } catch (error) {
-            this.logger.error('OCR failed:', error);
-
-            // Fallback to mock data
-            this.logger.log('📋 Using mock data as fallback...');
-            return this.getMockBillOfLadingText();
-        }
-    }
-
-  private getMockBillOfLadingText(): string {
-    return `
-OCEAN BILL OF LADING
-
-Shipper
-RISING PEARL GENERAL TRADING LLC
-P.O.BOX: 378298, B-BLOCK, OFFICE-606
-2ND DECEMBER STREET INTERCHANGE, JUMAIRAH STREET
-DUBAI, UNITED ARAB EMIRATES
-TEL:+971-4-2396853
-
-Consignee (if "To Order" so indicate)
-TO THE ORDER OF
-BANK AL HABIB LTD
-ISLAMIC BANKING BRANCH PAKISTAN
-
-Notify Party (No claim shall attach for failure to notify)
-PRODUCTION HOUSE PRIVITE LIMITED
-2C-17, BEHIND HAMDARD UNIVERSITY HOSPITAL, M.A.JINNAH ROAD
-KARACHI PAKISTAN, TEL+92 21 3278-7066/3278-6932
-
-Delivery Agent at Destination
-TRANSPARENT FREIGHT SERVICES
-ROOM# 1007,10TH FLOOR UNI PLAZA,
-I.I CHUNDRIGAR ROAD,KARACHI,
-PAKISTAN PH:+9221-32426394
-
-Vessel/Voyage
-INDEPENDENT SPIRIT E062
-
-Port of Loading
-JEBEL ALI SEAPORT, DUBAI, UAE
-
-Port of Discharge
-KARACHI SEAPORT, PAKISTAN
-
-Marks & Nos/Cont/Seal No
-N/M
-
-Number & kind of packages; Description of goods
-SHIPPER LOAD STOW AND COUNT
-1X40'HC FCL CONTAINER SAID TO CONTAIN
-378 PACKAGES (477 rolls & 100 Boxes)
-INDUCTION HEAT SEAL
-
-Gross Weight
-20965.1 KGS
-
-Container No/Size/Seal No
-FSCU6824228/40'HC/0605029
-
-Freight and Charges
-FREIGHT PREPAID
-
-Place and Date of Issue
-DUBAI: 22-09-2023
-
-B/L No
-TFSU231213
-    `;
+    return text;
   }
 
   private extractBillOfLadingData(text: string): BillOfLadingData {
-    this.logger.log('Starting data extraction...');
-    
-    // Clean and normalize text
     const cleanText = this.cleanText(text);
-    
+    const lines = this.getLines(cleanText);
+
     const result: BillOfLadingData = {
-      // Document Information
-      blNumber: '',
-      dateOfIssue: '',
-      placeOfIssue: '',
-      freightTerms: '',
-      
-      // Shipper Information
+      blNumber: this.extractBLNumber(lines, cleanText),
+      dateOfIssue: this.extractDateOfIssue(lines, cleanText),
+      placeOfIssue: this.extractPlaceOfIssue(lines, cleanText),
+      freightTerms: this.extractFreightTerms(cleanText),
       shipper: '',
       shipperAddress: '',
-      
-      // Consignee Information
       consignee: '',
       consigneeAddress: '',
-      
-      // Notify Party Information
       notifyParty: '',
       notifyPartyAddress: '',
-      
-      // Delivery Agent Information
       deliveryAgent: '',
       deliveryAgentAddress: '',
-      
-      // Ports and Places
-      portOfLoading: '',
-      portOfDischarge: '',
+      portOfLoading: this.extractPortOfLoading(lines),
+      portOfDischarge: this.extractPortOfDischarge(lines),
       placeOfReceipt: '',
       placeOfDelivery: '',
-      
-      // Vessel Information
-      vesselVoyage: '',
-      
-      // Cargo Information
+      vesselVoyage: this.extractVesselVoyage(lines, cleanText),
       cargoDetails: '',
       cargoDescription: '',
       marksAndNumbers: '',
@@ -1082,66 +822,45 @@ TFSU231213
       packageType: '',
       grossWeight: '',
       measurement: '',
-      
-      // Container Information
       containerDetails: '',
       consolNumber: '',
-      
-      // System Fields
       confidence: 0,
       extractedText: cleanText.substring(0, 500) + '...'
     };
 
-    try {
-      // Extract all fields
-      result.blNumber = this.extractBLNumber(cleanText);
-      result.dateOfIssue = this.extractDateOfIssue(cleanText);
-      result.placeOfIssue = this.extractPlaceOfIssue(cleanText);
-      result.freightTerms = this.extractFreightTerms(cleanText);
-      
-      const shipperInfo = this.extractShipperInfo(cleanText);
-      result.shipper = shipperInfo.name;
-      result.shipperAddress = shipperInfo.address;
-      
-      const consigneeInfo = this.extractConsigneeInfo(cleanText);
-      result.consignee = consigneeInfo.name;
-      result.consigneeAddress = consigneeInfo.address;
-      
-      const notifyInfo = this.extractNotifyPartyInfo(cleanText);
-      result.notifyParty = notifyInfo.name;
-      result.notifyPartyAddress = notifyInfo.address;
-      
-      const deliveryAgentInfo = this.extractDeliveryAgentInfo(cleanText);
-      result.deliveryAgent = deliveryAgentInfo.name;
-      result.deliveryAgentAddress = deliveryAgentInfo.address;
-      
-      result.portOfLoading = this.extractPortOfLoading(cleanText);
-      result.portOfDischarge = this.extractPortOfDischarge(cleanText);
-      result.placeOfReceipt = this.extractPlaceOfReceipt(cleanText);
-      result.placeOfDelivery = this.extractPlaceOfDelivery(cleanText);
-      
-      result.vesselVoyage = this.extractVesselVoyage(cleanText);
-      
-      const cargoInfo = this.extractCargoInfo(cleanText);
-      result.cargoDetails = cargoInfo.details;
-      result.cargoDescription = cargoInfo.description;
-      result.marksAndNumbers = cargoInfo.marksAndNumbers;
-      result.numberOfPackages = cargoInfo.numberOfPackages;
-      result.packageType = cargoInfo.packageType;
-      result.grossWeight = cargoInfo.grossWeight;
-      result.measurement = cargoInfo.measurement;
-      
-      const containerInfo = this.extractContainerInfo(cleanText);
-      result.containerDetails = containerInfo.details;
-      result.consolNumber = containerInfo.consolNumber;
-      
-      result.confidence = this.calculateConfidence(result);
+    const shipperInfo = this.extractShipperInfo(lines);
+    result.shipper = shipperInfo.name;
+    result.shipperAddress = shipperInfo.address;
 
-    } catch (error) {
-      this.logger.error('Error during field extraction:', error);
-      result.confidence = 0.1;
-    }
+    const consigneeInfo = this.extractConsigneeInfo(lines);
+    result.consignee = consigneeInfo.name;
+    result.consigneeAddress = consigneeInfo.address;
 
+    const notifyInfo = this.extractNotifyPartyInfo(lines);
+    result.notifyParty = notifyInfo.name;
+    result.notifyPartyAddress = notifyInfo.address;
+
+    const deliveryAgentInfo = this.extractDeliveryAgentInfo(lines);
+    result.deliveryAgent = deliveryAgentInfo.name;
+    result.deliveryAgentAddress = deliveryAgentInfo.address;
+
+    result.placeOfReceipt = result.portOfLoading;
+    result.placeOfDelivery = result.portOfDischarge;
+
+    const cargoInfo = this.extractCargoInfo(lines);
+    result.cargoDetails = cargoInfo.details;
+    result.cargoDescription = cargoInfo.description;
+    result.marksAndNumbers = cargoInfo.marksAndNumbers;
+    result.numberOfPackages = cargoInfo.numberOfPackages;
+    result.packageType = cargoInfo.packageType;
+    result.grossWeight = cargoInfo.grossWeight;
+    result.measurement = cargoInfo.measurement;
+
+    const containerInfo = this.extractContainerInfo(cleanText);
+    result.containerDetails = containerInfo.details;
+    result.consolNumber = containerInfo.consolNumber;
+
+    result.confidence = this.calculateConfidence(result);
     return result;
   }
 
@@ -1150,268 +869,228 @@ TFSU231213
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
       .replace(/\t/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/[ \f\v]+/g, ' ')
+      .replace(/ *\n+ */g, '\n')
       .trim();
   }
 
-  private extractBLNumber(text: string): string {
-    const patterns = [
-      /B\/L\s*No[:\s]*([A-Z0-9\-]{6,20})/i,
-      /TFSU\d+/i,
-      /DESG\d+/i,
-      /PES[A-Z0-9]+/i,
-      /([A-Z]{3,4}\d{6,15})/
-    ];
-
-    return this.extractWithPatterns(text, patterns);
+  private getLines(text: string): string[] {
+    return text.split(/\n/).map(line => line.trim()).filter(Boolean);
   }
 
-  private extractDateOfIssue(text: string): string {
-    const patterns = [
-      /(\d{2}-\d{2}-\d{4})/,
-      /(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})/,
-      /(\d{4}-\d{2}-\d{2})/
-    ];
-
-    return this.extractWithPatterns(text, patterns);
+  private extractBLNumber(lines: string[], text: string): string {
+    const labelIndex = lines.findIndex(line => /^(MTD No\.?|BL\/MTD Number|B\/L No)$/i.test(line));
+    if (labelIndex >= 0) {
+      const value = this.extractNextValue(lines, labelIndex, 6);
+      if (/^[A-Z]{2,}\d{4,}/i.test(value)) return value;
+    }
+    return this.extractWithPatterns(text, [/\b(GLS[A-Z0-9]{6,20})\b/i, /\b(BLE\d{5,20})\b/i, /\b([A-Z]{3,5}\d{6,15})\b/]);
   }
 
-  private extractPlaceOfIssue(text: string): string {
-    const patterns = [
-      /Place\s+and\s+Date\s+of\s+Issue[^\n]*([A-Z\s,]+):/i,
-      /DUBAI/i,
-      /SINGAPORE/i,
-      /CHENNAI/i
-    ];
-
-    return this.extractWithPatterns(text, patterns);
-  }
-
-  private extractFreightTerms(text: string): string {
-    const patterns = [
-      /(FREIGHT\s+PREPAID)/i,
-      /(FREIGHT\s+COLLECT)/i,
-      /(FCL\/FCL)/i,
-      /(PREPAID)/i
-    ];
-
-    return this.extractWithPatterns(text, patterns);
-  }
-
-  private extractShipperInfo(text: string): { name: string; address: string } {
-    const namePatterns = [
-      /Shipper[^\n]*\n([A-Z\s&.,-]+(?:LTD|LLC|INC|CORP)\.?)/i,
-      /RISING\s+PEARL\s+GENERAL\s+TRADING\s+LLC/i,
-      /GIVAUDAN\s+\w+\s+PTE\s+LTD/i
-    ];
-
-    const addressPatterns = [
-      /P\.O\.BOX[:\s]*[^,\n]+,[^,\n]+,[^,\n]+/i,
-      /\d+\s+\w+\s+AVE[^,\n]+,[^,\n]+/i
-    ];
-
-    const name = this.extractWithPatterns(text, namePatterns);
-    const address = this.extractWithPatterns(text, addressPatterns);
-
-    return { name, address };
-  }
-
-  private extractConsigneeInfo(text: string): { name: string; address: string } {
-    const namePatterns = [
-      /TO\s+THE\s+ORDER\s+OF\s*\n([A-Z\s&.,-]+(?:LTD|LLC|INC|CORP))/i,
-      /Consignee[^\n]*\n([A-Z\s&.,-]+(?:LTD|LLC|INC|CORP))/i,
-      /BANK\s+AL\s+HABIB\s+LTD/i
-    ];
-
-    const addressPatterns = [
-      /ISLAMIC\s+BANKING\s+BRANCH\s+PAKISTAN/i,
-      /\d+ST\s+FLOOR[^,\n]+,[^,\n]+,[^,\n]+/i
-    ];
-
-    const name = this.extractWithPatterns(text, namePatterns);
-    const address = this.extractWithPatterns(text, addressPatterns);
-
-    return { name, address };
-  }
-
-  private extractNotifyPartyInfo(text: string): { name: string; address: string } {
-    const namePatterns = [
-      /Notify\s+Party[^\n]*\n([A-Z\s&.,-]+(?:LIMITED|LTD|LLC))/i,
-      /PRODUCTION\s+HOUSE\s+PRIVITE\s+LIMITED/i
-    ];
-
-    const addressPatterns = [
-      /\d+C-\d+[^,\n]+,[^,\n]+,[^,\n]+/i,
-      /KARACHI\s+PAKISTAN/i
-    ];
-
-    const name = this.extractWithPatterns(text, namePatterns);
-    const address = this.extractWithPatterns(text, addressPatterns);
-
-    return { name, address };
-  }
-
-  private extractDeliveryAgentInfo(text: string): { name: string; address: string } {
-    const namePatterns = [
-      /Delivery\s+Agent[^\n]*\n([A-Z\s&.,-]+)/i,
-      /TRANSPARENT\s+FREIGHT\s+SERVICES/i,
-      /PERSIAN\s+HAWK/i
-    ];
-
-    const addressPatterns = [
-      /ROOM#\s*\d+[^,\n]+,[^,\n]+,[^,\n]+/i
-    ];
-
-    const name = this.extractWithPatterns(text, namePatterns);
-    const address = this.extractWithPatterns(text, addressPatterns);
-
-    return { name, address };
-  }
-
-  private extractPortOfLoading(text: string): string {
-    const patterns = [
-      /Port\s+of\s+Loading[^\n]*\n([^\n]+)/i,
-      /JEBEL\s+ALI[^,\n]*,[^,\n]*,[^,\n]*/i,
-      /SINGAPORE[^,\n]*,[^,\n]*/i
-    ];
-
-    return this.extractWithPatterns(text, patterns);
-  }
-
-  private extractPortOfDischarge(text: string): string {
-    const patterns = [
-      /Port\s+of\s+Discharge[^\n]*\n([^\n]+)/i,
-      /KARACHI[^,\n]*,[^,\n]*/i,
-      /BANDAR\s+ABBAS[^,\n]*,[^,\n]*/i
-    ];
-
-    return this.extractWithPatterns(text, patterns);
-  }
-
-  private extractPlaceOfReceipt(text: string): string {
-    const patterns = [
-      /Place\s+of\s+Receipt[^\n]*\n([^\n]+)/i
-    ];
-
-    return this.extractWithPatterns(text, patterns);
-  }
-
-  private extractPlaceOfDelivery(text: string): string {
-    const patterns = [
-      /Place\s+of.*?Delivery[^\n]*\n([^\n]+)/i
-    ];
-
-    return this.extractWithPatterns(text, patterns);
-  }
-
-  private extractVesselVoyage(text: string): string {
-    const patterns = [
-      /Vessel\/Voyage[^\n]*\n([^\n]+)/i,
-      /INDEPENDENT\s+SPIRIT\s+E\d+/i,
-      /OOCL\s+GUANGZHOU\/\d+W?/i
-    ];
-
-    return this.extractWithPatterns(text, patterns);
-  }
-
-  private extractCargoInfo(text: string): {
-    details: string;
-    description: string;
-    marksAndNumbers: string;
-    numberOfPackages: string;
-    packageType: string;
-    grossWeight: string;
-    measurement: string;
-  } {
-    const detailsPatterns = [
-      /Description\s+of\s+goods[^\n]*\n([^\n]+)/i,
-      /SPARE\s+PARTS/i,
-      /SHIPPER\s+LOAD\s+STOW\s+AND\s+COUNT/i
-    ];
-
-    const marksPatterns = [
-      /Marks[^\n]*\n([^\n]+)/i,
-      /N\/M/i
-    ];
-
-    const packagePatterns = [
-      /(\d+)\s+(PACKAGES|CARTONS|PALLETS)/i
-    ];
-
-    const weightPatterns = [
-      /(\d+[\d.,]*\s*KGS?)/i,
-      /Gross\s+Weight[^\d]*(\d+[\d.,]*)/i
-    ];
-
-    const measurementPatterns = [
-      /(\d+[\d.,]*\s*M3)/i
-    ];
-
-    return {
-      details: this.extractWithPatterns(text, detailsPatterns),
-      description: this.extractWithPatterns(text, detailsPatterns),
-      marksAndNumbers: this.extractWithPatterns(text, marksPatterns),
-      numberOfPackages: this.extractWithPatterns(text, packagePatterns),
-      packageType: this.extractWithPatterns(text, [/\d+\s+(PACKAGES|CARTONS|PALLETS)/i]),
-      grossWeight: this.extractWithPatterns(text, weightPatterns),
-      measurement: this.extractWithPatterns(text, measurementPatterns)
-    };
-  }
-
-  private extractContainerInfo(text: string): { details: string; consolNumber: string } {
-    const containerPatterns = [
-      /([A-Z]{4}\d{7})/g,
-      /Container[^\n]*\n([^\n]+)/i,
-      /(1X40'?HC)/i
-    ];
-
-    const consolPatterns = [
-      /(FSCU\d+\/\d+\/[A-Z0-9]+)/i,
-      /([A-Z]\d{9})/g
-    ];
-
-    return {
-      details: this.extractWithPatterns(text, containerPatterns),
-      consolNumber: this.extractWithPatterns(text, consolPatterns)
-    };
-  }
-
-  private extractWithPatterns(text: string, patterns: RegExp[]): string {
-    for (const pattern of patterns) {
-      try {
-        const match = text.match(pattern);
-        if (match) {
-          let result = match[1] || match[0];
-          if (result) {
-            result = result.trim().replace(/\s+/g, ' ');
-            if (result.length > 1 && result.length < 200) {
-              return result;
-            }
-          }
-        }
-      } catch (error) {
-        continue;
+  private extractDateOfIssue(lines: string[], text: string): string {
+    const datePattern = /\b\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b/;
+    const labelIndex = lines.findIndex(line => /Place and Date of Issue/i.test(line));
+    if (labelIndex >= 0) {
+      for (let index = Math.max(0, labelIndex - 1); index <= Math.min(lines.length - 1, labelIndex + 5); index++) {
+        const match = lines[index].match(datePattern);
+        if (match) return this.normalizeDate(match[0]);
       }
     }
     return '';
   }
 
+  private normalizeDate(value: string): string {
+    const match = String(value || '').match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})$/);
+    if (!match) return value || '';
+    const year = match[3].length === 2 ? `20${match[3]}` : match[3];
+    return `${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}-${year}`;
+  }
+
+  private extractPlaceOfIssue(lines: string[], text: string): string {
+    const labelIndex = lines.findIndex(line => /Place and Date of Issue/i.test(line));
+    const cityPattern = /\b(MUMBAI|DUBAI|CHENNAI|SINGAPORE)\b/i;
+    if (labelIndex >= 0) {
+      for (let index = Math.max(0, labelIndex - 3); index <= Math.min(lines.length - 1, labelIndex + 5); index++) {
+        const match = lines[index].match(cityPattern);
+        if (match) return match[1].toUpperCase();
+      }
+    }
+    return '';
+  }
+
+  private extractFreightTerms(text: string): string {
+    return this.extractWithPatterns(text, [/(FREIGHT\s+PREPAID(?:\s+AS\s+ARRANGED)?)/i, /(FREIGHT\s+COLLECT)/i, /(PREPAID)/i, /(COLLECT)/i]).toUpperCase();
+  }
+
+  private extractShipperInfo(lines: string[]): { name: string; address: string } {
+    if (/^Consignor$/i.test(lines[0] || '') && /^Consignee$/i.test(lines[1] || '')) return this.splitPartyBlock(lines, 3, 0);
+    const labelIndex = lines.findIndex(line => /Consignor\s*\/\s*Shipper|^Shipper$/i.test(line));
+    const values = labelIndex >= 0 ? this.extractLinesBetween(lines, labelIndex, [/^Consignee/i], 8) : [];
+    return { name: values[0] || '', address: values.slice(1).join(', ') };
+  }
+
+  private extractConsigneeInfo(lines: string[]): { name: string; address: string } {
+    if (/^Consignor$/i.test(lines[0] || '') && /^Consignee$/i.test(lines[1] || '')) return this.splitPartyBlock(lines, 3, 1);
+    const labelIndex = lines.findIndex(line => /^Consignee/i.test(line));
+    const values = labelIndex >= 0 ? this.extractLinesBetween(lines, labelIndex, [/^Notify/i], 8) : [];
+    return { name: values[0] || '', address: values.slice(1).join(', ') };
+  }
+
+  private extractNotifyPartyInfo(lines: string[]): { name: string; address: string } {
+    if (/^Consignor$/i.test(lines[0] || '') && /^Consignee$/i.test(lines[1] || '')) return this.splitPartyBlock(lines, 3, 2);
+    const labelIndex = lines.findIndex(line => /^Notify/i.test(line));
+    const values = labelIndex >= 0 ? this.extractLinesBetween(lines, labelIndex, [/Place Of Acceptance|Port Of Discharge|MTD No/i], 6) : [];
+    return { name: values[0] || '', address: values.slice(1).join(', ') };
+  }
+
+  private splitPartyBlock(lines: string[], valueStartIndex: number, partyOffset: number): { name: string; address: string } {
+    const endIndex = lines.findIndex((line, index) => index > valueStartIndex && /Port of Discharge|BL\/MTD Number|Date of Acceptance|Vessel Voy No\.|Number of packages/i.test(line));
+    const rows = lines.slice(valueStartIndex, endIndex > valueStartIndex ? endIndex : valueStartIndex + 18);
+    const blocks = [rows.slice(0, 4), rows.slice(4, 8), rows.slice(8, 11)];
+    const block = blocks[partyOffset] || [];
+    return { name: block[0] || '', address: block.slice(1).join(', ') };
+  }
+
+  private extractDeliveryAgentInfo(lines: string[]): { name: string; address: string } {
+    const labelIndex = lines.findIndex(line => /Delivery Agent/i.test(line));
+    const values = labelIndex >= 0 ? this.extractLinesBetween(lines, labelIndex, [/Freight Payable|Other particulars/i], 5) : [];
+    return { name: values[0] || '', address: values.slice(1).join(', ') };
+  }
+
+  private extractPortOfLoading(lines: string[]): string {
+    const index = lines.findIndex(line => /Port\s+of\s+Loading|Date of AcceptancePort of Loading/i.test(line));
+    return index >= 0 ? this.extractPortNear(lines, index) : '';
+  }
+
+  private extractPortOfDischarge(lines: string[]): string {
+    const index = lines.findIndex(line => /Port\s+of\s+Discharge/i.test(line));
+    return index >= 0 ? this.extractPortNear(lines, index) : '';
+  }
+
+  private extractPortNear(lines: string[], startIndex: number): string {
+    for (let offset = 1; offset <= 20 && startIndex + offset < lines.length; offset++) {
+      const candidate = this.normalizePortValue(lines[startIndex + offset]);
+      if (candidate) return candidate;
+    }
+    return '';
+  }
+
+  private normalizePortValue(value: string): string {
+    let cleaned = this.cleanDuplicatedValue(value);
+    if (!cleaned || /^(PLACE|PORT|DATE|VESSEL|MODE|ROUTE|TAKEN|MENTAINED|MAINTAINED|MTD|ONE OF|BEING|MULTIMODAL|BILL OF LADING|TO OBTAIN|FOR SUCH|AT WHICH|PROVISIONS|DESIGNATED|IN WITNESS|ORIGINAL|INDICATED|BL\/MTD|SHIPMENT REFERENCE|WEB\s*:|\(|NO\.?$)/i.test(cleaned)) return '';
+    if (cleaned.split(/\s+/).length > 8 || /^[A-Z]{2,5}\d{4,}/i.test(cleaned)) return '';
+    const portName = cleaned.match(/\b(NHAVA(?:\s+SHEVA)?|JEBEL(?:\s+ALI)?|MUMBAI|DUBAI|CHENNAI|SINGAPORE)\b/i)?.[0];
+    if (portName) return portName.toUpperCase();
+    const unLocationCode = cleaned.match(/\b[A-Z]{2}[A-Z0-9]{3}\b/);
+    return unLocationCode?.[0] || '';
+  }
+
+  private extractVesselVoyage(lines: string[], text: string): string {
+    const labelIndex = lines.findIndex(line => /Vessel.*Voy/i.test(line));
+    if (labelIndex >= 0) {
+      const value = this.extractNextValue(lines, labelIndex, 4);
+      if (value) return value;
+    }
+    return this.extractWithPatterns(text, [/\b(X-PRESS\s+[A-Z]+\s+\d+[A-Z])\b/i, /\b(NORTHERN\s+PRACTISE\/\d+)\b/i, /\b([A-Z][A-Z\s-]+\/\d+[A-Z]?)\b/i]);
+  }
+
+  private extractCargoInfo(lines: string[]): Pick<BillOfLadingData, 'cargoDetails' | 'cargoDescription' | 'marksAndNumbers' | 'numberOfPackages' | 'packageType' | 'grossWeight' | 'measurement'> & { details: string; description: string } {
+    const packageLine = lines.find(line => /\b\d+\s+(CARTONS?|PACKAGES?|PALLETS?)\b/i.test(line)) || '';
+    const packageMatch = packageLine.match(/\b(\d+)\s+(CARTONS?|PACKAGES?|PALLETS?)\b/i);
+    const cargoLine = lines.find(line => /TEXTILE PIECE GOODS|READYMADE GARMENTS|SPARE PARTS/i.test(line)) || '';
+    const measurement = lines.find(line => /\b\d+(?:\.\d+)?\s*(?:CBM|M3)\b/i.test(line)) || '';
+    const grossWeight = this.extractGrossWeight(lines);
+    const marksIndex = lines.findIndex(line => /^MARKS/i.test(line));
+    const marksAndNumbers = marksIndex >= 0 ? this.extractNextValue(lines, marksIndex, 4) : '';
+    return {
+      details: cargoLine,
+      description: cargoLine,
+      cargoDetails: cargoLine,
+      cargoDescription: cargoLine,
+      marksAndNumbers,
+      numberOfPackages: packageMatch?.[1] || '',
+      packageType: packageMatch?.[2]?.toUpperCase() || '',
+      grossWeight,
+      measurement: measurement.replace(/\s+/g, ' ')
+    };
+  }
+
+  private extractGrossWeight(lines: string[]): string {
+    const sameLine = lines.find(line => /GR\.WT\s*:\s*\d/i.test(line));
+    if (sameLine) return `${sameLine.match(/\d[\d,.]*/)?.[0] || ''} KGS`.trim();
+    const numberIndex = lines.findIndex((line, index) => /^\d[\d,.]*$/.test(line) && /KGS?/i.test(lines[index + 1] || ''));
+    return numberIndex >= 0 ? `${lines[numberIndex]} KGS` : '';
+  }
+
+  private extractContainerInfo(text: string): { details: string; consolNumber: string } {
+    return {
+      details: text.match(/\b[A-Z]{4}\d{7}\b/)?.[0] || '',
+      consolNumber: text.match(/(?:C\.SEAL|C\.S\.No|SEAL)[:\s]*([A-Z0-9-]+)/i)?.[1] || ''
+    };
+  }
+
+  private cleanDuplicatedValue(value: string): string {
+    let cleaned = String(value || '').replace(/\s{2,}/g, ' ').trim();
+    cleaned = cleaned
+      .replace(/(.+?\b(?:INDIA|U\.?A\.?E\.?|UAE|PAKISTAN|SINGAPORE|SRI LANKA))\s*\1$/i, '$1')
+      .replace(/(.+?\b(?:INDIA|U\.?A\.?E\.?|UAE|PAKISTAN|SINGAPORE|SRI LANKA))\1/i, '$1')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    return this.getRepeatedHalf(cleaned) || cleaned;
+  }
+
+  private getRepeatedHalf(value: string): string {
+    const compact = value.replace(/\s+/g, '').replace(/[.,]/g, '').toUpperCase();
+    if (compact.length % 2 !== 0) return '';
+    const halfLength = compact.length / 2;
+    if (compact.slice(0, halfLength) !== compact.slice(halfLength)) return '';
+    let prefixCompact = '';
+    let prefix = '';
+    for (const char of value) {
+      prefix += char;
+      if (!/[\s.,]/.test(char)) prefixCompact += char.toUpperCase();
+      if (prefixCompact === compact.slice(0, halfLength)) return prefix.replace(/[\s,.-]+$/, '').trim();
+    }
+    return '';
+  }
+
+  private extractNextValue(lines: string[], startIndex: number, maxOffset = 12): string {
+    for (let offset = 1; offset <= maxOffset && startIndex + offset < lines.length; offset++) {
+      const candidate = this.cleanDuplicatedValue(lines[startIndex + offset]);
+      if (!candidate || this.isSectionLabel(candidate)) continue;
+      if (/^(Taken|mentained|maintained|provisions|multimodal transport|One of|the original|being|for such transport|Web\s*:|\(no responsibility)/i.test(candidate)) continue;
+      return candidate;
+    }
+    return '';
+  }
+
+  private extractLinesBetween(lines: string[], startIndex: number, stopPatterns: RegExp[], maxLines = 8): string[] {
+    const values: string[] = [];
+    for (let index = startIndex + 1; index < lines.length && values.length < maxLines; index++) {
+      const line = this.cleanDuplicatedValue(lines[index]);
+      if (!line || stopPatterns.some(pattern => pattern.test(line))) break;
+      if (this.isSectionLabel(line)) continue;
+      values.push(line);
+    }
+    return values;
+  }
+
+  private isSectionLabel(line: string): boolean {
+    return /^(Consignor|Consignee|Notify|Place|Port|MTD|BL\/MTD|Shipment Reference|Taken in charge|Vessel|Container|Gross Weight|Delivery Agent|Freight|Number of Original|Other Particulars|Weight and Measurement|Authorised|Particulars above|Date of Acceptance|Modes|Route|To Obtain|MULTIMODAL|BILL OF LADING)$/i.test(line.trim());
+  }
+
+  private extractWithPatterns(text: string, patterns: RegExp[]): string {
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match?.[1] || match?.[0]) return (match[1] || match[0]).trim().replace(/\s+/g, ' ');
+    }
+    return '';
+  }
+
   private calculateConfidence(data: BillOfLadingData): number {
-    const requiredFields = [
-      'shipper', 'consignee', 'portOfLoading', 'portOfDischarge',
-      'vesselVoyage', 'cargoDetails'
-    ];
-
-    const filledFields = requiredFields.filter(field => 
-      data[field] && data[field].toString().trim().length > 0
-    );
-
-    let confidence = filledFields.length / requiredFields.length;
-
-    if (data.blNumber && data.blNumber.length > 3) confidence += 0.1;
-    if (data.grossWeight && data.grossWeight.includes('KG')) confidence += 0.05;
-    if (data.containerDetails && data.containerDetails.length > 0) confidence += 0.05;
-
-    return Math.max(0, Math.min(1, confidence));
+    const requiredFields = ['blNumber', 'shipper', 'consignee', 'portOfLoading', 'portOfDischarge', 'vesselVoyage', 'cargoDetails', 'containerDetails'];
+    const filledFields = requiredFields.filter(field => data[field] && data[field].toString().trim().length > 0);
+    return Math.max(0, Math.min(1, filledFields.length / requiredFields.length));
   }
 }
+
