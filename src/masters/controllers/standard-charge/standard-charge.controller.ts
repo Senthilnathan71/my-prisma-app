@@ -77,20 +77,24 @@ export class StandardChargeController {
     @ApiOperation({ summary: 'Get Standard Charge by Id' })
     @ApiCreatedResponse({ type: ResponseData })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:StdRateHeaderSid')
+    @Post('fetch')
     async getById(
-        @Param('StdRateHeaderSid', ParseIntPipe) StdRateHeaderSid: number,
+        @Body() payload: any,
     ) {
         const resp = new ResponseData();
         try {
             const res =
-                await this.standardChargeService.fetchStdChargeById(StdRateHeaderSid);
+                await this.standardChargeService.fetchStdChargeById(payload.StdRateHeaderSid, payload.CompanyMasterSid);
             resp.data = res;
             resp.message = 'Standard Charge fetched successfully';
         } catch (error) {
             this.logger.warn(error);
             resp.status = false;
-            resp.message = error.message || 'Internal Server Error';
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = error;
+            }
         }
         return resp;
     }

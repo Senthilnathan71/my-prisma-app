@@ -1,5 +1,5 @@
 //Tariff.service.ts//
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
@@ -182,11 +182,12 @@ export class TariffService {
         }
     }
 
-    async getTariffById(TariffHeaderSid: number) {
+    async getTariffById(TariffHeaderSid: number, CompanyMasterSid: number) {
         try {
             let ourTariff = await this._db.tariffHeader.findUnique({
                 where: {
-                    TariffHeaderSid: TariffHeaderSid
+                    TariffHeaderSid: TariffHeaderSid,
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
                     tariffDetail: {
@@ -197,7 +198,7 @@ export class TariffService {
                 }
             });
             if (!ourTariff) {
-                throw new BadRequestException(`Tariff with id : ${TariffHeaderSid} not exists`);
+                throw new UnauthorizedException(`Access denied`);
             }
             return ourTariff;
         } catch (error) {

@@ -76,16 +76,16 @@ export class PreCustomerEventMasterController {
 
     @ApiOperation({ summary: 'Get PreCustomerEvent By Id' })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:id')
-    async getById(@Param('id', ParseIntPipe) id: number) {
+    @Post('fetch')
+    async getById(@Body() payload: any) {
         const output = new ResponseData();
         try {
-            output.data = await this.preCustomerEventService.findOne(id);
-            output.message = `Event ${id} fetched successfully`;
+            output.data = await this.preCustomerEventService.findOne(payload.PreCustomerEventSid,payload.CompanyMasterSid);
+            output.message = `Event ${payload.PreCustomerEventSid} fetched successfully`;
         } catch (error:any) {
             this.logger.warn(`getPreCustomerEventById error: ${error}`);
             output.status = false;
-            if (error instanceof NotFoundException) {
+            if (error instanceof NotFoundException || error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {
                 output.message = error?.message || 'Internal Server Error';

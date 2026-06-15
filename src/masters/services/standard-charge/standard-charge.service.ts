@@ -3,6 +3,7 @@ import {
     Injectable,
     Logger,
     NotFoundException,
+    UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
@@ -92,10 +93,13 @@ export class StandardChargeService {
         }
     }
 
-    async fetchStdChargeById(StdRateHeaderSid: number) {
+    async fetchStdChargeById(StdRateHeaderSid: number, CompanyMasterSid: number) {
         try {
-            return await this._db.stdRateHeader.findUnique({
-                where: { StdRateHeaderSid },
+            const stdCharge = await this._db.stdRateHeader.findUnique({
+                where: { 
+                    StdRateHeaderSid: StdRateHeaderSid,
+                    CompanyMasterSid: CompanyMasterSid
+                },
                 include: {
                     StdTariffDetails: {
                         where: {
@@ -104,6 +108,10 @@ export class StandardChargeService {
                     }
                 }
             });
+            if (!stdCharge) {
+                throw new UnauthorizedException(`Access denied`);
+            }
+            return stdCharge;
         } catch (error) {
             throw error
         }
@@ -379,11 +387,11 @@ export class StandardChargeService {
     }
 
     async searchStdHeaderNew(params: filterDto) {
-        const { search = '', page = 1, pageSize = 15 } = params;
+        const { search = '', page = 1, pageSize = 15,activeCompanyId } = params;
         const skip = (page - 1) * pageSize;
 
         const where: Prisma.StdRateHeaderWhereInput = {
-
+            CompanyMasterSid: activeCompanyId,
             Status: statusWhereClause,
             ...(search
                 ? {

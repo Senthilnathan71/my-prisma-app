@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -74,9 +74,9 @@ export class PreCustomerEventMasterService {
         });
     }
 
-    async findOne(id: number) {
+    async findOne(PreCustomerEventSid: number,CompanyMasterSid: number) {
         const event = await this._db.preCustomerEvent.findUnique({
-            where: { PreCustomerEventSid: id },
+            where: { PreCustomerEventSid: PreCustomerEventSid, CompanyMasterSid: CompanyMasterSid },
             include: {
                 eventLeaderUser: {
                     select: { UserMasterSid: true, userName: true, userEmail: true },
@@ -90,7 +90,7 @@ export class PreCustomerEventMasterService {
             },
         });
         if (!event) {
-            throw new NotFoundException(`PreCustomerEvent with ID ${id} not found`);
+            throw new UnauthorizedException(`Access denied.`);
         }
         return event;
     }

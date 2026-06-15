@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { statusWhereClause } from 'src/common/helper';
@@ -112,12 +112,14 @@ export class VoyageService {
         }
     }
 
-    async findOne(VoyageMasterHeaderSid: number) {
+    async findOne(VoyageMasterHeaderSid: number, CompanyMasterSid: number, BranchMasterSid: number) {
         try {
             console.log("Id",VoyageMasterHeaderSid);
             const voyage = await this._db.voyageMasterHeader.findUnique({
                 where: {
                     VoyageMasterHeaderSid: VoyageMasterHeaderSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid,
                     status : statusWhereClause
                 },
                 include: {
@@ -142,7 +144,7 @@ export class VoyageService {
             });
             console.log("Value",voyage);
             if (!voyage) {
-                throw new NotFoundException(`Voyage with ID ${VoyageMasterHeaderSid} not found`);
+                throw new UnauthorizedException(`Access denied`);
             }
 
             return voyage;
