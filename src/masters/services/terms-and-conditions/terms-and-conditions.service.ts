@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { log } from 'console';
+import { Prisma } from '.prisma/client/default';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 
 @Injectable()
 export class TermsAndConditionsService {
@@ -201,11 +203,13 @@ export class TermsAndConditionsService {
     }
 
 
-    async fetchTermCondById(TermsAndConditionsMasterSid: number) {
+    async fetchTermCondById(TermsAndConditionsMasterSid: number,CompanyMasterSid: number,BranchMasterSid: number) {
         try {
             const ourTermCond = await this._db.termsAndConditionsMaster.findUnique({
                 where: {
-                    TermsAndConditionsMasterSid: TermsAndConditionsMasterSid
+                    TermsAndConditionsMasterSid: TermsAndConditionsMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     termsAndConditionsDetail: {
@@ -225,7 +229,7 @@ export class TermsAndConditionsService {
                 }
             })
             if (!ourTermCond) {
-                throw new BadRequestException(`Terms and Conditions with Id : ${TermsAndConditionsMasterSid} not exists`);
+                throw new UnauthorizedException(`Access denied.`);
             }
             return ourTermCond;
         } catch (error) {
@@ -589,6 +593,119 @@ export class TermsAndConditionsService {
 
         return searchResults;
 
+    }
+
+    async searchList(params: filterDto) {
+        const { search = '', page = 1, pageSize = 15, activeCompanyId, activeBranchId } = params;
+        const skip = (page - 1) * pageSize;
+        const numericSearch = Number(search);
+
+        const where: Prisma.TermsAndConditionsMasterWhereInput = {
+            status: statusWhereClause,
+            ...(activeCompanyId && { CompanyMasterSid: activeCompanyId }),
+            ...(activeBranchId && { BranchMasterSid: activeBranchId }),
+        };
+
+        if (search) {
+            where.OR = [
+                { PrintType: { contains: search, mode: 'insensitive' } },
+                { Remarks: { contains: search, mode: 'insensitive' } },
+                { status: { contains: search, mode: 'insensitive' } },
+                { POL: { has: search } },
+                { POD: { has: search } },
+                { FDC: { has: search } },
+                {
+                    branch: {
+                        branchName: { contains: search, mode: 'insensitive' }
+                    }
+                },
+                {
+                    menu: {
+                        MenuName: { contains: search, mode: 'insensitive' }
+                    }
+                },
+                {
+                    departments: {
+                        some: {
+                            status: statusWhereClause,
+                            department: {
+                                departmentName: { contains: search, mode: 'insensitive' }
+                            }
+                        }
+                    }
+                },
+                {
+                    termsAndConditionsDetail: {
+                        some: {
+                            status: statusWhereClause,
+                            OR: [
+                                { TandC: { contains: search, mode: 'insensitive' } },
+                                { Type: { contains: search, mode: 'insensitive' } },
+                                { TypeValue: { contains: search, mode: 'insensitive' } },
+                                { IsDefaut: { contains: search, mode: 'insensitive' } },
+                            ]
+                        }
+                    }
+                },
+                ...(!Number.isNaN(numericSearch)
+                    ? [
+                        { TermsAndConditionsMasterSid: numericSearch },
+                        { CompanyMasterSid: numericSearch },
+                        { BranchMasterSid: numericSearch },
+                        { MenuMasterSid: numericSearch },
+                        { Carrier: numericSearch },
+                    ]
+                    : []),
+            ];
+        }
+
+        const [items, totalCount] = await this._db.$transaction([
+            this._db.termsAndConditionsMaster.findMany({
+                where,
+                skip,
+                take: pageSize,
+                include: {
+                    branch: {
+                        select: {
+                            BranchMasterSid: true,
+                            branchName: true,
+                        }
+                    },
+                    menu: {
+                        select: {
+                            MenuMasterSid: true,
+                            MenuName: true,
+                        }
+                    },
+                    departments: {
+                        where: {
+                            status: statusWhereClause,
+                        },
+                        include: {
+                            department: {
+                                select: {
+                                    DepartmentMasterSid: true,
+                                    departmentName: true,
+                                    departmentCode: true,
+                                }
+                            }
+                        }
+                    },
+                    termsAndConditionsDetail: {
+                        where: {
+                            status: statusWhereClause,
+                        }
+                    },
+                },
+                orderBy: { TermsAndConditionsMasterSid: 'desc' },
+            }),
+            this._db.termsAndConditionsMaster.count({ where }),
+        ]);
+
+        return {
+            items,
+            totalCount,
+        };
     }
 
     

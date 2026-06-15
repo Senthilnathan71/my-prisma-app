@@ -108,17 +108,22 @@ export class VoyageController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:id')
-    async getVoyageById(@Param('id', ParseIntPipe) VoyageId: number) {
+    @Post('fetch')
+    async getVoyageById(@Body() payload: any) {
         const output = new ResponseData;
         try {
-            const Voyage = await this.voyageService.findOne(VoyageId)
+            const Voyage = await this.voyageService.findOne(payload.VoyageMasterHeaderSid, payload.CompanyMasterSid, payload.BranchMasterSid);
             this.logger.log(`getVoyageById: ${JSON.stringify(Voyage)}`)
             output.data = Voyage
+            output.message = "Voyage data fetched successfully by ID"
         } catch (error) {
             this.logger.warn(`getVoyageById: ${JSON.stringify(error)}`)
             output.status = false;
-            output.message = error
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                output.message = error.message;
+            } else {
+                output.message = error;
+            }
         }
         return output;
     }

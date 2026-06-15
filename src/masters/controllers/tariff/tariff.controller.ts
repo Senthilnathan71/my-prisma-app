@@ -78,15 +78,15 @@ export class TariffController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:TariffHeaderSid')
-    async getTariffById(@Param('TariffHeaderSid', ParseIntPipe) TariffHeaderSid: number) {
+    @Post('fetch')
+    async getTariffById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Tariff with id : ${TariffHeaderSid}`);
-            let res = await this.tariffServ.getTariffById(TariffHeaderSid);
+            this.logger.log(`Getting Tariff with id : ${payload.TariffHeaderSid}`);
+            let res = await this.tariffServ.getTariffById(payload.TariffHeaderSid, payload.CompanyMasterSid);
             this.logger.debug(`Fetched Tariff : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Tariff with id : ${TariffHeaderSid} is successfully fetched`;
+            resp.message = `Tariff with id : ${payload.TariffHeaderSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Tariff by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;

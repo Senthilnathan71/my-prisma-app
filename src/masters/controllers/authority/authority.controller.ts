@@ -69,23 +69,17 @@ export class AuthorityController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:AuthorityMasterSid')
+    @Post('fetch')
     async getAuthorityById(
-        @Param('AuthorityMasterSid', ParseIntPipe) AuthorityMasterSid: number,
-        @Query('CompanyMasterSid') CompanyMasterSid?: string,
-        @Query('BranchMasterSid') BranchMasterSid?: string
+        @Body() payload: any
     ) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Authority with id : ${AuthorityMasterSid}`);
-            let res = await this.authorityService.fetchAuthorityById(
-                AuthorityMasterSid,
-                CompanyMasterSid ? Number(CompanyMasterSid) : undefined,
-                BranchMasterSid ? Number(BranchMasterSid) : undefined
-            );
+            this.logger.log(`Getting Authority with id : ${payload.AuthorityMasterSid}`);
+            let res = await this.authorityService.fetchAuthorityById(payload.AuthorityMasterSid,payload.CompanyMasterSid,payload.BranchMasterSid);
             this.logger.debug(`Fetched Authority : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Authority with id : ${AuthorityMasterSid} is successfully fetched`;
+            resp.message = `Authority with id : ${payload.AuthorityMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Authority by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;

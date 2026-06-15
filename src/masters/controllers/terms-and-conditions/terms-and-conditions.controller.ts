@@ -3,7 +3,7 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
 import { UserData } from 'src/common/decorators/user.decorator';
 import { ResponseData } from 'src/common/response-data';
-import { SearchListDto } from 'src/masters/DTO/search-list.dto';
+import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { TermsAndConditionsService } from 'src/masters/services/terms-and-conditions/terms-and-conditions.service';
 
 @Auth()
@@ -75,15 +75,15 @@ export class TermsAndConditionsController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:TermsAndConditionsMasterSid')
-    async getTermsAndConditionsById(@Param('TermsAndConditionsMasterSid', ParseIntPipe) TermsAndConditionsMasterSid: number) {
+    @Post('fetch')
+    async getTermsAndConditionsById(@Body() payload: any) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting Terms and Conditions with id : ${TermsAndConditionsMasterSid}`);
-            let res = await this.termsAndConditionsServ.fetchTermCondById(TermsAndConditionsMasterSid);
+            this.logger.log(`Getting Terms and Conditions with id : ${payload.TermsAndConditionsMasterSid}`);
+            let res = await this.termsAndConditionsServ.fetchTermCondById(payload.TermsAndConditionsMasterSid,payload.CompanyMasterSid,payload.BranchMasterSid);
             this.logger.debug(`Fetched Terms and Conditions : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `Terms and Conditions with id : ${TermsAndConditionsMasterSid} is successfully fetched`;
+            resp.message = `Terms and Conditions with id : ${payload.TermsAndConditionsMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get Terms and Conditions by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;
@@ -163,11 +163,11 @@ export class TermsAndConditionsController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('search-list')
-    async searchTermsAndConditions(@Body() searchData: SearchListDto) {
+    async searchTermsAndConditions(@Body() searchData: filterDto) {
         let resp = new ResponseData();
         try {
             this.logger.log(`Search Terms and Conditions : ${JSON.stringify(searchData)}`)
-            let res = await this.termsAndConditionsServ.searchTermCond(searchData);
+            let res = await this.termsAndConditionsServ.searchList(searchData);
             this.logger.debug(`Terms and Conditions Search Results :${JSON.stringify(res)}`);
             resp.data = res;
             resp.message = "Terms and Conditions Search results are successfully fetched"

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { parseDateFromString, statusWhereClause } from 'src/common/helper';
@@ -113,7 +113,9 @@ export class AuthorityService {
         try {
             const authority = await this._db.authorityMaster.findUnique({
                 where: {
-                    AuthorityMasterSid: AuthorityMasterSid
+                    AuthorityMasterSid: AuthorityMasterSid,
+                    CompanyMasterSid: CompanyMasterSid,
+                    BranchMasterSid: BranchMasterSid
                 },
                 include: {
                     authorityDetail: {
@@ -124,12 +126,8 @@ export class AuthorityService {
                     }
                 }
             });
-            if (
-                !authority ||
-                (CompanyMasterSid && authority.CompanyMasterSid !== CompanyMasterSid) ||
-                (BranchMasterSid && authority.BranchMasterSid !== BranchMasterSid)
-            ) {
-                throw new BadRequestException(`Authority with Id : ${AuthorityMasterSid} not exists`);
+            if (!authority) {
+                throw new UnauthorizedException(`Access denied.`);
             }
             return authority;
         } catch (error) {
