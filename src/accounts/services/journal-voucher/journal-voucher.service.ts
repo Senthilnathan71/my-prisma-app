@@ -27,13 +27,13 @@ export class JournalVoucherService {
     /**
      * Create Journal Voucher
      */
-    async createJournalVoucher(payload: any): Promise<any> {
+    async createJournalVoucher(payload: any, externalTx?: Prisma.TransactionClient): Promise<any> {
         try {
-            return await this._db.$transaction(async (tx) => {
+            const runJournal = async (tx: Prisma.TransactionClient) => {
                 // Get VoucherTypeMaster for "Journal Voucher"
                 const voucherTypeMaster = await tx.voucherTypeMaster.findFirst({
                     where: {
-                        DocumentTypeCode: DOC_TYPE_CODE.JOURNAL_VOUCHER,
+                        DocumentTypeCode: payload.DocumentTypeCode || DOC_TYPE_CODE.JOURNAL_VOUCHER,
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
                         status: 'A'
@@ -41,8 +41,15 @@ export class JournalVoucherService {
                 });
 
                 if (!voucherTypeMaster) {
+                    const isInterBranch = (payload.DocumentTypeCode || DOC_TYPE_CODE.JOURNAL_VOUCHER) === DOC_TYPE_CODE.INTER_BRANCH_JV;
+                    const typeLabel = isInterBranch ? 'Inter Branch Journal Voucher (IJV)' : 'Journal Voucher';
+                    const branch = await tx.branchMaster.findUnique({
+                        where: { BranchMasterSid: payload.BranchMasterSid },
+                        select: { branchName: true },
+                    });
+                    const branchPart = branch?.branchName ? ` for branch '${branch.branchName}'` : '';
                     throw new BadRequestException(
-                        'Journal Voucher voucher type not configured. Please configure "Journal Voucher" in VoucherTypeMaster.'
+                        `${typeLabel} is not configured${branchPart}. Please add it in Document Type Master.`
                     );
                 }
 
@@ -241,7 +248,10 @@ export class JournalVoucherService {
                     VoucherHeaderSid: voucherHeader.VoucherHeaderSid,
                     VoucherNumber: voucherNumber
                 };
-            });
+            };
+            return externalTx
+                ? await runJournal(externalTx)
+                : await this._db.$transaction(runJournal, { timeout: 60000 });
         } catch (error) {
             this.logger.error(`Error creating journal voucher: ${error.message}`);
             if (error instanceof BadRequestException) {
@@ -601,7 +611,7 @@ return {
                 CompanyMasterSid: activeCompanyId,
                 BranchMasterSid: activeBranchId,
                 voucherTypeMaster: {
-                    DocumentTypeCode: DOC_TYPE_CODE.JOURNAL_VOUCHER
+                    DocumentTypeCode: { in: [DOC_TYPE_CODE.JOURNAL_VOUCHER, DOC_TYPE_CODE.INTER_BRANCH_JV] }
                 },
                 Status: statusWhereClause,
                 ...(normalizedPostStatus && { PostStatus: normalizedPostStatus }),

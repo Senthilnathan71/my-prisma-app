@@ -294,6 +294,8 @@ export class OutstandingInvoiceDto {
   CurrencyCode: string;
   DrCr: string;
   ExchangeRate : number | Decimal;
+  BranchMasterSid?: number;
+  BranchName?: string;
 
   // Additional search fields
   HouseNumber?: string;

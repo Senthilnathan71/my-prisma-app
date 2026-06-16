@@ -13,6 +13,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
+import { InterBranchService } from '../inter-branch/inter-branch.service';
 
 /**
  * Receipt Voucher Service
@@ -33,7 +34,8 @@ export class ReceiptService {
     private readonly _db: DatabaseService,
     private readonly outstandingService: OutstandingService, // REUSE existing service
     private readonly voucherService: VoucherService,
-    private companyConfigService : CompanyConfigService
+    private companyConfigService : CompanyConfigService,
+    private readonly interBranchService: InterBranchService
   ) {}
 
   private ensureLocalDebitCreditBalance(
@@ -107,6 +109,8 @@ export class ReceiptService {
           ExchangeRate: txn.exchangeRate,
           DrCr: txn.drCr,
           ChargeDescription: txn.chargeDescription,
+          BranchMasterSid: txn.branchMasterSid,
+          BranchName: txn.branchName,
         }));
         let result = invoices;
 
@@ -120,8 +124,10 @@ export class ReceiptService {
           result = result.filter((inv) => inv.DrCr === searchDto.DrCr);
         }
 
-        // Sort by VoucherDate ascending
-        result.sort((a, b) => new Date(b.VoucherDate).getTime() - new Date(a.VoucherDate).getTime());
+        // Sort by VoucherDate descending; VoucherTransactionSid tiebreaker makes it a deterministic
+        // total order so the page window stays stable across paginated calls (equal dates must not
+        // reorder, or rows skip/duplicate at page boundaries).
+        result.sort((a, b) => new Date(b.VoucherDate).getTime() - new Date(a.VoucherDate).getTime() || b.VoucherTransactionSid - a.VoucherTransactionSid);
 
         // Apply pagination
         if (searchDto.Skip !== undefined || searchDto.Take !== undefined) {
@@ -262,6 +268,7 @@ export class ReceiptService {
           }
         },
         SourceMatchingDetail : {
+          where : { AllotmentBranchSid : null }, // source matches only; staged inter-branch matches load via getAllocations
           orderBy : { Sno : 'asc' }
         },
         voucherMatchingHeader : {
@@ -288,6 +295,8 @@ export class ReceiptService {
           voucherTypeMaster: { select: { DocumentTypeCode: true } },
           LedgerMasterSid: true,
           COAMasterSid: true,
+          BranchMasterSid: true,
+          BranchMaster: { select: { branchName: true } },
           Amount: true,
           LocalAmount: true,
           voucherMatchings: { where: { Status: 'A' } },
@@ -343,7 +352,8 @@ export class ReceiptService {
         MatchingAmount: detail.MatchingAmount,
         MatchingLocalAmount: detail.MatchingLocalAmount,
         MatchingTDSAmount : detail.MatchingTDSAmount,
-        PartyAmount : detail.PartyAmount
+        PartyAmount : detail.PartyAmount,
+        BranchName: detail.BranchName || (transactionDetail as any)?.BranchMaster?.branchName || '',
       };
     }));
 
@@ -949,6 +959,7 @@ export class ReceiptService {
               select : {SubledgerName : true}
             },
             SourceMatchingDetail: {
+              where: { AllotmentBranchSid: null }, // post source matches only; owning matches go through postInterBranch (avoids double-match)
               orderBy: { Sno: 'asc' }
             },
             voucherTypeMaster: true
@@ -1372,6 +1383,18 @@ export class ReceiptService {
         },0);
 
         
+        // Inter-branch: create the source re-allocation JV + mirror JVs (same transaction) before marking posted.
+        await this.interBranchService.postInterBranch({
+          source: voucher,
+          companyMasterSid: payload.companyMasterSid,
+          branchMasterSid: payload.branchMasterSid,
+          yearMasterSid: payload.yearMasterSid,
+          localCurrencyMasterSid: payload.localCurrencyMasterSid,
+          localCurrencyCode: payload.localCurrencyCode,
+          postedBy: payload.postedBy,
+          taxDetails: payload.taxDetails,
+        }, tx);
+
         const updatedVoucher = await tx.voucherHeader.update({
           where: {
             VoucherHeaderSid: voucher.VoucherHeaderSid

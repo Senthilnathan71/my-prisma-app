@@ -759,6 +759,22 @@ export class ReverseVoucherService {
                 throw new BadRequestException(`Voucher not found`);
             }
 
+            // Inter-branch vouchers are immutable — block reversal of a posted multi-branch source voucher
+            // and of any generated IJV (source re-allocation or mirror) JV.
+            const interBranchLink = await db.voucherInterBranch.findFirst({
+                where: {
+                    OR: [
+                        { VoucherHeaderSid: voucher.VoucherHeaderSid },
+                        { SourceJVHeaderSid: voucher.VoucherHeaderSid },
+                        { InterBranchVoucherSid: voucher.VoucherHeaderSid },
+                    ],
+                },
+                select: { VoucherInterBranchSid: true },
+            });
+            if (interBranchLink || voucher.voucherTypeMaster?.DocumentTypeCode === DOC_TYPE_CODE.INTER_BRANCH_JV) {
+                throw new BadRequestException('Inter-branch JVs cannot be reversed.');
+            }
+
             const alreadyReversed = await db.voucherHeader.findFirst({
                 where: {
                     ReversalVoucher: voucher.VoucherHeaderSid,

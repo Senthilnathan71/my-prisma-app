@@ -25,6 +25,7 @@ export class VoucherMatchingService {
             page = 1,
             pageSize = 10,
             activeCompanyId,
+            activeBranchId,
             dateFrom,
             DateFrom,
             dateTo,
@@ -63,6 +64,7 @@ export class VoucherMatchingService {
         const where: Prisma.VoucherMatchingHeaderWhereInput = {
             Status: statusWhereClause,
             CompanyMasterSid: activeCompanyId,
+            ...(activeBranchId && { BranchMasterSid: activeBranchId }),
             ...(normalizedSubledgerName && { SubledgerName: { contains: normalizedSubledgerName, mode: 'insensitive' } }),
             ...((normalizedDateFrom || normalizedDateTo) && {
                 [selectedDateField]: {
@@ -86,7 +88,9 @@ export class VoucherMatchingService {
                 where,
                 skip,
                 take: pageSize,
-                orderBy: { VoucherMatchingHeaderSid: 'desc' },
+                // Newest first by date, with the matching number as a deterministic tiebreaker
+                // so paginated windows don't skip/duplicate rows that share a date.
+                orderBy: [{ VoucherMatchingDate: 'desc' }, { VoucherMatchingNo: 'desc' }],
             }),
             this._db.voucherMatchingHeader.count({ where }),
         ]);
@@ -348,7 +352,7 @@ export class VoucherMatchingService {
                     },
                 });
                 if (!voucherTypeMaster) {
-                    throw new BadRequestException('Voucher type master not found');
+                    throw new BadRequestException('VoucherMatching Voucher Type is not found. Please configure it in the Document Type Master.');
                 }
 
                 const nextNumber = await this.voucherService.generateVoucherMatchingNumber(
@@ -952,7 +956,7 @@ export class VoucherMatchingService {
 
         // Validate Voucher Type
         if (!voucherTypeMaster) {
-            throw new BadRequestException("Voucher Type for Voucher Matching cannot be found.");
+            throw new BadRequestException('VoucherMatching Voucher Type is not found. Please configure it in the Document Type Master.');
         }
 
         // Get Year Master

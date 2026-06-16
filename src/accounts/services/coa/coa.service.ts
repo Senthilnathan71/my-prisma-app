@@ -159,14 +159,16 @@ export class CoaService {
 
    
     private async checkForDuplicates(payload: any, existingCoaSid?: number): Promise<void> {
-        let { 
-            Category, 
-            LedgerCategory, 
-            GroupName, 
-            SubGroupName, 
-            LedgerName, 
+        let {
+            Category,
+            LedgerCategory,
+            GroupName,
+            SubGroupName,
+            LedgerName,
             LedgerCode,
-            CompanyMasterSid 
+            LedgerType,
+            InterBranchLocation,
+            CompanyMasterSid
         } = payload;
 
         GroupName = GroupName?.trim();
@@ -211,6 +213,25 @@ export class CoaService {
         //         );
         //     }
         // }
+
+        // 2b. Inter Branch ledger: only one ACTIVE ledger per (Company, InterBranchLocation)
+        if (LedgerType === 'Inter Branch' && InterBranchLocation) {
+            const duplicateInterBranch = await this._db.cOAMaster.findFirst({
+                where: {
+                    ...baseWhere,
+                    Status: 'A',
+                    LedgerType: 'Inter Branch',
+                    InterBranchLocation: InterBranchLocation,
+                },
+                include: { interBranchBranch: true },
+            });
+
+            if (duplicateInterBranch) {
+                throw new BadRequestException(
+                    `An active Inter Branch ledger for branch '${duplicateInterBranch.interBranchBranch?.branchName}' already exists ('${duplicateInterBranch.LedgerName}'). Only one active Inter Branch ledger is allowed per branch.`
+                );
+            }
+        }
 
         // 3. Check combinations based on LedgerCategory
         if (LedgerCategory === 'Group') {

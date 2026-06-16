@@ -1,4 +1,4 @@
-import { Controller, Get, Param, HttpCode, HttpStatus, Logger, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Param, HttpCode, HttpStatus, Logger, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { OutstandingService } from '../../services/outstanding/outstanding.service';
 import { VoucherOutstandingResponseDto, CustomerOutstandingResponseDto } from '../../dto/outstanding.dto';
@@ -84,11 +84,21 @@ export class OutstandingController {
   async getCustomerOutstanding(
     @Param('companySid', ParseIntPipe) companySid: number,
     @Param('ledgerMasterSid', ParseIntPipe) ledgerMasterSid: number,
+    @Query('branchMasterSid') branchMasterSid?: string,
   ) {
     const resp = new ResponseData();
     try {
 
-      const result = await this.outstandingService.getCustomerOutstanding(companySid, ledgerMasterSid);
+      // Optional ?branchMasterSid=1 or ?branchMasterSid=1,2,3 (multi-branch outstanding for the inter-branch grid)
+      const branchIds = branchMasterSid
+        ? branchMasterSid.split(',').map((b) => Number(b)).filter((n) => !isNaN(n))
+        : undefined;
+      const result = await this.outstandingService.getCustomerOutstanding(
+        companySid,
+        ledgerMasterSid,
+        undefined,
+        branchIds && branchIds.length ? branchIds : undefined,
+      );
 
       resp.data = result;
       resp.message = `Retrieved ${result.voucherCount} outstanding voucher(s) for customer`;

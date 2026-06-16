@@ -79,6 +79,12 @@ export class CustomerOutstandingTransactionDto {
   @ApiProperty({ description: 'COA Master Sid', example: 1 })
   coaMasterSid?: number;
 
+  @ApiProperty({ description: 'Branch Master Sid (owning branch of the voucher)', example: 1 })
+  branchMasterSid?: number;
+
+  @ApiProperty({ description: 'Branch Name (owning branch of the voucher)', example: 'Chennai' })
+  branchName?: string;
+
   @ApiProperty({ description: 'Dr/Cr', example: 'D' })
   DrCr?: string;
 

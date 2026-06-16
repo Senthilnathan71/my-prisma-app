@@ -2851,7 +2851,7 @@ export class VoucherService {
                 },
             });
             if (!voucherType) {
-                throw new BadRequestException('Voucher Matching Type not found. Please configure VoucherTypeMaster for this company/branch.');
+                throw new BadRequestException('VoucherMatching Voucher Type is not found. Please configure it in the Document Type Master.');
             }
 
 

@@ -8,6 +8,7 @@ import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { TdsCalculationService } from '../tds-calculation/tds-calculation.service';
+import { InterBranchService } from '../inter-branch/inter-branch.service';
 
 @Injectable()
 export class PaymentService {
@@ -18,7 +19,8 @@ export class PaymentService {
         private readonly outstandingService: OutstandingService, // REUSE existing service
         private readonly voucherService: VoucherService,
         private readonly companyConfigService : CompanyConfigService,
-        private readonly tdsCalculation : TdsCalculationService
+        private readonly tdsCalculation : TdsCalculationService,
+        private readonly interBranchService: InterBranchService
     ) { }
 
     private ensureLocalDebitCreditBalance(
@@ -92,6 +94,8 @@ export class PaymentService {
                     ExchangeRate: txn.exchangeRate,
                     DrCr: txn.drCr,
                     ChargeDescription: txn.chargeDescription,
+                    BranchMasterSid: txn.branchMasterSid,
+                    BranchName: txn.branchName,
                 }));
 
                 let result = invoices;
@@ -106,8 +110,10 @@ export class PaymentService {
                     result = result.filter((inv) => inv.DrCr === searchDto.DrCr);
                 }
 
-                // Sort by VoucherDate ascending
-                result.sort((a, b) => new Date(b.VoucherDate).getTime() - new Date(a.VoucherDate).getTime());
+                // Sort by VoucherDate descending; VoucherTransactionSid tiebreaker makes it a deterministic
+                // total order so the page window stays stable across paginated calls (equal dates must not
+                // reorder, or rows skip/duplicate at page boundaries).
+                result.sort((a, b) => new Date(b.VoucherDate).getTime() - new Date(a.VoucherDate).getTime() || b.VoucherTransactionSid - a.VoucherTransactionSid);
 
                 // Apply pagination
                 if (searchDto.Skip !== undefined || searchDto.Take !== undefined) {
@@ -264,6 +270,7 @@ export class PaymentService {
                     }
                 },
                 SourceMatchingDetail : {
+                    where : { AllotmentBranchSid : null }, // source matches only; staged inter-branch matches load via getAllocations
                     orderBy : { Sno : 'asc' }
                 },
                 voucherMatchingHeader : {
@@ -304,6 +311,8 @@ export class PaymentService {
                     voucherTypeMaster: { select: { DocumentTypeCode: true } },
                     LedgerMasterSid: true,
                     COAMasterSid: true,
+                    BranchMasterSid: true,
+                    BranchMaster: { select: { branchName: true } },
                     Amount: true,
                     LocalAmount: true,
                     voucherMatchings: { where: { Status: 'A' } },
@@ -367,7 +376,8 @@ export class PaymentService {
                 MatchingAmount: detail.MatchingAmount,
                 MatchingLocalAmount: detail.MatchingLocalAmount,
                 MatchingTDSAmount : detail.MatchingTDSAmount,
-                PartyAmount : detail.PartyAmount
+                PartyAmount : detail.PartyAmount,
+                BranchName: detail.BranchName || (transactionDetail as any)?.BranchMaster?.branchName || '',
             };
         }));
 
@@ -1252,6 +1262,7 @@ export class PaymentService {
                             select : {SubledgerName : true}
                         },
                         SourceMatchingDetail: {
+                            where: { AllotmentBranchSid: null }, // post source matches only; owning matches go through postInterBranch (avoids double-match)
                             orderBy: { Sno: 'asc' }
                         },
                         voucherTypeMaster: true
@@ -1814,6 +1825,18 @@ export class PaymentService {
                     return detail.DrCr === 'C' ? sum + toNumber(detail.LocalAmount) : sum - toNumber(detail.LocalAmount);
                 }, 0);
 
+
+                // Inter-branch: create the source re-allocation JV + mirror JVs (same transaction) before marking posted.
+                await this.interBranchService.postInterBranch({
+                    source: voucher,
+                    companyMasterSid: payload.companyMasterSid,
+                    branchMasterSid: payload.branchMasterSid,
+                    yearMasterSid: payload.yearMasterSid,
+                    localCurrencyMasterSid: payload.localCurrencyMasterSid,
+                    localCurrencyCode: payload.localCurrencyCode,
+                    postedBy: payload.postedBy,
+                    taxDetails: payload.taxDetails,
+                }, tx);
 
                 const updatedVoucher = await tx.voucherHeader.update({
                     where: {

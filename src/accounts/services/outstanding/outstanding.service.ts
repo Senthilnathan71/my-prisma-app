@@ -145,7 +145,7 @@ export class OutstandingService {
     companyMasterSid: number,
     ledgerMasterSid: number,
     exception ?: DocTypeCode,
-    BranchMasterSid ?: number,
+    BranchMasterSid ?: number | number[],
     ledgerType ?: string
   ): Promise<CustomerOutstandingResponseDto> {
     try {
@@ -162,7 +162,7 @@ export class OutstandingService {
       // Exclude reversed vouchers
       const whereClause: Prisma.VoucherTransactionWhereInput = {
           CompanyMasterSid: companyMasterSid,
-          ...(BranchMasterSid ? {BranchMasterSid : BranchMasterSid} : {}),
+          ...(BranchMasterSid ? { BranchMasterSid: Array.isArray(BranchMasterSid) ? { in: BranchMasterSid } : BranchMasterSid } : {}),
           LedgerMasterSid: ledgerMasterSid,
           Status: 'A',
           VoucherHeader : { PostStatus : 'P'},
@@ -188,6 +188,9 @@ export class OutstandingService {
           },
           voucherTypeMaster : {
             select : {DocumentTypeName : true,DocumentTypeCode : true}
+          },
+          BranchMaster: {
+            select: { branchName: true }
           }
         },
         orderBy: {
@@ -266,6 +269,8 @@ export class OutstandingService {
             exchangeRate: this.toNumber(vt.ExchangeRate || 1),
             drCr: vt.DrCr,
             chargeDescription: vt.ChargeDescription || "",
+            branchMasterSid: vt.BranchMasterSid,
+            branchName: (vt as any).BranchMaster?.branchName,
           });
 
           totalOutstandingCurrency += outstandingCurrencyAmount;
