@@ -881,6 +881,8 @@ export class OperationReportsService {
           status: 'A',
           MenuMasterSid: { in: allMasterMenuSids },
           TransactionSid: { in: masterJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : { in : resolvedBranchIds },
         },
         select: {
           TransactionSid: true,
@@ -922,6 +924,8 @@ export class OperationReportsService {
           status: 'A',
           MenuMasterSid: {in: allHouseMenuSids},
           TransactionSid: { in: houseJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : { in : resolvedBranchIds },
         },
         select: {
           TransactionSid: true,
@@ -1749,6 +1753,8 @@ export class OperationReportsService {
         where: {
           MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : branchId,
           status: 'A',
         },
       });
@@ -2250,6 +2256,8 @@ export class OperationReportsService {
         where: {
           MenuMasterSid: houseJobMenu.MenuMasterSid,
           TransactionSid: { in: houseJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : { in : branchId },
           status: 'A',
         },
       });
@@ -2882,6 +2890,8 @@ export class OperationReportsService {
         where: {
           MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
           status: 'A',
           OR: [{ CostVoucherHeaderSid: null }],
         },
@@ -2907,6 +2917,8 @@ export class OperationReportsService {
         where: {
           MenuMasterSid: { in: allMasterMenuSids },
           TransactionSid: { in: masterJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
           status: 'A',
           OR: [{ CostVoucherHeaderSid: null }],
         },
@@ -3297,6 +3309,8 @@ export class OperationReportsService {
       const allHouseCR = await this._db.costRevenueCharges.findMany({
         where: {
           MenuMasterSid: { in: allHouseMenuSids },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
           TransactionSid: { in: houseJobIds },
           status: 'A',
           OR: [{ RevenueVoucherHeaderSid: null }],
@@ -3323,6 +3337,8 @@ export class OperationReportsService {
         where: {
           MenuMasterSid: { in: allMasterMenuSids },
           TransactionSid: { in: masterJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid: { in: resolvedBranchIds },
           status: 'A',
           OR: [{ RevenueVoucherHeaderSid: null }],
         },
@@ -3679,6 +3695,8 @@ export class OperationReportsService {
         where: {
           MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : { in : branchId },
           status: 'A',
           OR: [
             { CostVoucherHeaderSid: null },
@@ -3982,6 +4000,8 @@ export class OperationReportsService {
           status: 'A',
           MenuMasterSid: { in: allMasterMenuSids },
           TransactionSid: { in: masterJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : { in: allBranchIds },
         },
         select: {
           TransactionSid: true,
@@ -4014,6 +4034,8 @@ export class OperationReportsService {
           status: 'A',
           MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : { in: allBranchIds },
         },
         select: {
           TransactionSid: true,
@@ -5332,6 +5354,7 @@ export class OperationReportsService {
         where: {
           MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
+          CompanyMasterSid : CompanyMasterSid,
           status: 'A',
           OR: [
             { CostVoucherHeaderSid: null },
@@ -5624,6 +5647,8 @@ export class OperationReportsService {
           MenuMasterSid: { in: allHouseMenuSids },
           TransactionSid: { in: houseJobIds },
           status: 'A',
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : { in: resolvedBranchIds },
         },
         select: {
           TransactionSid: true,
@@ -6334,6 +6359,8 @@ export class OperationReportsService {
               MenuMasterSid: m.MenuMasterSid!,
               TransactionSid: m.MasterJobSid,
               status: 'A',
+              CompanyMasterSid : CompanyMasterSid,
+              BranchMasterSid : { in: resolvedBranchIds },
             },
             select: {
               CostLocalAmount: true,
@@ -6430,6 +6457,8 @@ export class OperationReportsService {
               MenuMasterSid: m.MenuMasterSid!,
               TransactionSid: m.HouseJobSid,
               status: 'A',
+              CompanyMasterSid : CompanyMasterSid,
+              BranchMasterSid : { in: resolvedBranchIds },
             },
             select: {
               CostLocalAmount: true,
@@ -7226,6 +7255,8 @@ export class OperationReportsService {
         where: {
           MenuMasterSid: houseJobMenu.MenuMasterSid,
           TransactionSid: { in: houseJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : { in: resolvedBranchIds },
           status: 'A',
         },
       });
@@ -7331,6 +7362,8 @@ export class OperationReportsService {
         where: {
           MenuMasterSid: masterJobMenu.MenuMasterSid,
           TransactionSid: { in: masterJobIds },
+          CompanyMasterSid : CompanyMasterSid,
+          BranchMasterSid : { in: resolvedBranchIds },
           status: 'A',
         },
       });
@@ -7829,6 +7862,7 @@ export class OperationReportsService {
           where: {
             MenuMasterSid: { in: allMasterMenuSids },
             TransactionSid: { in: masterJobIds },
+            CompanyMasterSid : CompanyMasterSid,
             status: 'A',
           },
         });
@@ -7837,6 +7871,7 @@ export class OperationReportsService {
           where: {
             MenuMasterSid: { in: allHouseMenuSids },
             TransactionSid: { in: houseJobIds },
+            CompanyMasterSid : CompanyMasterSid,
             status: 'A',
           },
         });
