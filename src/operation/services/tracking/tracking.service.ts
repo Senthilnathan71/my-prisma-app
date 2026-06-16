@@ -76,8 +76,16 @@ export class TrackingService {
 
     const resolvedBooking = booking || houseJob?.bookingHeader || null;
     const resolvedHouseJob = houseJob || masterJob?.houseJob?.[0] || null;
-    const resolvedMasterJob = masterJob || resolvedHouseJob?.masterJob || null;
-    const containers = this.resolveContainers(resolvedMasterJob, resolvedHouseJob, resolvedBooking);
+    let resolvedMasterJob = masterJob || resolvedHouseJob?.masterJob || null;
+
+    if (this.shouldLoadMasterHouseJobs(reference, resolvedHouseJob, resolvedMasterJob)) {
+      resolvedMasterJob =
+        (await this.findMasterJobBySid(resolvedMasterJob.MasterJobSid, trackingContext)) ||
+        resolvedMasterJob;
+    }
+
+    const resolvedHouseJobs = this.resolveHouseJobs(reference, resolvedHouseJob, resolvedMasterJob, resolvedBooking);
+    const containers = this.resolveContainers(resolvedMasterJob, resolvedHouseJobs, resolvedBooking);
     const shipmentNo =
       resolvedHouseJob?.ShipmentNo ||
       resolvedBooking?.ShipmentNo ||
@@ -89,6 +97,8 @@ export class TrackingService {
       resolvedBooking,
       resolvedHouseJob,
       resolvedMasterJob,
+      resolvedHouseJobs,
+      containers,
     );
     const documents = await this.resolveDocuments(reference, resolvedBooking, resolvedHouseJob);
     const currentStatus = this.deriveCurrentStatus(milestones);
@@ -99,23 +109,48 @@ export class TrackingService {
       resolvedMasterJob,
       containers,
     );
+    const transhipmentChain = await this.resolveTranshipmentChain(
+      resolvedBooking,
+      resolvedHouseJob,
+      trackingContext,
+    );
+    const voyageInfo = this.resolveVoyageInfo(
+      resolvedBooking,
+      resolvedHouseJob,
+      resolvedMasterJob,
+      resolvedHouseJobs,
+      transhipmentChain,
+    );
+    const departmentMaster =
+      resolvedHouseJob?.departmentMaster ||
+      resolvedBooking?.departmentMaster ||
+      (await this.findDepartmentMaster(resolvedMasterJob?.DepartmentMasterSid)) ||
+      null;
+    const transportMode = this.resolveTransportMode(departmentMaster);
 
     return {
       shipmentInfo: {
         shipmentNumber: shipmentNo,
         bookingNumber: resolvedHouseJob?.BookingNo || resolvedBooking?.BookingNo || null,
         jobNumber: resolvedMasterJob?.MasterJobNumber || null,
-        hblHawbNumber: resolvedHouseJob?.HBLNo || resolvedBooking?.HBLNo || null,
+        hblHawbNumber:
+          this.joinUnique(resolvedHouseJobs.map((item) => item?.HBLNo)) ||
+          resolvedHouseJob?.HBLNo ||
+          resolvedBooking?.HBLNo ||
+          null,
         mblMawbNumber:
           resolvedMasterJob?.MBLNo ||
-          resolvedHouseJob?.MBLNo ||
+          this.joinUnique(resolvedHouseJobs.map((item) => item?.MBLNo)) ||
           resolvedBooking?.MBLNo ||
           null,
         shipmentStatus: currentStatus.label,
         department:
-          resolvedHouseJob?.departmentMaster?.departmentName ||
-          resolvedBooking?.departmentMaster?.departmentName ||
+          departmentMaster?.departmentName ||
           null,
+        departmentType: departmentMaster?.departmentType || null,
+        transportMode,
+        segment: departmentMaster?.FCLLCL || null,
+        exportImport: departmentMaster?.ExportImport || null,
         jobType:
           resolvedHouseJob?.JobType ||
           resolvedBooking?.JobType ||
@@ -129,16 +164,14 @@ export class TrackingService {
           resolvedMasterJob?.MovementType ||
           null,
         customerName: resolvedHouseJob?.CustomerName || resolvedBooking?.CustomerName || null,
-        vesselName:
-          resolvedHouseJob?.VesselName ||
-          resolvedBooking?.VesselName ||
-          resolvedMasterJob?.voyages?.[0]?.VesselName ||
-          null,
-        voyageNo:
-          resolvedHouseJob?.VoyageNo ||
-          resolvedBooking?.VoyageNo ||
-          resolvedMasterJob?.voyages?.[0]?.VoyageNo ||
-          null,
+        vesselVoyage: voyageInfo.vesselVoyage,
+        vesselName: voyageInfo.vesselName,
+        voyageNo: voyageInfo.voyageNo,
+        etd: voyageInfo.etd,
+        eta: voyageInfo.eta,
+        atd: voyageInfo.atd,
+        ata: voyageInfo.ata,
+        voyageLegs: voyageInfo.voyageLegs,
       },
       routeInfo: {
         origin: resolvedHouseJob?.POO || resolvedBooking?.POO || resolvedMasterJob?.POO || null,
@@ -265,14 +298,49 @@ export class TrackingService {
     });
   }
 
+  private findMasterJobBySid(masterJobSid: number, context: TrackingContext): Promise<any> {
+    return this.db.masterJob.findFirst({
+      where: {
+        MasterJobSid: masterJobSid,
+        Status: 'A',
+        ...this.companyContextWhere(context),
+      },
+      select: this.masterJobSelect(true, context),
+    });
+  }
+
+  private findBookingBySid(bookingHeaderSid: number, context: TrackingContext): Promise<any> {
+    return this.db.bookingHeader.findFirst({
+      where: {
+        BookingHeaderSid: bookingHeaderSid,
+        status: 'A',
+        ...this.customerContextWhere(context),
+      },
+      select: this.bookingSelect(),
+    });
+  }
+
+  private findHouseJobByTranshipmentBookingSid(bookingHeaderSid: number, context: TrackingContext): Promise<any> {
+    return this.db.houseJob.findFirst({
+      where: {
+        TranshipmentBookingSid: bookingHeaderSid,
+        status: 'A',
+        ...this.customerContextWhere(context),
+      },
+      select: this.houseJobSelect(true),
+    });
+  }
+
   private async resolveMilestones(
     reference: string,
     shipmentNo: string | null,
     booking: any,
     houseJob: any,
     masterJob: any,
+    houseJobs: any[] = [],
+    containers: any[] = [],
   ): Promise<TrackingMilestone[]> {
-    const stored = await this.findStoredMilestones(reference, booking, houseJob);
+    const stored = await this.findStoredMilestones(reference, booking, houseJob, masterJob, houseJobs, containers);
 
     const actual = stored.length
       ? stored.map((item, index) => ({
@@ -290,11 +358,24 @@ export class TrackingService {
     return this.applyTimelineState(actual);
   }
 
-  private async findStoredMilestones(reference: string, booking: any, houseJob: any) {
+  private async findStoredMilestones(
+    reference: string,
+    booking: any,
+    houseJob: any,
+    masterJob: any,
+    houseJobs: any[] = [],
+    containers: any[] = [],
+  ) {
     const isBookingScreen = this.isBookingReference(reference, booking);
+    const isMasterScreen = this.isMasterReference(reference, masterJob);
+    const isContainerScreen = this.isContainerReference(reference, containers);
 
     if (isBookingScreen && booking?.BookingNo) {
       return this.findBookingScreenMilestones(booking);
+    }
+
+    if (!this.isHouseReference(reference, houseJob) && (isMasterScreen || isContainerScreen)) {
+      return this.findMasterJobScreenMilestones(reference, houseJobs, containers);
     }
 
     if (houseJob?.ShipmentNo || houseJob?.HBLNo) {
@@ -306,6 +387,28 @@ export class TrackingService {
     }
 
     return [];
+  }
+
+  private async findMasterJobScreenMilestones(reference: string, houseJobs: any[], containers: any[]) {
+    const normalizedReference = this.normalizeReference(reference);
+    const matchedContainer = containers.find(
+      (container) => this.normalizeReference(container?.containerNo) === normalizedReference,
+    );
+    const relevantHouseJobSids = new Set((matchedContainer?.houseJobSids || []).map(Number));
+    const relevantHouseJobs = relevantHouseJobSids.size
+      ? houseJobs.filter((item) => relevantHouseJobSids.has(Number(item?.HouseJobSid)))
+      : houseJobs;
+
+    const houseShipmentNos = relevantHouseJobs
+      .map((item) => item?.ShipmentNo || item?.HBLNo)
+      .filter((shipmentNo): shipmentNo is string => !!shipmentNo);
+    const bookingNos = relevantHouseJobs
+      .map((item) => item?.bookingHeader?.BookingNo || item?.BookingNo)
+      .filter((bookingNo): bookingNo is string => !!bookingNo);
+    const houseMilestones = await this.findMilestonesByShipmentNos(houseShipmentNos, 'HOUSE');
+    const bookingMilestones = await this.findMilestonesByShipmentNos(bookingNos, 'BOOKING');
+
+    return [...houseMilestones, ...bookingMilestones].sort(this.sortMilestones);
   }
 
   private async findBookingScreenMilestones(booking: any) {
@@ -369,6 +472,40 @@ export class TrackingService {
     return [booking?.BookingNo, booking?.ShipmentNo]
       .filter(Boolean)
       .some((item) => this.normalizeReference(item) === normalizedReference);
+  }
+
+  private isHouseReference(reference: string, houseJob: any) {
+    const normalizedReference = this.normalizeReference(reference);
+    return [houseJob?.BookingNo, houseJob?.ShipmentNo, houseJob?.HBLNo]
+      .filter(Boolean)
+      .some((item) => this.normalizeReference(item) === normalizedReference);
+  }
+
+  private shouldLoadMasterHouseJobs(reference: string, houseJob: any, masterJob: any) {
+    if (!masterJob?.MasterJobSid) return false;
+    const normalizedReference = this.normalizeReference(reference);
+
+    return [
+      masterJob?.MasterJobNumber,
+      masterJob?.MBLNo,
+      houseJob?.MBLNo,
+      ...(masterJob?.containers || []).map((container) => container?.ContainerNumber),
+      ...(houseJob?.Products || []).map((product) => product?.ContainerNo),
+    ]
+      .filter(Boolean)
+      .some((item) => this.normalizeReference(item) === normalizedReference);
+  }
+
+  private isMasterReference(reference: string, masterJob: any) {
+    const normalizedReference = this.normalizeReference(reference);
+    return [masterJob?.MasterJobNumber, masterJob?.MBLNo]
+      .filter(Boolean)
+      .some((item) => this.normalizeReference(item) === normalizedReference);
+  }
+
+  private isContainerReference(reference: string, containers: any[]) {
+    const normalizedReference = this.normalizeReference(reference);
+    return containers.some((container) => this.normalizeReference(container?.containerNo) === normalizedReference);
   }
 
   private sortMilestones(a: any, b: any) {
@@ -657,7 +794,7 @@ export class TrackingService {
     };
   }
 
-  private resolveContainers(masterJob: any, houseJob: any, booking: any) {
+  private resolveContainers(masterJob: any, houseJobs: any[], booking: any) {
     const containers = new Map<string, any>();
     for (const container of masterJob?.containers || []) {
       containers.set(container.ContainerNumber.toUpperCase(), {
@@ -667,20 +804,46 @@ export class TrackingService {
         packageCount: container.NoOfPkg ?? null,
         weight: this.toNumber(container.GrossWeight),
         volume: this.toNumber(container.Volume),
+        hblNos: [],
+        houseJobSids: [],
+        shipmentNos: [],
+        commodityCount: 0,
+        productWeight: null,
+        productVolume: null,
+        productPackageCount: null,
       });
     }
-    for (const product of houseJob?.Products || []) {
-      if (!product.ContainerNo) continue;
-      const key = product.ContainerNo.toUpperCase();
-      const existing = containers.get(key);
-      containers.set(key, {
-        containerNo: product.ContainerNo,
-        containerType: existing?.containerType || product.masterJobContainer?.containerType?.ContainerName || null,
-        sealNo: existing?.sealNo || product.masterJobContainer?.LineSeal || product.masterJobContainer?.CustomsSeal || null,
-        packageCount: existing?.packageCount ?? this.toNumber(product.ActualQty),
-        weight: existing?.weight ?? this.toNumber(product.GrossWeight),
-        volume: existing?.volume ?? this.toNumber(product.Volume),
-      });
+    for (const houseJob of houseJobs || []) {
+      for (const product of houseJob?.Products || []) {
+        if (!product.ContainerNo) continue;
+        const key = product.ContainerNo.toUpperCase();
+        const existing = containers.get(key) || {
+          containerNo: product.ContainerNo,
+          containerType: product.masterJobContainer?.containerType?.ContainerName || product.masterJobContainer?.containerType?.ContainerCode || null,
+          sealNo: product.masterJobContainer?.LineSeal || product.masterJobContainer?.CustomsSeal || null,
+          packageCount: null,
+          weight: null,
+          volume: null,
+          hblNos: [],
+          houseJobSids: [],
+          shipmentNos: [],
+          commodityCount: 0,
+          productWeight: null,
+          productVolume: null,
+          productPackageCount: null,
+        };
+
+        existing.containerType = existing.containerType || product.masterJobContainer?.containerType?.ContainerName || product.masterJobContainer?.containerType?.ContainerCode || null;
+        existing.sealNo = existing.sealNo || product.masterJobContainer?.LineSeal || product.masterJobContainer?.CustomsSeal || null;
+        existing.productPackageCount = this.addNullable(existing.productPackageCount, this.toNumber(product.ActualQty));
+        existing.productWeight = this.addNullable(existing.productWeight, this.toNumber(product.GrossWeight));
+        existing.productVolume = this.addNullable(existing.productVolume, this.toNumber(product.Volume));
+        existing.commodityCount += 1;
+        if (houseJob?.HBLNo) existing.hblNos.push(houseJob.HBLNo);
+        if (houseJob?.HouseJobSid) existing.houseJobSids.push(houseJob.HouseJobSid);
+        if (houseJob?.ShipmentNo) existing.shipmentNos.push(houseJob.ShipmentNo);
+        containers.set(key, existing);
+      }
     }
     if (!containers.size) {
       for (const cargo of booking?.bookingCargo || []) {
@@ -691,10 +854,50 @@ export class TrackingService {
           packageCount: cargo.NoOfPackage ?? null,
           weight: this.toNumber(cargo.GrossWeight),
           volume: this.toNumber(cargo.Volume),
+          hblNos: [],
+          houseJobSids: [],
+          shipmentNos: [],
+          commodityCount: 1,
         });
       }
     }
-    return Array.from(containers.values());
+    return Array.from(containers.values()).map((container) => {
+      const hblNos = this.uniqueValues(container.hblNos);
+      const houseJobSids = this.uniqueValues(container.houseJobSids);
+      const shipmentNos = this.uniqueValues(container.shipmentNos);
+
+      return {
+        ...container,
+        hblNos,
+        hblNo: this.joinUnique(hblNos),
+        houseJobSids,
+        shipmentNos,
+        packageCount: container.productPackageCount ?? container.packageCount,
+        weight: container.productWeight ?? container.weight,
+        volume: container.productVolume ?? container.volume,
+      };
+    });
+  }
+
+  private resolveHouseJobs(reference: string, houseJob: any, masterJob: any, booking: any) {
+    if (this.isHouseReference(reference, houseJob) && !this.isMasterReference(reference, masterJob)) {
+      return [houseJob].filter(Boolean);
+    }
+
+    const houseJobs = [
+      ...this.toArray(masterJob?.houseJob),
+      ...this.toArray(booking?.houseJob),
+      houseJob,
+    ].filter(Boolean);
+    const seen = new Set<number>();
+
+    return houseJobs.filter((item) => {
+      const sid = Number(item?.HouseJobSid);
+      if (!sid) return true;
+      if (seen.has(sid)) return false;
+      seen.add(sid);
+      return true;
+    });
   }
 
   private resolveLocation(eventName: string, booking: any, houseJob: any, masterJob: any) {
@@ -703,6 +906,200 @@ export class TrackingService {
     if (name.includes('deliver')) return booking?.FPD || houseJob?.FPD || masterJob?.FPD || null;
     if (name.includes('depart') || name.includes('loaded') || name.includes('gate') || name.includes('custom')) return booking?.POL || houseJob?.POL || masterJob?.POL || null;
     return booking?.POO || houseJob?.POO || masterJob?.POO || null;
+  }
+
+  private toArray<T = any>(value: T | T[] | null | undefined): T[] {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  }
+
+  private async resolveTranshipmentChain(booking: any, houseJob: any, context: TrackingContext) {
+    const isTranshipment = String(houseJob?.JobType || booking?.JobType || '').toLowerCase() === 'transhipment';
+    if (!isTranshipment) {
+      return null;
+    }
+
+    const sourceHouseJob = houseJob?.TranshipmentBookingSid
+      ? houseJob
+      : booking?.BookingHeaderSid
+        ? await this.findHouseJobByTranshipmentBookingSid(booking.BookingHeaderSid, context)
+        : null;
+    const linkedBooking = sourceHouseJob?.TranshipmentBookingSid
+      ? await this.findBookingBySid(sourceHouseJob.TranshipmentBookingSid, context)
+      : null;
+    const linkedHouseJob = linkedBooking?.houseJob || null;
+
+    if (!sourceHouseJob || !linkedBooking) {
+      return null;
+    }
+
+    return {
+      sourceHouseJob,
+      sourceBooking: sourceHouseJob.bookingHeader || null,
+      linkedBooking,
+      linkedHouseJob,
+    };
+  }
+
+  private resolveVoyageInfo(booking: any, houseJob: any, masterJob: any, houseJobs: any[], transhipmentChain?: any) {
+    const transhipmentLegs = this.resolveTranshipmentVoyageLegs(transhipmentChain);
+    if (transhipmentLegs.length > 1) {
+      const primaryLeg = transhipmentLegs[0];
+
+      return {
+        vesselVoyage: this.formatVesselVoyage(primaryLeg.vesselName, primaryLeg.voyageNo),
+        vesselName: primaryLeg.vesselName || null,
+        voyageNo: primaryLeg.voyageNo || null,
+        etd: primaryLeg.etd || null,
+        eta: transhipmentLegs[transhipmentLegs.length - 1]?.eta || primaryLeg.eta || null,
+        atd: primaryLeg.atd || null,
+        ata: transhipmentLegs[transhipmentLegs.length - 1]?.ata || primaryLeg.ata || null,
+        voyageLegs: transhipmentLegs,
+      };
+    }
+
+    const masterVoyageLegs = (masterJob?.voyages || [])
+      .map((voyage, index) => this.mapVoyageLeg(voyage, index + 1, houseJobs))
+      .filter((leg) => leg.vesselName || leg.voyageNo || leg.etd || leg.eta || leg.atd || leg.ata);
+    const fallbackHouseJobs = houseJobs?.length ? houseJobs : [houseJob].filter(Boolean);
+    const fallbackLegs = fallbackHouseJobs
+      .map((item, index) => this.mapHouseVoyageLeg(item, booking, index + 1))
+      .filter((leg) => leg.vesselName || leg.voyageNo || leg.etd || leg.eta);
+    const voyageLegs = this.mergeVoyageLegs(masterVoyageLegs.length ? masterVoyageLegs : fallbackLegs);
+    const primaryLeg =
+      voyageLegs.find((leg) => leg.atd || leg.etd || leg.ata || leg.eta || leg.vesselName || leg.voyageNo) ||
+      this.mapHouseVoyageLeg(houseJob, booking, 1);
+
+    return {
+      vesselVoyage: this.formatVesselVoyage(primaryLeg.vesselName, primaryLeg.voyageNo),
+      vesselName: primaryLeg.vesselName || null,
+      voyageNo: primaryLeg.voyageNo || null,
+      etd: primaryLeg.etd || null,
+      eta: primaryLeg.eta || null,
+      atd: primaryLeg.atd || null,
+      ata: primaryLeg.ata || null,
+      voyageLegs,
+    };
+  }
+
+  private resolveTranshipmentVoyageLegs(chain: any) {
+    if (!chain) return [];
+
+    return [
+      this.mapTranshipmentLeg(
+        chain.sourceHouseJob,
+        chain.sourceBooking,
+        chain.sourceHouseJob?.masterJob,
+        1,
+        'First Leg',
+      ),
+      this.mapTranshipmentLeg(
+        chain.linkedHouseJob,
+        chain.linkedBooking,
+        chain.linkedHouseJob?.masterJob,
+        2,
+        'Final Leg',
+      ),
+    ].filter((leg) => leg.vesselName || leg.voyageNo || leg.etd || leg.eta || leg.pol || leg.pod);
+  }
+
+  private mapTranshipmentLeg(houseJob: any, booking: any, masterJob: any, sequence: number, legType: string) {
+    const masterVoyage = masterJob?.voyages?.[0];
+    const vesselName = masterVoyage?.VesselName || houseJob?.VesselName || booking?.VesselName || null;
+    const voyageNo = masterVoyage?.VoyageNo || houseJob?.VoyageNo || booking?.VoyageNo || null;
+
+    return {
+      sequence,
+      legType,
+      pol: houseJob?.POL || booking?.POL || masterJob?.POL || null,
+      pod: houseJob?.POD || booking?.POD || masterJob?.POD || null,
+      hblNos: this.uniqueValues([houseJob?.HBLNo || booking?.HBLNo]),
+      shipmentNos: this.uniqueValues([houseJob?.ShipmentNo || booking?.ShipmentNo]),
+      vesselVoyage: this.formatVesselVoyage(vesselName, voyageNo),
+      vesselName,
+      voyageNo,
+      etd: masterVoyage?.ETD || houseJob?.ETD || booking?.ETD || null,
+      eta: masterVoyage?.ETA || houseJob?.ETA || booking?.ETA || null,
+      atd: masterVoyage?.ATD || null,
+      ata: masterVoyage?.ATA || masterVoyage?.DestinationATA || null,
+    };
+  }
+
+  private mapVoyageLeg(voyage: any, sequence: number, houseJobs: any[]) {
+    return {
+      sequence,
+      hblNos: this.uniqueValues((houseJobs || []).map((item) => item?.HBLNo)),
+      shipmentNos: this.uniqueValues((houseJobs || []).map((item) => item?.ShipmentNo)),
+      vesselVoyage: this.formatVesselVoyage(voyage?.VesselName, voyage?.VoyageNo),
+      vesselName: voyage?.VesselName || null,
+      voyageNo: voyage?.VoyageNo || null,
+      etd: voyage?.ETD || null,
+      eta: voyage?.ETA || null,
+      atd: voyage?.ATD || null,
+      ata: voyage?.ATA || voyage?.DestinationATA || null,
+    };
+  }
+
+  private mapHouseVoyageLeg(houseJob: any, booking: any, sequence: number) {
+    return {
+      sequence,
+      hblNos: this.uniqueValues([houseJob?.HBLNo || booking?.HBLNo]),
+      shipmentNos: this.uniqueValues([houseJob?.ShipmentNo || booking?.ShipmentNo]),
+      vesselVoyage: this.formatVesselVoyage(
+        houseJob?.VesselName || booking?.VesselName,
+        houseJob?.VoyageNo || booking?.VoyageNo,
+      ),
+      vesselName: houseJob?.VesselName || booking?.VesselName || null,
+      voyageNo: houseJob?.VoyageNo || booking?.VoyageNo || null,
+      etd: houseJob?.ETD || booking?.ETD || null,
+      eta: houseJob?.ETA || booking?.ETA || null,
+      atd: null,
+      ata: null,
+    };
+  }
+
+  private mergeVoyageLegs(legs: any[]) {
+    const merged = new Map<string, any>();
+    for (const leg of legs || []) {
+      const key = [
+        this.normalizeReference(leg?.vesselName),
+        this.normalizeReference(leg?.voyageNo),
+        this.normalizeReference(leg?.etd),
+        this.normalizeReference(leg?.eta),
+        this.normalizeReference(leg?.atd),
+        this.normalizeReference(leg?.ata),
+      ].join('|');
+      const existing = merged.get(key);
+      if (existing) {
+        existing.hblNos = this.uniqueValues([...(existing.hblNos || []), ...(leg.hblNos || [])]);
+        existing.shipmentNos = this.uniqueValues([...(existing.shipmentNos || []), ...(leg.shipmentNos || [])]);
+      } else {
+        merged.set(key, { ...leg, sequence: merged.size + 1 });
+      }
+    }
+
+    return Array.from(merged.values());
+  }
+
+  private formatVesselVoyage(vesselName: any, voyageNo: any) {
+    return [vesselName, voyageNo].filter(Boolean).join(' / ') || null;
+  }
+
+  private resolveTransportMode(departmentMaster: any): 'AIR' | 'SEA' | 'ROAD' | 'OTHER' | null {
+    const type = String(departmentMaster?.departmentType || '').trim().toUpperCase();
+    if (type.includes('AIR')) return 'AIR';
+    if (type.includes('SEA')) return 'SEA';
+    if (type.includes('ROAD') || type.includes('TRANSPORT')) return 'ROAD';
+    return type ? 'OTHER' : null;
+  }
+
+  private findDepartmentMaster(departmentMasterSid?: number | null): Promise<any> {
+    if (!departmentMasterSid) return Promise.resolve(null);
+
+    return this.db.departmentMaster.findFirst({
+      where: { DepartmentMasterSid: departmentMasterSid },
+      select: { departmentName: true, departmentType: true, ExportImport: true, FCLLCL: true },
+    });
   }
 
   private mapBooking(booking: any) {
@@ -788,7 +1185,7 @@ export class TrackingService {
       PortCutoffDate: true,
       createdOn: true,
       updatedOn: true,
-      departmentMaster: { select: { departmentName: true } },
+      departmentMaster: { select: { departmentName: true, departmentType: true, ExportImport: true, FCLLCL: true } },
       bookingOthers: { where: { status: 'A' }, select: { CustomerRefNo: true, CarrierBookingRef: true }, take: 1 },
       bookingCargo: {
         where: { status: 'A' },
@@ -825,9 +1222,10 @@ export class TrackingService {
       ETD: true,
       ETA: true,
       HouseStatus: true,
+      TranshipmentBookingSid: true,
       createdOn: true,
       updatedOn: true,
-      departmentMaster: { select: { departmentName: true } },
+      departmentMaster: { select: { departmentName: true, departmentType: true, ExportImport: true, FCLLCL: true } },
       ...(includeBooking ? { bookingHeader: { select: this.bookingSelectWithoutHouse() } } : {}),
       masterJob: { select: this.masterJobSelect(false) },
       Products: {
@@ -863,6 +1261,7 @@ export class TrackingService {
       MasterJobSid: true,
       MasterJobNumber: true,
       MBLNo: true,
+      DepartmentMasterSid: true,
       POO: true,
       POL: true,
       POD: true,
@@ -893,7 +1292,6 @@ export class TrackingService {
         ? {
             houseJob: {
               where: { status: 'A', ...this.customerContextWhere(context) },
-              take: 1,
               select: this.houseJobSelect(true),
             },
           }
@@ -954,10 +1352,23 @@ export class TrackingService {
     return values.filter((value, index, array) => value && array.indexOf(value) === index);
   }
 
+  private uniqueValues(values: any[]) {
+    return [...new Set((values || []).filter((value) => value !== null && value !== undefined && value !== ''))];
+  }
+
+  private joinUnique(values: any[]) {
+    return this.uniqueValues(values).join(', ');
+  }
+
   private toNumber(value: any): number | null {
     if (value === null || value === undefined || value === '') return null;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  private addNullable(current: number | null, next: number | null) {
+    if (current === null && next === null) return null;
+    return (current || 0) + (next || 0);
   }
 
   private formatTime(date: any): string | null {
