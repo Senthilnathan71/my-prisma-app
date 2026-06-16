@@ -109,12 +109,24 @@ export class TrackingService {
       resolvedMasterJob,
       containers,
     );
+    const transhipmentChain = await this.resolveTranshipmentChain(
+      resolvedBooking,
+      resolvedHouseJob,
+      trackingContext,
+    );
     const voyageInfo = this.resolveVoyageInfo(
       resolvedBooking,
       resolvedHouseJob,
       resolvedMasterJob,
       resolvedHouseJobs,
+      transhipmentChain,
     );
+    const departmentMaster =
+      resolvedHouseJob?.departmentMaster ||
+      resolvedBooking?.departmentMaster ||
+      (await this.findDepartmentMaster(resolvedMasterJob?.DepartmentMasterSid)) ||
+      null;
+    const transportMode = this.resolveTransportMode(departmentMaster);
 
     return {
       shipmentInfo: {
@@ -133,9 +145,12 @@ export class TrackingService {
           null,
         shipmentStatus: currentStatus.label,
         department:
-          resolvedHouseJob?.departmentMaster?.departmentName ||
-          resolvedBooking?.departmentMaster?.departmentName ||
+          departmentMaster?.departmentName ||
           null,
+        departmentType: departmentMaster?.departmentType || null,
+        transportMode,
+        segment: departmentMaster?.FCLLCL || null,
+        exportImport: departmentMaster?.ExportImport || null,
         jobType:
           resolvedHouseJob?.JobType ||
           resolvedBooking?.JobType ||
@@ -291,6 +306,28 @@ export class TrackingService {
         ...this.companyContextWhere(context),
       },
       select: this.masterJobSelect(true, context),
+    });
+  }
+
+  private findBookingBySid(bookingHeaderSid: number, context: TrackingContext): Promise<any> {
+    return this.db.bookingHeader.findFirst({
+      where: {
+        BookingHeaderSid: bookingHeaderSid,
+        status: 'A',
+        ...this.customerContextWhere(context),
+      },
+      select: this.bookingSelect(),
+    });
+  }
+
+  private findHouseJobByTranshipmentBookingSid(bookingHeaderSid: number, context: TrackingContext): Promise<any> {
+    return this.db.houseJob.findFirst({
+      where: {
+        TranshipmentBookingSid: bookingHeaderSid,
+        status: 'A',
+        ...this.customerContextWhere(context),
+      },
+      select: this.houseJobSelect(true),
     });
   }
 
@@ -876,7 +913,51 @@ export class TrackingService {
     return Array.isArray(value) ? value : [value];
   }
 
-  private resolveVoyageInfo(booking: any, houseJob: any, masterJob: any, houseJobs: any[]) {
+  private async resolveTranshipmentChain(booking: any, houseJob: any, context: TrackingContext) {
+    const isTranshipment = String(houseJob?.JobType || booking?.JobType || '').toLowerCase() === 'transhipment';
+    if (!isTranshipment) {
+      return null;
+    }
+
+    const sourceHouseJob = houseJob?.TranshipmentBookingSid
+      ? houseJob
+      : booking?.BookingHeaderSid
+        ? await this.findHouseJobByTranshipmentBookingSid(booking.BookingHeaderSid, context)
+        : null;
+    const linkedBooking = sourceHouseJob?.TranshipmentBookingSid
+      ? await this.findBookingBySid(sourceHouseJob.TranshipmentBookingSid, context)
+      : null;
+    const linkedHouseJob = linkedBooking?.houseJob || null;
+
+    if (!sourceHouseJob || !linkedBooking) {
+      return null;
+    }
+
+    return {
+      sourceHouseJob,
+      sourceBooking: sourceHouseJob.bookingHeader || null,
+      linkedBooking,
+      linkedHouseJob,
+    };
+  }
+
+  private resolveVoyageInfo(booking: any, houseJob: any, masterJob: any, houseJobs: any[], transhipmentChain?: any) {
+    const transhipmentLegs = this.resolveTranshipmentVoyageLegs(transhipmentChain);
+    if (transhipmentLegs.length > 1) {
+      const primaryLeg = transhipmentLegs[0];
+
+      return {
+        vesselVoyage: this.formatVesselVoyage(primaryLeg.vesselName, primaryLeg.voyageNo),
+        vesselName: primaryLeg.vesselName || null,
+        voyageNo: primaryLeg.voyageNo || null,
+        etd: primaryLeg.etd || null,
+        eta: transhipmentLegs[transhipmentLegs.length - 1]?.eta || primaryLeg.eta || null,
+        atd: primaryLeg.atd || null,
+        ata: transhipmentLegs[transhipmentLegs.length - 1]?.ata || primaryLeg.ata || null,
+        voyageLegs: transhipmentLegs,
+      };
+    }
+
     const masterVoyageLegs = (masterJob?.voyages || [])
       .map((voyage, index) => this.mapVoyageLeg(voyage, index + 1, houseJobs))
       .filter((leg) => leg.vesselName || leg.voyageNo || leg.etd || leg.eta || leg.atd || leg.ata);
@@ -898,6 +979,49 @@ export class TrackingService {
       atd: primaryLeg.atd || null,
       ata: primaryLeg.ata || null,
       voyageLegs,
+    };
+  }
+
+  private resolveTranshipmentVoyageLegs(chain: any) {
+    if (!chain) return [];
+
+    return [
+      this.mapTranshipmentLeg(
+        chain.sourceHouseJob,
+        chain.sourceBooking,
+        chain.sourceHouseJob?.masterJob,
+        1,
+        'First Leg',
+      ),
+      this.mapTranshipmentLeg(
+        chain.linkedHouseJob,
+        chain.linkedBooking,
+        chain.linkedHouseJob?.masterJob,
+        2,
+        'Final Leg',
+      ),
+    ].filter((leg) => leg.vesselName || leg.voyageNo || leg.etd || leg.eta || leg.pol || leg.pod);
+  }
+
+  private mapTranshipmentLeg(houseJob: any, booking: any, masterJob: any, sequence: number, legType: string) {
+    const masterVoyage = masterJob?.voyages?.[0];
+    const vesselName = masterVoyage?.VesselName || houseJob?.VesselName || booking?.VesselName || null;
+    const voyageNo = masterVoyage?.VoyageNo || houseJob?.VoyageNo || booking?.VoyageNo || null;
+
+    return {
+      sequence,
+      legType,
+      pol: houseJob?.POL || booking?.POL || masterJob?.POL || null,
+      pod: houseJob?.POD || booking?.POD || masterJob?.POD || null,
+      hblNos: this.uniqueValues([houseJob?.HBLNo || booking?.HBLNo]),
+      shipmentNos: this.uniqueValues([houseJob?.ShipmentNo || booking?.ShipmentNo]),
+      vesselVoyage: this.formatVesselVoyage(vesselName, voyageNo),
+      vesselName,
+      voyageNo,
+      etd: masterVoyage?.ETD || houseJob?.ETD || booking?.ETD || null,
+      eta: masterVoyage?.ETA || houseJob?.ETA || booking?.ETA || null,
+      atd: masterVoyage?.ATD || null,
+      ata: masterVoyage?.ATA || masterVoyage?.DestinationATA || null,
     };
   }
 
@@ -959,6 +1083,23 @@ export class TrackingService {
 
   private formatVesselVoyage(vesselName: any, voyageNo: any) {
     return [vesselName, voyageNo].filter(Boolean).join(' / ') || null;
+  }
+
+  private resolveTransportMode(departmentMaster: any): 'AIR' | 'SEA' | 'ROAD' | 'OTHER' | null {
+    const type = String(departmentMaster?.departmentType || '').trim().toUpperCase();
+    if (type.includes('AIR')) return 'AIR';
+    if (type.includes('SEA')) return 'SEA';
+    if (type.includes('ROAD') || type.includes('TRANSPORT')) return 'ROAD';
+    return type ? 'OTHER' : null;
+  }
+
+  private findDepartmentMaster(departmentMasterSid?: number | null): Promise<any> {
+    if (!departmentMasterSid) return Promise.resolve(null);
+
+    return this.db.departmentMaster.findFirst({
+      where: { DepartmentMasterSid: departmentMasterSid },
+      select: { departmentName: true, departmentType: true, ExportImport: true, FCLLCL: true },
+    });
   }
 
   private mapBooking(booking: any) {
@@ -1044,7 +1185,7 @@ export class TrackingService {
       PortCutoffDate: true,
       createdOn: true,
       updatedOn: true,
-      departmentMaster: { select: { departmentName: true } },
+      departmentMaster: { select: { departmentName: true, departmentType: true, ExportImport: true, FCLLCL: true } },
       bookingOthers: { where: { status: 'A' }, select: { CustomerRefNo: true, CarrierBookingRef: true }, take: 1 },
       bookingCargo: {
         where: { status: 'A' },
@@ -1081,9 +1222,10 @@ export class TrackingService {
       ETD: true,
       ETA: true,
       HouseStatus: true,
+      TranshipmentBookingSid: true,
       createdOn: true,
       updatedOn: true,
-      departmentMaster: { select: { departmentName: true } },
+      departmentMaster: { select: { departmentName: true, departmentType: true, ExportImport: true, FCLLCL: true } },
       ...(includeBooking ? { bookingHeader: { select: this.bookingSelectWithoutHouse() } } : {}),
       masterJob: { select: this.masterJobSelect(false) },
       Products: {
@@ -1119,6 +1261,7 @@ export class TrackingService {
       MasterJobSid: true,
       MasterJobNumber: true,
       MBLNo: true,
+      DepartmentMasterSid: true,
       POO: true,
       POL: true,
       POD: true,
