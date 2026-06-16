@@ -3905,24 +3905,25 @@ export class OperationReportsService {
         select: { MenuMasterSid: true, MenuName: true },
       });
 
+      const normalizeMenuName = (menuName: string) =>
+        menuName.toLowerCase().replace(/\s+/g, ' ').trim();
+
       const allMasterMenuSids = profitSummaryMenus
         .filter((m) => {
-          const menuName = m.MenuName.toLowerCase();
-          return (
-            menuName === 'master job' || menuName.includes('master air way')
-          );
+          const menuName = normalizeMenuName(m.MenuName);
+          return menuName === 'master job' || menuName === 'master air way';
         })
         .map((m) => m.MenuMasterSid);
 
       const allHouseMenuSids = profitSummaryMenus
         .filter((m) => {
-          const menuName = m.MenuName.toLowerCase();
+          const menuName = normalizeMenuName(m.MenuName);
           return (
             menuName === 'house job' ||
             menuName === 'service job' ||
-            menuName.includes('house air way') ||
-            menuName.includes('agent master air way') ||
-            menuName.includes('agentmaster air way')
+            menuName === 'house air way' ||
+            menuName === 'agent master air way' ||
+            menuName === 'agentmaster air way'
           );
         })
         .map((m) => m.MenuMasterSid);
@@ -4190,9 +4191,8 @@ export class OperationReportsService {
                 DestinationAgent: customer.find(
                   (d) => d.CustomerMasterSid === hj.DestinationAgent,
                 )?.CustomerName,
-                ModeOfTransport: mj.houseJob
-                  ?.flatMap(h => h.Cargo ?? [])
-                  .map(c => c?.ModeOfTransport)
+                ModeOfTransport: hj.Cargo
+                  ?.map(c => c?.ModeOfTransport)
                   .filter(Boolean)
                   .join(', ') || '',
                 salesPerson: user.find(
@@ -4201,6 +4201,8 @@ export class OperationReportsService {
                 PPCC: hj.FreightTerms,
                 POO: hj.POO,
                 FPD: hj.FPD,
+                POL: hj.POL,
+                POD: hj.POD,
                 costRevenues: {
                   totalNoOfCostRevenues: houseCR.length + houseProrate.count,
                   linkedRevenueRecords: linkedRevH.map(
@@ -8068,6 +8070,24 @@ export class OperationReportsService {
         ? branches.map((b) => b.branchName).join(', ')
         : 'All Branches';
 
+        const packageTypes = await this._db.uOMMaster.findMany({
+          where: {
+            status: 'A',
+          },
+          select: {
+            UOMMasterSid: true,
+            UOMCode: true,
+            UOMName: true,
+          },
+        });
+
+        const packageTypeMap = new Map(
+          packageTypes.map((pkg) => [
+            pkg.UOMMasterSid,
+            pkg.UOMCode || pkg.UOMName,
+          ]),
+        );
+
         const housedata = await this._db.houseJob.findMany({
           where: {
             status: 'A',
@@ -8077,9 +8097,40 @@ export class OperationReportsService {
               { HBLDate: { gte: FromDate } },
               { HBLDate: { lte: ToDate } },
             ],
+            JobType: 'Import',
           },
           include:{
-            masterJob:true
+            masterJob: {
+              select: {
+                MBLNo: true,
+                MasterJobNumber: true,
+              },
+            },
+            Cargo: {
+              where: {
+                status: 'A',
+              },
+              select: {
+                HouseJobCargoSid: true,
+                NoOfPackage: true,
+                PackageType: true,
+                GrossWeight: true,
+                Volume: true,
+              },
+            },
+            Products: {
+              where: {
+                status: 'A',
+              },
+              select: {
+                HouseJobCargoSid: true,
+                ContainerNo: true,
+                ExternaPkg: true,
+                ExternlQty: true,
+                GrossWeight: true,
+                Volume: true,
+              },
+            },
           },
           orderBy: {
             HBLDate:'asc'
@@ -8087,22 +8138,74 @@ export class OperationReportsService {
         });
 
         const data = housedata.map((h) => {
+          const containerNumbers = Array.from(
+            new Set(
+              h.Products.map((product) => product.ContainerNo?.trim()).filter(
+                Boolean,
+              ),
+            ),
+          ).join(', ');
+
+          const packageCountFromCargo = h.Cargo.reduce(
+            (sum, cargo) => sum + toNumber(cargo.NoOfPackage),
+            0,
+          );
+          const packageCountFromProducts = h.Products.reduce(
+            (sum, product) => sum + toNumber(product.ExternlQty),
+            0,
+          );
+          const grossWeightFromCargo = h.Cargo.reduce(
+            (sum, cargo) => sum + toNumber(cargo.GrossWeight),
+            0,
+          );
+          const grossWeightFromProducts = h.Products.reduce(
+            (sum, product) => sum + toNumber(product.GrossWeight),
+            0,
+          );
+          const volumeFromCargo = h.Cargo.reduce(
+            (sum, cargo) => sum + toNumber(cargo.Volume),
+            0,
+          );
+          const volumeFromProducts = h.Products.reduce(
+            (sum, product) => sum + toNumber(product.Volume),
+            0,
+          );
+
+          const packageTypes = [
+            ...h.Cargo.map((cargo) =>
+              cargo.PackageType ? packageTypeMap.get(cargo.PackageType) : null,
+            ),
+            ...h.Products.map((product) => product.ExternaPkg?.trim()),
+          ]
+            .filter(Boolean)
+            .join(', ');
+
           return {
-            HBLDate:h.HBLDate,
-            HBLNo:h.HBLNo,
-            MBLNo:h.masterJob?.MBLNo,
-            POL:h.POL,
-            POD:h.POD,
-            FPD:h.FPD,
-            consigneeName:h.ConsigneeName,
-            notify:h.Notify
+            DwellPeriod: null,
+            HBLDate: h.HBLDate,
+            HouseJobSid: h.HouseJobSid,
+            HBLNo: h.HBLNo,
+            MBLNo: h.masterJob?.MBLNo,
+            FPD: h.FPD,
+            OriginAgent: h.AgentName,
+            ETA: h.ETA,
+            ContainerNo: containerNumbers || null,
+            VesselArrivalDate: h.ETA,
+            FreeDays: null,
+            StorageFrom: null,
+            Pkgs: packageCountFromProducts || null,
+            PkgType: packageTypes || null,
+            Weight: grossWeightFromCargo || null,
+            Volume: volumeFromCargo ||  null,
+            FinalDestination: h.FPD,
           };
         });
         
         return {
           params,
           data,
-          branchInvolved
+          branchInvolved,
+          branchNames: resolvedBranchNames.join(', '),
         };
         }catch(error){
           throw error;

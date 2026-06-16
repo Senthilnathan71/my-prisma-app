@@ -3866,6 +3866,8 @@ export class AccountsReportsService {
                 )?.userName,
                 PPCC: hj.FreightTerms,
                 POO: hj.POO,
+                POL: hj.POL,
+                POD: hj.POD,
                 FPD: hj.FPD,
                 costRevenues: {
                   totalNoOfCostRevenues: houseCR.length + houseProrate.count,
