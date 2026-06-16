@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { Prisma, UserTypeCode } from '@prisma/client';
 import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -228,11 +228,16 @@ export class FfUserMasterService {
         }
     }
 
-    async fetchFfUserById(UserMasterSid: number) {
+    async fetchFfUserById(UserMasterSid: number,CompanyMasterSid: number) {
         try {
             const ourFfUser = await this._db.userMaster.findUnique({
                 where: {
-                    UserMasterSid: UserMasterSid
+                    UserMasterSid: UserMasterSid,
+                    userCompanyMaster:{
+                        some: {
+                            CompanyMasterSid: CompanyMasterSid
+                        }
+                    }
                 },
                 omit: {
                     userPassword: true
@@ -260,7 +265,7 @@ export class FfUserMasterService {
                 }
             })
             if (!ourFfUser) {
-                throw new BadRequestException(`User with Id : ${UserMasterSid} not exists`);
+                throw new UnauthorizedException(`Access denied.`);
             }
 
             const attemptRows = await this._db.$queryRaw<{ AttemptDateTime: Date | null }[]>`

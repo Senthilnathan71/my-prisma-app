@@ -165,15 +165,15 @@ export class FfUserMasterController {
         type: ResponseData
     })
     @HttpCode(HttpStatus.OK)
-    @Get('fetch/:UserMasterSid')
-    async getUserById(@Param('UserMasterSid', ParseIntPipe) UserMasterSid: number) {
+    @Post('fetch')
+    async getUserById(@Body() payload:any ) {
         let resp = new ResponseData();
         try {
-            this.logger.log(`Getting User with id : ${UserMasterSid}`);
-            let res = await this.ffUserMasterService.fetchFfUserById(UserMasterSid);
+            this.logger.log(`Getting User with id : ${payload.UserMasterSid}`);
+            let res = await this.ffUserMasterService.fetchFfUserById(payload.UserMasterSid,payload.CompanyMasterSid);
             this.logger.debug(`Fetched ffUser : ${JSON.stringify(res)}`);
             resp.data = res;
-            resp.message = `User with id : ${UserMasterSid} is successfully fetched`;
+            resp.message = `User with id : ${payload.UserMasterSid} is successfully fetched`;
         } catch (error) {
             this.logger.warn(`Get User by Id Error : ${JSON.stringify(error), error}`);
             resp.status = false;
