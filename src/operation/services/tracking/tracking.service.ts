@@ -109,6 +109,12 @@ export class TrackingService {
       resolvedMasterJob,
       containers,
     );
+    const voyageInfo = this.resolveVoyageInfo(
+      resolvedBooking,
+      resolvedHouseJob,
+      resolvedMasterJob,
+      resolvedHouseJobs,
+    );
 
     return {
       shipmentInfo: {
@@ -143,16 +149,14 @@ export class TrackingService {
           resolvedMasterJob?.MovementType ||
           null,
         customerName: resolvedHouseJob?.CustomerName || resolvedBooking?.CustomerName || null,
-        vesselName:
-          resolvedHouseJob?.VesselName ||
-          resolvedBooking?.VesselName ||
-          resolvedMasterJob?.voyages?.[0]?.VesselName ||
-          null,
-        voyageNo:
-          resolvedHouseJob?.VoyageNo ||
-          resolvedBooking?.VoyageNo ||
-          resolvedMasterJob?.voyages?.[0]?.VoyageNo ||
-          null,
+        vesselVoyage: voyageInfo.vesselVoyage,
+        vesselName: voyageInfo.vesselName,
+        voyageNo: voyageInfo.voyageNo,
+        etd: voyageInfo.etd,
+        eta: voyageInfo.eta,
+        atd: voyageInfo.atd,
+        ata: voyageInfo.ata,
+        voyageLegs: voyageInfo.voyageLegs,
       },
       routeInfo: {
         origin: resolvedHouseJob?.POO || resolvedBooking?.POO || resolvedMasterJob?.POO || null,
@@ -844,8 +848,8 @@ export class TrackingService {
     }
 
     const houseJobs = [
-      ...(masterJob?.houseJob || []),
-      ...(booking?.houseJob || []),
+      ...this.toArray(masterJob?.houseJob),
+      ...this.toArray(booking?.houseJob),
       houseJob,
     ].filter(Boolean);
     const seen = new Set<number>();
@@ -865,6 +869,96 @@ export class TrackingService {
     if (name.includes('deliver')) return booking?.FPD || houseJob?.FPD || masterJob?.FPD || null;
     if (name.includes('depart') || name.includes('loaded') || name.includes('gate') || name.includes('custom')) return booking?.POL || houseJob?.POL || masterJob?.POL || null;
     return booking?.POO || houseJob?.POO || masterJob?.POO || null;
+  }
+
+  private toArray<T = any>(value: T | T[] | null | undefined): T[] {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  }
+
+  private resolveVoyageInfo(booking: any, houseJob: any, masterJob: any, houseJobs: any[]) {
+    const masterVoyageLegs = (masterJob?.voyages || [])
+      .map((voyage, index) => this.mapVoyageLeg(voyage, index + 1, houseJobs))
+      .filter((leg) => leg.vesselName || leg.voyageNo || leg.etd || leg.eta || leg.atd || leg.ata);
+    const fallbackHouseJobs = houseJobs?.length ? houseJobs : [houseJob].filter(Boolean);
+    const fallbackLegs = fallbackHouseJobs
+      .map((item, index) => this.mapHouseVoyageLeg(item, booking, index + 1))
+      .filter((leg) => leg.vesselName || leg.voyageNo || leg.etd || leg.eta);
+    const voyageLegs = this.mergeVoyageLegs(masterVoyageLegs.length ? masterVoyageLegs : fallbackLegs);
+    const primaryLeg =
+      voyageLegs.find((leg) => leg.atd || leg.etd || leg.ata || leg.eta || leg.vesselName || leg.voyageNo) ||
+      this.mapHouseVoyageLeg(houseJob, booking, 1);
+
+    return {
+      vesselVoyage: this.formatVesselVoyage(primaryLeg.vesselName, primaryLeg.voyageNo),
+      vesselName: primaryLeg.vesselName || null,
+      voyageNo: primaryLeg.voyageNo || null,
+      etd: primaryLeg.etd || null,
+      eta: primaryLeg.eta || null,
+      atd: primaryLeg.atd || null,
+      ata: primaryLeg.ata || null,
+      voyageLegs,
+    };
+  }
+
+  private mapVoyageLeg(voyage: any, sequence: number, houseJobs: any[]) {
+    return {
+      sequence,
+      hblNos: this.uniqueValues((houseJobs || []).map((item) => item?.HBLNo)),
+      shipmentNos: this.uniqueValues((houseJobs || []).map((item) => item?.ShipmentNo)),
+      vesselVoyage: this.formatVesselVoyage(voyage?.VesselName, voyage?.VoyageNo),
+      vesselName: voyage?.VesselName || null,
+      voyageNo: voyage?.VoyageNo || null,
+      etd: voyage?.ETD || null,
+      eta: voyage?.ETA || null,
+      atd: voyage?.ATD || null,
+      ata: voyage?.ATA || voyage?.DestinationATA || null,
+    };
+  }
+
+  private mapHouseVoyageLeg(houseJob: any, booking: any, sequence: number) {
+    return {
+      sequence,
+      hblNos: this.uniqueValues([houseJob?.HBLNo || booking?.HBLNo]),
+      shipmentNos: this.uniqueValues([houseJob?.ShipmentNo || booking?.ShipmentNo]),
+      vesselVoyage: this.formatVesselVoyage(
+        houseJob?.VesselName || booking?.VesselName,
+        houseJob?.VoyageNo || booking?.VoyageNo,
+      ),
+      vesselName: houseJob?.VesselName || booking?.VesselName || null,
+      voyageNo: houseJob?.VoyageNo || booking?.VoyageNo || null,
+      etd: houseJob?.ETD || booking?.ETD || null,
+      eta: houseJob?.ETA || booking?.ETA || null,
+      atd: null,
+      ata: null,
+    };
+  }
+
+  private mergeVoyageLegs(legs: any[]) {
+    const merged = new Map<string, any>();
+    for (const leg of legs || []) {
+      const key = [
+        this.normalizeReference(leg?.vesselName),
+        this.normalizeReference(leg?.voyageNo),
+        this.normalizeReference(leg?.etd),
+        this.normalizeReference(leg?.eta),
+        this.normalizeReference(leg?.atd),
+        this.normalizeReference(leg?.ata),
+      ].join('|');
+      const existing = merged.get(key);
+      if (existing) {
+        existing.hblNos = this.uniqueValues([...(existing.hblNos || []), ...(leg.hblNos || [])]);
+        existing.shipmentNos = this.uniqueValues([...(existing.shipmentNos || []), ...(leg.shipmentNos || [])]);
+      } else {
+        merged.set(key, { ...leg, sequence: merged.size + 1 });
+      }
+    }
+
+    return Array.from(merged.values());
+  }
+
+  private formatVesselVoyage(vesselName: any, voyageNo: any) {
+    return [vesselName, voyageNo].filter(Boolean).join(' / ') || null;
   }
 
   private mapBooking(booking: any) {
