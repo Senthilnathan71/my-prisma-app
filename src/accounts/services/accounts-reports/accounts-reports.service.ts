@@ -2963,6 +2963,7 @@ export class AccountsReportsService {
           VoucherHeader: {
             select: {
               PostStatus: true,
+              BankPartyName:true
             },
           },
           masterJob: true,
@@ -3119,6 +3120,7 @@ export class AccountsReportsService {
           signedOutstandingCurrency: toNumber(signedOutstandingCurrency),
           signedLocalAmt: toNumber(signedLocalAmt),
           signedoutstandingLocalAmount: toNumber(signedoutstandingLocalAmount),
+          partyname : vt?.VoucherHeader?.BankPartyName
         });
 
         totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -3891,8 +3893,15 @@ export class AccountsReportsService {
           voucherMasterSid: v.VoucherTransactionSid,
           voucherDate: v.VoucherDate,
           coaMasterSid: v.COAMasterSid,
-          taxableAmt: v.TaxableAmount,
-          taxAmt: v.LocalAmount,
+          drCr: v.DrCr,
+          taxableAmt:
+          v.DrCr === 'C'
+            ? -Number(v.TaxableAmount || 0)
+            : Number(v.TaxableAmount || 0),
+          taxAmt:
+          v.DrCr === 'C'
+            ? -Number(v.LocalAmount || 0)
+            : Number(v.LocalAmount || 0),
           chargeDescription: v.ChargeDescription,
           ledgerType,
           groupname: v.coaMaster?.GroupName,
@@ -3909,9 +3918,22 @@ export class AccountsReportsService {
         }
       });
 
+      const inputTaxTotals = inputTax.reduce(
+        (sum, item) => {
+          sum.totalTaxableAmt += Number(item.taxableAmt || 0);
+          sum.totalTaxAmt += Number(item.taxAmt || 0);
+          return sum;
+        },
+        {
+          totalTaxableAmt: 0,
+          totalTaxAmt: 0,
+        },
+      );
+
       return {
         params,
         CompanyMasterSid,
+        ...inputTaxTotals,
         data: {
           inputTax,
         },
@@ -4153,10 +4175,17 @@ export class AccountsReportsService {
           subledgerName,
           voucherNo: v.VoucherNumber,
           voucherMasterSid: v.VoucherTransactionSid,
+          drCr:v.DrCr,
           voucherDate: v.VoucherDate,
           coaMasterSid: v.COAMasterSid,
-          taxableAmt: v.TaxableAmount,
-          taxAmt: v.LocalAmount,
+          taxableAmt:
+          v.DrCr === 'C'
+            ? Number(v.TaxableAmount || 0)
+            : -Number(v.TaxableAmount || 0),
+          taxAmt:
+          v.DrCr === 'C'
+            ? Number(v.LocalAmount || 0)
+            : -Number(v.LocalAmount || 0),
           chargeDescription: v.ChargeDescription,
           vocuherType: v.voucherTypeMaster?.DocumentTypeName,
           ledgerType,
@@ -4173,9 +4202,22 @@ export class AccountsReportsService {
         }
       });
 
+      const outputTaxTotals = outputTax.reduce(
+        (sum, item) => {
+          sum.totalTaxableAmt += Number(item.taxableAmt || 0);
+          sum.totalTaxAmt += Number(item.taxAmt || 0);
+          return sum;
+        },
+        {
+          totalTaxableAmt: 0,
+          totalTaxAmt: 0,
+        },
+      );
+
       return {
         params,
         CompanyMasterSid,
+        ...outputTaxTotals,
         data: {
           outputTax,
         },
@@ -4231,56 +4273,7 @@ export class AccountsReportsService {
               select: { UserMasterSid: true, userName: true },
             }),
           ]);
-        const profitSummaryMenus = await this._db.menuMaster.findMany({
-          where: {
-            status: 'A',
-            OR: [
-              { MenuName: { equals: 'Master Job', mode: 'insensitive' } },
-              { MenuName: { contains: 'Master Air Way', mode: 'insensitive' } },
-              { MenuName: { equals: 'House Job', mode: 'insensitive' } },
-              { MenuName: { contains: 'House Air Way', mode: 'insensitive' } },
-              { MenuName: { equals: 'Service Job', mode: 'insensitive' } },
-              {
-                MenuName: {
-                  contains: 'Agent Master Air Way',
-                  mode: 'insensitive',
-                },
-              },
-              {
-                MenuName: { contains: 'AgentMaster Air Way', mode: 'insensitive' },
-              },
-            ],
-          },
-          select: { MenuMasterSid: true, MenuName: true },
-        });
-  
-        const normalizeMenuName = (menuName: string) =>
-          menuName.toLowerCase().replace(/\s+/g, ' ').trim();
-  
-        const allMasterMenuSids = profitSummaryMenus
-          .filter((m) => {
-            const menuName = normalizeMenuName(m.MenuName);
-            return menuName === 'master job' || menuName === 'master air way';
-          })
-          .map((m) => m.MenuMasterSid);
-  
-        const allHouseMenuSids = profitSummaryMenus
-          .filter((m) => {
-            const menuName = normalizeMenuName(m.MenuName);
-            return (
-              menuName === 'house job' ||
-              menuName === 'service job' ||
-              menuName === 'house air way' ||
-              menuName === 'agent master air way' ||
-              menuName === 'agentmaster air way'
-            );
-          })
-          .map((m) => m.MenuMasterSid);
-  
-        if (!allMasterMenuSids.length || !allHouseMenuSids.length) {
-          throw new BadRequestException('Menu not found');
-        }
-  
+        
         /* ===================== MASTER JOBS ===================== */
   
         const masterJob = await this._db.masterJob.findMany({
@@ -4320,73 +4313,82 @@ export class AccountsReportsService {
   
         // ================= COST REVENUE LOAD =================
   
-        // Collect all MasterJob and HouseJob IDs
         const masterJobIds = masterJob.map((mj) => mj.MasterJobSid);
-        const houseJobIds = masterJob.flatMap((mj) =>
-          mj.houseJob.map((hj) => hj.HouseJobSid),
-        );
-  
-        const allMasterCR = await this._db.costRevenueCharges.findMany({
-          where: {
-            status: 'A',
-            MenuMasterSid: { in: allMasterMenuSids },
-            TransactionSid: { in: masterJobIds },
-            CompanyMasterSid : CompanyMasterSid,
-            BranchMasterSid : { in: allBranchIds },
-          },
-          select: {
-            TransactionSid: true,
-            MenuMasterSid: true,
-            CostRevenueChargesSid: true,
-            RevenueVoucherHeaderSid: true,
-            RevenueDrCr: true,
-            RevenueLocalAmount: true,
-            CostVoucherHeaderSid: true,
-            CostDrCr: true,
-            CostLocalAmount: true,
-          },
-        });
+        const costRevenueBatch = masterJob
+          .filter((mj) => mj.MenuMasterSid != null)
+          .map((mj) => {
+            return this._db.costRevenueCharges.findMany({
+              where: {
+                status: 'A',
+                TransactionSid: mj.MasterJobSid,
+                MenuMasterSid: mj.MenuMasterSid!,
+                CompanyMasterSid: CompanyMasterSid,
+                BranchMasterSid: { in: allBranchIds },
+              },
+              select: {
+                TransactionSid: true,
+                MenuMasterSid: true,
+                CostRevenueChargesSid: true,
+                RevenueVoucherHeaderSid: true,
+                RevenueDrCr: true,
+                RevenueLocalAmount: true,
+                CostVoucherHeaderSid: true,
+                CostDrCr: true,
+                CostLocalAmount: true,
+              },
+            });
+          });
+
+        const allMasterJobCostRevenue = await Promise.all(costRevenueBatch);
+
+        const houseJobs = masterJob.flatMap((mj) => mj.houseJob || []);
+        const houseCostRevenueBatch = houseJobs
+          .filter((hj) => hj.MenuMasterSid != null)
+          .map((hj) => {
+            return this._db.costRevenueCharges.findMany({
+              where: {
+                status: 'A',
+                TransactionSid: hj.HouseJobSid,
+                MenuMasterSid: hj.MenuMasterSid!,
+                CompanyMasterSid: CompanyMasterSid,
+                BranchMasterSid: { in: allBranchIds },
+              },
+              select: {
+                TransactionSid: true,
+                MenuMasterSid: true,
+                CostRevenueChargesSid: true,
+                RevenueVoucherHeaderSid: true,
+                RevenueDrCr: true,
+                RevenueLocalAmount: true,
+                CostVoucherHeaderSid: true,
+                CostDrCr: true,
+                CostLocalAmount: true,
+              },
+            });
+          });
+
+        const allHouseJobCostRevenue = await Promise.all(houseCostRevenueBatch);
   
         // Create Maps for quick lookup
         const masterCRMap = new Map<number, any[]>();
         const houseCRMap = new Map<number, any[]>();
-        const masterMenuSet = new Set(allMasterMenuSids);
-  
-        allMasterCR.forEach((cr) => {
-          const key = cr.TransactionSid!;
-          if (masterMenuSet.has(cr.MenuMasterSid!)) {
+
+        allMasterJobCostRevenue.forEach((jobCRs) => {
+          jobCRs.forEach((cr) => {
+            const key = cr.TransactionSid!;
             if (!masterCRMap.has(key)) masterCRMap.set(key, []);
             masterCRMap.get(key)!.push(cr);
-          }
+          });
         });
-  
-        const allHouseCR = await this._db.costRevenueCharges.findMany({
-          where: {
-            status: 'A',
-            MenuMasterSid: { in: allHouseMenuSids },
-            TransactionSid: { in: houseJobIds },
-            CompanyMasterSid : CompanyMasterSid,
-            BranchMasterSid : { in: allBranchIds },
-          },
-          select: {
-            TransactionSid: true,
-            MenuMasterSid: true,
-            CostRevenueChargesSid: true,
-            RevenueVoucherHeaderSid: true,
-            RevenueDrCr: true,
-            RevenueLocalAmount: true,
-            CostVoucherHeaderSid: true,
-            CostDrCr: true,
-            CostLocalAmount: true,
-          },
-        });
-  
-        allHouseCR.forEach((cr) => {
-          const key = cr.TransactionSid!;
-          if (!houseCRMap.has(key)) {
-            houseCRMap.set(key, []);
-          }
-          houseCRMap.get(key)!.push(cr);
+
+        allHouseJobCostRevenue.forEach((jobCRs) => {
+          jobCRs.forEach((cr) => {
+            const key = cr.TransactionSid!;
+            if (!houseCRMap.has(key)) {
+              houseCRMap.set(key, []);
+            }
+            houseCRMap.get(key)!.push(cr);
+          });
         });
   
         const houseProrateMap = new Map<
@@ -5457,11 +5459,16 @@ export class AccountsReportsService {
       const header = detail.VoucherHeader;
       const documentTypeCode = header?.voucherTypeMaster?.DocumentTypeCode;
       const taxType = detail.subledgerMaster?.TaxType;
-      // Keep VAT summary aligned with VAT-210 direct totals: no additional sign remap.
-      const taxableAmount = roundAmount(toNumber(detail.TaxableAmount), 2);
-      const vatAmount = roundAmount(toNumber(detail.LocalAmount), 2);
 
       if (this.normaliseVatText(taxType) === 'INPUT') {
+        const taxableAmount = roundAmount(
+          (detail.DrCr === 'C' ? -1 : 1) * toNumber(detail.TaxableAmount),
+          2,
+        );
+        const vatAmount = roundAmount(
+          (detail.DrCr === 'C' ? -1 : 1) * toNumber(detail.LocalAmount),
+          2,
+        );
         if (!detail.MasterJobSid && !detail.HouseJobSid) {
           continue;
         }
@@ -5480,6 +5487,14 @@ export class AccountsReportsService {
       }
 
       if (this.normaliseVatText(taxType) === 'OUTPUT') {
+        const taxableAmount = roundAmount(
+          (detail.DrCr === 'C' ? 1 : -1) * toNumber(detail.TaxableAmount),
+          2,
+        );
+        const vatAmount = roundAmount(
+          (detail.DrCr === 'C' ? 1 : -1) * toNumber(detail.LocalAmount),
+          2,
+        );
         const allowedOutputCodes: string[] = [
           DOC_TYPE_CODE.INVOICE,
           DOC_TYPE_CODE.CREDIT_NOTE,
@@ -5698,8 +5713,8 @@ export class AccountsReportsService {
           // TaxAmount1?: any | null;
           // TaxPercentage2: Decimal | null,
           // TaxAmount2?: any | null;
-          Amount: Decimal | null;
-          LocalAmount: Decimal | null;
+          Amount: Decimal | number | null;
+          LocalAmount: Decimal | number | null;
           VoucherHeader?: {
             customerBranch?: {
               customerMaster?: {
@@ -5787,6 +5802,7 @@ export class AccountsReportsService {
         },
         select: {
           COAMasterSid: true,
+          DrCr: true,
           TaxableAmount: true,
           LocalAmount: true,
           subledgerMaster: {
@@ -5817,9 +5833,18 @@ export class AccountsReportsService {
       });
 
       const inputTaxDetails = inputTaxTransactions.map((row) => ({
-        TaxableAmount: row.TaxableAmount,
-        Amount: row.LocalAmount,
-        LocalAmount: row.LocalAmount,
+        TaxableAmount:
+          row.DrCr === 'C'
+            ? -Number(row.TaxableAmount || 0)
+            : Number(row.TaxableAmount || 0),
+        Amount:
+          row.DrCr === 'C'
+            ? -Number(row.LocalAmount || 0)
+            : Number(row.LocalAmount || 0),
+        LocalAmount:
+          row.DrCr === 'C'
+            ? -Number(row.LocalAmount || 0)
+            : Number(row.LocalAmount || 0),
         subledgerMaster: {
           SubledgerMasterSid:
             row.subledgerMaster?.SubledgerMasterSid ??
@@ -5864,6 +5889,7 @@ export class AccountsReportsService {
         },
         select: {
           COAMasterSid: true,
+          DrCr: true,
           TaxableAmount: true,
           LocalAmount: true,
           subledgerMaster: {
@@ -5893,9 +5919,18 @@ export class AccountsReportsService {
       });
 
       const outputTaxDetails = outputTaxTransactions.map((row) => ({
-        TaxableAmount: row.TaxableAmount,
-        Amount: row.LocalAmount,
-        LocalAmount: row.LocalAmount,
+        TaxableAmount:
+          row.DrCr === 'C'
+            ? Number(row.TaxableAmount || 0)
+            : -Number(row.TaxableAmount || 0),
+        Amount:
+          row.DrCr === 'C'
+            ? Number(row.LocalAmount || 0)
+            : -Number(row.LocalAmount || 0),
+        LocalAmount:
+          row.DrCr === 'C'
+            ? Number(row.LocalAmount || 0)
+            : -Number(row.LocalAmount || 0),
         subledgerMaster: {
           SubledgerMasterSid:
             row.subledgerMaster?.SubledgerMasterSid ??
