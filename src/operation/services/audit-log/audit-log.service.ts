@@ -7545,7 +7545,7 @@ export class AuditLogService {
 
             const ignoredFields = [
                 'CreatedBy', 'CreatedOn', 'UpdatedBy', 'UpdatedOn', 'userPassword',
-                'createdBy', 'createdOn', 'updatedBy', 'updatedOn',
+                'createdBy', 'createdOn', 'updatedBy', 'updatedOn', 'UserMasterSid', 'BranchMasterSid' , 'CompanyMasterSid','UserBranchMasterSid','UserCompanyMasterSid'
             ]
 
             const rowLabelMaps = {
