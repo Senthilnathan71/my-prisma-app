@@ -50,6 +50,7 @@ model MenuMaster {
   icon                    String?                    @db.VarChar(50)
   path                    String?                    @db.VarChar(50)
   parentId                Int?
+  activityAllocation      ActivityResourceAllocation[]
   AttachDocumentGroup     AttachDocumentGroup[]
   authorityMaster         AuthorityMaster[]
   bookingHeader           BookingHeader[]
@@ -66,6 +67,7 @@ model MenuMaster {
   quoteHeader             QuoteHeader[]
   refDocument             RefDocument[]
   ReportMaster            ReportMaster[]
+  ResourceConfiguration   ResourceConfiguration[]
   RoleMenuDetail          RoleMenuDetail[]
   roleMenuMaster          RoleMenuMaster[]
   terms                   TermsAndConditionsMaster[]

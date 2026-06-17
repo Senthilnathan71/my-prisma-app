@@ -243,7 +243,9 @@ model BookingOthers {
   NotifyAddress2      String?        @db.VarChar(200)
   CarrierBookingDate  DateTime?      @db.Date
   CarrierBookingRef   String?        @db.VarChar(20)
+  ResourcePerson      Int?
   bookingHeader       BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  resourceUser        UserMaster?    @relation(fields: [ResourcePerson], references: [UserMasterSid])
 }
 
 model BookingRates {
@@ -512,6 +514,8 @@ model ActivityResourceAllocation {
   MasterJobUser                 Int?
   HouseJobUser                  Int?
   SIUser                        Int?
+  MenuMasterSid                 Int?
+  TransactionSid                Int?
   bookingHeader                 BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   bookingUser                   UserMaster?    @relation("BOOKUSER", fields: [BookingUser], references: [UserMasterSid])
   branchMaster                  BranchMaster   @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -522,6 +526,7 @@ model ActivityResourceAllocation {
   houseJobUser                  UserMaster?    @relation("HOUSEUSER", fields: [HouseJobUser], references: [UserMasterSid])
   masterJob                     MasterJob?     @relation(fields: [MasterJobSid], references: [MasterJobSid])
   masterJobUser                 UserMaster?    @relation("MASTERUSER", fields: [MasterJobUser], references: [UserMasterSid])
+  menuMaster                    MenuMaster?    @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   QuoteHeader                   QuoteHeader?   @relation(fields: [QuoteHeaderSid], references: [QuoteHeaderSid])
   quoteUser                     UserMaster?    @relation("QUOUSER", fields: [QuoteUser], references: [UserMasterSid])
   siUser                        UserMaster?    @relation("SIUSER", fields: [SIUser], references: [UserMasterSid])
@@ -539,7 +544,10 @@ model ResourceConfiguration {
   UpdatedOn                DateTime?     @updatedAt
   UpdatedBy                String?       @db.VarChar(100)
   Status                   String?       @default("A") @db.Char(1)
+  MenuMasterSid            Int?
+  TransactionSid           Int?
   branchMaster             BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  menuMaster               MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   companyMaster            CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   userMaster               UserMaster?   @relation(fields: [UserMasterSid], references: [UserMasterSid])
 }

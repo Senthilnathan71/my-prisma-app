@@ -280,6 +280,7 @@ model UserMaster {
   shippingActivityResourceAllocation ActivityResourceAllocation[] @relation("SIUSER")
   ResourceConfiguration              ResourceConfiguration[]
   authorityDetail                    AuthorityDetail[]
+  bookingResourcePersons             BookingOthers[]
   customerCreditRequest              CustomerCreditRequest[]
   CustomerSalesTeamCS                CustomerSalesTeam[]          @relation("CSPerson")
   CustomerSalesTeamDoc               CustomerSalesTeam[]          @relation("DocPerson")
@@ -287,7 +288,11 @@ model UserMaster {
   customerSupport                    CustomerSupport[]
   followupInternal                   Followup[]
   enquiryHeader                      EnquiryHeader[]
+  enquiryResourcePersons             EnquiryOther[]
+  houseJobResourcePersons            HouseJobOthers[]
+  masterJobResourcePerson            MasterJobOthers[]
   preCustomerEventsLed               PreCustomerEvent[]           @relation("EventLeaderUser")
+  quoteResourcePersons               QuoteHeader[]
   shortCut                           ShortCut[]
   userBranchMaster                   UserBranchMaster[]
   userCompanyMaster                  UserCompanyMaster[]
@@ -1119,6 +1124,7 @@ model QuoteHeader {
   ContactPerson              String?                      @db.VarChar(30)
   RateLock                   String?                      @default("N") @db.Char(1)
   IsContract                 String?                      @default("N") @db.Char(1)
+  ResourcePerson             Int?
   ActivityResourceAllocation ActivityResourceAllocation[]
   EnquiryHeader              EnquiryHeader?
   houseJob                   HouseJob[]
@@ -1133,6 +1139,7 @@ model QuoteHeader {
   departmentMaster           DepartmentMaster?            @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
   menuMaster                 MenuMaster?                  @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   preCustomerMaster          PreCustomerMaster?           @relation(fields: [PreCustomerMasterSid], references: [PreCustomerMasterSid])
+  resourceUser               UserMaster?                  @relation(fields: [ResourcePerson], references: [UserMasterSid])
   quoteProduct               QuoteProduct[]
   quoteRoute                 QuoteRoute[]
 }
@@ -2581,9 +2588,11 @@ model EnquiryOther {
   UpdatedBy         String?       @db.VarChar(100)
   LoginSid          Int?
   Status            String?       @default("A") @db.Char(1)
+  ResourcePerson    Int?
   BranchMaster      BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster     CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   EnquiryHeader     EnquiryHeader @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
+  resourceUser      UserMaster?   @relation(fields: [ResourcePerson], references: [UserMasterSid])
 }
 
 model AuthorityLog {
@@ -2818,7 +2827,9 @@ model MasterJobOthers {
   ExportToImport        String    @default("N") @db.Char(1)
   ImportMasterJobSid    Int?
   JobLossReason         String?   @db.VarChar(300)
+  ResourcePerson        Int?
   masterJob             MasterJob @relation(fields: [MasterJobSid], references: [MasterJobSid])
+  resourceUser          UserMaster? @relation(fields: [ResourcePerson], references: [UserMasterSid])
 }
 
 model MasterJobContainer {
@@ -3133,7 +3144,9 @@ model HouseJobOthers {
   SIConfirmationDate      DateTime? @db.Date
   IATARate                Decimal?  @db.Decimal(13, 3)
   PlaceOfSupply           String?   @db.VarChar(100)
+  ResourcePerson          Int?
   HouseJob                HouseJob  @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  resourceUser            UserMaster? @relation(fields: [ResourcePerson], references: [UserMasterSid])
 }
 
 model HouseJobProxy {
