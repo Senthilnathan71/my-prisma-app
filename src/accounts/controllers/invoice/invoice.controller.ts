@@ -239,4 +239,27 @@ export class InvoiceController {
     return output;
   }
 
+  @ApiOperation({ summary: 'Delete a single Invoice detail (charge line)' })
+  @ApiCreatedResponse({
+    description: 'Invoice charge line soft-deleted and its revenue link cleared',
+    type: ResponseData
+  })
+  @HttpCode(HttpStatus.OK)
+  @Patch('detail/delete/:voucherDetailSid')
+  async deleteInvoiceDetail(
+    @Param('voucherDetailSid', ParseIntPipe) voucherDetailSid: number,
+    @Body() payload: { CompanyMasterSid: number; BranchMasterSid: number; UpdatedBy: string },
+  ) {
+    const output = new ResponseData();
+    try {
+      output.data = await this.invoiceService.deleteInvoiceDetail(voucherDetailSid, payload);
+      output.message = "Charge line deleted successfully";
+    } catch (error) {
+      this.logger.warn('deleteInvoiceDetail error', (error as any)?.stack || (error as any)?.message || error);
+      output.status = false;
+      output.message = error instanceof BadRequestException ? (error as any).message : "Internal Server Error";
+    }
+    return output;
+  }
+
 }

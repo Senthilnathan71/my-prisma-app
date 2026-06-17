@@ -54,6 +54,81 @@ export class InvoiceService {
   }
 
   /**
+   * Delete a single invoice detail (charge line) in edit mode.
+   * Soft-deletes the VoucherDetail (Status='D') and, if the line is linked to a
+   * CostRevenueCharges / BookingRates row, clears its RevenueVoucherHeaderSid /
+   * RevenueVoucherTypeMasterSid so the underlying charge becomes uninvoiced again
+   * (same un-link performed by voucher.service.deleteVoucher / credit-note posting).
+   */
+  async deleteInvoiceDetail(
+    voucherDetailSid: number,
+    payload: { CompanyMasterSid: number; BranchMasterSid: number; UpdatedBy: string },
+  ) {
+    return this._db.$transaction(async (prisma) => {
+      const detail = await prisma.voucherDetail.findUnique({
+        where: { VoucherDetailSid: voucherDetailSid },
+        include: { VoucherHeader: true },
+      });
+
+      if (!detail) {
+        throw new BadRequestException('Charge line not found.');
+      }
+
+      // Multi-tenancy guard
+      if (
+        payload.CompanyMasterSid &&
+        detail.CompanyMasterSid !== Number(payload.CompanyMasterSid)
+      ) {
+        throw new BadRequestException('Charge line does not belong to this company.');
+      }
+
+      // Defensive: only draft (unposted) invoices may have lines deleted
+      if (detail.VoucherHeader?.PostStatus === 'P') {
+        throw new BadRequestException('Posted invoices cannot be modified.');
+      }
+
+      // 1) soft-delete the detail (matches the existing notIn -> 'D' convention)
+      //    and drop its links to the cost/booking-rate rows.
+      await prisma.voucherDetail.update({
+        where: { VoucherDetailSid: voucherDetailSid },
+        data: {
+          Status: 'D',
+          CostRevenueChargesSid: null,
+          BookingRatesSid: null,
+          UpdatedBy: payload.UpdatedBy,
+          UpdatedOn: new Date(),
+        },
+      });
+
+      // 2) un-link the underlying charge so it can be re-invoiced
+      if (detail.CostRevenueChargesSid) {
+        await prisma.costRevenueCharges.update({
+          where: { CostRevenueChargesSid: detail.CostRevenueChargesSid },
+          data: {
+            RevenueVoucherHeaderSid: null,
+            RevenueVoucherTypeMasterSid: null,
+            updatedOn: new Date(),
+            updatedBy: payload.UpdatedBy,
+          },
+        });
+      }
+      if (detail.BookingRatesSid) {
+        await prisma.bookingRates.update({
+          where: { BookingRatesSid: detail.BookingRatesSid },
+          data: {
+            RevenueVoucherHeaderSid: null,
+            RevenueVoucherTypeMasterSid: null,
+            UpdatedOn: new Date(),
+            UpdatedBy: payload.UpdatedBy,
+          },
+        });
+      }
+
+      return { VoucherDetailSid: voucherDetailSid };
+    });
+  }
+
+  /**
    * Resolve PartyName into a string suitable for DB:
    * - If payload.PartyName is numeric (branch id) => lookup customerBranch and return Address || BranchName || string(id)
    * - Else if payload.CustomerBranchSid is present => same lookup
