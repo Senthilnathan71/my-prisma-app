@@ -647,6 +647,8 @@ model ChargeTaxMaster {
   hssacMaster        HSSACMaster?  @relation(fields: [HSSACMasterSid], references: [HSSACMasterSid])
   taxGroup           TaxGroup?     @relation(fields: [TaxGroupSid], references: [TaxGroupSid])
   chargeMaster       ChargeMaster? @relation(fields: [chargeTaxMasterSid], references: [ChargeMasterSid])
+
+  @@index([chargeTaxMasterSid])
 }
 
 model PreCustomerMaster {

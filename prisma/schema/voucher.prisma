@@ -86,6 +86,7 @@ model VoucherHeader {
   interBranchMirrorJV       VoucherInterBranch[]        @relation("VIB_MirrorJV")
 
   @@unique([CompanyMasterSid, VoucherNumber], name: "uq_voucher_company")
+  @@index([Status])
 }
 
 model VoucherDetail {
@@ -157,6 +158,8 @@ model VoucherDetail {
 
   @@index([VoucherHeaderSid])
   @@index([CompanyMasterSid, BranchMasterSid, VoucherHeaderSid])
+  @@index([CostRevenueChargesSid,Status])
+  @@index([BookingRatesSid,Status])
 }
 
 model VoucherOthers {
