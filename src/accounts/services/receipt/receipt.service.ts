@@ -299,6 +299,7 @@ export class ReceiptService {
           BranchMaster: { select: { branchName: true } },
           Amount: true,
           LocalAmount: true,
+          Narration: true,
           voucherMatchings: { where: { Status: 'A' } },
         }
       });
@@ -354,6 +355,7 @@ export class ReceiptService {
         MatchingTDSAmount : detail.MatchingTDSAmount,
         PartyAmount : detail.PartyAmount,
         BranchName: detail.BranchName || (transactionDetail as any)?.BranchMaster?.branchName || '',
+        Narration: transactionDetail?.Narration
       };
     }));
 
