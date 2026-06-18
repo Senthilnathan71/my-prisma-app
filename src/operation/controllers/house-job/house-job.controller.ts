@@ -118,6 +118,7 @@ async createHouseJob(@Body() payload: any) {
       return resp;
     } catch (error) {
       this.logger.error(`Error in updating House Job by HouseJobSid : ${JSON.stringify(error), error}`);
+      resp.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = error.message;
       } else {
