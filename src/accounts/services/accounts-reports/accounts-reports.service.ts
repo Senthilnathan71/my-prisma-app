@@ -335,23 +335,8 @@ export class AccountsReportsService {
     // -------------------------------------------
     // 4. Bucket Logic
     // -------------------------------------------
-    let bucketRanges: number[] = [];
-
-    if (AgeingType === '30_60_90') bucketRanges = [30, 60, 90];
-    else if (AgeingType === '15_30_45_60') bucketRanges = [15, 30, 45, 60];
-    else if (AgeingType.includes('-')) {
-      bucketRanges = AgeingType.split('-').map((s) => +s);
-      bucketRanges.sort((a, b) => a - b);
-    } else {
-      throw new BadRequestException('Invalid ageingType');
-    }
-
-    const bucketLabels: string[] = [];
-    for (let i = 0; i < bucketRanges.length; i++) {
-      if (i === 0) bucketLabels.push(`0-${bucketRanges[i]}`);
-      else bucketLabels.push(`${bucketRanges[i - 1] + 1}-${bucketRanges[i]}`);
-    }
-    bucketLabels.push(`${bucketRanges[bucketRanges.length - 1] + 1}+`);
+    const { bucketRanges, bucketLabels } = this.buildAgeingBuckets(AgeingType);
+    const lastBucket = bucketLabels[bucketLabels.length - 1];
 
     // -------------------------------------------
     // 5. Grouping Logic - Currency -> Subledger
@@ -464,23 +449,25 @@ export class AccountsReportsService {
         const combinedGroup = getOrCreateCurrencyGroup(combinedKey, null);
 
         const subledger = getOrCreateSubledger(combinedGroup, subId, row);
+        const outstandingAmount = row.OSLocalAmount;
+        const onAccountAmount = row.OnAccountCreditLocal;
 
-        // Update subledger totals using the same signed OS values.
-        subledger.totalOutstandingCurrency += row.OSCurrencyAmount;
+        // In non-currencywise mode, expose OS and bucket values using local amount.
+        subledger.totalOutstandingCurrency += outstandingAmount;
         subledger.totalOutstandingLocal += row.OSLocalAmount;
-        subledger.totalOnAccountCreditCurr += row.OnAccountCreditCurr;
+        subledger.totalOnAccountCreditCurr += onAccountAmount;
         subledger.totalOnAccountCreditLocal += row.OnAccountCreditLocal;
         subledger.voucherCount += 1;
 
-        combinedGroup.totalOutstandingCurrency += row.OSCurrencyAmount;
+        combinedGroup.totalOutstandingCurrency += outstandingAmount;
         combinedGroup.totalOutstandingLocal += row.OSLocalAmount;
-        combinedGroup.totalOnAccountCreditCurr += row.OnAccountCreditCurr;
+        combinedGroup.totalOnAccountCreditCurr += onAccountAmount;
         combinedGroup.totalOnAccountCreditLocal += row.OnAccountCreditLocal;
         combinedGroup.voucherCount += 1;
 
-        // Bucket allocation follows the same signed OS rule as totals.
+        // Bucket allocation follows the local signed OS rule in non-currencywise mode.
         let placed = false;
-        const bucketAmount = row.OSCurrencyAmount;
+        const bucketAmount = outstandingAmount;
         for (let i = 0; i < bucketRanges.length; i++) {
           if (row.Ageing <= bucketRanges[i]) {
             const label = bucketLabels[i];
@@ -491,9 +478,8 @@ export class AccountsReportsService {
           }
         }
         if (!placed) {
-          const last = bucketLabels[bucketLabels.length - 1];
-          subledger.buckets[last] += bucketAmount;
-          combinedGroup.bucketTotals[last] += bucketAmount;
+          subledger.buckets[lastBucket] += bucketAmount;
+          combinedGroup.bucketTotals[lastBucket] += bucketAmount;
         }
       }
     }
@@ -2931,7 +2917,8 @@ export class AccountsReportsService {
           VoucherHeader: {
             select: {
               PostStatus: true,
-              BankPartyName:true
+              BankPartyName:true,
+              PartyName:true
             },
           },
           masterJob: true,
@@ -3088,7 +3075,7 @@ export class AccountsReportsService {
           signedOutstandingCurrency: toNumber(signedOutstandingCurrency),
           signedLocalAmt: toNumber(signedLocalAmt),
           signedoutstandingLocalAmount: toNumber(signedoutstandingLocalAmount),
-          partyname : vt?.VoucherHeader?.BankPartyName
+          partyname : vt?.VoucherHeader?.PartyName || vt?.VoucherHeader?.BankPartyName,
         });
 
         totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -4840,7 +4827,7 @@ export class AccountsReportsService {
       if (!masterJobs.length) {
         return {
           companyMasterSid: CompanyMasterSid,
-          branchMasterSid: branchId,
+          branchMasterSid: resolvedBranchIds,
           data: [],
         };
       }
@@ -4852,7 +4839,7 @@ export class AccountsReportsService {
               MenuMasterSid: job.MenuMasterSid!,
               TransactionSid: job.MasterJobSid,
               CompanyMasterSid : CompanyMasterSid,
-              BranchMasterSid : { in : branchId },
+              BranchMasterSid : { in : resolvedBranchIds },
               status: 'A',
             },
             select: {
@@ -4922,7 +4909,7 @@ export class AccountsReportsService {
               MenuMasterSid: houseJobMenu.MenuMasterSid,
               TransactionSid: { in: houseJobIds },
               CompanyMasterSid : CompanyMasterSid,
-              BranchMasterSid : { in : branchId },
+              BranchMasterSid : { in : resolvedBranchIds },
               status: 'A',
             },
             select: {
@@ -5740,6 +5727,7 @@ export class AccountsReportsService {
       const inputTaxTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid: CompanyId,
+          ...(BranchId ? { BranchMasterSid: { in: BranchId } } : {}),
           AND: [
             { VoucherDate: { gte: fromDate } },
             { VoucherDate: { lte: toDate } },
@@ -5832,6 +5820,7 @@ export class AccountsReportsService {
       const outputTaxTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid: CompanyId,
+          ...(BranchId ? { BranchMasterSid: { in: BranchId } } : {}),
           AND: [
             { VoucherDate: { gte: fromDate } },
             { VoucherDate: { lte: toDate } },
@@ -7525,7 +7514,7 @@ export class AccountsReportsService {
 
       const signedAmount = (amount: any, drCr?: string | null) => {
         const value = toNumber(amount);
-        return (drCr || '').toUpperCase() === 'C' ? -value : value;
+        return (drCr || '').toUpperCase() === 'C' ? value : -value;
       };
 
       const detectTaxType = (line: any): 'IGST' | 'CGST' | 'SGST' | 'OTHER' => {
