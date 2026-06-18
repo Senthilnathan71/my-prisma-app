@@ -143,6 +143,16 @@ export class HouseJobService {
         return `${label} '${value}' already exists. Please use a unique ${label}.`;
     }
 
+    // Import HBL/HAWBL uniqueness is scoped to a single Master Job (SEA IMPORT / AIR IMPORT).
+    // The same HBL No is allowed under a different Master Job, so the message reflects the scope.
+    // For AIR the parent is the Master Air Waybill, so the label adapts accordingly.
+    private buildDuplicateHblForMasterJobMessage(department: { departmentType?: string | null } | null | undefined): string {
+        const label = this.getHblDisplayLabel(department);
+        const isAir = String(department?.departmentType ?? '').trim().toUpperCase() === 'AIR';
+        const masterLabel = isAir ? 'Master Air Waybill' : 'Master Job';
+        return `${label} already exists for this ${masterLabel}.`;
+    }
+
     private async syncHouseJobProxy(
         prisma: any,
         HouseJobSid: number,
@@ -637,9 +647,16 @@ export class HouseJobService {
             }
 
             const duplicateHblNo = String(HBLNo ?? '').trim();
+            const deptTypeUpper = String(department?.departmentType ?? '').trim().toUpperCase();
+            const exportImportUpper = String(departmentExportImport ?? '').trim().toUpperCase();
+            const isImportDept = exportImportUpper === 'IMPORT';
+
+            // Existing company + department-wide uniqueness.
+            // Applies to EXPORT flows (sea & air export) and any non-import AIR job (behaviour unchanged).
+            // AIR IMPORT is intentionally excluded here — it now uses the per-Master-Job check below.
             const shouldCheckDuplicate =
-                String(department?.departmentType ?? '').trim().toUpperCase() === 'AIR' ||
-                String(departmentExportImport ?? '').trim().toUpperCase() === 'EXPORT';
+                exportImportUpper === 'EXPORT' ||
+                (deptTypeUpper === 'AIR' && !isImportDept);
 
             if (shouldCheckDuplicate && duplicateHblNo) {
                 const isDuplicate = await this.checkDuplicateHBLNumber(
@@ -651,6 +668,25 @@ export class HouseJobService {
                 if (isDuplicate) {
                     throw new BadRequestException(
                         this.buildDuplicateHblMessage(this.getHblDisplayLabel(department), duplicateHblNo)
+                    );
+                }
+            }
+
+            // New: SEA IMPORT / AIR IMPORT — HBL No must be unique WITHIN the same Master Job.
+            // The same HBL No is still allowed under a different Master Job.
+            const shouldCheckMasterJobDuplicate =
+                isImportDept && (deptTypeUpper === 'SEA' || deptTypeUpper === 'AIR');
+
+            if (shouldCheckMasterJobDuplicate && duplicateHblNo && payload.MasterJobSid) {
+                const isMasterJobDuplicate = await this.checkDuplicateHBLNumberForMasterJob(
+                    duplicateHblNo,
+                    Number(payload.MasterJobSid),
+                    payload.CompanyMasterSid
+                );
+
+                if (isMasterJobDuplicate) {
+                    throw new BadRequestException(
+                        this.buildDuplicateHblForMasterJobMessage(department)
                     );
                 }
             }
@@ -1301,9 +1337,16 @@ export class HouseJobService {
             }
 
             const hblNoValue = String(payload.HBLNo ?? '').trim();
+            const deptTypeUpper = String(department.departmentType ?? '').trim().toUpperCase();
+            const exportImportUpper = String(department.ExportImport ?? '').trim().toUpperCase();
+            const isImportDept = exportImportUpper === 'IMPORT';
+
+            // Existing company + department-wide uniqueness.
+            // Applies to EXPORT flows (sea & air export) and any non-import AIR job (behaviour unchanged).
+            // AIR IMPORT is intentionally excluded here — it now uses the per-Master-Job check below.
             const shouldCheckDuplicate =
-                String(department.departmentType ?? '').trim().toUpperCase() === 'AIR' ||
-                String(department.ExportImport ?? '').trim().toUpperCase() === 'EXPORT';
+                exportImportUpper === 'EXPORT' ||
+                (deptTypeUpper === 'AIR' && !isImportDept);
 
             if (shouldCheckDuplicate && hblNoValue) {
                 const isDuplicate = await this.checkDuplicateHBLNumber(
@@ -1316,6 +1359,27 @@ export class HouseJobService {
                 if (isDuplicate) {
                     throw new BadRequestException(
                         this.buildDuplicateHblMessage(this.getHblDisplayLabel(department), hblNoValue)
+                    );
+                }
+            }
+
+            // New: SEA IMPORT / AIR IMPORT — HBL No must be unique WITHIN the same Master Job.
+            // The same HBL No is still allowed under a different Master Job.
+            // The current House Job is excluded so re-saving an unchanged record does not flag itself.
+            const shouldCheckMasterJobDuplicate =
+                isImportDept && (deptTypeUpper === 'SEA' || deptTypeUpper === 'AIR');
+
+            if (shouldCheckMasterJobDuplicate && hblNoValue && payload.MasterJobSid) {
+                const isMasterJobDuplicate = await this.checkDuplicateHBLNumberForMasterJob(
+                    hblNoValue,
+                    Number(payload.MasterJobSid),
+                    payload.CompanyMasterSid,
+                    HouseJobSid
+                );
+
+                if (isMasterJobDuplicate) {
+                    throw new BadRequestException(
+                        this.buildDuplicateHblForMasterJobMessage(department)
                     );
                 }
             }
@@ -2249,6 +2313,40 @@ export class HouseJobService {
         if (departmentMasterSid) {
             whereClause.DepartmentMasterSid = departmentMasterSid;
         }
+
+        if (excludeHouseJobSid) {
+            whereClause.HouseJobSid = { not: excludeHouseJobSid };
+        }
+
+        const existing = await this._db.houseJob.findFirst({ where: whereClause });
+        return !!existing;
+    }
+
+    /**
+     * Checks whether the given HBL/HAWBL No already exists under the SAME Master Job.
+     * Used for SEA IMPORT and AIR IMPORT, where the HBL must be unique within a Master Job
+     * but the same HBL is allowed under a different Master Job.
+     * Reads existing rows only — no schema/relationship changes.
+     */
+    async checkDuplicateHBLNumberForMasterJob(
+        hblNo: string,
+        masterJobSid: number,
+        companyMasterSid: number,
+        excludeHouseJobSid?: number | null
+    ): Promise<boolean> {
+        if (!hblNo || !masterJobSid) {
+            return false;
+        }
+
+        const whereClause: Prisma.HouseJobWhereInput = {
+            HBLNo: {
+                equals: hblNo.trim(),
+                mode: 'insensitive'
+            },
+            MasterJobSid: masterJobSid,
+            CompanyMasterSid: companyMasterSid,
+            status: 'A'
+        };
 
         if (excludeHouseJobSid) {
             whereClause.HouseJobSid = { not: excludeHouseJobSid };

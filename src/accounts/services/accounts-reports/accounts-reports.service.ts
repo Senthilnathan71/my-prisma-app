@@ -335,23 +335,8 @@ export class AccountsReportsService {
     // -------------------------------------------
     // 4. Bucket Logic
     // -------------------------------------------
-    let bucketRanges: number[] = [];
-
-    if (AgeingType === '30_60_90') bucketRanges = [30, 60, 90];
-    else if (AgeingType === '15_30_45_60') bucketRanges = [15, 30, 45, 60];
-    else if (AgeingType.includes('-')) {
-      bucketRanges = AgeingType.split('-').map((s) => +s);
-      bucketRanges.sort((a, b) => a - b);
-    } else {
-      throw new BadRequestException('Invalid ageingType');
-    }
-
-    const bucketLabels: string[] = [];
-    for (let i = 0; i < bucketRanges.length; i++) {
-      if (i === 0) bucketLabels.push(`0-${bucketRanges[i]}`);
-      else bucketLabels.push(`${bucketRanges[i - 1] + 1}-${bucketRanges[i]}`);
-    }
-    bucketLabels.push(`${bucketRanges[bucketRanges.length - 1] + 1}+`);
+    const { bucketRanges, bucketLabels } = this.buildAgeingBuckets(AgeingType);
+    const lastBucket = bucketLabels[bucketLabels.length - 1];
 
     // -------------------------------------------
     // 5. Grouping Logic - Currency -> Subledger
@@ -464,23 +449,25 @@ export class AccountsReportsService {
         const combinedGroup = getOrCreateCurrencyGroup(combinedKey, null);
 
         const subledger = getOrCreateSubledger(combinedGroup, subId, row);
+        const outstandingAmount = row.OSLocalAmount;
+        const onAccountAmount = row.OnAccountCreditLocal;
 
-        // Update subledger totals using the same signed OS values.
-        subledger.totalOutstandingCurrency += row.OSCurrencyAmount;
+        // In non-currencywise mode, expose OS and bucket values using local amount.
+        subledger.totalOutstandingCurrency += outstandingAmount;
         subledger.totalOutstandingLocal += row.OSLocalAmount;
-        subledger.totalOnAccountCreditCurr += row.OnAccountCreditCurr;
+        subledger.totalOnAccountCreditCurr += onAccountAmount;
         subledger.totalOnAccountCreditLocal += row.OnAccountCreditLocal;
         subledger.voucherCount += 1;
 
-        combinedGroup.totalOutstandingCurrency += row.OSCurrencyAmount;
+        combinedGroup.totalOutstandingCurrency += outstandingAmount;
         combinedGroup.totalOutstandingLocal += row.OSLocalAmount;
-        combinedGroup.totalOnAccountCreditCurr += row.OnAccountCreditCurr;
+        combinedGroup.totalOnAccountCreditCurr += onAccountAmount;
         combinedGroup.totalOnAccountCreditLocal += row.OnAccountCreditLocal;
         combinedGroup.voucherCount += 1;
 
-        // Bucket allocation follows the same signed OS rule as totals.
+        // Bucket allocation follows the local signed OS rule in non-currencywise mode.
         let placed = false;
-        const bucketAmount = row.OSCurrencyAmount;
+        const bucketAmount = outstandingAmount;
         for (let i = 0; i < bucketRanges.length; i++) {
           if (row.Ageing <= bucketRanges[i]) {
             const label = bucketLabels[i];
@@ -491,9 +478,8 @@ export class AccountsReportsService {
           }
         }
         if (!placed) {
-          const last = bucketLabels[bucketLabels.length - 1];
-          subledger.buckets[last] += bucketAmount;
-          combinedGroup.bucketTotals[last] += bucketAmount;
+          subledger.buckets[lastBucket] += bucketAmount;
+          combinedGroup.bucketTotals[lastBucket] += bucketAmount;
         }
       }
     }
@@ -873,7 +859,6 @@ export class AccountsReportsService {
     const customerInfo = new Map<string, any>();
     const drilldown: any[] = [];
     const branchTokens = new Set<string>();
-    const currencyTokens = new Set<string>();
     let grandTotalLocal = 0;
     let overallOnAccountLocal = 0;
     const overallBucketTotals = emptyBuckets();
@@ -936,10 +921,6 @@ export class AccountsReportsService {
       const branchSid: number | null = header?.CustomerBranchSid ?? null;
       branchTokens.add(branchSid != null ? String(branchSid) : '∅');
 
-      // currency (transaction currency — leaves split by it so every row is single-currency)
-      const currencyCode: string | null = v.CurrencyCode ?? null;
-      currencyTokens.add(currencyCode ?? '∅');
-
       // department: header -> houseJob -> masterJob -> booking -> On Account(null)
       const deptSid: number | null =
         (header?.DepartmentMasterSid ?? null) ??
@@ -991,10 +972,9 @@ export class AccountsReportsService {
         });
       }
 
-      const curKey = currencyCode ?? '';
       const leafKey = isOnAccount
-        ? `${customerKey}|onaccount|cur:${curKey}`
-        : `${customerKey}|b:${branchSid ?? 0}|sp:${salespersonId ?? 0}|d:${deptSid}|cur:${curKey}`;
+        ? `${customerKey}|onaccount`
+        : `${customerKey}|b:${branchSid ?? 0}|sp:${salespersonId ?? 0}|d:${deptSid}`;
       let leaf = leafMap.get(leafKey);
       if (!leaf) {
         leaf = {
@@ -1007,23 +987,18 @@ export class AccountsReportsService {
           deptName: isOnAccount
             ? 'Unallocated'
             : deptNameMap.get(deptSid!) ?? `Dept ${deptSid}`,
-          currencyCode,
           isOnAccount,
           outstandingLocal: 0,
-          outstandingCurr: 0,
           onAccountLocal: 0,
-          onAccountCurr: 0,
           buckets: emptyBuckets(),
         };
         leafMap.set(leafKey, leaf);
       }
       leaf.outstandingLocal += signedOSLocal;
-      leaf.outstandingCurr += signedOSCurr;
       leaf.onAccountLocal += onAccountLocal;
-      leaf.onAccountCurr += onAccountCurr;
-      // Per-row buckets are in transaction currency (rows are single-currency); the overall
-      // bucket totals stay local (above) so the Grand Total row reconciles to grandTotalLocal.
-      addToBucket(leaf.buckets, ageing, signedOSCurr);
+      // Per-row buckets are local (same basis as the overall bucket totals), so summing the
+      // per-row buckets equals overallBucketTotals and OS Local reconciles to grandTotalLocal.
+      addToBucket(leaf.buckets, ageing, signedOSLocal);
     }
 
     // --- Branch display names ---
@@ -1081,21 +1056,15 @@ export class AccountsReportsService {
     const mergeLeaves = (leaves: any[]) => {
       const buckets = emptyBuckets();
       let outstandingLocal = 0;
-      let outstandingCurr = 0;
       let onAccountLocal = 0;
-      let onAccountCurr = 0;
       for (const l of leaves) {
         outstandingLocal += l.outstandingLocal;
-        outstandingCurr += l.outstandingCurr;
         onAccountLocal += l.onAccountLocal;
-        onAccountCurr += l.onAccountCurr;
         bucketLabels.forEach((lab) => (buckets[lab] += l.buckets[lab]));
       }
       return {
         outstandingLocal,
-        outstandingCurr,
         onAccountLocal,
-        onAccountCurr,
         buckets,
       };
     };
@@ -1113,14 +1082,12 @@ export class AccountsReportsService {
     for (const [customerKey, leaves] of leavesByCustomer.entries()) {
       const built: any[] = [];
 
-      // dept-bearing leaves -> one collapsed row per (branch, salesperson, currency) +
-      // departmentBreakdown. Currency is in the key so every row stays single-currency.
+      // dept-bearing leaves -> one collapsed row per (branch, salesperson) +
+      // departmentBreakdown.
       const deptLeaves = leaves.filter((l) => !l.isOnAccount);
       const groups = new Map<string, any[]>();
       for (const l of deptLeaves) {
-        const key = `${l.branchSid ?? 0}||${l.salespersonId ?? 0}||${
-          l.currencyCode ?? ''
-        }`;
+        const key = `${l.branchSid ?? 0}||${l.salespersonId ?? 0}`;
         const list = groups.get(key) ?? [];
         list.push(l);
         groups.set(key, list);
@@ -1132,9 +1099,7 @@ export class AccountsReportsService {
           .map((l) => ({
             departmentName: l.deptName,
             outstandingLocal: l.outstandingLocal,
-            outstandingCurr: l.outstandingCurr,
             onAccountLocal: l.onAccountLocal,
-            onAccountCurr: l.onAccountCurr,
             buckets: l.buckets,
           }))
           .sort((a, b) => a.departmentName.localeCompare(b.departmentName));
@@ -1148,7 +1113,6 @@ export class AccountsReportsService {
           branchSid: head.branchSid,
           salespersonId: head.salespersonId,
           salespersonName: head.salespersonName,
-          currencyCode: head.currencyCode,
           // single dept -> show the name; many -> blank (frontend renders an "N Departments" chip)
           departmentText:
             departmentCount === 1 ? departmentBreakdown[0].departmentName : '',
@@ -1159,7 +1123,7 @@ export class AccountsReportsService {
         });
       }
 
-      // Unallocated leaves (department-less; one per currency) -> rendered last in the customer block.
+      // Unallocated leaf (department-less; one per customer) -> rendered last in the customer block.
       for (const l of leaves.filter((x) => x.isOnAccount)) {
         built.push({
           customerKey,
@@ -1167,15 +1131,12 @@ export class AccountsReportsService {
           branchSid: null,
           salespersonId: null,
           salespersonName: null,
-          currencyCode: l.currencyCode,
           departmentText: 'Unallocated',
           departmentCount: 0,
           departmentBreakdown: [],
           isOnAccount: true,
           outstandingLocal: l.outstandingLocal,
-          outstandingCurr: l.outstandingCurr,
           onAccountLocal: l.onAccountLocal,
-          onAccountCurr: l.onAccountCurr,
           buckets: l.buckets,
         });
       }
@@ -1210,9 +1171,6 @@ export class AccountsReportsService {
       const an = a.salespersonName ?? '~';
       const bn = b.salespersonName ?? '~';
       if (an !== bn) return an.localeCompare(bn);
-      const ac = a.currencyCode ?? '';
-      const bc = b.currencyCode ?? '';
-      if (ac !== bc) return ac.localeCompare(bc);
       return (a.departmentText ?? '').localeCompare(b.departmentText ?? '');
     });
 
@@ -1238,14 +1196,11 @@ export class AccountsReportsService {
         branchLabel: r.branchLabel,
         salespersonId: r.salespersonId,
         salespersonName: r.salespersonName,
-        currencyCode: r.currencyCode ?? null,
         departmentText: r.departmentText,
         departmentCount: r.departmentCount,
         departmentBreakdown: r.departmentBreakdown,
         outstandingLocal: r.outstandingLocal,
-        outstandingCurr: r.outstandingCurr,
         onAccountLocal: r.onAccountLocal,
-        onAccountCurr: r.onAccountCurr,
         buckets: r.buckets,
         isOnAccount: r.isOnAccount,
         isUnassigned: !r.isOnAccount && r.salespersonId == null,
@@ -1263,7 +1218,6 @@ export class AccountsReportsService {
       groupedBySalesman: true,
       branchInvolvedText,
       singleBranch: branchTokens.size <= 1, // drives Branch-column hide on the frontend
-      singleCurrency: currencyTokens.size <= 1, // drives Currency-column hide on the frontend
       bucketLabels,
       grandTotalLocal,
       overallBucketTotals,
@@ -2963,7 +2917,8 @@ export class AccountsReportsService {
           VoucherHeader: {
             select: {
               PostStatus: true,
-              BankPartyName:true
+              BankPartyName:true,
+              PartyName:true
             },
           },
           masterJob: true,
@@ -3120,7 +3075,7 @@ export class AccountsReportsService {
           signedOutstandingCurrency: toNumber(signedOutstandingCurrency),
           signedLocalAmt: toNumber(signedLocalAmt),
           signedoutstandingLocalAmount: toNumber(signedoutstandingLocalAmount),
-          partyname : vt?.VoucherHeader?.BankPartyName
+          partyname : vt?.VoucherHeader?.PartyName || vt?.VoucherHeader?.BankPartyName,
         });
 
         totalOutstandingCurrency += outstandingCurrencyAmount;
@@ -4872,7 +4827,7 @@ export class AccountsReportsService {
       if (!masterJobs.length) {
         return {
           companyMasterSid: CompanyMasterSid,
-          branchMasterSid: branchId,
+          branchMasterSid: resolvedBranchIds,
           data: [],
         };
       }
@@ -4884,7 +4839,7 @@ export class AccountsReportsService {
               MenuMasterSid: job.MenuMasterSid!,
               TransactionSid: job.MasterJobSid,
               CompanyMasterSid : CompanyMasterSid,
-              BranchMasterSid : { in : branchId },
+              BranchMasterSid : { in : resolvedBranchIds },
               status: 'A',
             },
             select: {
@@ -4954,7 +4909,7 @@ export class AccountsReportsService {
               MenuMasterSid: houseJobMenu.MenuMasterSid,
               TransactionSid: { in: houseJobIds },
               CompanyMasterSid : CompanyMasterSid,
-              BranchMasterSid : { in : branchId },
+              BranchMasterSid : { in : resolvedBranchIds },
               status: 'A',
             },
             select: {
@@ -5772,6 +5727,7 @@ export class AccountsReportsService {
       const inputTaxTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid: CompanyId,
+          ...(BranchId ? { BranchMasterSid: { in: BranchId } } : {}),
           AND: [
             { VoucherDate: { gte: fromDate } },
             { VoucherDate: { lte: toDate } },
@@ -5864,6 +5820,7 @@ export class AccountsReportsService {
       const outputTaxTransactions = await this._db.voucherTransaction.findMany({
         where: {
           CompanyMasterSid: CompanyId,
+          ...(BranchId ? { BranchMasterSid: { in: BranchId } } : {}),
           AND: [
             { VoucherDate: { gte: fromDate } },
             { VoucherDate: { lte: toDate } },
@@ -7557,7 +7514,7 @@ export class AccountsReportsService {
 
       const signedAmount = (amount: any, drCr?: string | null) => {
         const value = toNumber(amount);
-        return (drCr || '').toUpperCase() === 'C' ? -value : value;
+        return (drCr || '').toUpperCase() === 'C' ? value : -value;
       };
 
       const detectTaxType = (line: any): 'IGST' | 'CGST' | 'SGST' | 'OTHER' => {
