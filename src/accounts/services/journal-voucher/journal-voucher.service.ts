@@ -8,7 +8,7 @@ import {
 import { Decimal } from '@prisma/client/runtime/library';
 import { PostVoucherResponseDto, VoucherDetailDto } from 'src/accounts/dto/voucher-posting.dto';
 import { TaxVoucherType, DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
-import { statusWhereClause, toNumber } from 'src/common/helper';
+import { statusWhereClause, toNumber, roundAmount } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
 import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
@@ -822,14 +822,29 @@ return {
                 }
 
                 
+                // Balance precision = local currency's amountDecimal (mirrors the JV entry screen,
+                // which rounds debit/credit totals to the company currency's amountDecimal before
+                // comparing). Without this, native FP summation (e.g. 16936.540 + 2800.060 =
+                // 19736.6000000002) makes a perfectly balanced voucher fail the !== 0 check.
+                const localCurrency = await tx.currencyMaster.findUnique({
+                    where: { CurrencyMasterSid: payload.localCurrencyMasterSid },
+                    select: { amountDecimal: true },
+                });
+                const amountDecimals = localCurrency?.amountDecimal ?? 2;
+
                 let sumOfDebits = 0;
                 let sumOfCredits = 0;
                 chargeLineItems.forEach(detail => {
                     if (detail.DrCr === 'D') sumOfDebits += (toNumber(detail.LocalAmount) + toNumber(detail.TaxAmount1));
                     else sumOfCredits += (toNumber(detail.LocalAmount) + toNumber(detail.TaxAmount1))
                 });
-                if (sumOfCredits - sumOfDebits !== 0) {
-                    throw new BadRequestException('Sum of currency debits and credits should be zero.');
+                const roundedDebits = roundAmount(sumOfDebits, amountDecimals);
+                const roundedCredits = roundAmount(sumOfCredits, amountDecimals);
+                if (roundedCredits - roundedDebits !== 0) {
+                    const difference = roundAmount(Math.abs(roundedCredits - roundedDebits), amountDecimals);
+                    throw new BadRequestException(
+                        `Voucher is not balanced. Total debits (${roundedDebits.toFixed(amountDecimals)}) must equal total credits (${roundedCredits.toFixed(amountDecimals)}). Difference: ${difference.toFixed(amountDecimals)}.`,
+                    );
                 }
                 
                 // let sumOfLocalDebits = 0;
@@ -840,7 +855,7 @@ return {
                 // });
 
                 let allDetails = [...chargeLineItems, ...createdTaxRows];
-                const exchangeRateMismatch = sumOfCredits - sumOfDebits;
+                const exchangeRateMismatch = roundedCredits - roundedDebits;
                 if (exchangeRateMismatch) {
                     const exchangeRateDetail = await tx.voucherDetail.create({
                         data: {
