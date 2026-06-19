@@ -278,7 +278,7 @@ export class TrackingService {
       select: this.masterJobSelect(true, context),
     });
     if (masterJob) {
-      return { kind: 'single', booking: null, houseJob: null, masterJob, scope: 'CONTAINER' };
+      return this.containerToResolution(masterJob, reference);
     }
 
     const houseJob = await this.db.houseJob.findFirst({
@@ -294,13 +294,60 @@ export class TrackingService {
     const master = houseJob.masterJob
       ? await this.ensureMasterWithHouses(houseJob.masterJob, context)
       : null;
+    if (master) {
+      return this.containerToResolution(master, reference);
+    }
     return {
       kind: 'single',
       booking: houseJob.bookingHeader || null,
-      houseJob: master ? null : houseJob,
-      masterJob: master,
-      scope: 'CONTAINER',
+      houseJob,
+      masterJob: null,
+      scope: 'HOUSE',
     };
+  }
+
+  /**
+   * Container search: a container under a Master Job can be mapped to several
+   * House Jobs (product rows). Force a House Job selection limited to the houses
+   * actually mapped to THIS container; a single mapped house opens directly.
+   */
+  private containerToResolution(masterJob: any, reference: string): ResolvedEntities {
+    const mappedHouses = this.housesMappedToContainer(masterJob, reference);
+
+    if (mappedHouses.length > 1) {
+      return { kind: 'multiple', matches: mappedHouses.map((item) => this.toMatchRow(item)) };
+    }
+
+    if (mappedHouses.length === 1) {
+      const houseJob = mappedHouses[0];
+      return {
+        kind: 'single',
+        booking: houseJob.bookingHeader || null,
+        houseJob,
+        masterJob,
+        scope: 'HOUSE',
+      };
+    }
+
+    // Container exists but no house product is linked to it — show master view.
+    return { kind: 'single', booking: null, houseJob: null, masterJob, scope: 'CONTAINER' };
+  }
+
+  /** House Jobs whose product rows are linked to the searched container (by Sid or ContainerNo). */
+  private housesMappedToContainer(masterJob: any, reference: string): any[] {
+    const ref = this.normalizeReference(reference);
+    const matchedContainer = (masterJob?.containers || []).find(
+      (container) => this.normalizeReference(container?.ContainerNumber) === ref,
+    );
+    const containerSid = matchedContainer?.MasterJobContainerSid ?? null;
+
+    return (masterJob?.houseJob || []).filter((houseJob) =>
+      (houseJob?.Products || []).some(
+        (product) =>
+          (containerSid != null && product?.MasterJobContainerSid === containerSid) ||
+          this.normalizeReference(product?.ContainerNo) === ref,
+      ),
+    );
   }
 
   /** Fallback when the caller does not declare a search type. */
@@ -467,6 +514,10 @@ export class TrackingService {
   }
 
   private toMatchRow(houseJob: any) {
+    const voyage = houseJob.masterJob?.voyages?.[0];
+    const vesselName = houseJob.VesselName || voyage?.VesselName || null;
+    const voyageNo = houseJob.VoyageNo || voyage?.VoyageNo || null;
+
     return {
       houseJobSid: houseJob.HouseJobSid,
       hblNo: houseJob.HBLNo || null,
@@ -481,7 +532,9 @@ export class TrackingService {
       customerName: houseJob.CustomerName || houseJob.bookingHeader?.CustomerName || null,
       pol: houseJob.POL || houseJob.bookingHeader?.POL || null,
       pod: houseJob.POD || houseJob.bookingHeader?.POD || null,
-      etd: houseJob.ETD || houseJob.bookingHeader?.ETD || null,
+      vesselVoyage: [vesselName, voyageNo].filter(Boolean).join(' / ') || null,
+      etd: houseJob.ETD || voyage?.ETD || houseJob.bookingHeader?.ETD || null,
+      eta: houseJob.ETA || voyage?.ETA || houseJob.bookingHeader?.ETA || null,
     };
   }
 
@@ -519,6 +572,7 @@ export class TrackingService {
       includeAllMasterContainers,
     );
     const cargoSummary = this.buildCargoSummary(resolvedHouseJobs, containers, resolvedBooking);
+    const cargoDates = this.resolveCargoDates(resolvedHouseJobs, resolvedBooking);
     const shipmentNo =
       resolvedHouseJob?.ShipmentNo ||
       resolvedBooking?.ShipmentNo ||
@@ -617,6 +671,8 @@ export class TrackingService {
         pod: resolvedHouseJob?.POD || resolvedBooking?.POD || resolvedMasterJob?.POD || null,
         finalDestination:
           resolvedHouseJob?.FPD || resolvedBooking?.FPD || resolvedMasterJob?.FPD || null,
+        cargoReceivedDate: cargoDates.cargoReceivedDate,
+        deliveryDate: cargoDates.deliveryDate,
         route: this.compact([
           resolvedHouseJob?.POO || resolvedBooking?.POO || resolvedMasterJob?.POO,
           resolvedHouseJob?.POL || resolvedBooking?.POL || resolvedMasterJob?.POL,
@@ -671,14 +727,27 @@ export class TrackingService {
     let totalPackages: number | null = null;
     let totalGrossWeight: number | null = null;
     let totalVolume: number | null = null;
+    let totalVolumetric: number | null = null;
+    let totalChargeableWeight: number | null = null;
+    let totalContainers: number | null = null;
+    let totalCommodities = 0;
     let hasProducts = false;
 
     for (const houseJob of houseJobs || []) {
+      // Commodities = number of product (commodity) lines, regardless of container linkage.
       for (const product of houseJob?.Products || []) {
         hasProducts = true;
-        totalPackages = this.addNullable(totalPackages, this.toNumber(product.ActualQty));
+        totalCommodities += 1;
+        totalPackages = this.addNullable(totalPackages, this.toNumber(product.ExternlQty));
         totalGrossWeight = this.addNullable(totalGrossWeight, this.toNumber(product.GrossWeight));
         totalVolume = this.addNullable(totalVolume, this.toNumber(product.Volume));
+      }
+      // Chargeable weight, volumetric & declared container count live at the
+      // cargo-block level (HouseJobCargo).
+      for (const cargo of houseJob?.Cargo || []) {
+        totalChargeableWeight = this.addNullable(totalChargeableWeight, this.toNumber(cargo.ChargeableWeight));
+        totalVolumetric = this.addNullable(totalVolumetric, this.toNumber(cargo.Volumetric));
+        totalContainers = this.addNullable(totalContainers, this.toNumber(cargo.NoofContainers));
       }
     }
 
@@ -688,6 +757,9 @@ export class TrackingService {
         totalPackages = this.addNullable(totalPackages, this.toNumber(container.packageCount));
         totalGrossWeight = this.addNullable(totalGrossWeight, this.toNumber(container.weight));
         totalVolume = this.addNullable(totalVolume, this.toNumber(container.volume));
+        if (this.toNumber(container.commodityCount)) {
+          totalCommodities += Number(container.commodityCount);
+        }
       }
     }
 
@@ -699,7 +771,20 @@ export class TrackingService {
       }
     }
 
-    return { totalPackages, totalGrossWeight, totalVolume };
+    // Chargeable weight fallback: max(gross, volumetric) when not stored at cargo level.
+    if (totalChargeableWeight === null && (totalGrossWeight !== null || totalVolumetric !== null)) {
+      totalChargeableWeight = Math.max(totalGrossWeight || 0, totalVolumetric || 0) || null;
+    }
+
+    return {
+      totalPackages,
+      totalGrossWeight,
+      totalVolume,
+      totalVolumetric,
+      totalChargeableWeight,
+      totalContainers,
+      totalCommodities: totalCommodities || null,
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -1199,21 +1284,28 @@ export class TrackingService {
     booking: any,
     includeAllMasterContainers: boolean,
   ) {
-    const containers = new Map<string, any>();
+    const rows: any[] = [];
+    const bySid = new Map<string, any>();
+    const byNo = new Map<string, any>();
 
-    const ensure = (key: string, base: any) => {
-      if (!containers.has(key)) containers.set(key, base);
-      return containers.get(key);
+    // A physical container can be referenced either by MasterJobContainerSid or
+    // by ContainerNo. Index every row under BOTH so that two commodities with
+    // mixed linkage still merge into ONE container (no split weight/volume).
+    const register = (row: any) => {
+      if (row.masterJobContainerSid != null) bySid.set(String(row.masterJobContainerSid), row);
+      const noKey = String(row.containerNo || '').toUpperCase();
+      if (noKey && noKey !== 'PENDING CONTAINER ASSIGNMENT') byNo.set(noKey, row);
     };
-
-    const masterKey = (container: any) =>
-      container?.MasterJobContainerSid != null
-        ? `sid:${container.MasterJobContainerSid}`
-        : `no:${String(container?.ContainerNumber || '').toUpperCase()}`;
+    const findRow = (sid: any, containerNo: any) => {
+      if (sid != null && bySid.has(String(sid))) return bySid.get(String(sid));
+      const noKey = String(containerNo || '').toUpperCase();
+      if (noKey && byNo.has(noKey)) return byNo.get(noKey);
+      return null;
+    };
 
     if (includeAllMasterContainers) {
       for (const container of masterJob?.containers || []) {
-        ensure(masterKey(container), this.newContainerRow({
+        const row = this.newContainerRow({
           masterJobContainerSid: container.MasterJobContainerSid ?? null,
           containerNo: container.ContainerNumber || null,
           containerType: container.containerType?.ContainerName || container.containerType?.ContainerCode || null,
@@ -1221,27 +1313,24 @@ export class TrackingService {
           basePackageCount: this.toNumber(container.NoOfPkg),
           baseWeight: this.toNumber(container.GrossWeight),
           baseVolume: this.toNumber(container.Volume),
-        }));
+        });
+        rows.push(row);
+        register(row);
       }
     }
 
     for (const houseJob of houseJobs || []) {
       for (const product of houseJob?.Products || []) {
         const sid = product.MasterJobContainerSid;
-        let key: string;
-        if (sid != null) {
-          key = `sid:${sid}`;
-        } else if (product.ContainerNo) {
-          key = `no:${String(product.ContainerNo).toUpperCase()}`;
-        } else {
-          continue; // genuinely unlinked product row
-        }
+        const containerNo = product.ContainerNo || product.masterJobContainer?.ContainerNumber || null;
+        // Loose / unassigned cargo is summed in cargoSummary, not as a container.
+        if (sid == null && !containerNo) continue;
 
-        const existing =
-          containers.get(key) ||
-          ensure(key, this.newContainerRow({
+        let row = findRow(sid, containerNo);
+        if (!row) {
+          row = this.newContainerRow({
             masterJobContainerSid: sid ?? null,
-            containerNo: product.ContainerNo || product.masterJobContainer?.ContainerNumber || null,
+            containerNo,
             containerType:
               product.masterJobContainer?.containerType?.ContainerName ||
               product.masterJobContainer?.containerType?.ContainerCode ||
@@ -1250,31 +1339,36 @@ export class TrackingService {
             basePackageCount: null,
             baseWeight: null,
             baseVolume: null,
-          }));
+          });
+          rows.push(row);
+        }
 
-        existing.containerNo =
-          existing.containerNo || product.ContainerNo || product.masterJobContainer?.ContainerNumber || null;
-        existing.containerType =
-          existing.containerType ||
+        if (sid != null && row.masterJobContainerSid == null) row.masterJobContainerSid = sid;
+        row.containerNo = row.containerNo || containerNo;
+        row.containerType =
+          row.containerType ||
           product.masterJobContainer?.containerType?.ContainerName ||
           product.masterJobContainer?.containerType?.ContainerCode ||
           null;
-        existing.sealNo =
-          existing.sealNo || product.masterJobContainer?.LineSeal || product.masterJobContainer?.CustomsSeal || null;
+        row.sealNo =
+          row.sealNo || product.masterJobContainer?.LineSeal || product.masterJobContainer?.CustomsSeal || null;
+        register(row); // refresh aliases now that sid/containerNo may be filled
 
-        existing.productPackageCount = this.addNullable(existing.productPackageCount, this.toNumber(product.ActualQty));
-        existing.productWeight = this.addNullable(existing.productWeight, this.toNumber(product.GrossWeight));
-        existing.productVolume = this.addNullable(existing.productVolume, this.toNumber(product.Volume));
-        existing.commodityCount += 1;
-        if (houseJob?.HBLNo) existing.hblNos.push(houseJob.HBLNo);
-        if (houseJob?.HouseJobSid) existing.houseJobSids.push(houseJob.HouseJobSid);
-        if (houseJob?.ShipmentNo) existing.shipmentNos.push(houseJob.ShipmentNo);
+        // Aggregate across ALL commodity rows (matches master-job / house-job services):
+        // packages = Σ ExternlQty, weight = Σ GrossWeight, volume = Σ Volume.
+        row.productPackageCount = this.addNullable(row.productPackageCount, this.toNumber(product.ExternlQty));
+        row.productWeight = this.addNullable(row.productWeight, this.toNumber(product.GrossWeight));
+        row.productVolume = this.addNullable(row.productVolume, this.toNumber(product.Volume));
+        row.commodityCount += 1;
+        if (houseJob?.HBLNo) row.hblNos.push(houseJob.HBLNo);
+        if (houseJob?.HouseJobSid) row.houseJobSids.push(houseJob.HouseJobSid);
+        if (houseJob?.ShipmentNo) row.shipmentNos.push(houseJob.ShipmentNo);
       }
     }
 
-    if (!containers.size) {
+    if (!rows.length) {
       for (const cargo of booking?.bookingCargo || []) {
-        containers.set(`BOOKING-${cargo.BookingCargoSid}`, this.newContainerRow({
+        const row = this.newContainerRow({
           masterJobContainerSid: null,
           containerNo: 'Pending container assignment',
           containerType: cargo.containerType?.ContainerName || cargo.containerType?.ContainerCode || null,
@@ -1282,14 +1376,14 @@ export class TrackingService {
           basePackageCount: this.toNumber(cargo.NoOfPackage),
           baseWeight: this.toNumber(cargo.GrossWeight),
           baseVolume: this.toNumber(cargo.Volume),
-        }));
+        });
+        row.commodityCount = 1;
+        rows.push(row);
       }
     }
 
-    return Array.from(containers.values()).map((container) => {
+    return rows.map((container) => {
       const hblNos = this.uniqueValues(container.hblNos);
-      const houseJobSids = this.uniqueValues(container.houseJobSids);
-      const shipmentNos = this.uniqueValues(container.shipmentNos);
 
       return {
         masterJobContainerSid: container.masterJobContainerSid,
@@ -1298,8 +1392,8 @@ export class TrackingService {
         sealNo: container.sealNo,
         hblNos,
         hblNo: this.joinUnique(hblNos),
-        houseJobSids,
-        shipmentNos,
+        houseJobSids: this.uniqueValues(container.houseJobSids),
+        shipmentNos: this.uniqueValues(container.shipmentNos),
         commodityCount: container.commodityCount,
         packageCount: container.productPackageCount ?? container.basePackageCount,
         weight: container.productWeight ?? container.baseWeight,
@@ -1372,7 +1466,104 @@ export class TrackingService {
     };
   }
 
+  /**
+   * Cargo handling dates: Cargo Received (POO) and Delivered (FPOD).
+   * Both use the LATEST date across commodities — i.e. cargo is "received" only
+   * once the last commodity is in, and "delivered" once the last is out.
+   */
+  private resolveCargoDates(houseJobs: any[], booking: any) {
+    let received: Date | null = null;
+    let delivered: Date | null = null;
+
+    const considerReceived = (value: any) => {
+      if (!value) return;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return;
+      if (!received || date > received) received = date;
+    };
+    const considerDelivered = (value: any) => {
+      if (!value) return;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return;
+      if (!delivered || date > delivered) delivered = date;
+    };
+
+    for (const houseJob of houseJobs || []) {
+      for (const product of houseJob?.Products || []) {
+        considerReceived(product.CargoRecDate);
+        considerDelivered(product.DeliveryDate);
+      }
+    }
+    if (!received) {
+      for (const product of booking?.bookingProduct || []) {
+        considerReceived(product.CargoRecDate);
+      }
+    }
+
+    return { cargoReceivedDate: received, deliveryDate: delivered };
+  }
+
+  /**
+   * Authoritative per-leg routing from the connection tables. House connections
+   * are used for a single (HBL/house) view; master connections for the master
+   * view. These carry POL/POD/Vessel/Voyage/ETD/ETA (+ ATD/ATA at master level).
+   */
+  private resolveConnectionLegs(houseJobs: any[], houseJob: any, masterJob: any) {
+    const isActive = (item: any) => String(item?.status ?? item?.Status ?? 'A').toUpperCase() !== 'I';
+    const single = houseJobs?.length === 1 ? houseJobs[0] : houseJob;
+    const houseConnections = (single?.Connections || []).filter(isActive);
+    const masterConnections = (masterJob?.masterJobConnection || []).filter(isActive);
+    const source = houseConnections.length ? houseConnections : masterConnections;
+    if (!source.length) return [];
+
+    const legs = source.filter(
+      (connection: any) =>
+        connection.VesselName || connection.VoyageNo || connection.ETD || connection.ETA || connection.POL || connection.POD,
+    );
+    const hblNos = this.uniqueValues((houseJobs?.length ? houseJobs : [single]).filter(Boolean).map((item) => item?.HBLNo));
+    const shipmentNos = this.uniqueValues(
+      (houseJobs?.length ? houseJobs : [single]).filter(Boolean).map((item) => item?.ShipmentNo),
+    );
+
+    return legs.map((connection: any, index: number) => ({
+      sequence: index + 1,
+      legType: legs.length > 1 ? (index === 0 ? 'First Leg' : index === legs.length - 1 ? 'Final Leg' : `Leg ${index + 1}`) : 'Voyage',
+      pol: connection.POL || null,
+      pod: connection.POD || null,
+      hblNos,
+      shipmentNos,
+      vesselVoyage: this.formatVesselVoyage(connection.VesselName, connection.VoyageNo),
+      vesselName: connection.VesselName || null,
+      voyageNo: connection.VoyageNo || null,
+      etd: connection.ETD || null,
+      eta: connection.ETA || null,
+      atd: connection.ATD || null,
+      ata: connection.ATA || null,
+    }));
+  }
+
+  private voyageInfoFromLegs(legs: any[]) {
+    const primary = legs[0];
+    const last = legs[legs.length - 1];
+    return {
+      vesselVoyage: this.formatVesselVoyage(primary.vesselName, primary.voyageNo),
+      vesselName: primary.vesselName || null,
+      voyageNo: primary.voyageNo || null,
+      etd: primary.etd || null,
+      eta: last.eta || primary.eta || null,
+      atd: primary.atd || null,
+      ata: last.ata || primary.ata || null,
+      voyageLegs: legs,
+    };
+  }
+
   private resolveVoyageInfo(booking: any, houseJob: any, masterJob: any, houseJobs: any[], transhipmentChain?: any) {
+    // 1. Connection-table routing is the authoritative source for legs/ports.
+    const connectionLegs = this.resolveConnectionLegs(houseJobs, houseJob, masterJob);
+    if (connectionLegs.length) {
+      return this.voyageInfoFromLegs(connectionLegs);
+    }
+
     const transhipmentLegs = this.resolveTranshipmentVoyageLegs(transhipmentChain);
     if (transhipmentLegs.length > 1) {
       const primaryLeg = transhipmentLegs[0];
@@ -1699,7 +1890,9 @@ export class TrackingService {
           DeliveryDate: true,
           CFS: true,
           GrossWeight: true,
+          NetWeight: true,
           Volume: true,
+          ExternlQty: true,
           ActualQty: true,
           masterJobContainer: {
             select: {
@@ -1709,6 +1902,30 @@ export class TrackingService {
               containerType: { select: { ContainerCode: true, ContainerName: true } },
             },
           },
+        },
+      },
+      Connections: {
+        where: { status: 'A' },
+        orderBy: { HouseJobConnectionSid: 'asc' },
+        select: {
+          Mode: true,
+          POL: true,
+          POD: true,
+          VesselName: true,
+          VoyageNo: true,
+          ETD: true,
+          ETA: true,
+        },
+      },
+      Cargo: {
+        where: { status: 'A' },
+        select: {
+          GrossWeight: true,
+          Volume: true,
+          Volumetric: true,
+          ChargeableWeight: true,
+          NoOfPackage: true,
+          NoofContainers: true,
         },
       },
     };
@@ -1751,6 +1968,21 @@ export class TrackingService {
         where: { Status: 'A' },
         orderBy: { MasterJobVoyageSid: 'asc' },
         select: { VesselName: true, VoyageNo: true, ETD: true, ETA: true, ATD: true, ATA: true, DestinationATA: true },
+      },
+      masterJobConnection: {
+        where: { Status: 'A' },
+        orderBy: { MasterJobConnectionSid: 'asc' },
+        select: {
+          Mode: true,
+          POL: true,
+          POD: true,
+          VesselName: true,
+          VoyageNo: true,
+          ETD: true,
+          ETA: true,
+          ATD: true,
+          ATA: true,
+        },
       },
       others: { where: { Status: 'A' }, select: { StuffingStartDate: true }, take: 1 },
       ...(includeHouseJobs
