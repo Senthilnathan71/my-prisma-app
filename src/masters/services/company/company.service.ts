@@ -728,21 +728,28 @@ export class CompanyService {
                 throw new BadRequestException(`Company with id ${companyId} not found`);
             }
 
-            // Update the company with new config
+            // Deep-merge the incoming config into the saved one so a screen that only
+            // owns part of the config (field visibility, document layout, currency
+            // position, ...) can never wipe sibling sections it doesn't manage — e.g.
+            // saving field visibility must not strip systemSettings.currency.
+            const existingConfig = (company.config as any) ?? {};
+            const mergedConfig = this.deepMergeConfig(existingConfig, configData ?? {});
+
+            // Update the company with the merged config
             const updatedCompany = await this._db.companyMaster.update({
                 where: { CompanyMasterSid: companyId },
                 data: {
-                    config: configData,
+                    config: mergedConfig,
                     updatedBy: user.userEmail,
                     updatedOn: new Date(),
                 }
             });
 
-            if(configData?.systemSettings?.currency?.currencyMasterSid){
+            if(mergedConfig?.systemSettings?.currency?.currencyMasterSid){
                 await this._db.companyMaster.update({
                     where: { CompanyMasterSid: companyId },
                     data: {
-                        CurrencyMasterSid: configData.systemSettings.currency.currencyMasterSid,
+                        CurrencyMasterSid: mergedConfig.systemSettings.currency.currencyMasterSid,
                         updatedBy: user.userEmail,
                         updatedOn: new Date(),
                     }
@@ -754,6 +761,32 @@ export class CompanyService {
             console.error('Error saving company config:', error);
             throw error;
         }
+    }
+
+    /**
+     * Recursively merge `incoming` into `base`. Plain objects merge key-by-key (so a
+     * partial section never deletes sibling keys it didn't send); arrays and scalars are
+     * replaced by `incoming`. An absent (`undefined`) key leaves `base` untouched.
+     */
+    private deepMergeConfig(base: any, incoming: any): any {
+        if (!this.isPlainObject(base) || !this.isPlainObject(incoming)) {
+            return incoming === undefined ? base : incoming;
+        }
+        const result: any = { ...base };
+        for (const key of Object.keys(incoming)) {
+            const baseVal = base[key];
+            const incomingVal = incoming[key];
+            if (this.isPlainObject(baseVal) && this.isPlainObject(incomingVal)) {
+                result[key] = this.deepMergeConfig(baseVal, incomingVal);
+            } else if (incomingVal !== undefined) {
+                result[key] = incomingVal;
+            }
+        }
+        return result;
+    }
+
+    private isPlainObject(value: any): boolean {
+        return value !== null && typeof value === 'object' && !Array.isArray(value);
     }
 
     async getCompanyConfig(companyId: number) {

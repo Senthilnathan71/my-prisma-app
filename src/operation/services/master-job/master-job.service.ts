@@ -56,6 +56,65 @@ export class MasterJobService {
         return `${label} '${value}' already exists. Please use a unique ${label}.`;
     }
 
+    // Within a single Master Job, no two House Jobs may share the same HBL/HAWBL No.
+    // For AIR the parent is the Master Air Waybill, so the label adapts accordingly.
+    private buildDuplicateHblForMasterJobMessage(department: { departmentType?: string | null } | null | undefined): string {
+        const isAir = String(department?.departmentType ?? '').trim().toUpperCase() === 'AIR';
+        const label = isAir ? 'HAWBL No' : 'HBL No';
+        const masterLabel = isAir ? 'Master Air Waybill' : 'Master Job';
+        return `${label} already exists for this ${masterLabel}.`;
+    }
+
+    /**
+     * Guards against duplicate attached HBL/HAWBL No within a single Master Job.
+     * Checks the incoming attached shipments both against each other and against
+     * House Jobs already attached to the Master Job. Read-only; throws on duplicate.
+     */
+    private async assertNoDuplicateAttachedHbl(
+        db: any,
+        shipmentList: any[],
+        masterJobSid: number | null | undefined,
+        companyMasterSid: number,
+        department: { departmentType?: string | null } | null | undefined,
+    ): Promise<void> {
+        const incoming = (shipmentList || [])
+            .map((s: any) => String(s?.HBLNo ?? '').trim())
+            .filter(Boolean);
+
+        if (incoming.length === 0) {
+            return;
+        }
+
+        // 1) Duplicate HBL No within the attached set itself.
+        const seen = new Set<string>();
+        for (const hbl of incoming) {
+            const key = hbl.toUpperCase();
+            if (seen.has(key)) {
+                throw new BadRequestException(this.buildDuplicateHblForMasterJobMessage(department));
+            }
+            seen.add(key);
+        }
+
+        // 2) Duplicate against House Jobs already attached to this Master Job.
+        if (masterJobSid) {
+            const existing = await db.houseJob.findFirst({
+                where: {
+                    MasterJobSid: Number(masterJobSid),
+                    CompanyMasterSid: companyMasterSid,
+                    status: 'A',
+                    OR: Array.from(new Set(incoming)).map((hbl) => ({
+                        HBLNo: { equals: hbl, mode: 'insensitive' },
+                    })),
+                },
+                select: { HouseJobSid: true },
+            });
+
+            if (existing) {
+                throw new BadRequestException(this.buildDuplicateHblForMasterJobMessage(department));
+            }
+        }
+    }
+
     private async getAgentMasterAirWaybillMenuSid() {
         try {
             return await this.menuMasterService.getMenuSidByName('Agent Master Air Waybill');
@@ -881,6 +940,15 @@ export class MasterJobService {
                         .filter((shipment: any) => shipment?.BookingHeaderSid)
                         .map((shipment: any) => [Number(shipment.BookingHeaderSid), shipment])
                 );
+                // Validate no duplicate attached HBL/HAWBL No within this Master Job.
+                await this.assertNoDuplicateAttachedHbl(
+                    prisma,
+                    allShipments,
+                    createdMasterJob.MasterJobSid,
+                    payload.CompanyMasterSid,
+                    department,
+                );
+
                 const transhipmentRecords = allShipments.filter(
                     (s) => String(s.JobType || '').toLowerCase() === 'transhipment'
                 );
@@ -2746,6 +2814,15 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
             const recordToCreateShipment = allShipments.filter(shipment =>shipment.BookingHeaderSid && !shipment.HouseJobSid);
             const recordToUpdateShipment = allShipments.filter(shipment => shipment.HouseJobSid);
             const manualHouseShipments = allShipments.filter(s => !s.BookingHeaderSid && !s.HouseJobSid && s.HBLNo);
+
+            // Validate no duplicate attached HBL/HAWBL No within this Master Job.
+            await this.assertNoDuplicateAttachedHbl(
+                this._db,
+                allShipments,
+                updatedMasterJob.MasterJobSid,
+                payload.CompanyMasterSid,
+                department,
+            );
 
 
             if (recordToCreateShipment.length > 0) {

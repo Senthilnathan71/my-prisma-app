@@ -3075,7 +3075,7 @@ export class AccountsReportsService {
           signedOutstandingCurrency: toNumber(signedOutstandingCurrency),
           signedLocalAmt: toNumber(signedLocalAmt),
           signedoutstandingLocalAmount: toNumber(signedoutstandingLocalAmount),
-          partyname : vt?.VoucherHeader?.PartyName || vt?.VoucherHeader?.BankPartyName,
+          partyname : vt?.VoucherHeader?.BankPartyName,
         });
 
         totalOutstandingCurrency += outstandingCurrencyAmount;
