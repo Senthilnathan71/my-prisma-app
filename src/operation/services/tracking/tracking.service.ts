@@ -47,7 +47,8 @@ type ResolvedEntities =
   | { kind: 'multiple'; matches: any[] }
   | { kind: 'single'; booking: any; houseJob: any; masterJob: any; scope: TrackingScope };
 
-const STANDARD_EVENTS = [
+// Sea milestone timeline (vessel / container events).
+const SEA_EVENTS = [
   'Booking Created',
   'Cargo Received',
   'Container Stuffing',
@@ -58,6 +59,20 @@ const STANDARD_EVENTS = [
   'Transshipment',
   'Vessel Arrived',
   'Container Discharged',
+  'Out For Delivery',
+  'Delivered',
+];
+
+// Air milestone timeline (flight events — no container stuffing / gate-in / discharge).
+const AIR_EVENTS = [
+  'Booking Created',
+  'Cargo Received',
+  'Customs Cleared',
+  'Handed To Airline',
+  'Flight Departed',
+  'Transshipment',
+  'Flight Arrived',
+  'Cargo Delivered To Customs',
   'Out For Delivery',
   'Delivered',
 ];
@@ -578,6 +593,12 @@ export class TrackingService {
       resolvedBooking?.ShipmentNo ||
       resolvedMasterJob?.MasterJobNumber ||
       null;
+    const departmentMaster =
+      resolvedHouseJob?.departmentMaster ||
+      resolvedBooking?.departmentMaster ||
+      (await this.findDepartmentMaster(resolvedMasterJob?.DepartmentMasterSid)) ||
+      null;
+    const transportMode = this.resolveTransportMode(departmentMaster);
     const milestones = await this.resolveMilestones(
       scope,
       reference,
@@ -586,6 +607,8 @@ export class TrackingService {
       resolvedMasterJob,
       resolvedHouseJobs,
       containers,
+      transportMode,
+      cargoDates,
     );
     const documents = await this.resolveDocuments(
       scope,
@@ -607,12 +630,6 @@ export class TrackingService {
       resolvedHouseJobs,
       transhipmentChain,
     );
-    const departmentMaster =
-      resolvedHouseJob?.departmentMaster ||
-      resolvedBooking?.departmentMaster ||
-      (await this.findDepartmentMaster(resolvedMasterJob?.DepartmentMasterSid)) ||
-      null;
-    const transportMode = this.resolveTransportMode(departmentMaster);
     const isTranshipment = this.isTranshipmentType(
       resolvedHouseJob?.JobType || resolvedBooking?.JobType,
     );
@@ -799,6 +816,11 @@ export class TrackingService {
     masterJob: any,
     houseJobs: any[] = [],
     containers: any[] = [],
+    transportMode: string | null = null,
+    cargoDates: { cargoReceivedDate: Date | null; deliveryDate: Date | null } = {
+      cargoReceivedDate: null,
+      deliveryDate: null,
+    },
   ): Promise<TrackingMilestone[]> {
     const stored = await this.findStoredMilestones(
       scope,
@@ -822,9 +844,14 @@ export class TrackingService {
           source: item.source,
           sequence: index + 1,
         }))
-      : this.generateMilestones(booking, houseJob, masterJob);
+      : this.generateMilestones(booking, houseJob, masterJob, transportMode, cargoDates);
 
-    return this.applyTimelineState(actual);
+    return this.applyTimelineState(actual, transportMode);
+  }
+
+  /** Milestone template differs by mode: Air uses flight events, Sea uses vessel/container events. */
+  private milestoneEvents(transportMode: string | null): string[] {
+    return String(transportMode || '').toUpperCase() === 'AIR' ? AIR_EVENTS : SEA_EVENTS;
   }
 
   private async findStoredMilestones(
@@ -1204,27 +1231,55 @@ export class TrackingService {
   // Timeline generation / state
   // ---------------------------------------------------------------------------
 
-  private generateMilestones(booking: any, houseJob: any, masterJob: any): TrackingMilestone[] {
+  private generateMilestones(
+    booking: any,
+    houseJob: any,
+    masterJob: any,
+    transportMode: string | null = null,
+    cargoDates: { cargoReceivedDate: Date | null; deliveryDate: Date | null } = {
+      cargoReceivedDate: null,
+      deliveryDate: null,
+    },
+  ): TrackingMilestone[] {
     const firstProduct =
       houseJob?.Products?.find((item) => item.CargoRecDate) ||
       booking?.bookingProduct?.find((item) => item.CargoRecDate);
     const voyage = masterJob?.voyages?.[0];
     const stuffingDate = masterJob?.others?.[0]?.StuffingStartDate;
-    const deliveredProduct = houseJob?.Products?.find((item) => item.DeliveryDate);
+    const pol = masterJob?.POL || houseJob?.POL || booking?.POL;
+    const pod = masterJob?.POD || houseJob?.POD || booking?.POD;
+    const fpd = houseJob?.FPD || booking?.FPD || masterJob?.FPD;
+    const cargoReceivedDate = cargoDates.cargoReceivedDate || firstProduct?.CargoRecDate || null;
+    const deliveredDate = cargoDates.deliveryDate || null;
+
+    if (String(transportMode || '').toUpperCase() === 'AIR') {
+      return [
+        this.event('Booking Created', booking?.createdOn || houseJob?.createdOn || masterJob?.CreatedOn, pol, 'booking'),
+        this.event('Cargo Received', cargoReceivedDate, firstProduct?.CFS || pol, 'house_job'),
+        this.event('Customs Cleared', null, pol, 'system'),
+        this.event('Handed To Airline', masterJob?.PortCutoffDate || booking?.PortCutoffDate, pol, 'system'),
+        this.event('Flight Departed', voyage?.ATD || voyage?.ETD || houseJob?.ETD || booking?.ETD, pol, 'voyage'),
+        this.event('Transshipment', null, null, 'voyage'),
+        this.event('Flight Arrived', voyage?.ATA || voyage?.ETA || houseJob?.ETA || booking?.ETA, pod, 'voyage'),
+        this.event('Cargo Delivered To Customs', null, pod, 'system'),
+        this.event('Out For Delivery', null, fpd, 'system'),
+        this.event('Delivered', deliveredDate, fpd, 'house_job'),
+      ].map((item, index) => ({ ...item, sequence: index + 1 }));
+    }
 
     return [
-      this.event('Booking Created', booking?.createdOn || houseJob?.createdOn || masterJob?.CreatedOn, booking?.POL || houseJob?.POL || masterJob?.POL, 'booking'),
-      this.event('Cargo Received', firstProduct?.CargoRecDate, firstProduct?.CFS || booking?.POL || houseJob?.POL, 'house_job'),
-      this.event('Container Stuffing', stuffingDate, masterJob?.POL || houseJob?.POL || booking?.POL, 'container'),
-      this.event('Gate In', masterJob?.PortCutoffDate || booking?.PortCutoffDate, masterJob?.POL || houseJob?.POL || booking?.POL, 'container'),
-      this.event('Customs Cleared', null, masterJob?.POL || houseJob?.POL || booking?.POL, 'system'),
-      this.event('Loaded On Vessel', voyage?.ETD || houseJob?.ETD || booking?.ETD, masterJob?.POL || houseJob?.POL || booking?.POL, 'voyage'),
-      this.event('Vessel Departed', voyage?.ATD || voyage?.ETD || houseJob?.ETD || booking?.ETD, masterJob?.POL || houseJob?.POL || booking?.POL, 'voyage'),
+      this.event('Booking Created', booking?.createdOn || houseJob?.createdOn || masterJob?.CreatedOn, pol, 'booking'),
+      this.event('Cargo Received', cargoReceivedDate, firstProduct?.CFS || pol, 'house_job'),
+      this.event('Container Stuffing', stuffingDate, pol, 'container'),
+      this.event('Gate In', masterJob?.PortCutoffDate || booking?.PortCutoffDate, pol, 'container'),
+      this.event('Customs Cleared', null, pol, 'system'),
+      this.event('Loaded On Vessel', voyage?.ETD || houseJob?.ETD || booking?.ETD, pol, 'voyage'),
+      this.event('Vessel Departed', voyage?.ATD || voyage?.ETD || houseJob?.ETD || booking?.ETD, pol, 'voyage'),
       this.event('Transshipment', null, null, 'voyage'),
-      this.event('Vessel Arrived', voyage?.ATA || voyage?.ETA || houseJob?.ETA || booking?.ETA, masterJob?.POD || houseJob?.POD || booking?.POD, 'voyage'),
-      this.event('Container Discharged', voyage?.DestinationATA || voyage?.ATA, masterJob?.POD || houseJob?.POD || booking?.POD, 'container'),
-      this.event('Out For Delivery', null, houseJob?.FPD || booking?.FPD || masterJob?.FPD, 'system'),
-      this.event('Delivered', deliveredProduct?.DeliveryDate, houseJob?.FPD || booking?.FPD || masterJob?.FPD, 'house_job'),
+      this.event('Vessel Arrived', voyage?.ATA || voyage?.ETA || houseJob?.ETA || booking?.ETA, pod, 'voyage'),
+      this.event('Container Discharged', voyage?.DestinationATA || voyage?.ATA, pod, 'container'),
+      this.event('Out For Delivery', null, fpd, 'system'),
+      this.event('Delivered', deliveredDate, fpd, 'house_job'),
     ].map((item, index) => ({ ...item, sequence: index + 1 }));
   }
 
@@ -1241,8 +1296,9 @@ export class TrackingService {
     };
   }
 
-  private applyTimelineState(events: TrackingMilestone[]): TrackingMilestone[] {
-    const normalized = STANDARD_EVENTS.map((name, index) => {
+  private applyTimelineState(events: TrackingMilestone[], transportMode: string | null = null): TrackingMilestone[] {
+    const template = this.milestoneEvents(transportMode);
+    const normalized = template.map((name, index) => {
       const found = events.find((item) => this.normalize(item.eventName) === this.normalize(name));
       return found ? { ...found, eventName: name, sequence: index + 1 } : this.event(name, null, null, 'system');
     });
