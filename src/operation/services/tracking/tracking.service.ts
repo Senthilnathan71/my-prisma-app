@@ -633,6 +633,13 @@ export class TrackingService {
     const isTranshipment = this.isTranshipmentType(
       resolvedHouseJob?.JobType || resolvedBooking?.JobType,
     );
+    const portNames = await this.resolvePortNames([
+      resolvedHouseJob?.POO || resolvedBooking?.POO || resolvedMasterJob?.POO,
+      resolvedHouseJob?.POL || resolvedBooking?.POL || resolvedMasterJob?.POL,
+      resolvedHouseJob?.POD || resolvedBooking?.POD || resolvedMasterJob?.POD,
+      resolvedHouseJob?.FPD || resolvedBooking?.FPD || resolvedMasterJob?.FPD,
+      ...(voyageInfo.voyageLegs || []).flatMap((leg: any) => [leg?.pol, leg?.pod]),
+    ]);
 
     return {
       resultType: 'SINGLE',
@@ -690,6 +697,7 @@ export class TrackingService {
           resolvedHouseJob?.FPD || resolvedBooking?.FPD || resolvedMasterJob?.FPD || null,
         cargoReceivedDate: cargoDates.cargoReceivedDate,
         deliveryDate: cargoDates.deliveryDate,
+        portNames,
         route: this.compact([
           resolvedHouseJob?.POO || resolvedBooking?.POO || resolvedMasterJob?.POO,
           resolvedHouseJob?.POL || resolvedBooking?.POL || resolvedMasterJob?.POL,
@@ -1522,6 +1530,25 @@ export class TrackingService {
       linkedBooking,
       linkedHouseJob,
     };
+  }
+
+  /** Resolve port codes (POO/POL/POD/FPOD + legs) to their names via PortMaster. */
+  private async resolvePortNames(codes: Array<string | null | undefined>): Promise<Record<string, string>> {
+    const unique = [...new Set(codes.map((code) => String(code || '').trim()).filter(Boolean))];
+    if (!unique.length) return {};
+
+    const ports = await this.db.portMaster.findMany({
+      where: { status: 'A', PortCode: { in: unique } },
+      select: { PortCode: true, PortName: true },
+    });
+
+    const map: Record<string, string> = {};
+    for (const port of ports) {
+      if (port.PortCode && port.PortName && !map[port.PortCode]) {
+        map[port.PortCode] = port.PortName;
+      }
+    }
+    return map;
   }
 
   /**
