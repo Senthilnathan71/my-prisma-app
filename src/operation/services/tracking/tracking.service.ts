@@ -1614,9 +1614,11 @@ export class TrackingService {
   }
 
   private resolveVoyageInfo(booking: any, houseJob: any, masterJob: any, houseJobs: any[], transhipmentChain?: any) {
-    // 1. Connection-table routing is the authoritative source for legs/ports.
+    // Connection table drives routing ONLY for transhipment (multi-leg). For a
+    // single-leg shipment the real vessel lives on the Master voyage / House job,
+    // so a single connection row must NOT override it.
     const connectionLegs = this.resolveConnectionLegs(houseJobs, houseJob, masterJob);
-    if (connectionLegs.length) {
+    if (connectionLegs.length > 1) {
       return this.voyageInfoFromLegs(connectionLegs);
     }
 
@@ -1643,7 +1645,11 @@ export class TrackingService {
     const fallbackLegs = fallbackHouseJobs
       .map((item, index) => this.mapHouseVoyageLeg(item, booking, index + 1))
       .filter((leg) => leg.vesselName || leg.voyageNo || leg.etd || leg.eta);
-    const voyageLegs = this.mergeVoyageLegs(masterVoyageLegs.length ? masterVoyageLegs : fallbackLegs);
+    let voyageLegs = this.mergeVoyageLegs(masterVoyageLegs.length ? masterVoyageLegs : fallbackLegs);
+    // Last resort: a single connection leg, only when no Master/House voyage exists.
+    if (!voyageLegs.length && connectionLegs.length === 1) {
+      voyageLegs = connectionLegs;
+    }
     const primaryLeg =
       voyageLegs.find((leg) => leg.atd || leg.etd || leg.ata || leg.eta || leg.vesselName || leg.voyageNo) ||
       this.mapHouseVoyageLeg(houseJob, booking, 1);
