@@ -1099,7 +1099,8 @@ export class TrackingService {
         DocumentSid: true,
         createdOn: true,
         attachFiles: {
-          where: { status: 'A' },
+          // Tracking is customer-facing: only documents ticked as Public are exposed.
+          where: { status: 'A', Public: 'Y' },
           orderBy: { createdOn: 'desc' },
           select: {
             AttachDocumentSid: true,
@@ -1143,7 +1144,8 @@ export class TrackingService {
     }
 
     const document = await this.db.attachDocument.findFirst({
-      where: { AttachDocumentSid: attachDocumentSid, status: 'A' },
+      // Only Public documents are downloadable through the customer-facing tracking portal.
+      where: { AttachDocumentSid: attachDocumentSid, status: 'A', Public: 'Y' },
       select: {
         FileName: true,
         FilePath: true,
