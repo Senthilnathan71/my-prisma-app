@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "HouseJobProxy" ADD COLUMN     "POD" VARCHAR(100),
+ADD COLUMN     "POL" VARCHAR(100);
