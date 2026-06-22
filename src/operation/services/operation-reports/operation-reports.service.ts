@@ -6822,8 +6822,6 @@ export class OperationReportsService {
       let podCode: string | undefined;
       let polName: string | undefined;
       let podName: string | undefined;
-      // Take MenuMasterSid of Master Air Waybill -[168] , House Air Waybill [178]
-
       const houseAirWaybillMenu = await this._db.menuMaster.findFirst({
         where: { MenuName: 'House Air Waybill', status: 'A' },
         select: { MenuMasterSid: true },
@@ -6834,14 +6832,33 @@ export class OperationReportsService {
         select: { MenuMasterSid: true },
       });
 
-      const excludedMenuId = [
+      const houseJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'House Job', status: 'A' },
+        select: { MenuMasterSid: true },
+      });
+
+      const masterJobMenu = await this._db.menuMaster.findFirst({
+        where: { MenuName: 'Master Job', status: 'A' },
+        select: { MenuMasterSid: true },
+      });
+
+      if (!houseJobMenu) {
+        throw new BadRequestException('House Job menu not found');
+      }
+
+      if (!masterJobMenu) {
+        throw new BadRequestException('Master Job menu not found');
+      }
+
+      const houseMenuIds = [
+        houseJobMenu.MenuMasterSid,
         houseAirWaybillMenu?.MenuMasterSid,
-        masterAirWaybillMenu?.MenuMasterSid,
       ].filter(Boolean) as number[];
 
-      if (excludedMenuId.length === 0) {
-        throw new BadRequestException('Air MenuMasterSid not found');
-      }
+      const masterMenuIds = [
+        masterJobMenu.MenuMasterSid,
+        masterAirWaybillMenu?.MenuMasterSid,
+      ].filter(Boolean) as number[];
 
       if (POL) {
         const polRow = await this._db.portMaster.findFirst({
@@ -6913,9 +6930,6 @@ export class OperationReportsService {
       const bookingData = await this._db.bookingHeader.findMany({
         where: {
           ...whereCondition,
-          departmentMaster: {
-            departmentType: { not: 'Air' },
-          },
           status: 'A',
           AND: [
             { BookingDateTime: { gte: FromDate } },
@@ -6936,7 +6950,7 @@ export class OperationReportsService {
       const houseJob = await this._db.houseJob.findMany({
         where: {
           ...whereCondition,
-          MenuMasterSid: { notIn: excludedMenuId },
+          MenuMasterSid: { in: houseMenuIds },
           AND: [{ HBLDate: { gte: FromDate } }, { HBLDate: { lte: ToDate } }],
           status: 'A',
         },
@@ -6955,24 +6969,21 @@ export class OperationReportsService {
         }
       });
 
-      const houseJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'House Job', status: 'A' },
-        select: { MenuMasterSid: true },
-      });
+      const houseCostRevenueBatch = houseJob
+        .filter((job) => job.MenuMasterSid != null)
+        .map((job) =>
+          this._db.costRevenueCharges.findMany({
+            where: {
+              MenuMasterSid: job.MenuMasterSid!,
+              TransactionSid: job.HouseJobSid,
+              CompanyMasterSid,
+              BranchMasterSid: { in: resolvedBranchIds },
+              status: 'A',
+            },
+          }),
+        );
 
-      if (!houseJobMenu) {
-        throw new BadRequestException('House Job menu not found');
-      }
-
-      const allHouseCR = await this._db.costRevenueCharges.findMany({
-        where: {
-          MenuMasterSid: houseJobMenu.MenuMasterSid,
-          TransactionSid: { in: houseJobIds },
-          CompanyMasterSid : CompanyMasterSid,
-          BranchMasterSid : { in: resolvedBranchIds },
-          status: 'A',
-        },
-      });
+      const allHouseCR = (await Promise.all(houseCostRevenueBatch)).flat();
 
       const houseRateMap = new Map<number, any[]>();
       allHouseCR.forEach((cr) => {
@@ -7043,7 +7054,7 @@ export class OperationReportsService {
       const masterJob = await this._db.masterJob.findMany({
         where: {
           ...whereCondition,
-          MenuMasterSid: { notIn: excludedMenuId },
+          MenuMasterSid: { in: masterMenuIds },
           AND: [{ MBLDate: { gte: FromDate } }, { MBLDate: { lte: ToDate } }],
           Status: 'A',
         },
@@ -7062,24 +7073,21 @@ export class OperationReportsService {
         }
       });
 
-      const masterJobMenu = await this._db.menuMaster.findFirst({
-        where: { MenuName: 'Master Job', status: 'A' },
-        select: { MenuMasterSid: true },
-      });
+      const masterCostRevenueBatch = masterJob
+        .filter((job) => job.MenuMasterSid != null)
+        .map((job) =>
+          this._db.costRevenueCharges.findMany({
+            where: {
+              MenuMasterSid: job.MenuMasterSid!,
+              TransactionSid: job.MasterJobSid,
+              CompanyMasterSid,
+              BranchMasterSid: { in: resolvedBranchIds },
+              status: 'A',
+            },
+          }),
+        );
 
-      if (!masterJobMenu) {
-        throw new BadRequestException('Master Job menu not found');
-      }
-
-      const allMasterCR = await this._db.costRevenueCharges.findMany({
-        where: {
-          MenuMasterSid: masterJobMenu.MenuMasterSid,
-          TransactionSid: { in: masterJobIds },
-          CompanyMasterSid : CompanyMasterSid,
-          BranchMasterSid : { in: resolvedBranchIds },
-          status: 'A',
-        },
-      });
+      const allMasterCR = (await Promise.all(masterCostRevenueBatch)).flat();
 
       const masterRateMap = new Map<number, any[]>();
       allMasterCR.forEach((cr) => {
@@ -7100,7 +7108,10 @@ export class OperationReportsService {
           0,
         );
         return {
-          screen: 'Master Job',
+          screen:
+            m.MenuMasterSid === masterAirWaybillMenu?.MenuMasterSid
+              ? 'Master Air Waybill'
+              : 'Master Job',
           masterJobSid: m.MasterJobSid,
           jobNo: m.MasterJobNumber,
           MBLNo: m.MBLNo,
@@ -7141,6 +7152,10 @@ export class OperationReportsService {
         );
         const vol = h.Cargo.reduce((sum, c) => sum + toNumber(c.Volume), 0);
         return {
+          screen:
+            h.MenuMasterSid === houseAirWaybillMenu?.MenuMasterSid
+              ? 'House Air Waybill'
+              : 'House Job',
           HBLNo: h.HBLNo,
           HouseDate:h.HBLDate,
           HouseJobSid: h.HouseJobSid,
