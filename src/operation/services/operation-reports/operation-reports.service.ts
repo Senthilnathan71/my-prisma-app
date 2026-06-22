@@ -5990,7 +5990,9 @@ export class OperationReportsService {
       );
 
       const masterWithCR = await Promise.all(
-        masterJob.map(async (m) => {
+        masterJob
+        .filter((m) => m.MenuMasterSid != null)
+        .map(async (m) => {
           const masterContainerSid = m.containers?.[0]?.MasterJobContainerSid;
 
           const containerInfo = (m.containers || [])
@@ -6149,7 +6151,9 @@ export class OperationReportsService {
       });
 
       const housewithrate = await Promise.all(
-        houseData.map(async (m) => {
+        houseData
+        .filter((m) => m.MenuMasterSid != null)
+        .map(async (m) => {
           const relatedCR = await this._db.costRevenueCharges.findMany({
             where: {
               MenuMasterSid: m.MenuMasterSid!,
