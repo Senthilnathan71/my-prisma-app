@@ -123,6 +123,9 @@ export class CustomerOutstandingTransactionDto {
 
   @ApiProperty({ description: 'Charge description', required: false })
   chargeDescription?: string;
+
+  @ApiProperty({ description: 'Party-row narration (VoucherTransaction.Narration)', required: false })
+  narration?: string;
 }
 
 /**

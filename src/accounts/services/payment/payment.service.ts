@@ -94,6 +94,7 @@ export class PaymentService {
                     ExchangeRate: txn.exchangeRate,
                     DrCr: txn.drCr,
                     ChargeDescription: txn.chargeDescription,
+                    Narration: txn.narration,
                     BranchMasterSid: txn.branchMasterSid,
                     BranchName: txn.branchName,
                 }));
@@ -227,6 +228,7 @@ export class PaymentService {
                 DrCr: txn.DrCr,
                 ExchangeRate : txn.ExchangeRate || null,
                 ChargeDescription : txn.ChargeDescription || '',
+                Narration : txn.Narration || '',
             });
         }
 
@@ -315,6 +317,7 @@ export class PaymentService {
                     BranchMaster: { select: { branchName: true } },
                     Amount: true,
                     LocalAmount: true,
+                    Narration: true,
                     voucherMatchings: { where: { Status: 'A' } },
                     VoucherHeader : {
                         select : {
@@ -378,6 +381,7 @@ export class PaymentService {
                 MatchingTDSAmount : detail.MatchingTDSAmount,
                 PartyAmount : detail.PartyAmount,
                 BranchName: detail.BranchName || (transactionDetail as any)?.BranchMaster?.branchName || '',
+                Narration: transactionDetail?.Narration,
             };
         }));
 
