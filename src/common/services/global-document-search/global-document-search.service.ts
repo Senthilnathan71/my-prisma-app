@@ -507,9 +507,9 @@ export class GlobalDocumentSearchService {
                         documentType = 'JOURNAL';
                         break;
                     case 'RJV':
-                        basePath = '/accounts/reversal-journal-voucher/entry';
-                        displayType = 'Reversal Journal';
-                        documentType = 'REVERSAL_JOURNAL';
+                        basePath = '/accounts/reverse-voucher/entry';
+                        displayType = 'Reversal Voucher';
+                        documentType = 'REVERSAL_VOUCHER';
                         break;
                     default:
                         basePath = '/accounts/journal-voucher/entry';

@@ -422,6 +422,32 @@ export class FfUserMasterController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get All Users by Role' })
+    @ApiCreatedResponse({
+        description: 'Get All Users by Role',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('by-role')
+    async getUsersByUser(@Body() payload: any) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.ffUserMasterService.getUsersByRole(payload.companyMasterSid,payload.roleMasterSid);
+            this.logger.log(`Users by role fetched`);
+            resp.data = res;
+            resp.message = "Users by role are successfully fetched";
+        } catch (error) {
+            this.logger.warn(`Get Users by role Error : ${JSON.stringify(error), error}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = "Internal Server Error";
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get All Salesperson' })
     @ApiCreatedResponse({
         description: 'Get All Salesperson',
