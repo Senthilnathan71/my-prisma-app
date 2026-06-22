@@ -295,6 +295,7 @@ export class VoucherMatchingService {
             ExchangeRate: txn.exchangeRate,
             DrCr: txn.drCr,
             ChargeDescription: txn.chargeDescription,
+            Narration: txn.narration,
         }));
         let result = vouchers;
 
@@ -655,6 +656,7 @@ export class VoucherMatchingService {
                         ExchangeRate: vm.ExchangeRate,
                         OriginalCurrencyAmount: vm.VoucherTransaction?.Amount,
                         OriginalLocalAmount: vm.VoucherTransaction?.LocalAmount,
+                        Narration: vm.VoucherTransaction?.Narration ?? '',
                         MatchingCurrency: null,
                         MatchingExRate: vm.ExchangeRate ?? 0,
                         MatchedCurrencyAmount: vm.Amount ?? 0,
@@ -693,6 +695,7 @@ export class VoucherMatchingService {
                         ExchangeRate: transaction.ExchangeRate ?? md.ExchangeRate ?? md.MatchingExRate,
                         OriginalCurrencyAmount: transaction?.Amount ?? md.Amount,
                         OriginalLocalAmount: transaction?.LocalAmount ?? md.LocalAmount,
+                        Narration: transaction?.Narration ?? '',
                         OutstandingCurrencyAmount: outstanding?.OutstandingAmount,
                         OutstandingLocalAmount: outstanding?.OutstandingLocalAmount,
                         MatchingCurrency: md.MatchingCurrency ?? null,

@@ -269,6 +269,7 @@ export class OutstandingService {
             exchangeRate: this.toNumber(vt.ExchangeRate || 1),
             drCr: vt.DrCr,
             chargeDescription: vt.ChargeDescription || "",
+            narration: vt.Narration || "",
             branchMasterSid: vt.BranchMasterSid,
             branchName: (vt as any).BranchMaster?.branchName,
           });

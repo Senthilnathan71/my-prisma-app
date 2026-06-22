@@ -305,6 +305,7 @@ export class OutstandingInvoiceDto {
   HAWB?: string;
   MAWB?: string;
   ChargeDescription?: string;
+  Narration?: string;
 }
 
 /**

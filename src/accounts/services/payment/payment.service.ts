@@ -94,6 +94,7 @@ export class PaymentService {
                     ExchangeRate: txn.exchangeRate,
                     DrCr: txn.drCr,
                     ChargeDescription: txn.chargeDescription,
+                    Narration: txn.narration,
                     BranchMasterSid: txn.branchMasterSid,
                     BranchName: txn.branchName,
                 }));
@@ -227,6 +228,7 @@ export class PaymentService {
                 DrCr: txn.DrCr,
                 ExchangeRate : txn.ExchangeRate || null,
                 ChargeDescription : txn.ChargeDescription || '',
+                Narration : txn.Narration || '',
             });
         }
 
@@ -315,6 +317,7 @@ export class PaymentService {
                     BranchMaster: { select: { branchName: true } },
                     Amount: true,
                     LocalAmount: true,
+                    Narration: true,
                     voucherMatchings: { where: { Status: 'A' } },
                     VoucherHeader : {
                         select : {
@@ -378,6 +381,7 @@ export class PaymentService {
                 MatchingTDSAmount : detail.MatchingTDSAmount,
                 PartyAmount : detail.PartyAmount,
                 BranchName: detail.BranchName || (transactionDetail as any)?.BranchMaster?.branchName || '',
+                Narration: transactionDetail?.Narration,
             };
         }));
 
@@ -387,6 +391,52 @@ export class PaymentService {
             VoucherMatchingHeader : voucherMatchingHeader,
             voucherMatchings : formattedMatchingDetail
         };
+    }
+
+    /**
+     * Guard for multiple creditor (Sy Cr) party rows on a payment.
+     *  - Extra party rows are allowed ONLY on cash payments (CashOrBank = 'C'). On a cash payment the
+     *    header party is bill-matched; every other creditor row posts as an on-account advance.
+     *  - When a header party is set, exactly one row must be that party.
+     *  - The same party must not appear on more than one row.
+     */
+    private async validatePaymentPartyRows(
+        prisma: Prisma.TransactionClient,
+        payload: any,
+        details: any[],
+    ): Promise<void> {
+        const rows = details || [];
+        if (!rows.length) return;
+
+        const coaSids = [...new Set(rows.map((d) => Number(d.COAMasterSid)).filter(Boolean))];
+        if (!coaSids.length) return;
+        const coas = await prisma.cOAMaster.findMany({
+            where: { COAMasterSid: { in: coaSids } },
+            select: { COAMasterSid: true, LedgerType: true },
+        });
+        const typeByCoa = new Map(
+            coas.map((c) => [Number(c.COAMasterSid), String(c.LedgerType || '').trim()]),
+        );
+        const partyRows = rows.filter((d) => typeByCoa.get(Number(d.COAMasterSid)) === 'Sy Cr');
+
+        // A: extra party rows are cash-only
+        if (payload.CashOrBank !== 'C' && partyRows.length > 1) {
+            throw new BadRequestException('Multiple party rows are only allowed on cash payments.');
+        }
+        // B: exactly one party row must be the main (header) party
+        if (payload.PartyMasterSid) {
+            const headerMatches = partyRows.filter(
+                (d) => Number(d.LedgerMasterSid) === Number(payload.PartyMasterSid),
+            );
+            if (headerMatches.length !== 1) {
+                throw new BadRequestException('Exactly one detail row must be the main (header) party.');
+            }
+        }
+        // C: no duplicate party across rows
+        const ledgers = partyRows.map((d) => Number(d.LedgerMasterSid));
+        if (new Set(ledgers).size !== ledgers.length) {
+            throw new BadRequestException('The same party appears on more than one row.');
+        }
     }
 
     async createNewPayment(payload: any) {
@@ -536,6 +586,7 @@ export class PaymentService {
                 // No filtering needed — the frontend sends the exact rows to persist,
                 // including the party row for PR-converted payments.
                 const detailItems = payload.detailItems || [];
+                await this.validatePaymentPartyRows(prisma, payload, detailItems);
                 const allDetailPayload = detailItems.map((item, index) => ({
                     CreatedBy: payload.CreatedBy,
                     Status: 'A',
@@ -813,6 +864,8 @@ export class PaymentService {
                         item.COAMasterSid !== payload.BankCOA;
                     return !isPaymentRequestPartyRow;
                 });
+
+                await this.validatePaymentPartyRows(prisma, payload, detailItems);
 
                 // 2. Validate Voucher Type
                 const cashOrBankType = payload.CashOrBank === 'C' ? 'Cash' : 'Bank';
@@ -1634,7 +1687,15 @@ export class PaymentService {
                     });
                 }
 
-                const partyDetail = allCompleteDetails.find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
+                // Bind matching to the MAIN (header) party row. With cash multi-party payments there
+                // can be several Customer-type rows (advances), so picking "the first Customer" could
+                // grab an advance row by mistake. Fall back to the old rule for single-party / PR flows
+                // (PR payments have a null PartyMasterSid, so the guarded lookup is skipped there).
+                const partyDetail =
+                    (voucher.PartyMasterSid
+                        ? allCompleteDetails.find(vd => Number(vd.LedgerMasterSid) === Number(voucher.PartyMasterSid))
+                        : undefined)
+                    ?? allCompleteDetails.find(vd => vd.subledgerMaster?.SubledgerType === 'Customer');
 
                 await tx.matchingDetail.deleteMany({
                     where: {

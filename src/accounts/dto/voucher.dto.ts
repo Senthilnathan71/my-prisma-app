@@ -626,9 +626,9 @@ export class CreateVoucherDTO extends VoucherHeaderDto {
 }
 
 export class CheckAutoPostingDto {
-    @IsNotEmpty({message : 'MenuName is required'})
+    @IsNotEmpty({message : 'DocumentTypeCode is required'})
     @IsString()
-    MenuName : string;
+    DocumentTypeCode : string;
 
     @IsNotEmpty({message : 'Company Master SID is required'})
     @IsInt()

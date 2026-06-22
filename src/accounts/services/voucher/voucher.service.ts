@@ -3091,14 +3091,12 @@ export class VoucherService {
 
     async checkAutoPosting(payload: CheckAutoPostingDto): Promise<boolean> {
         try {
-            const { MenuName, CompanyMasterSid, BranchMasterSid, Type = 'Others' } = payload;
+            const { DocumentTypeCode, CompanyMasterSid, BranchMasterSid, Type = 'Others' } = payload;
 
             const baseWhere = {
                 CompanyMasterSid: CompanyMasterSid,
                 BranchMasterSid: BranchMasterSid,
-                menuMaster : {
-                    MenuName : MenuName
-                },
+                DocumentTypeCode: DocumentTypeCode,
                 status: 'A'
             };
 

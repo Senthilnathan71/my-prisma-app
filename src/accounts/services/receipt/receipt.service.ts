@@ -109,6 +109,7 @@ export class ReceiptService {
           ExchangeRate: txn.exchangeRate,
           DrCr: txn.drCr,
           ChargeDescription: txn.chargeDescription,
+          Narration: txn.narration,
           BranchMasterSid: txn.branchMasterSid,
           BranchName: txn.branchName,
         }));
@@ -240,6 +241,7 @@ export class ReceiptService {
         DrCr: txn.DrCr,
         ExchangeRate : txn.ExchangeRate || null,
         ChargeDescription : txn.ChargeDescription || '',
+        Narration : txn.Narration || '',
       });
     }
 
