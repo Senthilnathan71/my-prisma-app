@@ -237,7 +237,7 @@ model VoucherTransaction {
   ExchangeRate          Decimal             @db.Decimal(6, 3)
   Rate                  Decimal             @db.Decimal(15, 3)
   NumberOfUnit          Decimal             @db.Decimal(9, 3)
-  Narration             String?             @db.VarChar(200)
+  Narration             String?             @db.VarChar(300)
   DrCr                  String              @db.Char(1)
   TaxableAmount         Decimal             @db.Decimal(15, 3)
   Amount                Decimal             @db.Decimal(15, 3)
