@@ -1,7 +1,17 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { table } from 'node:console';
 import { DatabaseService } from 'src/database/database.service';
+export interface AuditLogQuery {
+    page?: number;      // 0-based
+    pageSize?: number;  // default 50
+    // Internal raw-cursor controls (set by the accumulation loop in
+    // getAuditLogs, not by external callers). When rawSkip/rawTake are present
+    // fetchLogs uses them instead of page*pageSize so the loop can scan raw
+    // rows in batches while the client paginates over *real* (filtered) rows.
+    rawSkip?: number;
+    rawTake?: number;
+}
 
+type AnyRec = Record<string, any>;
 @Injectable()
 export class AuditLogService {
     constructor(
@@ -9,156 +19,240 @@ export class AuditLogService {
         private readonly logger: Logger
     ) { }
 
-    async getAuditLogs(tableName: string, recordId?: string, screenName?: string) {
-        try {
-            if (!tableName) {
-                throw new BadRequestException('Table name is required');
+    private static readonly STATUS_MAP: Record<string, string> = {
+        A: 'Active',
+        S: 'Suspended',
+        D: 'Deleted',
+    };
+
+    private static readonly YES_NO_MAP: Record<string, string> = {
+        Y: 'Yes',
+        N: 'No',
+    };
+
+    private static readonly COMMON_IGNORED = [
+        'createdBy', 'createdOn', 'updatedBy', 'updatedOn',
+        'CreatedBy', 'CreatedOn', 'UpdatedBy', 'UpdatedOn',
+    ];
+
+    // A/B TEST TOGGLE: set to true to return ALL audit rows unfiltered
+    // (no hasMeaningfulChange drop, no diff trimming). Use to confirm whether
+    // "missing" rows were blank/no-op saves. Set back to false for production.
+    private static readonly DEBUG_NO_FILTER = false;
+
+    private async fetchLogs(
+        conditions: any[],
+        query: AuditLogQuery = {},
+    ): Promise<any[]> {
+        if (!conditions.length) return this.tagRawCount([], 0, 0);
+
+        const page = Math.max(0, query.page ?? 0);
+        const pageSize = Math.min(200, Math.max(1, query.pageSize ?? 50));
+
+        // When the accumulation loop drives raw paging it passes rawSkip/rawTake.
+        // Otherwise fall back to the classic page*pageSize window.
+        const skip = query.rawSkip ?? (page * pageSize);
+        const take = Math.min(200, Math.max(1, query.rawTake ?? pageSize));
+
+        const rows = await this._db.auditLog.findMany({
+            where: { OR: conditions },
+            orderBy: { changedAt: 'desc' },
+            take,
+            skip,
+        });
+
+        // Tag each raw row with its position within this batch (0-based). After
+        // filtering, a kept row still carries __rawIndex, so the accumulation
+        // loop can compute exactly how many raw rows it consumed to reach the
+        // page target and resume precisely — without losing or repeating rows.
+        rows.forEach((r: any, i: number) => {
+            Object.defineProperty(r, '__rawIndex', { value: i, enumerable: false, configurable: true });
+        });
+
+        // Stash how many RAW rows this batch returned (before formatLogs drops
+        // no-op/blank UPDATE rows) plus the raw window used, so the caller can
+        // tell whether the underlying table still has more raw rows to scan.
+        return this.tagRawCount(rows, rows.length, take);
+    }
+
+    /**
+     * Attach raw-page metadata to a logs array as non-enumerable props so it
+     * survives the formatLogs().flatMap() pass-through and can be read back in
+     * the dispatcher. Non-enumerable keeps it out of JSON serialization.
+     */
+    private tagRawCount<T extends any[]>(arr: T, rawCount: number, pageSize: number): T {
+        Object.defineProperty(arr, '__rawCount', { value: rawCount, enumerable: false, configurable: true });
+        Object.defineProperty(arr, '__pageSize', { value: pageSize, enumerable: false, configurable: true });
+        return arr;
+    }
+
+    private formatLogs(
+        logs: any[],
+        opts: {
+            renameRules?: Array<[string, string, Map<string, string>]>;
+            valueRules?: Array<[string, Record<string, string>]>;
+            arrayRules?: Array<[string, Map<string, string>]>;
+            ignored?: string[];
+            decorate?: (log: any, oldVal: AnyRec, newVal: AnyRec) => AnyRec;
+            diff?: boolean; // default true
+            debug?: boolean; // when true, skip hasMeaningfulChange/diff filtering (A/B testing)
+        },
+    ): any[] {
+        const {
+            renameRules = [],
+            valueRules = [],
+            arrayRules = [],
+            ignored = [],
+            decorate,
+            diff = true,
+            debug = AuditLogService.DEBUG_NO_FILTER,
+        } = opts;
+
+        const ignoreSet = [...AuditLogService.COMMON_IGNORED, ...ignored];
+
+        const formatted = logs.flatMap((log) => {
+
+            let oldVal: AnyRec = { ...(log.oldVal || {}) };
+            let newVal: AnyRec = { ...(log.newVal || {}) };
+
+            this.removeIgnoredFields(oldVal, ignoreSet);
+            this.removeIgnoredFields(newVal, ignoreSet);
+
+            // now decide if anything real changed (skipped in debug mode)
+            if (!debug && !this.hasMeaningfulChange({ ...log, oldVal, newVal })) return [];
+
+
+            for (const [from, to, map] of renameRules) {
+                this.replaceAndRename(oldVal, from, to, map);
+                this.replaceAndRename(newVal, from, to, map);
             }
-            if (!screenName) {
-                throw new BadRequestException('Screen name is required');
+            for (const [key, map] of valueRules) {
+                this.replaceValueFromMap(oldVal, key, map);
+                this.replaceValueFromMap(newVal, key, map);
             }
-            switch (screenName) {
-                case 'Booking':
-                    return this.getBookingLogs(recordId);
-                case 'AgentMasterAirWaybill':
-                    return this.getAgentMasterAirWaybillLogs(recordId);
-                case 'CreditNote':
-                    return this.getCreditNoteLogs(recordId);
-                case 'VendorCreditNote':
-                    return this.getVendorCreditNoteLogs(recordId);
-                case 'ReverseVoucher':
-                    return this.getReverseVoucherLogs(recordId);
-                case 'CreditRequest':
-                    return this.getCreditRequestLogs(recordId);
-                case 'HouseAirwaybill':
-                    return this.getAgentMasterAirWaybillLogs(recordId);
-                case 'HouseJob':
-                    return this.getAgentMasterAirWaybillLogs(recordId);
-                case 'Invoice':
-                    return this.getInvoiceLogs(recordId);
-                case 'VendorInvoice':
-                    return this.getVendorInvoiceLogs(recordId);
-                case 'MasterJob':
-                    return this.getMasterJobLogs(recordId);
-                case 'MasterAirwayBill':
-                    return this.getMasterJobLogs(recordId);
-                case 'ServiceJob':
-                    return this.getAgentMasterAirWaybillLogs(recordId);
-                case 'Receipt':
-                    return this.getReceiptLogs(recordId);
-                case 'Payment':
-                    return this.getPaymentLogs(recordId);
-                case 'JournalVoucher':
-                    return this.getJVLogs(recordId);
-                case 'Quotation':
-                    return this.getQuoteLogs(recordId);
-                case 'Enquiry':
-                    return this.getEnquiryLogs(recordId);
-                case 'VoucherMatching':
-                    return this.getVoucherMatchingLogs(recordId);
-                case 'DocType':
-                    return this.getdoctypeLogs(recordId);
-                case 'NumberSeriesConfig':
-                    return this.getnumberseriesLogs(recordId);
-                case 'PaymentRequest':
-                    return this.getPaymentRequestLogs(recordId);
-                case 'ChartOfAccounts':
-                    return this.getChartOfAccountsLogs(recordId);
-                case 'CurrencyExchange':
-                    return this.getCurrencyExchangeLogs(recordId);
-                case 'SubledgerMapping':
-                    return this.getSubledgerMappingLogs(recordId);
-                case 'SupplierTdsMapping':
-                    return this.getSupplierTdsMappingLogs(recordId);
-                case 'Lead':
-                    return this.getLeadLogs(recordId);
-                case 'Meeting':
-                    return this.getMeetingLogs(recordId);
-                case 'Company':
-                    return this.getCompanyLogs(recordId);
-                case 'CostCenter':
-                    return this.getCostCenterLogs(recordId);
-                case 'ProfitCenter':
-                    return this.getProfitCenterLogs(recordId);
-                case 'TDSSet':
-                    return this.getTDSSetLogs(recordId);
-                case 'Year':
-                    return this.getYearLogs(recordId);
-                case 'BLClause':
-                    return this.getBlClauseLogs(recordId);
-                case 'Charge':
-                    return this.getChargeLogs(recordId);
-                case 'ChargeGroup':
-                    return this.getChargeGroupLogs(recordId);
-                case 'ContainerType':
-                    return this.getContainerTypeLogs(recordId);
-                case 'Currency':
-                    return this.getCurrencyLogs(recordId);
-                case 'Department':
-                    return this.getDepartmentLogs(recordId);
-                case 'Division':
-                    return this.getDivisionLogs(recordId);
-                case 'HawbStock':
-                    return this.getHawbStockLogs(recordId);
-                case 'hs-sac':
-                    return this.getHSSACLogs(recordId);
-                case 'MawbStock':
-                    return this.getMawbStockLogs(recordId);
-                case 'Milestone':
-                    return this.getMileStoneLogs(recordId);
-                case 'Network':
-                    return this.getNetworkLogs(recordId);
-                case 'Organization':
-                    return this.getOrganizationLogs(recordId);
-                case 'PackageType':
-                    return this.getPackageTypeLogs(recordId);
-                case 'TaxGroup':
-                    return this.getTaxGroupLogs(recordId);
-                case 'PortMaster':
-                    return this.getPortMasterLogs(recordId);
-                case 'Product':
-                    return this.getProductLogs(recordId);
-                case 'Voyage':
-                    return this.getVoyageLogs(recordId);
-                case 'Sector':
-                    return this.getSectorLogs(recordId);
-                case 'UOM':
-                    return this.getUOMLogs(recordId);
-                case 'Unit':
-                    return this.getUnitLogs(recordId);
-                case 'Tariff':
-                    return this.getTariffLogs(recordId);
-                case 'Tax':
-                    return this.getTaxLogs(recordId);
-                case 'Zone':
-                    return this.getZoneLogs(recordId);
-                case 'Vessel':
-                    return this.getVesselLogs(recordId);
-                case 'StdCharge':
-                    return this.getStdChargeLogs(recordId);
-                case 'Terms':
-                    return this.getTermsLogs(recordId);
-                case 'Print': 
-                    return this.getPrintLogs(recordId);
-                case 'Country':
-                    return this.getCountryLogs(recordId);
-                case 'State' :
-                    return this.getStateLogs(recordId);
-                case 'Inco':
-                    return this.getIncoLogs(recordId);
-                case 'Imco':
-                    return this.getImcoLogs(recordId);
-                case 'City':
-                    return this.getCityLogs(recordId);
-                case 'User':
-                    return this.getUserLogs(recordId);
-                case 'ReportMaster':
-                    return this.getReportMasterLogs(recordId);
+            for (const [key, map] of arrayRules) {
+                this.replaceArrayIdsWithNames(oldVal, key, map);
+                this.replaceArrayIdsWithNames(newVal, key, map);
             }
-        } catch (error) {
-            this.logger.warn(`getAuditLog Error: ${error.message}`);
-            throw error;
+
+            this.removeIgnoredFields(oldVal, ignoreSet);
+            this.removeIgnoredFields(newVal, ignoreSet);
+
+            if (diff && !debug) {
+                const d = this.diffObjects(oldVal, newVal);
+                oldVal = d.oldVal;
+                newVal = d.newVal;
+            }
+
+            const extra = decorate ? decorate(log, oldVal, newVal) : {};
+
+            const out: AnyRec = { ...log, ...extra, oldVal, newVal };
+            // Preserve the raw-batch index (non-enumerable, so it survives the
+            // spread above only if we re-attach it) for precise resume math.
+            if ((log as any).__rawIndex !== undefined) {
+                Object.defineProperty(out, '__rawIndex', {
+                    value: (log as any).__rawIndex, enumerable: false, configurable: true,
+                });
+            }
+            return out;
+        });
+
+        // Carry the raw-page metadata from the input logs onto the formatted
+        // output so the dispatcher can compute hasMore from raw rows fetched.
+        return this.tagRawCount(
+            formatted,
+            (logs as any).__rawCount ?? formatted.length,
+            (logs as any).__pageSize ?? formatted.length,
+        );
+    }
+
+    private isBlank(v: any): boolean {
+        return v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
+    }
+
+    private hasMeaningfulChange(log: any): boolean {
+        // keep non-UPDATE operations (CREATE / DELETE / PRINT / EMAIL) regardless
+        const op = String(log.operation || '').toUpperCase();
+        if (op !== 'UPDATE') return true;
+
+        const oldVal: AnyRec = log.oldVal || {};
+        const newVal: AnyRec = log.newVal || {};
+
+        const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
+        if (keys.size === 0) return false; // empty {} / {} → drop
+
+        for (const k of keys) {
+            const a = oldVal[k];
+            const b = newVal[k];
+            if (this.isBlank(a) && this.isBlank(b)) continue;        // ""/null noise
+            if (JSON.stringify(a) !== JSON.stringify(b)) return true; // genuine change
         }
+        return false; // only blank-noise differences
+    }
+
+    private collectIds(logs: any[], keys: string[]): number[] {
+        const ids = new Set<number>();
+        for (const log of logs) {
+            for (const v of [log.oldVal, log.newVal]) {
+                if (!v) continue;
+                for (const k of keys) {
+                    const raw = v[k];
+                    if (raw == null || raw === '') continue;
+                    if (Array.isArray(raw)) {
+                        for (const x of raw) {
+                            const n = Number(x);
+                            if (!Number.isNaN(n)) ids.add(n);
+                        }
+                    } else {
+                        const n = Number(raw);
+                        if (!Number.isNaN(n)) ids.add(n);
+                    }
+                }
+            }
+        }
+        return [...ids];
+    }
+
+    private async buildScopedMap<T extends AnyRec>(
+        ids: number[],
+        loader: (ids: number[]) => Promise<T[]>,
+        keyField: keyof T,
+        labelField: keyof T | ((row: T) => string),
+    ): Promise<Map<string, string>> {
+        const map = new Map<string, string>();
+        if (!ids.length) return map;
+
+        const rows = await loader(ids);
+        for (const row of rows) {
+            const label =
+                typeof labelField === 'function'
+                    ? labelField(row)
+                    : (row[labelField] as unknown as string) ?? '';
+            map.set(String(row[keyField]), label);
+        }
+        return map;
+    }
+
+    private diffObjects(
+        oldVal: AnyRec,
+        newVal: AnyRec,
+    ): { oldVal: AnyRec; newVal: AnyRec } {
+        const outOld: AnyRec = {};
+        const outNew: AnyRec = {};
+        const keys = new Set([...Object.keys(oldVal), ...Object.keys(newVal)]);
+
+        for (const k of keys) {
+            const a = oldVal[k];
+            const b = newVal[k];
+            if (JSON.stringify(a) !== JSON.stringify(b)) {
+                if (k in oldVal) outOld[k] = a;
+                if (k in newVal) outNew[k] = b;
+            }
+        }
+        // If a row only has one side populated (insert/delete), keep it as-is.
+        if (!Object.keys(oldVal).length) return { oldVal, newVal: outNew };
+        if (!Object.keys(newVal).length) return { oldVal: outOld, newVal };
+        return { oldVal: outOld, newVal: outNew };
     }
 
     private replaceAndRename(
@@ -221,6 +315,258 @@ export class AuditLogService {
         obj[key] = val.map(id => map.get(String(id)) ?? String(id));
     }
 
+    async getAuditLogs(tableName: string, recordId?: string, screenName?: string, query: AuditLogQuery = {}) {
+        const pageSize = Math.min(200, Math.max(1, query.pageSize ?? 50));
+        const page = Math.max(0, query.page ?? 0);
+
+        // Where to start scanning RAW rows. The client echoes back the
+        // nextRawOffset we returned last time; on the very first page it can
+        // also be derived from page*pageSize as a reasonable starting estimate,
+        // but rawOffset (when provided) always wins.
+        const startRawOffset = query.rawSkip ?? (page * pageSize);
+
+        // Scan raw rows in batches, keeping only the meaningful (post-filter)
+        // rows, until we've collected pageSize real changes or run out of raw
+        // rows. This avoids returning a near-empty page when most raw rows are
+        // no-op saves.
+        //
+        // RAW_BATCH is deliberately larger than pageSize: each batch re-runs the
+        // full master-data enrichment (sub-row findMany + buildScopedMap), so a
+        // small batch over a record with many no-op saves means many round-trips
+        // and repeated master lookups — the main latency cost. Pulling a wider
+        // raw window collapses those into fewer (often one) iterations.
+        const RAW_BATCH = Math.min(200, Math.max(pageSize, pageSize * 4));
+        const MAX_BATCHES = 10;               // safety cap (10 * RAW_BATCH raw rows)
+
+        const collected: any[] = [];
+        let rawOffset = startRawOffset;
+        let rawScanned = 0;
+        let exhausted = false;
+        let batches = 0;
+        let trimmedResume: number | null = null;
+
+        while (collected.length < pageSize && !exhausted && batches < MAX_BATCHES) {
+            batches++;
+
+            const batch = await this.dispatch(tableName, recordId, screenName, {
+                ...query,
+                rawSkip: rawOffset,
+                rawTake: RAW_BATCH,
+            });
+
+            const list = batch ?? [];
+            const rawCount = (list as any).__rawCount ?? list.length;
+            const batchStartOffset = rawOffset;
+
+            // Will this batch push us past the page target? If so, keep only as
+            // many real rows as needed and compute the exact raw offset to
+            // resume from next time (one past the last kept row's raw index).
+            const remaining = pageSize - collected.length;
+            if (list.length > remaining) {
+                const kept = list.slice(0, remaining);
+                const lastKept = kept[kept.length - 1];
+                const lastRawIndex = (lastKept as any).__rawIndex;
+
+                collected.push(...kept);
+
+                // Resume one raw row AFTER the last kept row. Falls back to the
+                // full batch consumption if the index tag is somehow missing.
+                trimmedResume = typeof lastRawIndex === 'number'
+                    ? batchStartOffset + lastRawIndex + 1
+                    : batchStartOffset + rawCount;
+
+                rawScanned += (typeof lastRawIndex === 'number' ? lastRawIndex + 1 : rawCount);
+                break;
+            }
+
+            collected.push(...list);
+            rawScanned += rawCount;
+            rawOffset += rawCount;
+
+            // If the DB returned fewer raw rows than we asked for, there are no
+            // more raw rows to scan — stop.
+            if (rawCount < RAW_BATCH) {
+                exhausted = true;
+            }
+        }
+
+        const data = collected;
+
+        // More to fetch unless we exhausted the raw rows. (If we trimmed on
+        // overshoot, there are definitely more.)
+        const hasMore = trimmedResume !== null ? true : !exhausted;
+
+        // Where the next "load more" should resume scanning raw rows.
+        const nextRawOffset = trimmedResume !== null ? trimmedResume : rawOffset;
+
+        return {
+            data,
+            hasMore,
+            page,
+            pageSize,
+            count: data.length,
+            rawScanned,
+            // Client should send this back as rawSkip on the next "load more".
+            nextRawOffset,
+        };
+    }
+
+    private async dispatch(tableName: string, recordId?: string, screenName?: string, query: AuditLogQuery = {}) {
+        try {
+            if (!tableName) {
+                throw new BadRequestException('Table name is required');
+            }
+            if (!screenName) {
+                throw new BadRequestException('Screen name is required');
+            }
+            switch (screenName) {
+                case 'Booking':
+                    return this.getBookingLogs(recordId, query);
+                case 'AgentMasterAirWaybill':
+                    return this.getAgentMasterAirWaybillLogs(recordId, query);
+                case 'CreditNote':
+                    return this.getCreditNoteLogs(recordId, query);
+                case 'VendorCreditNote':
+                    return this.getVendorCreditNoteLogs(recordId, query);
+                case 'ReverseVoucher':
+                    return this.getReverseVoucherLogs(recordId, query);
+                case 'CreditRequest':
+                    return this.getCreditRequestLogs(recordId, query);
+                case 'HouseAirwaybill':
+                    return this.getAgentMasterAirWaybillLogs(recordId, query);
+                case 'HouseJob':
+                    return this.getAgentMasterAirWaybillLogs(recordId, query);
+                case 'Invoice':
+                    return this.getInvoiceLogs(recordId, query);
+                case 'VendorInvoice':
+                    return this.getVendorInvoiceLogs(recordId, query);
+                case 'MasterJob':
+                    return this.getMasterJobLogs(recordId, query);
+                case 'MasterAirwayBill':
+                    return this.getMasterJobLogs(recordId, query);
+                case 'ServiceJob':
+                    return this.getAgentMasterAirWaybillLogs(recordId, query);
+                case 'Receipt':
+                    return this.getReceiptLogs(recordId, query);
+                case 'Payment':
+                    return this.getPaymentLogs(recordId, query);
+                case 'JournalVoucher':
+                    return this.getJVLogs(recordId, query);
+                case 'Quotation':
+                    return this.getQuoteLogs(recordId, query);
+                case 'Enquiry':
+                    return this.getEnquiryLogs(recordId, query);
+                case 'VoucherMatching':
+                    return this.getVoucherMatchingLogs(recordId, query);
+                case 'DocType':
+                    return this.getdoctypeLogs(recordId, query);
+                case 'NumberSeriesConfig':
+                    return this.getnumberseriesLogs(recordId, query);
+                case 'PaymentRequest':
+                    return this.getPaymentRequestLogs(recordId, query);
+                case 'ChartOfAccounts':
+                    return this.getChartOfAccountsLogs(recordId, query);
+                case 'CurrencyExchange':
+                    return this.getCurrencyExchangeLogs(recordId, query);
+                case 'SubledgerMapping':
+                    return this.getSubledgerMappingLogs(recordId, query);
+                case 'SupplierTdsMapping':
+                    return this.getSupplierTdsMappingLogs(recordId, query);
+                case 'Lead':
+                    return this.getLeadLogs(recordId, query);
+                case 'Meeting':
+                    return this.getMeetingLogs(recordId, query);
+                case 'Company':
+                    return this.getCompanyLogs(recordId, query);
+                case 'CostCenter':
+                    return this.getCostCenterLogs(recordId, query);
+                case 'ProfitCenter':
+                    return this.getProfitCenterLogs(recordId, query);
+                case 'TDSSet':
+                    return this.getTDSSetLogs(recordId, query);
+                case 'Year':
+                    return this.getYearLogs(recordId, query);
+                case 'BLClause':
+                    return this.getBlClauseLogs(recordId, query);
+                case 'Charge':
+                    return this.getChargeLogs(recordId, query);
+                case 'ChargeGroup':
+                    return this.getChargeGroupLogs(recordId, query);
+                case 'ContainerType':
+                    return this.getContainerTypeLogs(recordId, query);
+                case 'Currency':
+                    return this.getCurrencyLogs(recordId, query);
+                case 'Department':
+                    return this.getDepartmentLogs(recordId, query);
+                case 'Division':
+                    return this.getDivisionLogs(recordId, query);
+                case 'HawbStock':
+                    return this.getHawbStockLogs(recordId, query);
+                case 'hs-sac':
+                    return this.getHSSACLogs(recordId, query);
+                case 'MawbStock':
+                    return this.getMawbStockLogs(recordId, query);
+                case 'Milestone':
+                    return this.getMileStoneLogs(recordId, query);
+                case 'Network':
+                    return this.getNetworkLogs(recordId, query);
+                case 'Organization':
+                    return this.getOrganizationLogs(recordId, query);
+                case 'PackageType':
+                    return this.getPackageTypeLogs(recordId, query);
+                case 'TaxGroup':
+                    return this.getTaxGroupLogs(recordId, query);
+                case 'PortMaster':
+                    return this.getPortMasterLogs(recordId, query);
+                case 'Product':
+                    return this.getProductLogs(recordId, query);
+                case 'Voyage':
+                    return this.getVoyageLogs(recordId, query);
+                case 'Sector':
+                    return this.getSectorLogs(recordId, query);
+                case 'UOM':
+                    return this.getUOMLogs(recordId, query);
+                case 'Unit':
+                    return this.getUnitLogs(recordId, query);
+                case 'Tariff':
+                    return this.getTariffLogs(recordId, query);
+                case 'Tax':
+                    return this.getTaxLogs(recordId, query);
+                case 'Zone':
+                    return this.getZoneLogs(recordId, query);
+                case 'Vessel':
+                    return this.getVesselLogs(recordId, query);
+                case 'StdCharge':
+                    return this.getStdChargeLogs(recordId, query);
+                case 'Terms':
+                    return this.getTermsLogs(recordId, query);
+                case 'Print':
+                    return this.getPrintLogs(recordId, query);
+                case 'Country':
+                    return this.getCountryLogs(recordId, query);
+                case 'State':
+                    return this.getStateLogs(recordId, query);
+                case 'Inco':
+                    return this.getIncoLogs(recordId, query);
+                case 'Imco':
+                    return this.getImcoLogs(recordId, query);
+                case 'City':
+                    return this.getCityLogs(recordId, query);
+                case 'User':
+                    return this.getUserLogs(recordId, query);
+                case 'ReportMaster':
+                    return this.getReportMasterLogs(recordId, query);
+            }
+        } catch (error) {
+            this.logger.warn(`getAuditLog Error: ${error.message}`);
+            throw error;
+        }
+    }
+
+    private fail(error: any): never {
+        this.logger.warn(`getAuditLogsError: ${error}`);
+        throw new Error(`Error fetching audit logs: ${error.message}`);
+    }
 
     private getBookingRowLabel(
         log: any,
@@ -230,8 +576,8 @@ export class AuditLogService {
             ratesMap: Map<string, string>;
             connectionMap: Map<string, string>;
         },
-        oldVal: Record<string, any>,
-        newVal: Record<string, any>
+        oldVal: AnyRec,
+        newVal: AnyRec
     ): string | null {
         const recordId = String(log.recordId ?? '');
 
@@ -280,16 +626,9 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getBookingLogs(recordId?: string) {
+    private async getBookingLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            let cargoRows: any[] = [];
-            let productRows: any[] = [];
-            let ratesRows: any[] = [];
-            let connectionRows: any[] = [];
-
             const bookingHeaderSid = Number(recordId);
-
             const [
                 fetchedcargo,
                 fetchedProducts,
@@ -338,43 +677,37 @@ export class AuditLogService {
                     select: { BookingCroSid: true }
                 }),
             ]);
-
-            productRows = fetchedProducts;
-            connectionRows = fetchedConnections;
-            ratesRows = fetchedRates;
-            cargoRows = fetchedcargo;
-
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'BookingHeader',
                     recordId: recordId
                 },
-                ...(cargoRows.length
+                ...(fetchedcargo.length
                     ? [{
                         tableName: 'BookingCargo',
-                        recordId: { in: cargoRows.map(x => String(x.BookingCargoSid)) }
+                        recordId: { in: fetchedcargo.map(x => String(x.BookingCargoSid)) }
                     }]
                     : []),
-                ...(productRows.length
+                ...(fetchedProducts.length
                     ? [{
                         tableName: 'BookingProduct',
-                        recordId: { in: productRows.map(x => String(x.BookingProductSid)) }
+                        recordId: { in: fetchedProducts.map(x => String(x.BookingProductSid)) }
                     }]
                     : []),
-                ...(connectionRows.length
+                ...(fetchedConnections.length
                     ? [{
                         tableName: 'BookingConnection',
-                        recordId: { in: connectionRows.map(x => String(x.BookingConnectionSid)) }
+                        recordId: { in: fetchedConnections.map(x => String(x.BookingConnectionSid)) }
                     }]
                     : []),
                 {
                     tableName: 'BookingOthers',
                     recordId: { in: others.map(x => String(x.BookingOthersSid)) }
                 },
-                ...(ratesRows.length
+                ...(fetchedRates.length
                     ? [{
                         tableName: 'BookingRates',
-                        recordId: { in: ratesRows.map(x => String(x.BookingRatesSid)) }
+                        recordId: { in: fetchedRates.map(x => String(x.BookingRatesSid)) }
                     }]
                     : []),
                 {
@@ -382,108 +715,96 @@ export class AuditLogService {
                     recordId: { in: cro.map(x => String(x.BookingCroSid)) }
                 }
             ];
+            const logs = await this.fetchLogs(conditions, query);
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const [departmentMap, salesmanMap, customerMap, chargeMap, uomMap, currencyMap, voucherMap, voucherTypeMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['DepartmentMasterSid']),
+                    ids => this._db.departmentMaster.findMany({
+                        where: {
+                            DepartmentMasterSid: { in: ids }
+                        },
+                        select: {
+                            DepartmentMasterSid: true, departmentName: true,
+                        }
+                    }), 'DepartmentMasterSid', 'departmentName'),
 
-            const [departments, users, customers, charges, uoms, currencies, voucher, vouchertype] = await Promise.all([
-                this._db.departmentMaster.findMany({
-                    select: {
-                        DepartmentMasterSid: true,
-                        departmentName: true
-                    }
-                }),
-                this._db.userMaster.findMany({
-                    select: {
-                        UserMasterSid: true,
-                        userName: true
-                    }
-                }),
-                this._db.customerMaster.findMany({
-                    select: {
-                        CustomerMasterSid: true,
-                        CustomerName: true
-                    }
-                }),
-                this._db.chargeMaster.findMany({
-                    select: {
-                        ChargeMasterSid: true,
-                        chargeCode: true,
-                    }
-                }),
-                this._db.uOMMaster.findMany({
-                    select: {
-                        UOMMasterSid: true,
-                        UOMCode: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
-                this._db.voucherHeader.findMany({
-                    select: {
-                        VoucherHeaderSid: true,
-                        VoucherNumber: true
-                    }
-                }),
-                this._db.voucherTypeMaster.findMany({
-                    select: {
-                        VoucherTypeMasterSid: true,
-                        DocumentTypeName: true
-                    }
-                })
+                this.buildScopedMap(this.collectIds(logs, ['SalesmanSid']),
+                    ids => this._db.userMaster.findMany({
+                        where: {
+                            UserMasterSid: { in: ids }
+                        },
+                        select: {
+                            UserMasterSid: true, userName: true,
+                        }
+                    }), 'UserMasterSid', 'userName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['AgentMasterSid', 'CustomerMasterSid', 'DestinationAgent']),
+                    ids => this._db.customerMaster.findMany({
+                        where: {
+                            CustomerMasterSid: { in: ids }
+                        },
+                        select: {
+                            CustomerMasterSid: true, CustomerName: true,
+                        }
+                    }), 'CustomerMasterSid', 'CustomerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ChargeMasterSid']),
+                    ids => this._db.chargeMaster.findMany({
+                        where: {
+                            ChargeMasterSid: { in: ids }
+                        },
+                        select: {
+                            ChargeMasterSid: true, chargeCode: true
+                        }
+                    }), 'ChargeMasterSid', 'chargeCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ChargeUomSid', 'RevenueChargeUomSid', 'CostChargeUomSid']),
+                    ids => this._db.uOMMaster.findMany({
+                        where: {
+                            UOMMasterSid: { in: ids }
+                        },
+                        select: {
+                            UOMMasterSid: true, UOMCode: true
+                        }
+                    }), 'UOMMasterSid', 'UOMCode'),
+                this.buildScopedMap(this.collectIds(logs, ['RevenueCurrencyMasterSid', 'CostCurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: {
+                            CurrencyMasterSid: { in: ids }
+                        },
+                        select: {
+                            CurrencyMasterSid: true, currencyCode: true
+                        }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
+                this.buildScopedMap(this.collectIds(logs, ['RevenueVoucherHeaderSid', 'CostVoucherHeaderSid']),
+                    ids => this._db.voucherHeader.findMany({
+                        where: {
+                            VoucherHeaderSid: { in: ids }
+                        },
+                        select: {
+                            VoucherHeaderSid: true, VoucherNumber: true
+                        }
+                    }), 'VoucherHeaderSid', 'VoucherNumber'),
+                this.buildScopedMap(this.collectIds(logs, ['RevenueVoucherTypeMasterSid', 'CostVoucherTypeMasterSid']),
+                    ids => this._db.voucherTypeMaster.findMany({
+                        where: {
+                            VoucherTypeMasterSid: { in: ids }
+                        },
+                        select: {
+                            VoucherTypeMasterSid: true, DocumentTypeName: true
+                        }
+                    }), 'VoucherTypeMasterSid', 'DocumentTypeName'),
             ]);
 
-            const departmentMap = new Map<string, string>(
-                departments.map(d => [String(d.DepartmentMasterSid), d.departmentName])
-            );
-
-            const salesmanMap = new Map<string, string>(
-                users.map(u => [String(u.UserMasterSid), u.userName])
-            );
-
-            const customerMap = new Map<string, string>(
-                customers.map(c => [String(c.CustomerMasterSid), c.CustomerName])
-            );
-
-            const chargeMap = new Map<string, string>(
-                charges.map(c => [String(c.ChargeMasterSid), c.chargeCode])
-            );
-
-            const uomMap = new Map<string, string>(
-                uoms.map(c => [String(c.UOMMasterSid), c.UOMCode])
-            );
-
-            const currencyMap = new Map<string, string>(
-                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
-
-            const voucherMap = new Map<string, string>(
-                voucher.map(c => [String(c.VoucherHeaderSid), c.VoucherNumber])
-            );
-
-            const voucherTypeMap = new Map<string, string>(
-                vouchertype.map(c => [String(c.VoucherTypeMasterSid), c.DocumentTypeName])
-            );
-
-            const cargoMap = new Map<string, string>(
-                cargoRows.map((c) => [
+            const cargoMap = new Map(
+                fetchedcargo.map(c => [
                     String(c.BookingCargoSid),
                     `Cargo [${c.CargoType?.toString().trim() || c.BookingCargoSid}]`
                 ])
             )
 
-            const productMap = new Map<string, string>(
-                productRows.map((p) => {
+            const productMap = new Map(
+                fetchedProducts.map(p => {
                     const cargoLabel =
                         cargoMap.get(String(p.BookingCargoSid)) || `[${p.BookingCargoSid}]`;
                     const productLabel =
@@ -495,15 +816,15 @@ export class AuditLogService {
                 })
             );
 
-            const connectionMap = new Map<string, string>(
-                connectionRows.map((c) => [
+            const connectionMap = new Map(
+                fetchedConnections.map(c => [
                     String(c.BookingConnectionSid),
                     `Connection [${c.VesselName?.toString().trim() || c.BookingConnectionSid}]`
                 ])
             );
 
-            const ratesMap = new Map<string, string>(
-                ratesRows.map((r) => {
+            const ratesMap = new Map(
+                fetchedRates.map(r => {
 
                     const serial = r.SerialNumber?.toString().trim() || r.BookingRatesSid;
 
@@ -524,126 +845,53 @@ export class AuditLogService {
                 })
             );
 
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
             const uom = {
                 1: 'Meter',
                 2: 'Centimeter',
                 3: 'Inch'
-            };
+            } as Record<string, string>;
 
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'BookingConnectionSid',
-                'CarrierSid', 'CompanyMasterSid', 'CustomerBranchSid',
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy', 'MasterNoSid', 'HouseJobSid',
-                'VoyageMasterSid', 'BookingHeaderSid', 'BranchMasterSid', 'BookingCroSid', 'AgentBranchSid'
-            ];
-
-            const rowLabelMaps = {
-                productMap,
-                connectionMap,
-                ratesMap,
-                cargoMap,
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
-                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
-
-                this.replaceAndRename(oldVal, 'SalesmanSid', 'Salesman', salesmanMap);
-                this.replaceAndRename(newVal, 'SalesmanSid', 'Salesman', salesmanMap);
-
-                this.replaceAndRename(oldVal, 'DestinationAgent', 'DestinationAgent', customerMap);
-                this.replaceAndRename(newVal, 'DestinationAgent', 'DestinationAgent', customerMap);
-
-                this.replaceAndRename(oldVal, 'CustomerMasterSid', 'BillingParty', customerMap);
-                this.replaceAndRename(newVal, 'CustomerMasterSid', 'BillingParty', customerMap);
-
-                this.replaceAndRename(oldVal, 'AgentMasterSid', 'Party', customerMap);
-                this.replaceAndRename(newVal, 'AgentMasterSid', 'Party', customerMap);
-
-                this.replaceAndRename(oldVal, 'ChargeMasterSid', 'Charge', chargeMap);
-                this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
-
-                this.replaceAndRename(oldVal, 'ChargeUomSid', 'ChargeUom', uomMap);
-                this.replaceAndRename(newVal, 'ChargeUomSid', 'ChargeUom', uomMap);
-
-                this.replaceAndRename(oldVal, 'RevenueChargeUomSid', 'RevenueChargeUom', uomMap);
-                this.replaceAndRename(newVal, 'RevenueChargeUomSid', 'RevenueChargeUom', uomMap);
-
-                this.replaceAndRename(oldVal, 'CostChargeUomSid', 'CostChargeUom', uomMap);
-                this.replaceAndRename(newVal, 'CostChargeUomSid', 'CostChargeUom', uomMap);
-
-                this.replaceAndRename(oldVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
-                this.replaceAndRename(newVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
-                this.replaceAndRename(newVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'RevenueVoucherHeaderSid', 'VoucherNo', voucherMap);
-                this.replaceAndRename(newVal, 'RevenueVoucherHeaderSid', 'VoucherNo', voucherMap);
-
-                this.replaceAndRename(oldVal, 'RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap);
-                this.replaceAndRename(newVal, 'RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap);
-
-                this.replaceAndRename(oldVal, 'CostVoucherHeaderSid', 'VoucherNo', voucherMap);
-                this.replaceAndRename(newVal, 'CostVoucherHeaderSid', 'VoucherNo', voucherMap);
-
-                this.replaceAndRename(oldVal, 'CostVoucherTypeMasterSid', 'Type', voucherTypeMap);
-                this.replaceAndRename(newVal, 'CostVoucherTypeMasterSid', 'Type', voucherTypeMap);
-
-                this.replaceValueFromMap(oldVal, 'Coload', yesNoMap);
-                this.replaceValueFromMap(newVal, 'Coload', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'IsHaz', yesNoMap);
-                this.replaceValueFromMap(newVal, 'IsHaz', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'ShipmentType', yesNoMap);
-                this.replaceValueFromMap(newVal, 'ShipmentType', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'UomMasterSid', uom);
-                this.replaceValueFromMap(newVal, 'UomMasterSid', uom);
-
-                this.replaceValueFromMap(oldVal, 'SwitchBL', yesNoMap);
-                this.replaceValueFromMap(newVal, 'SwitchBL', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'BacktoBack', yesNoMap);
-                this.replaceValueFromMap(newVal, 'BacktoBack', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['DepartmentMasterSid', 'Department', departmentMap],
+                    ['SalesmanSid', 'Salesman', salesmanMap],
+                    ['DestinationAgent', 'DestinationAgent', customerMap],
+                    ['CustomerMasterSid', 'BillingParty', customerMap],
+                    ['AgentMasterSid', 'Party', customerMap],
+                    ['ChargeMasterSid', 'Charge', chargeMap],
+                    ['ChargeUomSid', 'ChargeUom', uomMap],
+                    ['RevenueChargeUomSid', 'RevenueChargeUom', uomMap],
+                    ['CostChargeUomSid', 'CostChargeUom', uomMap],
+                    ['RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap],
+                    ['CostCurrencyMasterSid', 'CostCurrency', currencyMap],
+                    ['RevenueVoucherHeaderSid', 'VoucherNo', voucherMap],
+                    ['RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap],
+                    ['CostVoucherHeaderSid', 'VoucherNo', voucherMap],
+                    ['CostVoucherTypeMasterSid', 'Type', voucherTypeMap]
+                ],
+                valueRules: [
+                    ['Coload', AuditLogService.YES_NO_MAP],
+                    ['IsHaz', AuditLogService.YES_NO_MAP],
+                    ['ShipmentType', AuditLogService.YES_NO_MAP],
+                    ['UomMasterSid', uom],
+                    ['SwitchBL', AuditLogService.YES_NO_MAP],
+                    ['BacktoBack', AuditLogService.YES_NO_MAP],
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: [
+                    'BookingConnectionSid',
+                    'CarrierSid', 'CompanyMasterSid', 'CustomerBranchSid',
+                    'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy', 'MasterNoSid', 'HouseJobSid',
+                    'VoyageMasterSid', 'BookingHeaderSid', 'BranchMasterSid', 'BookingCroSid', 'AgentBranchSid'
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getBookingLabel(log.tableName),
-                    rowLabel: this.getBookingRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getBookingRowLabel(log, { cargoMap, productMap, connectionMap, ratesMap }, oldVal, newVal),
+                }),
             });
-
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -657,8 +905,8 @@ export class AuditLogService {
             boeMap: Map<string, string>;
             vehicleMap: Map<string, string>;
         },
-        oldVal: Record<string, any>,
-        newVal: Record<string, any>
+        oldVal: AnyRec,
+        newVal: AnyRec
     ): string | null {
         const recordId = String(log.recordId ?? '');
         switch (log.tableName) {
@@ -713,16 +961,8 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getAgentMasterAirWaybillLogs(recordId?: string) {
+    private async getAgentMasterAirWaybillLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            let cargoRows: any[] = [];
-            let productRows: any[] = [];
-            let connectionRows: any[] = [];
-            let ratesRows: any[] = [];
-            let boeRows: any[] = [];
-            let vehicleRows: any[] = [];
-
             const houseJobSid = Number(recordId);
 
             const [
@@ -789,165 +1029,151 @@ export class AuditLogService {
                     }
                 })
             ]);
-            productRows = fetchedProducts;
-            connectionRows = fetchedConnections;
-            ratesRows = fetchedRates;
-            boeRows = fetchedBOE;
-            vehicleRows = fetchedVehicles;
-            cargoRows = fetchedcargo;
 
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'HouseJob',
                     recordId: recordId
                 },
-                ...(cargoRows.length
+                ...(fetchedcargo.length
                     ? [{
                         tableName: 'HouseJobCargo',
-                        recordId: { in: cargoRows.map(x => String(x.HouseJobCargoSid)) }
+                        recordId: { in: fetchedcargo.map(x => String(x.HouseJobCargoSid)) }
                     }]
                     : []),
-                ...(productRows.length
+                ...(fetchedProducts.length
                     ? [{
                         tableName: 'HouseJobProduct',
-                        recordId: { in: productRows.map(x => String(x.HouseJobProductSid)) }
+                        recordId: { in: fetchedProducts.map(x => String(x.HouseJobProductSid)) }
                     }]
                     : []),
-                ...(connectionRows.length
+                ...(fetchedConnections.length
                     ? [{
                         tableName: 'HouseJobConnection',
-                        recordId: { in: connectionRows.map(x => String(x.HouseJobConnectionSid)) }
+                        recordId: { in: fetchedConnections.map(x => String(x.HouseJobConnectionSid)) }
                     }]
                     : []),
                 {
                     tableName: 'HouseJobOthers',
                     recordId: { in: others.map(x => String(x.HouseJobOthersSid)) }
                 },
-                ...(ratesRows.length
+                ...(fetchedRates.length
                     ? [{
                         tableName: 'CostRevenueCharges',
-                        recordId: { in: ratesRows.map(x => String(x.CostRevenueChargesSid)) }
+                        recordId: { in: fetchedRates.map(x => String(x.CostRevenueChargesSid)) }
                     }]
                     : []),
-                ...(boeRows.length
+                ...(fetchedBOE.length
                     ? [{
                         tableName: 'HouseJobBOE',
-                        recordId: { in: boeRows.map(x => String(x.HouseJobBOESid)) }
+                        recordId: { in: fetchedBOE.map(x => String(x.HouseJobBOESid)) }
                     }]
                     : []),
                 {
                     tableName: 'HouseJobCustoms',
                     recordId: { in: customs.map(x => String(x.HouseJobCustomsSid)) }
                 },
-                ...(vehicleRows.length
+                ...(fetchedVehicles.length
                     ? [{
                         tableName: 'HouseJobVehicle',
-                        recordId: { in: vehicleRows.map(x => String(x.HouseJobVehicleSid)) }
+                        recordId: { in: fetchedVehicles.map(x => String(x.HouseJobVehicleSid)) }
                     }]
                     : []),
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [departments, charges, users, customers, uoms, currencies, voucher, vouchertype] = await Promise.all([
-                this._db.departmentMaster.findMany({
-                    select: {
-                        DepartmentMasterSid: true,
-                        departmentName: true
-                    }
-                }),
-                this._db.chargeMaster.findMany({
-                    select: {
-                        ChargeMasterSid: true,
-                        chargeCode: true
-                    }
-                }),
-                this._db.userMaster.findMany({
-                    select: {
-                        UserMasterSid: true,
-                        userName: true
-                    }
-                }),
-                this._db.customerMaster.findMany({
-                    select: {
-                        CustomerMasterSid: true,
-                        CustomerName: true
-                    }
-                }),
-                this._db.uOMMaster.findMany({
-                    select: {
-                        UOMMasterSid: true,
-                        UOMCode: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
-                this._db.voucherHeader.findMany({
-                    select: {
-                        VoucherHeaderSid: true,
-                        VoucherNumber: true
-                    }
-                }),
-                this._db.voucherTypeMaster.findMany({
-                    select: {
-                        VoucherTypeMasterSid: true,
-                        DocumentTypeName: true
-                    }
-                })
+            const [departmentMap, chargeMap, salesmanMap, customerMap, uomMap, currencyMap, voucherMap, voucherTypeMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['DepartmentMasterSid']),
+                    ids => this._db.departmentMaster.findMany({
+                        where: {
+                            DepartmentMasterSid: { in: ids }
+                        },
+                        select: {
+                            DepartmentMasterSid: true, departmentName: true,
+                        }
+                    }), 'DepartmentMasterSid', 'departmentName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ChargeMasterSid']),
+                    ids => this._db.chargeMaster.findMany({
+                        where: {
+                            ChargeMasterSid: { in: ids }
+                        },
+                        select: {
+                            ChargeMasterSid: true, chargeCode: true
+                        }
+                    }), 'ChargeMasterSid', 'chargeCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['SalesmanSid']),
+                    ids => this._db.userMaster.findMany({
+                        where: {
+                            UserMasterSid: { in: ids }
+                        },
+                        select: {
+                            UserMasterSid: true, userName: true,
+                        }
+                    }), 'UserMasterSid', 'userName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['DestinationAgent', 'AgentName', 'RevenueCustomerMasterSid', 'CostAgentMasterSid']),
+                    ids => this._db.customerMaster.findMany({
+                        where: {
+                            CustomerMasterSid: { in: ids }
+                        },
+                        select: {
+                            CustomerMasterSid: true, CustomerName: true,
+                        }
+                    }), 'CustomerMasterSid', 'CustomerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ChargeUomSid', 'RevenueChargeUomSid', 'CostChargeUomSid']),
+                    ids => this._db.uOMMaster.findMany({
+                        where: {
+                            UOMMasterSid: { in: ids }
+                        },
+                        select: {
+                            UOMMasterSid: true, UOMCode: true
+                        }
+                    }), 'UOMMasterSid', 'UOMCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['RevenueCurrencyMasterSid', 'CostCurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: {
+                            CurrencyMasterSid: { in: ids }
+                        },
+                        select: {
+                            CurrencyMasterSid: true, currencyCode: true
+                        }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['RevenueVoucherHeaderSid', 'CostVoucherHeaderSid']),
+                    ids => this._db.voucherHeader.findMany({
+                        where: {
+                            VoucherHeaderSid: { in: ids }
+                        },
+                        select: {
+                            VoucherHeaderSid: true, VoucherNumber: true
+                        }
+                    }), 'VoucherHeaderSid', 'VoucherNumber'),
+
+                this.buildScopedMap(this.collectIds(logs, ['RevenueVoucherTypeMasterSid', 'CostVoucherTypeMasterSid']),
+                    ids => this._db.voucherTypeMaster.findMany({
+                        where: {
+                            VoucherTypeMasterSid: { in: ids }
+                        },
+                        select: {
+                            VoucherTypeMasterSid: true, DocumentTypeName: true
+                        }
+                    }), 'VoucherTypeMasterSid', 'DocumentTypeName'),
             ]);
 
-            const departmentMap = new Map<string, string>(
-                departments.map(d => [String(d.DepartmentMasterSid), d.departmentName])
-            );
-
-            const chargeMap = new Map<string, string>(
-                charges.map(c => [String(c.ChargeMasterSid), c.chargeCode])
-            );
-
-            const salesmanMap = new Map<string, string>(
-                users.map(u => [String(u.UserMasterSid), u.userName])
-            );
-
-            const customerMap = new Map<string, string>(
-                customers.map(c => [String(c.CustomerMasterSid), c.CustomerName])
-            );
-
-            const uomMap = new Map<string, string>(
-                uoms.map(c => [String(c.UOMMasterSid), c.UOMCode])
-            );
-
-            const currencyMap = new Map<string, string>(
-                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
-
-            const voucherMap = new Map<string, string>(
-                voucher.map(c => [String(c.VoucherHeaderSid), c.VoucherNumber])
-            );
-
-            const voucherTypeMap = new Map<string, string>(
-                vouchertype.map(c => [String(c.VoucherTypeMasterSid), c.DocumentTypeName])
-            );
-
             const cargoMap = new Map<string, string>(
-                cargoRows.map((c) => [
+                fetchedcargo.map((c) => [
                     String(c.HouseJobCargoSid),
                     `Cargo [${c.CargoType?.toString().trim() || c.HouseJobCargoSid}]`
                 ])
             )
 
             const productMap = new Map<string, string>(
-                productRows.map((p) => {
+                fetchedProducts.map((p) => {
                     const cargoLabel =
                         cargoMap.get(String(p.HouseJobCargoSid)) || `[${p.HouseJobCargoSid}]`;
                     const productLabel =
@@ -960,21 +1186,21 @@ export class AuditLogService {
             );
 
             const vehicleMap = new Map<string, string>(
-                vehicleRows.map((v) => [
+                fetchedVehicles.map((v) => [
                     String(v.HouseJobVehicleSid),
                     `Vehicle [${v.ChassisNo?.toString().trim() || v.HouseJobVehicleSid}]`
                 ])
             )
 
             const connectionMap = new Map<string, string>(
-                connectionRows.map((c) => [
+                fetchedConnections.map((c) => [
                     String(c.HouseJobConnectionSid),
                     `Connection [${c.VesselName?.toString().trim() || c.HouseJobConnectionSid}]`
                 ])
             );
 
             const rateMap = new Map<string, string>(
-                ratesRows.map((r) => {
+                fetchedRates.map((r) => {
                     const serial = r.SerialNumber?.toString().trim() || r.CostRevenueChargesSid;
                     const charge = chargeMap.get(String(r.ChargeMasterSid)) || r.ChargeMasterSid || '';
                     const label = charge ? `Rate [${serial} - ${charge}]` : `Rate [${serial}]`;
@@ -986,22 +1212,11 @@ export class AuditLogService {
             );
 
             const boeMap = new Map<string, string>(
-                boeRows.map((b) => [
+                fetchedBOE.map((b) => [
                     String(b.HouseJobBOESid),
                     `BOE [${b.DeclarationNo?.toString().trim() || b.HouseJobBOESid}]`
                 ])
             );
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
 
             const uom = {
                 1: 'Meter',
@@ -1012,12 +1227,12 @@ export class AuditLogService {
             const custom = {
                 NCV: 'No Commercial Value',
                 DVC: 'Declared value for Customs'
-            };
+            } as Record<string, string>;
 
             const carriage = {
                 NVD: 'No value declared',
                 DVC: 'Declared value for Carriage',
-            };
+            } as Record<string, string>;
 
             const cargocode = {
                 F: 'FCL Container',
@@ -1028,166 +1243,83 @@ export class AuditLogService {
                 R: 'RO-RO Unit',
                 P: 'Passenger',
                 G: 'General Cargo (Break Bulk)',
-            }
+            } as Record<string, string>;
 
             const un = {
                 U: 'Used',
                 N: 'New'
-            }
+            } as Record<string, string>;
 
             const storagerequest = {
                 D: 'Direct Delivery',
                 S: 'Storage in Sheds',
                 Y: 'Storage in Yards',
-            }
+            } as Record<string, string>;
 
             const temp = {
                 F: 'Fahrenheit',
                 C: 'Celsius',
-            }
+            } as Record<string, string>;
 
             const vehicleIndicatorList = {
                 V: 'Vehicle',
                 E: 'Equipment',
                 X: 'Others'
-            }
+            } as Record<string, string>;
 
             const rollingList = {
                 R: 'Rolling',
                 S: 'Static'
-            }
+            } as Record<string, string>;
 
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'CustomerBranchSid', 'CustomerMasterSid',
-                'CarrierSid', 'VoyageMasterSid', 'CostAgentBranchSid', 'RevenueCustomerBranchSid', 'UpdatedBy',
-                'UpdatedOn', 'CreatedBy', 'CreatedOn'
-            ];
-
-            const rowLabelMaps = {
-                productMap,
-                connectionMap,
-                rateMap,
-                boeMap,
-                vehicleMap,
-                cargoMap
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
-                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
-
-                this.replaceAndRename(oldVal, 'SalesmanSid', 'Salesman', salesmanMap);
-                this.replaceAndRename(newVal, 'SalesmanSid', 'Salesman', salesmanMap);
-
-                this.replaceAndRename(oldVal, 'DestinationAgent', 'DestinationAgent', customerMap);
-                this.replaceAndRename(newVal, 'DestinationAgent', 'DestinationAgent', customerMap);
-
-                this.replaceAndRename(oldVal, 'AgentName', 'OrginAgent', customerMap);
-                this.replaceAndRename(newVal, 'AgentName', 'OrginAgent', customerMap);
-
-                this.replaceAndRename(oldVal, 'ChargeMasterSid', 'Charge', chargeMap);
-                this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
-
-                this.replaceAndRename(oldVal, 'ChargeUomSid', 'ChargeUom', uomMap);
-                this.replaceAndRename(newVal, 'ChargeUomSid', 'ChargeUom', uomMap);
-
-                this.replaceAndRename(oldVal, 'RevenueChargeUomSid', 'RevenueChargeUom', uomMap);
-                this.replaceAndRename(newVal, 'RevenueChargeUomSid', 'RevenueChargeUom', uomMap);
-
-                this.replaceAndRename(oldVal, 'CostChargeUomSid', 'CostChargeUom', uomMap);
-                this.replaceAndRename(newVal, 'CostChargeUomSid', 'CostChargeUom', uomMap);
-
-                this.replaceAndRename(oldVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
-                this.replaceAndRename(newVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
-                this.replaceAndRename(newVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
-                this.replaceAndRename(newVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
-
-                this.replaceAndRename(oldVal, 'CostAgentMasterSid', 'Party', customerMap);
-                this.replaceAndRename(newVal, 'CostAgentMasterSid', 'Party', customerMap);
-
-                this.replaceAndRename(oldVal, 'RevenueVoucherHeaderSid', 'VoucherNo', voucherMap);
-                this.replaceAndRename(newVal, 'RevenueVoucherHeaderSid', 'VoucherNo', voucherMap);
-
-                this.replaceAndRename(oldVal, 'RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap);
-                this.replaceAndRename(newVal, 'RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap);
-
-                this.replaceAndRename(oldVal, 'CostVoucherHeaderSid', 'VoucherNo', voucherMap);
-                this.replaceAndRename(newVal, 'CostVoucherHeaderSid', 'VoucherNo', voucherMap);
-
-                this.replaceAndRename(oldVal, 'CostVoucherTypeMasterSid', 'Type', voucherTypeMap);
-                this.replaceAndRename(newVal, 'CostVoucherTypeMasterSid', 'Type', voucherTypeMap);
-
-                this.replaceValueFromMap(oldVal, 'Coload', yesNoMap);
-                this.replaceValueFromMap(newVal, 'Coload', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'IsHaz', yesNoMap);
-                this.replaceValueFromMap(newVal, 'IsHaz', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'UomMasterSid', uom);
-                this.replaceValueFromMap(newVal, 'UomMasterSid', uom);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'DeclaredValueOfCustoms', custom);
-                this.replaceValueFromMap(newVal, 'DeclaredValueOfCustoms', custom);
-
-                this.replaceValueFromMap(oldVal, 'DeclaredValueOfCarriage', carriage);
-                this.replaceValueFromMap(newVal, 'DeclaredValueOfCarriage', carriage);
-
-                this.replaceValueFromMap(oldVal, 'CargoCode', cargocode);
-                this.replaceValueFromMap(newVal, 'CargoCode', cargocode);
-
-                this.replaceValueFromMap(oldVal, 'UsedOrNew', un);
-                this.replaceValueFromMap(newVal, 'UsedOrNew', un);
-
-                this.replaceValueFromMap(oldVal, 'StorageRequest', storagerequest);
-                this.replaceValueFromMap(newVal, 'StorageRequest', storagerequest);
-
-                this.replaceValueFromMap(oldVal, 'HazStorageRequest', storagerequest);
-                this.replaceValueFromMap(newVal, 'HazStorageRequest', storagerequest);
-
-                this.replaceValueFromMap(oldVal, 'RefTemperatureUnit', temp);
-                this.replaceValueFromMap(newVal, 'RefTemperatureUnit', temp);
-
-                this.replaceValueFromMap(oldVal, 'TemperatureUnit', temp);
-                this.replaceValueFromMap(newVal, 'TemperatureUnit', temp);
-
-                this.replaceValueFromMap(oldVal, 'VehicleIndicator', vehicleIndicatorList);
-                this.replaceValueFromMap(newVal, 'VehicleIndicator', vehicleIndicatorList);
-
-                this.replaceValueFromMap(oldVal, 'UsedNew', un);
-                this.replaceValueFromMap(newVal, 'UsedNew', un);
-
-                this.replaceValueFromMap(oldVal, 'Rolling', rollingList);
-                this.replaceValueFromMap(newVal, 'Rolling', rollingList);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['DepartmentMasterSid', 'Department', departmentMap],
+                    ['SalesmanSid', 'Salesman', salesmanMap],
+                    ['DestinationAgent', 'DestinationAgent', customerMap],
+                    ['AgentName', 'OrginAgent', customerMap],
+                    ['ChargeMasterSid', 'Charge', chargeMap],
+                    ['ChargeUomSid', 'ChargeUom', uomMap],
+                    ['RevenueChargeUomSid', 'RevenueChargeUom', uomMap],
+                    ['CostChargeUomSid', 'CostChargeUom', uomMap],
+                    ['RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap],
+                    ['CostCurrencyMasterSid', 'CostCurrency', currencyMap],
+                    ['RevenueCustomerMasterSid', 'BillingParty', customerMap],
+                    ['CostAgentMasterSid', 'Party', customerMap],
+                    ['RevenueVoucherHeaderSid', 'VoucherNo', voucherMap],
+                    ['RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap],
+                    ['CostVoucherHeaderSid', 'VoucherNo', voucherMap],
+                    ['CostVoucherTypeMasterSid', 'Type', voucherTypeMap]
+                ],
+                valueRules: [
+                    ['Coload', AuditLogService.YES_NO_MAP],
+                    ['IsHaz', AuditLogService.YES_NO_MAP],
+                    ['UomMasterSid', uom],
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['Status', AuditLogService.STATUS_MAP],
+                    ['DeclaredValueOfCustoms', custom],
+                    ['DeclaredValueOfCarriage', carriage],
+                    ['CargoCode', cargocode],
+                    ['UsedOrNew', un],
+                    ['StorageRequest', storagerequest],
+                    ['HazStorageRequest', storagerequest],
+                    ['RefTemperatureUnit', temp],
+                    ['TemperatureUnit', temp],
+                    ['VehicleIndicator', vehicleIndicatorList],
+                    ['UsedNew', un],
+                    ['Rolling', rollingList]
+                ],
+                ignored: [
+                    'CustomerBranchSid', 'CustomerMasterSid',
+                    'CarrierSid', 'VoyageMasterSid', 'CostAgentBranchSid', 'RevenueCustomerBranchSid'
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getAgentMasterAirWaybillLabel(log.tableName),
-                    rowLabel: this.getAgentMasterAirWaybillRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getAgentMasterAirWaybillRowLabel(log, { cargoMap, productMap, vehicleMap, connectionMap, rateMap, boeMap }, oldVal, newVal),
+                }),
             });
-
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -1196,8 +1328,8 @@ export class AuditLogService {
         rowLabelMaps: {
             detailMap: Map<string, string>;
         },
-        oldVal: Record<string, any>,
-        newVal: Record<string, any>
+        oldVal: AnyRec,
+        newVal: AnyRec
     ): string | null {
         const recordId = String(log.recordId ?? '');
         switch (log.tableName) {
@@ -1220,17 +1352,9 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getCreditNoteLogs(recordId?: string, voucherLabel = 'Credit Note') {
+    private async getCreditNoteLogs(recordId?: string, query: AuditLogQuery = {}, voucherLabel = 'Credit Note') {
         try {
-            let conditions: any[] = [];
-            let detailRows: any[] = [];
-
             const voucherSid = Number(recordId);
-
-            if (!voucherSid) {
-                throw new BadRequestException('Valid recordId is required');
-            }
-
             const [
                 fetchedDetails,
                 others,
@@ -1248,17 +1372,16 @@ export class AuditLogService {
                     select: { VoucherOthersSid: true }
                 })
             ]);
-            detailRows = fetchedDetails;
 
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'VoucherHeader',
                     recordId: recordId
                 },
-                ...(detailRows.length
+                ...(fetchedDetails.length
                     ? [{
                         tableName: 'VoucherDetail',
-                        recordId: { in: detailRows.map(x => String(x.VoucherDetailSid)) }
+                        recordId: { in: fetchedDetails.map(x => String(x.VoucherDetailSid)) }
                     }]
                     : []),
                 {
@@ -1267,90 +1390,82 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [charges, currencies, coa, profit, cost, ledger, department] = await Promise.all([
-                this._db.chargeMaster.findMany({
-                    select: {
-                        ChargeMasterSid: true,
-                        chargeCode: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
-                this._db.cOAMaster.findMany({
-                    select: {
-                        COAMasterSid: true,
-                        LedgerName: true
-                    }
-                }),
-                this._db.profitCenterMaster.findMany({
-                    select: {
-                        ProfitCenterMasterSid: true,
-                        ProfitCenterName: true
-                    }
-                }),
-                this._db.costCenterMaster.findMany({
-                    select: {
-                        CostCenterMasterSid: true,
-                        CostCenterName: true
-                    }
-                }),
-                this._db.subledgerMaster.findMany({
-                    select: {
-                        SubledgerMasterSid: true,
-                        SubledgerName: true
-                    }
-                }),
-                this._db.departmentMaster.findMany({
-                    select: {
-                        DepartmentMasterSid: true,
-                        departmentName: true
-                    }
-                })
+            const [chargeMap, currencyMap, coaMap, profitMap, costMap, ledgerMap, departmentMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['ChargeMasterSid']),
+                    ids => this._db.chargeMaster.findMany({
+                        where: {
+                            ChargeMasterSid: { in: ids }
+                        },
+                        select: {
+                            ChargeMasterSid: true, chargeCode: true
+                        }
+                    }), 'ChargeMasterSid', 'chargeCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: {
+                            CurrencyMasterSid: { in: ids }
+                        },
+                        select: {
+                            CurrencyMasterSid: true, currencyCode: true
+                        }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['COAMasterSid', 'BankCOA']),
+                    ids => this._db.cOAMaster.findMany({
+                        where: {
+                            COAMasterSid: { in: ids }
+                        },
+                        select: {
+                            COAMasterSid: true, LedgerName: true
+                        }
+                    }), 'COAMasterSid', 'LedgerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ProfitCenter']),
+                    ids => this._db.profitCenterMaster.findMany({
+                        where: {
+                            ProfitCenterMasterSid: { in: ids }
+                        },
+                        select: {
+                            ProfitCenterMasterSid: true, ProfitCenterName: true
+                        }
+                    }), 'ProfitCenterMasterSid', 'ProfitCenterName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CostCenter']),
+                    ids => this._db.costCenterMaster.findMany({
+                        where: {
+                            CostCenterMasterSid: { in: ids }
+                        },
+                        select: {
+                            CostCenterMasterSid: true, CostCenterName: true
+                        }
+                    }), 'CostCenterMasterSid', 'CostCenterName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['LedgerMasterSid']),
+                    ids => this._db.subledgerMaster.findMany({
+                        where: {
+                            SubledgerMasterSid: { in: ids }
+                        },
+                        select: {
+                            SubledgerMasterSid: true, SubledgerName: true
+                        }
+                    }), 'SubledgerMasterSid', 'SubledgerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['DepartmentMasterSid']),
+                    ids => this._db.departmentMaster.findMany({
+                        where: {
+                            DepartmentMasterSid: { in: ids }
+                        },
+                        select: {
+                            DepartmentMasterSid: true, departmentName: true,
+                        }
+                    }), 'DepartmentMasterSid', 'departmentName'),
             ])
 
-            const chargeMap = new Map<string, string>(
-                charges.map(c => [String(c.ChargeMasterSid), c.chargeCode])
-            );
-
-            const currencyMap = new Map<string, string>(
-                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
-
-            const coaMap = new Map<string, string>(
-                coa.map(c => [String(c.COAMasterSid), c.LedgerName ?? ''])
-            );
-
-            const profitMap = new Map<string, string>(
-                profit.map(p => [String(p.ProfitCenterMasterSid), p.ProfitCenterName])
-            );
-
-            const costMap = new Map<string, string>(
-                cost.map(c => [String(c.CostCenterMasterSid), c.CostCenterName])
-            );
-
-            const ledgerMap = new Map<string, string>(
-                ledger.map(l => [String(l.SubledgerMasterSid), l.SubledgerName])
-            );
-
-            const departmentMap = new Map<string, string>(
-                department.map(d => [String(d.DepartmentMasterSid), d.departmentName])
-            );
-
             const detailMap = new Map<string, string>(
-                detailRows.map((d) => {
+                fetchedDetails.map((d) => {
                     const serial = d.Sno?.toString().trim() || d.ChargeMasterSid;
                     const charge = chargeMap.get(String(d.ChargeMasterSid)) || d.ChargeMasterSid || '';
                     const label = charge ? `Detail [${serial} - ${charge}]` : `Detail [${serial}]`;
@@ -1364,111 +1479,71 @@ export class AuditLogService {
             const PostStatus = {
                 P: 'Posted',
                 U: 'Unposted'
-            }
+            } as Record<string, string>;
 
             const invoiceList = {
                 REG: 'Regular',
                 REIMB: 'Reimbursement',
                 BOS: 'Bill of Supply',
                 NONGST: 'Non GST/Zero'
-            }
+            } as Record<string, string>;
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const ignoredFields = [
-                'UpdatedBy', 'UpdatedOn', 'CreatedBy', 'CreatedOn', 'VoucherTransactionSid'
-            ]
-
-            const rowLabelMaps = {
-                detailMap
-            }
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'ChargeMasterSid', 'Charge', chargeMap);
-                this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
-
-                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'COAMasterSid', 'Ledger', coaMap);
-                this.replaceAndRename(newVal, 'COAMasterSid', 'Ledger', coaMap);
-
-                this.replaceAndRename(oldVal, 'BankCOA', 'Bank/Cash', coaMap);
-                this.replaceAndRename(newVal, 'BankCOA', 'Bank/Cash', coaMap);
-
-                this.replaceAndRename(oldVal, 'LedgerMasterSid', 'Subledger', ledgerMap);
-                this.replaceAndRename(newVal, 'LedgerMasterSid', 'Subledger', ledgerMap);
-
-                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
-                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
-
-                this.replaceAndRename(oldVal, 'CostCenter', 'CostCenter', costMap);
-                this.replaceAndRename(newVal, 'CostCenter', 'CostCenter', costMap);
-
-                this.replaceAndRename(oldVal, 'ProfitCenter', 'ProfitCenter', profitMap);
-                this.replaceAndRename(newVal, 'ProfitCenter', 'ProfitCenter', profitMap);
-
-                this.replaceValueFromMap(oldVal, 'PostStatus', PostStatus);
-                this.replaceValueFromMap(newVal, 'PostStatus', PostStatus);
-
-                this.replaceValueFromMap(oldVal, 'InvoiceType', invoiceList);
-                this.replaceValueFromMap(newVal, 'InvoiceType', invoiceList);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['ChargeMasterSid', 'Charge', chargeMap],
+                    ['CurrencyMasterSid', 'Currency', currencyMap],
+                    ['COAMasterSid', 'Ledger', coaMap],
+                    ['BankCOA', 'Bank/Cash', coaMap],
+                    ['LedgerMasterSid', 'Subledger', ledgerMap],
+                    ['DepartmentMasterSid', 'Department', departmentMap],
+                    ['CostCenter', 'CostCenter', costMap],
+                    ['ProfitCenter', 'ProfitCenter', profitMap],
+                ],
+                valueRules: [
+                    ['PostStatus', PostStatus],
+                    ['InvoiceType', invoiceList],
+                    ['Status', AuditLogService.STATUS_MAP],
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: [
+                    'VoucherTransactionSid'
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getCreditNoteLabel(log.tableName, voucherLabel),
-                    rowLabel: this.getCreditNoteRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getCreditNoteRowLabel(log, { detailMap }, oldVal, newVal),
+                }),
             });
-
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getVendorCreditNoteLogs(recordId?: string) {
-        return this.getCreditNoteLogs(recordId, 'Vendor Credit Note');
+    private async getVendorCreditNoteLogs(recordId?: string, query: AuditLogQuery = {}) {
+        return this.getCreditNoteLogs(recordId, query, 'Vendor Credit Note');
     }
 
-    private async getInvoiceLogs(recordId?: string) {
-        return this.getCreditNoteLogs(recordId, 'Invoice');
+    private async getInvoiceLogs(recordId?: string, query: AuditLogQuery = {}) {
+        return this.getCreditNoteLogs(recordId, query, 'Invoice');
     }
 
-    private async getVendorInvoiceLogs(recordId?: string) {
-        return this.getCreditNoteLogs(recordId, 'Vendor Invoice');
+    private async getVendorInvoiceLogs(recordId?: string, query: AuditLogQuery = {}) {
+        return this.getCreditNoteLogs(recordId, query, 'Vendor Invoice');
     }
 
-    private async getReverseVoucherLogs(recordId?: string) {
-        return this.getCreditNoteLogs(recordId, 'Reverse Voucher')
+    private async getReverseVoucherLogs(recordId?: string, query: AuditLogQuery = {}) {
+        return this.getCreditNoteLogs(recordId, query, 'Reverse Voucher')
     }
 
-    private async getReceiptLogs(recordId?: string) {
-        return this.getCreditNoteLogs(recordId, 'Receipt')
+    private async getReceiptLogs(recordId?: string, query: AuditLogQuery = {}) {
+        return this.getCreditNoteLogs(recordId, query, 'Receipt')
     }
 
-    private async getPaymentLogs(recordId?: string) {
-        return this.getCreditNoteLogs(recordId, 'Payment')
+    private async getPaymentLogs(recordId?: string, query: AuditLogQuery = {}) {
+        return this.getCreditNoteLogs(recordId, query, 'Payment')
     }
 
-    private async getJVLogs(recordId?: string) {
-        return this.getCreditNoteLogs(recordId, 'Journal Voucher')
+    private async getJVLogs(recordId?: string, query: AuditLogQuery = {}) {
+        return this.getCreditNoteLogs(recordId, query, 'Journal Voucher')
     }
 
     private getCreditRequestRowLabel(
@@ -1477,8 +1552,8 @@ export class AuditLogService {
             creditRequestMap: Map<string, string>;
             kycMap: Map<string, string>;
         },
-        oldVal: Record<string, any>,
-        newVal: Record<string, any>
+        oldVal: AnyRec,
+        newVal: AnyRec
     ): string | null {
         const recordId = String(log.recordId ?? '');
         switch (log.tableName) {
@@ -1506,9 +1581,8 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getCreditRequestLogs(recordId?: string) {
+    private async getCreditRequestLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
             let creditRequestRows: any[] = [];
             let kycRows: any[] = [];
 
@@ -1549,7 +1623,7 @@ export class AuditLogService {
                 })
                 : [];
 
-            conditions = [
+            const conditions = [
                 ...(creditRequestRows.length
                     ? [{
                         tableName: 'CustomerCreditRequest',
@@ -1573,41 +1647,29 @@ export class AuditLogService {
                     : [])
             ];
 
-            if (!conditions.length) {
-                return [];
-            }
+            const logs = await this.fetchLogs(conditions, query);
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const [branchMap, userMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['CustomerBranchSid']),
+                    ids => this._db.customerBranch.findMany({
+                        where: {
+                            CustomerBranchSid: { in: ids }
+                        },
+                        select: {
+                            CustomerBranchSid: true, BranchName: true,
+                        }
+                    }), 'CustomerBranchSid', 'BranchName'),
 
-            const [branches, users] = await Promise.all([
-                this._db.customerBranch.findMany({
-                    select: {
-                        CustomerBranchSid: true,
-                        BranchName: true
-                    }
-                }),
-                this._db.userMaster.findMany({
-                    select: {
-                        UserMasterSid: true,
-                        userName: true
-                    }
-                }),
+                this.buildScopedMap(this.collectIds(logs, ['SalesmanSid']),
+                    ids => this._db.userMaster.findMany({
+                        where: {
+                            UserMasterSid: { in: ids }
+                        },
+                        select: {
+                            UserMasterSid: true, userName: true,
+                        }
+                    }), 'UserMasterSid', 'userName'),
             ]);
-
-            const branchMap = new Map<string, string>(
-                branches.map((b) => [String(b.CustomerBranchSid), b.BranchName])
-            );
-
-            const salesmanMap = new Map<string, string>(
-                users.map(u => [String(u.UserMasterSid), u.userName])
-            );
 
             const creditRequestMap = new Map<string, string>(
                 creditRequestRows.map((cr) => {
@@ -1637,55 +1699,25 @@ export class AuditLogService {
                 })
             );
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const ignoredFields = [
-                'UpdatedBy', 'UpdatedOn', 'CreatedBy', 'CreatedOn', 'AttachDocumentSid'
-            ];
-
-            const rowLabelMaps = {
-                creditRequestMap,
-                kycMap
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'SalesmanSid', 'Salesman', salesmanMap);
-                this.replaceAndRename(newVal, 'SalesmanSid', 'Salesman', salesmanMap);
-
-                this.replaceAndRename(oldVal, 'CustomerBranchSid', 'CustomerBranch', branchMap);
-                this.replaceAndRename(newVal, 'CustomerBranchSid', 'CustomerBranch', branchMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['SalesmanSid', 'Salesman', userMap],
+                    ['CustomerBranchSid', 'CustomerBranch', branchMap]
+                ],
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: [
+                    'AttachDocumentSid'
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getCreditRequestLabel(log.tableName),
-                    rowLabel: this.getCreditRequestRowLabel(
-                        log,
-                        rowLabelMaps,
-                        oldVal,
-                        newVal
-                    ),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getCreditRequestRowLabel(log, { creditRequestMap, kycMap }, oldVal, newVal),
+                }),
             });
-
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -1741,7 +1773,7 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getMasterJobLogs(recordId?: string) {
+    private async getMasterJobLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
             let containerRows: any[] = [];
@@ -1850,102 +1882,63 @@ export class AuditLogService {
                     : []),
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [departments, charges, customers, uoms, currencies, voucher, vouchertype, container] = await Promise.all([
-                this._db.departmentMaster.findMany({
-                    select: {
-                        DepartmentMasterSid: true,
-                        departmentName: true
-                    }
-                }),
-                this._db.chargeMaster.findMany({
-                    select: {
-                        ChargeMasterSid: true,
-                        chargeCode: true
-                    }
-                }),
-                this._db.customerMaster.findMany({
-                    select: {
-                        CustomerMasterSid: true,
-                        CustomerName: true
-                    }
-                }),
-                this._db.uOMMaster.findMany({
-                    select: {
-                        UOMMasterSid: true,
-                        UOMCode: true,
-                        UOMName: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
-                this._db.voucherHeader.findMany({
-                    select: {
-                        VoucherHeaderSid: true,
-                        VoucherNumber: true
-                    }
-                }),
-                this._db.voucherTypeMaster.findMany({
-                    select: {
-                        VoucherTypeMasterSid: true,
-                        DocumentTypeName: true
-                    }
-                }),
-                this._db.containerTypeMaster.findMany({
-                    select: {
-                        ContainerTypeMasterSid: true,
-                        ContainerName: true
-                    }
-                })
+            const [departmentMap, chargeMap, customerMap, uomMap, umMap, currencyMap, voucherMap, voucherTypeMap, containerTypeMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['DepartmentMasterSid']),
+                    ids => this._db.departmentMaster.findMany({
+                        where: { DepartmentMasterSid: { in: ids } },
+                        select: { DepartmentMasterSid: true, departmentName: true }
+                    }), 'DepartmentMasterSid', 'departmentName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ChargeMasterSid']),
+                    ids => this._db.chargeMaster.findMany({
+                        where: { ChargeMasterSid: { in: ids } },
+                        select: { ChargeMasterSid: true, chargeCode: true }
+                    }), 'ChargeMasterSid', 'chargeCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['DestinationAgent', 'CarrierSid', 'OriginAgent', 'CFS', 'Yard', 'RevenueCustomerMasterSid', 'CostAgentMasterSid']),
+                    ids => this._db.customerMaster.findMany({
+                        where: { CustomerMasterSid: { in: ids } },
+                        select: { CustomerMasterSid: true, CustomerName: true }
+                    }), 'CustomerMasterSid', 'CustomerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['PkgType']),
+                    ids => this._db.uOMMaster.findMany({
+                        where: { UOMMasterSid: { in: ids } },
+                        select: { UOMMasterSid: true, UOMName: true }
+                    }), 'UOMMasterSid', 'UOMName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ChargeUomSid', 'RevenueChargeUomSid', 'CostChargeUomSid']),
+                    ids => this._db.uOMMaster.findMany({
+                        where: { UOMMasterSid: { in: ids } },
+                        select: { UOMMasterSid: true, UOMCode: true }
+                    }), 'UOMMasterSid', 'UOMCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['RevenueCurrencyMasterSid', 'CostCurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: { CurrencyMasterSid: { in: ids } },
+                        select: { CurrencyMasterSid: true, currencyCode: true }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['RevenueVoucherHeaderSid', 'CostVoucherHeaderSid']),
+                    ids => this._db.voucherHeader.findMany({
+                        where: { VoucherHeaderSid: { in: ids } },
+                        select: { VoucherHeaderSid: true, VoucherNumber: true }
+                    }), 'VoucherHeaderSid', 'VoucherNumber'),
+
+                this.buildScopedMap(this.collectIds(logs, ['RevenueVoucherTypeMasterSid', 'CostVoucherTypeMasterSid']),
+                    ids => this._db.voucherTypeMaster.findMany({
+                        where: { VoucherTypeMasterSid: { in: ids } },
+                        select: { VoucherTypeMasterSid: true, DocumentTypeName: true }
+                    }), 'VoucherTypeMasterSid', 'DocumentTypeName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ContainerType']),
+                    ids => this._db.containerTypeMaster.findMany({
+                        where: { ContainerTypeMasterSid: { in: ids } },
+                        select: { ContainerTypeMasterSid: true, ContainerName: true }
+                    }), 'ContainerTypeMasterSid', 'ContainerName'),
             ]);
-
-            const departmentMap = new Map<string, string>(
-                departments.map(d => [String(d.DepartmentMasterSid), d.departmentName])
-            );
-
-            const chargeMap = new Map<string, string>(
-                charges.map(c => [String(c.ChargeMasterSid), c.chargeCode])
-            );
-
-            const customerMap = new Map<string, string>(
-                customers.map(c => [String(c.CustomerMasterSid), c.CustomerName])
-            );
-
-            const uomMap = new Map<string, string>(
-                uoms.map(c => [String(c.UOMMasterSid), c.UOMName])
-            );
-
-            const umMap = new Map<string, string>(
-                uoms.map(c => [String(c.UOMMasterSid), c.UOMCode])
-            );
-
-            const currencyMap = new Map<string, string>(
-                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
-
-            const voucherMap = new Map<string, string>(
-                voucher.map(c => [String(c.VoucherHeaderSid), c.VoucherNumber])
-            );
-
-            const voucherTypeMap = new Map<string, string>(
-                vouchertype.map(c => [String(c.VoucherTypeMasterSid), c.DocumentTypeName])
-            );
-
-            const containerTypeMap = new Map<string, string>(
-                container.map(c => [String(c.ContainerTypeMasterSid), c.ContainerName])
-            );
 
             const containerMap = new Map<string, string>(
                 containerRows.map((c) => [
@@ -1980,26 +1973,15 @@ export class AuditLogService {
                 ])
             );
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
             const custom = {
                 NCV: 'No Commercial Value',
                 DVC: 'Declared value for Customs'
-            };
+            } as Record<string, string>;
 
             const carriage = {
                 NVD: 'No value declared',
                 DVC: 'Declared value for Carriage',
-            };
+            } as Record<string, string>;
 
             const cargocode = {
                 F: 'FCL Container',
@@ -2010,160 +1992,74 @@ export class AuditLogService {
                 R: 'RO-RO Unit',
                 P: 'Passenger',
                 G: 'General Cargo (Break Bulk)',
-            }
+            } as Record<string, string>;
 
             const un = {
                 U: 'Used',
                 N: 'New'
-            }
+            } as Record<string, string>;
 
             const storagerequest = {
                 D: 'Direct Delivery',
                 S: 'Storage in Sheds',
                 Y: 'Storage in Yards',
-            }
+            } as Record<string, string>;
 
             const temp = {
                 F: 'Fahrenheit',
                 C: 'Celsius',
-            }
+            } as Record<string, string>;
 
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'UpdatedOn', 'CreatedBy', 'CreatedOn', 'UpdatedBy',
-                'VoyageMasterSid', 'CustomerBranchSid', 'CustomerMasterSid', 'CostAgentBranchSid', 'RevenueCustomerBranchSid',
-            ];
-
-            const rowLabelMaps = {
-                containerMap,
-                connectionMap,
-                rateMap,
-                activityMap
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
-                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
-
-                this.replaceAndRename(oldVal, 'ChargeMasterSid', 'Charge', chargeMap);
-                this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
-
-                this.replaceAndRename(oldVal, 'ChargeUomSid', 'ChargeUom', umMap);
-                this.replaceAndRename(newVal, 'ChargeUomSid', 'ChargeUom', umMap);
-
-                this.replaceAndRename(oldVal, 'RevenueChargeUomSid', 'RevenueChargeUom', umMap);
-                this.replaceAndRename(newVal, 'RevenueChargeUomSid', 'RevenueChargeUom', umMap);
-
-                this.replaceAndRename(oldVal, 'CostChargeUomSid', 'CostChargeUom', umMap);
-                this.replaceAndRename(newVal, 'CostChargeUomSid', 'CostChargeUom', umMap);
-
-                this.replaceAndRename(oldVal, 'DestinationAgent', 'DestinationAgent', customerMap);
-                this.replaceAndRename(newVal, 'DestinationAgent', 'DestinationAgent', customerMap);
-
-                this.replaceAndRename(oldVal, 'CarrierSid', 'Carrier', customerMap);
-                this.replaceAndRename(newVal, 'CarrierSid', 'Carrier', customerMap);
-
-                this.replaceAndRename(oldVal, 'OriginAgent', 'OriginAgent', customerMap);
-                this.replaceAndRename(newVal, 'OriginAgent', 'OriginAgent', customerMap);
-
-                this.replaceAndRename(oldVal, 'CFS', 'CFS', customerMap);
-                this.replaceAndRename(newVal, 'CFS', 'CFS', customerMap);
-
-                this.replaceAndRename(oldVal, 'Yard', 'Yard', customerMap);
-                this.replaceAndRename(newVal, 'Yard', 'Yard', customerMap);
-
-                this.replaceAndRename(oldVal, 'ContainerType', 'ContainerType', containerTypeMap);
-                this.replaceAndRename(newVal, 'ContainerType', 'ContainerType', containerTypeMap);
-
-                this.replaceAndRename(oldVal, 'PkgType', 'PackageType', uomMap);
-                this.replaceAndRename(newVal, 'PkgType', 'PackageType', uomMap);
-
-                this.replaceAndRename(oldVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
-                this.replaceAndRename(newVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
-                this.replaceAndRename(newVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
-                this.replaceAndRename(newVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
-
-                this.replaceAndRename(oldVal, 'CostAgentMasterSid', 'Party', customerMap);
-                this.replaceAndRename(newVal, 'CostAgentMasterSid', 'Party', customerMap);
-
-                this.replaceAndRename(oldVal, 'RevenueVoucherHeaderSid', 'VoucherNo', voucherMap);
-                this.replaceAndRename(newVal, 'RevenueVoucherHeaderSid', 'VoucherNo', voucherMap);
-
-                this.replaceAndRename(oldVal, 'RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap);
-                this.replaceAndRename(newVal, 'RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap);
-
-                this.replaceAndRename(oldVal, 'CostVoucherHeaderSid', 'VoucherNo', voucherMap);
-                this.replaceAndRename(newVal, 'CostVoucherHeaderSid', 'VoucherNo', voucherMap);
-
-                this.replaceAndRename(oldVal, 'CostVoucherTypeMasterSid', 'Type', voucherTypeMap);
-                this.replaceAndRename(newVal, 'CostVoucherTypeMasterSid', 'Type', voucherTypeMap);
-
-                this.replaceValueFromMap(oldVal, 'IsHaz', yesNoMap);
-                this.replaceValueFromMap(newVal, 'IsHaz', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'Haz', yesNoMap);
-                this.replaceValueFromMap(newVal, 'Haz', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'IsSoc', yesNoMap);
-                this.replaceValueFromMap(newVal, 'IsSoc', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'Coload', yesNoMap);
-                this.replaceValueFromMap(newVal, 'Coload', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'ExportToImport', yesNoMap);
-                this.replaceValueFromMap(newVal, 'ExportToImport', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'DeclaredValueOfCustoms', custom);
-                this.replaceValueFromMap(newVal, 'DeclaredValueOfCustoms', custom);
-
-                this.replaceValueFromMap(oldVal, 'DeclaredValueOfCarriage', carriage);
-                this.replaceValueFromMap(newVal, 'DeclaredValueOfCarriage', carriage);
-
-                this.replaceValueFromMap(oldVal, 'CargoCode', cargocode);
-                this.replaceValueFromMap(newVal, 'CargoCode', cargocode);
-
-                this.replaceValueFromMap(oldVal, 'UsedOrNew', un);
-                this.replaceValueFromMap(newVal, 'UsedOrNew', un);
-
-                this.replaceValueFromMap(oldVal, 'StorageRequest', storagerequest);
-                this.replaceValueFromMap(newVal, 'StorageRequest', storagerequest);
-
-                this.replaceValueFromMap(oldVal, 'HazStorageRequest', storagerequest);
-                this.replaceValueFromMap(newVal, 'HazStorageRequest', storagerequest);
-
-                this.replaceValueFromMap(oldVal, 'RefTemperatureUnit', temp);
-                this.replaceValueFromMap(newVal, 'RefTemperatureUnit', temp);
-
-                this.replaceValueFromMap(oldVal, 'TemperatureUnit', temp);
-                this.replaceValueFromMap(newVal, 'TemperatureUnit', temp);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['DepartmentMasterSid', 'Department', departmentMap],
+                    ['ChargeMasterSid', 'Charge', chargeMap],
+                    ['ChargeUomSid', 'ChargeUom', umMap],
+                    ['RevenueChargeUomSid', 'RevenueChargeUom', umMap],
+                    ['CostChargeUomSid', 'CostChargeUom', umMap],
+                    ['DestinationAgent', 'DestinationAgent', customerMap],
+                    ['CarrierSid', 'Carrier', customerMap],
+                    ['OriginAgent', 'OriginAgent', customerMap],
+                    ['CFS', 'CFS', customerMap],
+                    ['Yard', 'Yard', customerMap],
+                    ['ContainerType', 'ContainerType', containerTypeMap],
+                    ['PkgType', 'PackageType', uomMap],
+                    ['RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap],
+                    ['CostCurrencyMasterSid', 'CostCurrency', currencyMap],
+                    ['RevenueCustomerMasterSid', 'BillingParty', customerMap],
+                    ['CostAgentMasterSid', 'Party', customerMap],
+                    ['RevenueVoucherHeaderSid', 'VoucherNo', voucherMap],
+                    ['RevenueVoucherTypeMasterSid', 'Type', voucherTypeMap],
+                    ['CostVoucherHeaderSid', 'VoucherNo', voucherMap],
+                    ['CostVoucherTypeMasterSid', 'Type', voucherTypeMap],
+                ],
+                valueRules: [
+                    ['IsHaz', AuditLogService.YES_NO_MAP],
+                    ['Haz', AuditLogService.YES_NO_MAP],
+                    ['IsSoc', AuditLogService.YES_NO_MAP],
+                    ['Coload', AuditLogService.YES_NO_MAP],
+                    ['ExportToImport', AuditLogService.YES_NO_MAP],
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['Status', AuditLogService.STATUS_MAP],
+                    ['DeclaredValueOfCustoms', custom],
+                    ['DeclaredValueOfCarriage', carriage],
+                    ['CargoCode', cargocode],
+                    ['UsedOrNew', un],
+                    ['StorageRequest', storagerequest],
+                    ['HazStorageRequest', storagerequest],
+                    ['RefTemperatureUnit', temp],
+                    ['TemperatureUnit', temp],
+                ],
+                ignored: [
+                    'VoyageMasterSid', 'CustomerBranchSid', 'CustomerMasterSid', 'CostAgentBranchSid', 'RevenueCustomerBranchSid',
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getMasterJobLabel(log.tableName),
-                    rowLabel: this.getMasterJobRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getMasterJobRowLabel(log, { containerMap, connectionMap, rateMap, activityMap }, oldVal, newVal),
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -2230,7 +2126,7 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getQuoteLogs(recordId?: string) {
+    private async getQuoteLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
             let routeRows: any[] = [];
@@ -2335,77 +2231,45 @@ export class AuditLogService {
                     : []),
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [ports, customer, users, charges, uoms, currencies] = await Promise.all([
-                this._db.portMaster.findMany({
-                    select: {
-                        PortMasterSid: true,
-                        PortCode: true
-                    }
-                }),
-                this._db.customerMaster.findMany({
-                    select: {
-                        CustomerMasterSid: true,
-                        CustomerName: true
-                    }
-                }),
-                this._db.userMaster.findMany({
-                    select: {
-                        UserMasterSid: true,
-                        userName: true
-                    }
-                }),
-                this._db.chargeMaster.findMany({
-                    select: {
-                        ChargeMasterSid: true,
-                        chargeCode: true,
-                    }
-                }),
-                this._db.uOMMaster.findMany({
-                    select: {
-                        UOMMasterSid: true,
-                        UOMCode: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
+            const [portMap, customerMap, salesmanMap, chargesMap, uomMap, currencyMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['POLSid', 'PODSid']),
+                    ids => this._db.portMaster.findMany({
+                        where: { PortMasterSid: { in: ids } },
+                        select: { PortMasterSid: true, PortCode: true }
+                    }), 'PortMasterSid', 'PortCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CostAgentMasterSid', 'RevenueCustomerMasterSid']),
+                    ids => this._db.customerMaster.findMany({
+                        where: { CustomerMasterSid: { in: ids } },
+                        select: { CustomerMasterSid: true, CustomerName: true }
+                    }), 'CustomerMasterSid', 'CustomerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['SalesmanSid']),
+                    ids => this._db.userMaster.findMany({
+                        where: { UserMasterSid: { in: ids } },
+                        select: { UserMasterSid: true, userName: true }
+                    }), 'UserMasterSid', 'userName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ChargeUomSid']),
+                    ids => this._db.chargeMaster.findMany({
+                        where: { ChargeMasterSid: { in: ids } },
+                        select: { ChargeMasterSid: true, chargeCode: true }
+                    }), 'ChargeMasterSid', 'chargeCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CostChargeUomSid', 'RevenueChargeUomSid']),
+                    ids => this._db.uOMMaster.findMany({
+                        where: { UOMMasterSid: { in: ids } },
+                        select: { UOMMasterSid: true, UOMCode: true }
+                    }), 'UOMMasterSid', 'UOMCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['RevenueCurrencyMasterSid', 'CostCurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: { CurrencyMasterSid: { in: ids } },
+                        select: { CurrencyMasterSid: true, currencyCode: true }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
             ]);
-
-            const portMap = new Map<string, string>(
-                ports.map(p => [String(p.PortMasterSid), p.PortCode])
-            );
-
-            const customerMap = new Map<string, string>(
-                customer.map(c => [String(c.CustomerMasterSid), c.CustomerName])
-            );
-
-            const salesmanMap = new Map<string, string>(
-                users.map(u => [String(u.UserMasterSid), u.userName])
-            );
-
-            const chargesMap = new Map<string, string>(
-                charges.map(c => [String(c.ChargeMasterSid), c.chargeCode])
-            );
-
-            const uomMap = new Map<string, string>(
-                uoms.map(c => [String(c.UOMMasterSid), c.UOMCode])
-            );
-
-            const currencyMap = new Map<string, string>(
-                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
 
             const routeMap = new Map<string, string>(
                 routeRows.map((r) => {
@@ -2495,95 +2359,36 @@ export class AuditLogService {
                 })
             );
 
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
-                'CostAgentBranchSid', 'RevenueCustomerBranchSid', 'BookingHeaderSid'
-            ];
-
-            const rowLabelMaps = {
-                routeMap,
-                carrierMap,
-                cargoMap,
-                chargeMap,
-                productMap,
-            };
-
-            const formattedLogs = logs.map((logs: any) => {
-                const oldVal = { ...(logs.oldVal || {}) };
-                const newVal = { ...(logs.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'SalesmanSid', 'Salesman', salesmanMap);
-                this.replaceAndRename(newVal, 'SalesmanSid', 'Salesman', salesmanMap);
-
-                this.replaceAndRename(oldVal, 'POLSid', 'POL', portMap);
-                this.replaceAndRename(newVal, 'POLSid', 'POL', portMap);
-
-                this.replaceAndRename(oldVal, 'PODSid', 'POD', portMap);
-                this.replaceAndRename(newVal, 'PODSid', 'POD', portMap);
-
-                this.replaceAndRename(oldVal, 'ChargeUomSid', 'Charge', chargesMap);
-                this.replaceAndRename(newVal, 'ChargeUomSid', 'Charge', chargesMap);
-
-                this.replaceAndRename(oldVal, 'CostChargeUomSid', 'CostChargeUom', uomMap);
-                this.replaceAndRename(newVal, 'CostChargeUomSid', 'CostChargeUom', uomMap);
-
-                this.replaceAndRename(oldVal, 'RevenueChargeUomSid', 'RevenueChargeUom', uomMap);
-                this.replaceAndRename(newVal, 'RevenueChargeUomSid', 'RevenueChargeUom', uomMap);
-
-                this.replaceAndRename(oldVal, 'CostAgentMasterSid', 'Party', customerMap);
-                this.replaceAndRename(newVal, 'CostAgentMasterSid', 'Party', customerMap);
-
-                this.replaceAndRename(oldVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
-                this.replaceAndRename(newVal, 'RevenueCustomerMasterSid', 'BillingParty', customerMap);
-
-                this.replaceAndRename(oldVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
-                this.replaceAndRename(newVal, 'RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
-                this.replaceAndRename(newVal, 'CostCurrencyMasterSid', 'CostCurrency', currencyMap);
-
-                this.replaceValueFromMap(oldVal, 'IsContract', yesNoMap);
-                this.replaceValueFromMap(newVal, 'IsContract', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'AgreedRate', yesNoMap);
-                this.replaceValueFromMap(newVal, 'AgreedRate', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'RateLock', yesNoMap);
-                this.replaceValueFromMap(newVal, 'RateLock', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...logs,
-                    sectionLabel: this.getQuoteLabel(logs.tableName),
-                    rowLabel: this.getQuoteRowLabel(logs, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['SalesmanSid', 'Salesman', salesmanMap],
+                    ['POLSid', 'POL', portMap],
+                    ['PODSid', 'POD', portMap],
+                    ['ChargeUomSid', 'Charge', chargesMap],
+                    ['CostChargeUomSid', 'CostChargeUom', uomMap],
+                    ['RevenueChargeUomSid', 'RevenueChargeUom', uomMap],
+                    ['CostAgentMasterSid', 'Party', customerMap],
+                    ['RevenueCustomerMasterSid', 'BillingParty', customerMap],
+                    ['RevenueCurrencyMasterSid', 'RevenueCurrency', currencyMap],
+                    ['CostCurrencyMasterSid', 'CostCurrency', currencyMap],
+                ],
+                valueRules: [
+                    ['IsContract', AuditLogService.YES_NO_MAP],
+                    ['AgreedRate', AuditLogService.YES_NO_MAP],
+                    ['RateLock', AuditLogService.YES_NO_MAP],
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: [
+                    'CostAgentBranchSid', 'RevenueCustomerBranchSid', 'BookingHeaderSid'
+                ],
+                decorate: (log, oldVal, newVal) => ({
+                    sectionLabel: this.getQuoteLabel(log.tableName),
+                    rowLabel: this.getQuoteRowLabel(log, { routeMap, carrierMap, cargoMap, chargeMap, productMap }, oldVal, newVal),
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -2626,7 +2431,7 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getEnquiryLogs(recordId?: string) {
+    private async getEnquiryLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
             let routeRows: any[] = [];
@@ -2690,76 +2495,39 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [
-                ports,
-                customers,
-                users,
-                departments,
-                uoms,
-            ] = await Promise.all([
-                this._db.portMaster.findMany({
-                    select: {
-                        PortMasterSid: true,
-                        PortCode: true,
-                    }
-                }),
-                this._db.customerMaster.findMany({
-                    select: {
-                        CustomerMasterSid: true,
-                        CustomerName: true
-                    }
-                }),
-                this._db.userMaster.findMany({
-                    select: {
-                        UserMasterSid: true,
-                        userName: true
-                    }
-                }),
-                this._db.departmentMaster.findMany({
-                    select: {
-                        DepartmentMasterSid: true,
-                        departmentName: true
-                    }
-                }),
-                this._db.uOMMaster.findMany({
-                    select: {
-                        UOMMasterSid: true,
-                        UOMCode: true
-                    }
-                }),
+            const [portMap, customerMap, userMap, departmentMap, uomMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['PORSid', 'POLSid', 'PODSid', 'FDPSid']),
+                    ids => this._db.portMaster.findMany({
+                        where: { PortMasterSid: { in: ids } },
+                        select: { PortMasterSid: true, PortCode: true }
+                    }), 'PortMasterSid', 'PortCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CustomerMasterSid', 'AgentMasterSid', 'Carrier']),
+                    ids => this._db.customerMaster.findMany({
+                        where: { CustomerMasterSid: { in: ids } },
+                        select: { CustomerMasterSid: true, CustomerName: true }
+                    }), 'CustomerMasterSid', 'CustomerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['UserMasterSid']),
+                    ids => this._db.userMaster.findMany({
+                        where: { UserMasterSid: { in: ids } },
+                        select: { UserMasterSid: true, userName: true }
+                    }), 'UserMasterSid', 'userName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['DepartmentMasterSid']),
+                    ids => this._db.departmentMaster.findMany({
+                        where: { DepartmentMasterSid: { in: ids } },
+                        select: { DepartmentMasterSid: true, departmentName: true }
+                    }), 'DepartmentMasterSid', 'departmentName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['WeightUnitSid']),
+                    ids => this._db.uOMMaster.findMany({
+                        where: { UOMMasterSid: { in: ids } },
+                        select: { UOMMasterSid: true, UOMCode: true }
+                    }), 'UOMMasterSid', 'UOMCode'),
             ]);
-
-            const portMap = new Map<string, string>(
-                ports.map(p => [
-                    String(p.PortMasterSid),
-                    p.PortCode?.toString().trim() || String(p.PortMasterSid)
-                ])
-            );
-
-            const customerMap = new Map<string, string>(
-                customers.map(c => [String(c.CustomerMasterSid), c.CustomerName])
-            );
-
-            const userMap = new Map<string, string>(
-                users.map(u => [String(u.UserMasterSid), u.userName])
-            );
-
-            const departmentMap = new Map<string, string>(
-                departments.map(d => [String(d.DepartmentMasterSid), d.departmentName])
-            );
-
-            const uomMap = new Map<string, string>(
-                uoms.map(u => [String(u.UOMMasterSid), u.UOMCode])
-            );
 
             const routeMap = new Map<string, string>(
                 routeRows.map((r) => {
@@ -2777,7 +2545,7 @@ export class AuditLogService {
                 cargoRows.map((c) => {
                     const routeLabel =
                         routeMap.get(String(c.EnquiryRouteSid)) ||
-                        `Route [${c.EnquiryRouteSid || '-'}]`;
+                        `Route [${c.EnquiryRouteSid}]`;
 
                     const product =
                         c.ProductName?.toString().trim();
@@ -2794,87 +2562,39 @@ export class AuditLogService {
             );
 
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
             const leadCustomerMap = {
                 L: 'Lead',
                 C: 'Customer'
-            };
+            } as Record<string, string>;
 
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'QuoteHeaderSid',
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
-            ];
-
-            const rowLabelMaps = {
-                routeMap,
-                cargoMap,
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
-                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
-
-                this.replaceAndRename(oldVal, 'CustomerMasterSid', 'Customer', customerMap);
-                this.replaceAndRename(newVal, 'CustomerMasterSid', 'Customer', customerMap);
-
-                this.replaceAndRename(oldVal, 'AgentMasterSid', 'Agent', customerMap);
-                this.replaceAndRename(newVal, 'AgentMasterSid', 'Agent', customerMap);
-
-                this.replaceAndRename(oldVal, 'Carrier', 'Carrier', customerMap);
-                this.replaceAndRename(newVal, 'Carrier', 'Carrier', customerMap);
-
-                this.replaceAndRename(oldVal, 'UserMasterSid', 'User', userMap);
-                this.replaceAndRename(newVal, 'UserMasterSid', 'User', userMap);
-
-                this.replaceAndRename(oldVal, 'WeightUnitSid', 'UOM', uomMap);
-                this.replaceAndRename(newVal, 'WeightUnitSid', 'UOM', uomMap);
-
-                this.replaceAndRename(oldVal, 'PORSid', 'POR', portMap);
-                this.replaceAndRename(newVal, 'PORSid', 'POR', portMap);
-
-                this.replaceAndRename(oldVal, 'POLSid', 'POL', portMap);
-                this.replaceAndRename(newVal, 'POLSid', 'POL', portMap);
-
-                this.replaceAndRename(oldVal, 'PODSid', 'POD', portMap);
-                this.replaceAndRename(newVal, 'PODSid', 'POD', portMap);
-
-                this.replaceAndRename(oldVal, 'FDPSid', 'FPOD', portMap);
-                this.replaceAndRename(newVal, 'FDPSid', 'FPOD', portMap);
-
-                this.replaceValueFromMap(oldVal, 'LeadOrCustomer', leadCustomerMap);
-                this.replaceValueFromMap(newVal, 'LeadOrCustomer', leadCustomerMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['DepartmentMasterSid', 'Department', departmentMap],
+                    ['CustomerMasterSid', 'Customer', customerMap],
+                    ['AgentMasterSid', 'Agent', customerMap],
+                    ['Carrier', 'Carrier', customerMap],
+                    ['UserMasterSid', 'User', userMap],
+                    ['WeightUnitSid', 'UOM', uomMap],
+                    ['PORSid', 'POR', portMap],
+                    ['POLSid', 'POL', portMap],
+                    ['PODSid', 'POD', portMap],
+                    ['FDPSid', 'FPOD', portMap],
+                ],
+                valueRules: [
+                    ['LeadOrCustomer', leadCustomerMap],
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: [
+                    'QuoteHeaderSid',
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getEnquiryLabel(log.tableName),
-                    rowLabel: this.getEnquiryRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getEnquiryRowLabel(log, { routeMap, cargoMap }, oldVal, newVal),
+                }),
             });
-
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -2909,7 +2629,7 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getVoucherMatchingLogs(recordId?: string) {
+    private async getVoucherMatchingLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
             let detailRows: any[] = [];
@@ -2955,73 +2675,33 @@ export class AuditLogService {
                     : [])
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [
-                vouchers,
-                voucherTypes,
-                currencies,
-                coaMasters,
-                subledgers
-            ] = await Promise.all([
-                this._db.voucherHeader.findMany({
-                    select: {
-                        VoucherHeaderSid: true,
-                        VoucherNumber: true
-                    }
-                }),
-                this._db.voucherTypeMaster.findMany({
-                    select: {
-                        VoucherTypeMasterSid: true,
-                        DocumentTypeName: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
-                this._db.cOAMaster.findMany({
-                    select: {
-                        COAMasterSid: true,
-                        LedgerName: true
-                    }
-                }),
-                this._db.subledgerMaster.findMany({
-                    select: {
-                        SubledgerMasterSid: true,
-                        SubledgerName: true
-                    }
-                })
+            const [voucherMap, currencyMap, coaMap, subledgerMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['SourceVoucherHeaderSid']),
+                    ids => this._db.voucherHeader.findMany({
+                        where: { VoucherHeaderSid: { in: ids } },
+                        select: { VoucherHeaderSid: true, VoucherNumber: true }
+                    }), 'VoucherHeaderSid', 'VoucherNumber'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CurrencyMasterSid', 'MatchingCurrency']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: { CurrencyMasterSid: { in: ids } },
+                        select: { CurrencyMasterSid: true, currencyCode: true }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['COAMasterSid']),
+                    ids => this._db.cOAMaster.findMany({
+                        where: { COAMasterSid: { in: ids } },
+                        select: { COAMasterSid: true, LedgerName: true }
+                    }), 'COAMasterSid', 'LedgerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['SubledgerMasterSid']),
+                    ids => this._db.subledgerMaster.findMany({
+                        where: { SubledgerMasterSid: { in: ids } },
+                        select: { SubledgerMasterSid: true, SubledgerName: true }
+                    }), 'SubledgerMasterSid', 'SubledgerName'),
             ]);
-
-            const voucherMap = new Map<string, string>(
-                vouchers.map(v => [String(v.VoucherHeaderSid), v.VoucherNumber])
-            );
-
-            const voucherTypeMap = new Map<string, string>(
-                voucherTypes.map((v: any) => [String(v.VoucherTypeMasterSid), v.DocumentTypeName])
-            );
-
-            const currencyMap = new Map<string, string>(
-                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
-
-            const coaMap = new Map<string, string>(
-                coaMasters.map((c: any) => [String(c.COAMasterSid), c.LedgerName])
-            );
-
-            const subledgerMap = new Map<string, string>(
-                subledgers.map((s: any) => [String(s.SubledgerMasterSid), s.SubledgerName])
-            );
 
             const detailMap = new Map<string, string>(
                 detailRows.map((d) => {
@@ -3050,83 +2730,43 @@ export class AuditLogService {
             const postStatusMap = {
                 P: 'Posted',
                 U: 'Unposted'
-            };
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
+            } as Record<string, string>;
 
             const matchingTypeMap = {
                 Source: 'Source',
                 Object: 'Object'
-            };
+            } as Record<string, string>;
 
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
-                'CompanyMasterSid', 'BranchMasterSid',
-                'VoucherMatchingHeaderSid', 'MatchingDetailSid',
-                'VoucherDetailSid', 'VoucherTransactionSid', 'VoucherHeaderSid'
-            ];
-
-            const rowLabelMaps = {
-                detailMap
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-
-                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'MatchingCurrency', 'MatchingCurrency', currencyMap);
-                this.replaceAndRename(newVal, 'MatchingCurrency', 'MatchingCurrency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'COAMasterSid', 'Ledger', coaMap);
-                this.replaceAndRename(newVal, 'COAMasterSid', 'Ledger', coaMap);
-
-                this.replaceAndRename(oldVal, 'SubledgerMasterSid', 'Subledger', subledgerMap);
-                this.replaceAndRename(newVal, 'SubledgerMasterSid', 'Subledger', subledgerMap);
-
-                this.replaceAndRename(oldVal, 'SourceVoucherHeaderSid', 'Voucher', voucherMap);
-                this.replaceAndRename(newVal, 'SourceVoucherHeaderSid', 'Voucher', voucherMap);
-
-                this.replaceValueFromMap(oldVal, 'PostStatus', postStatusMap);
-                this.replaceValueFromMap(newVal, 'PostStatus', postStatusMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'MatchingType', matchingTypeMap);
-                this.replaceValueFromMap(newVal, 'MatchingType', matchingTypeMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CurrencyMasterSid', 'Currency', currencyMap],
+                    ['MatchingCurrency', 'MatchingCurrency', currencyMap],
+                    ['COAMasterSid', 'Ledger', coaMap],
+                    ['SubledgerMasterSid', 'Subledger', subledgerMap],
+                    ['SourceVoucherHeaderSid', 'Voucher', voucherMap],
+                ],
+                valueRules: [
+                    ['PostStatus', postStatusMap],
+                    ['Status', AuditLogService.STATUS_MAP],
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['MatchingType', matchingTypeMap],
+                ],
+                ignored: [
+                    'CompanyMasterSid', 'BranchMasterSid',
+                    'VoucherMatchingHeaderSid', 'MatchingDetailSid',
+                    'VoucherDetailSid', 'VoucherTransactionSid', 'VoucherHeaderSid'
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getVoucherMatchingLabel(log.tableName),
-                    rowLabel: this.getVoucherMatchingRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getVoucherMatchingRowLabel(log, { detailMap }, oldVal, newVal),
+                }),
             });
-
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getdoctypeLogs(recordId?: string) {
+    private async getdoctypeLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
 
@@ -3137,88 +2777,34 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const coaMap = await this.buildScopedMap(this.collectIds(logs, ['COALedger']),
+                ids => this._db.cOAMaster.findMany({
+                    where: { COAMasterSid: { in: ids } },
+                    select: { COAMasterSid: true, LedgerName: true }
+                }), 'COAMasterSid', 'LedgerName');
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['COALedger', 'COALedger', coaMap],
+                ],
+                valueRules: [
+                    ['BranchFlag', AuditLogService.YES_NO_MAP],
+                    ['CompanyFlag', AuditLogService.YES_NO_MAP],
+                    ['DocumentFlag', AuditLogService.YES_NO_MAP],
+                    ['MonthFlag', AuditLogService.YES_NO_MAP],
+                    ['YearFlag', AuditLogService.YES_NO_MAP],
+                    ['IsAutoPosting', AuditLogService.YES_NO_MAP],
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const [coa] = await Promise.all([
-                this._db.cOAMaster.findMany({
-                    select: {
-                        COAMasterSid: true,
-                        LedgerName: true
-                    }
-                })
-            ])
-
-            const coaMap = new Map<string, string>(
-                coa.map(c => [String(c.COAMasterSid), c.LedgerName ?? ''])
-            );
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
-            ];
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'COALedger', 'COALedger', coaMap);
-                this.replaceAndRename(newVal, 'COALedger', 'COALedger', coaMap);
-
-                this.replaceValueFromMap(oldVal, 'BranchFlag', yesNoMap);
-                this.replaceValueFromMap(newVal, 'BranchFlag', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'CompanyFlag', yesNoMap);
-                this.replaceValueFromMap(newVal, 'CompanyFlag', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'DocumentFlag', yesNoMap);
-                this.replaceValueFromMap(newVal, 'DocumentFlag', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'MonthFlag', yesNoMap);
-                this.replaceValueFromMap(newVal, 'MonthFlag', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'YearFlag', yesNoMap);
-                this.replaceValueFromMap(newVal, 'YearFlag', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'IsAutoPosting', yesNoMap);
-                this.replaceValueFromMap(newVal, 'IsAutoPosting', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getnumberseriesLogs(recordId?: string) {
+    private async getnumberseriesLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
 
@@ -3229,68 +2815,21 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['CompanyFlagRequired', AuditLogService.YES_NO_MAP],
+                    ['BranchFlagRequired', AuditLogService.YES_NO_MAP],
+                    ['DepartmentCodeRequired', AuditLogService.YES_NO_MAP],
+                    ['MonthFlagRequired', AuditLogService.YES_NO_MAP],
+                    ['YearFlagRequired', AuditLogService.YES_NO_MAP],
+                    ['DepartmentWiseCounter', AuditLogService.YES_NO_MAP],
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
-            ];
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'CompanyFlagRequired', yesNoMap);
-                this.replaceValueFromMap(newVal, 'CompanyFlagRequired', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'BranchFlagRequired', yesNoMap);
-                this.replaceValueFromMap(newVal, 'BranchFlagRequired', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'DepartmentCodeRequired', yesNoMap);
-                this.replaceValueFromMap(newVal, 'DepartmentCodeRequired', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'MonthFlagRequired', yesNoMap);
-                this.replaceValueFromMap(newVal, 'MonthFlagRequired', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'YearFlagRequired', yesNoMap);
-                this.replaceValueFromMap(newVal, 'YearFlagRequired', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'DepartmentWiseCounter', yesNoMap);
-                this.replaceValueFromMap(newVal, 'DepartmentWiseCounter', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -3349,7 +2888,7 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getPaymentRequestLogs(recordId?: string) {
+    private async getPaymentRequestLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
             let detailRows: any[] = [];
@@ -3387,57 +2926,33 @@ export class AuditLogService {
                     : []),
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [charge, customers, uoms, currencies] = await Promise.all([
-                this._db.chargeMaster.findMany({
-                    select: {
-                        ChargeMasterSid: true,
-                        chargeCode: true
-                    }
-                }),
-                this._db.customerMaster.findMany({
-                    select: {
-                        CustomerMasterSid: true,
-                        CustomerName: true
-                    }
-                }),
-                this._db.uOMMaster.findMany({
-                    select: {
-                        UOMMasterSid: true,
-                        UOMCode: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
+            const [chargeMap, customerMap, uomMap, currencyMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['ChargeMasterSid']),
+                    ids => this._db.chargeMaster.findMany({
+                        where: { ChargeMasterSid: { in: ids } },
+                        select: { ChargeMasterSid: true, chargeCode: true }
+                    }), 'ChargeMasterSid', 'chargeCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['Party']),
+                    ids => this._db.customerMaster.findMany({
+                        where: { CustomerMasterSid: { in: ids } },
+                        select: { CustomerMasterSid: true, CustomerName: true }
+                    }), 'CustomerMasterSid', 'CustomerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CostChargeUomSid']),
+                    ids => this._db.uOMMaster.findMany({
+                        where: { UOMMasterSid: { in: ids } },
+                        select: { UOMMasterSid: true, UOMCode: true }
+                    }), 'UOMMasterSid', 'UOMCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CostCurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: { CurrencyMasterSid: { in: ids } },
+                        select: { CurrencyMasterSid: true, currencyCode: true }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
             ])
-
-            const chargeMap = new Map<string, string>(
-                charge.map(c => [String(c.ChargeMasterSid), c.chargeCode])
-            );
-
-            const customerMap = new Map<string, string>(
-                customers.map(c => [String(c.CustomerMasterSid), c.CustomerName])
-            );
-
-            const uomMap = new Map<string, string>(
-                uoms.map(c => [String(c.UOMMasterSid), c.UOMCode])
-            );
-
-            const currencyMap = new Map<string, string>(
-                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
 
             const detailMap = new Map<string, string>(
                 detailRows.map((d) => {
@@ -3451,58 +2966,27 @@ export class AuditLogService {
                 })
             );
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const ignoredFields = [
-                'UpdatedBy', 'UpdatedOn', 'CreatedBy', 'CreatedOn'
-            ]
-
-            const rowLabelMaps = {
-                detailMap
-            }
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'ChargeMasterSid', 'Charge', chargeMap);
-                this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
-
-                this.replaceAndRename(oldVal, 'Party', 'Party', customerMap);
-                this.replaceAndRename(newVal, 'Party', 'Party', customerMap);
-
-                this.replaceAndRename(oldVal, 'CostChargeUomSid', 'Unit', uomMap);
-                this.replaceAndRename(newVal, 'CostChargeUomSid', 'Unit', uomMap);
-
-                this.replaceAndRename(oldVal, 'CostCurrencyMasterSid', 'Currency', currencyMap);
-                this.replaceAndRename(newVal, 'CostCurrencyMasterSid', 'Currency', currencyMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['ChargeMasterSid', 'Charge', chargeMap],
+                    ['Party', 'Party', customerMap],
+                    ['CostChargeUomSid', 'Unit', uomMap],
+                    ['CostCurrencyMasterSid', 'Currency', currencyMap],
+                ],
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getPaymentRequestLabel(log.tableName),
-                    rowLabel: this.getPaymentRequestRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getPaymentRequestRowLabel(log, { detailMap }, oldVal, newVal),
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getChartOfAccountsLogs(recordId?: string) {
+    private async getChartOfAccountsLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
 
@@ -3513,85 +2997,33 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const currencyMap = await this.buildScopedMap(this.collectIds(logs, ['LedgerCurrency']),
+                ids => this._db.currencyMaster.findMany({
+                    where: { CurrencyMasterSid: { in: ids } },
+                    select: { CurrencyMasterSid: true, currencyCode: true }
+                }), 'CurrencyMasterSid', 'currencyCode');
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['LedgerCurrency', 'Currency', currencyMap],
+                ],
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                    ['SubledgerName', AuditLogService.YES_NO_MAP],
+                    ['JobNoRequire', AuditLogService.YES_NO_MAP],
+                    ['HSNRequire', AuditLogService.YES_NO_MAP],
+                    ['ProfitandLoss', AuditLogService.YES_NO_MAP],
+                    ['BalanceSheet', AuditLogService.YES_NO_MAP],
+                ],
             });
-
-            const [currencies] = await Promise.all([
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                })
-            ]);
-
-            const currencyMap = new Map<string, string>(
-                currencies.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'LedgerCurrency', 'Currency', currencyMap);
-                this.replaceAndRename(newVal, 'LedgerCurrency', 'Currency', currencyMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'SubledgerName', yesNoMap);
-                this.replaceValueFromMap(newVal, 'SubledgerName', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'JobNoRequire', yesNoMap);
-                this.replaceValueFromMap(newVal, 'JobNoRequire', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'HSNRequire', yesNoMap);
-                this.replaceValueFromMap(newVal, 'HSNRequire', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'ProfitandLoss', yesNoMap);
-                this.replaceValueFromMap(newVal, 'ProfitandLoss', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'BalanceSheet', yesNoMap);
-                this.replaceValueFromMap(newVal, 'BalanceSheet', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getCurrencyExchangeLogs(recordId?: string) {
+    private async getCurrencyExchangeLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
 
@@ -3602,49 +3034,19 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getSubledgerMappingLogs(recordId?: string) {
+    private async getSubledgerMappingLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
 
@@ -3655,87 +3057,41 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [coa, subledgers] = await Promise.all([
-                this._db.cOAMaster.findMany({
-                    select: {
-                        COAMasterSid: true,
-                        LedgerName: true
-                    }
-                }),
-                this._db.subledgerMaster.findMany({
-                    select: {
-                        SubledgerMasterSid: true,
-                        SubledgerName: true
-                    }
-                })
+            const [coaMap, subledgerMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['AccrualCOAMasterSid', 'CrCOAMasterSid', 'DrCOAMasterSid']),
+                    ids => this._db.cOAMaster.findMany({
+                        where: { COAMasterSid: { in: ids } },
+                        select: { COAMasterSid: true, LedgerName: true }
+                    }), 'COAMasterSid', 'LedgerName'),
+
+                this.buildScopedMap([Number(recordId)].filter(id => !Number.isNaN(id)),
+                    ids => this._db.subledgerMaster.findMany({
+                        where: { SubledgerMasterSid: { in: ids } },
+                        select: { SubledgerMasterSid: true, SubledgerName: true }
+                    }), 'SubledgerMasterSid', 'SubledgerName'),
             ]);
 
-            const coaMap = new Map<string, string>(
-                coa.map(c => [
-                    String(c.COAMasterSid),
-                    c.LedgerName ?? ''
-                ])
-            );
-            const subledgerMap = new Map<string, string>(
-                subledgers.map(s => [
-                    String(s.SubledgerMasterSid),
-                    s.SubledgerName ?? ''
-                ])
-            );
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'AccrualCOAMasterSid', 'COA', coaMap);
-                this.replaceAndRename(newVal, 'AccrualCOAMasterSid', 'COA', coaMap);
-
-                this.replaceAndRename(oldVal, 'CrCOAMasterSid', 'COA', coaMap);
-                this.replaceAndRename(newVal, 'CrCOAMasterSid', 'COA', coaMap);
-
-                this.replaceAndRename(oldVal, 'DrCOAMasterSid', 'COA', coaMap);
-                this.replaceAndRename(newVal, 'DrCOAMasterSid', 'COA', coaMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['AccrualCOAMasterSid', 'COA', coaMap],
+                    ['CrCOAMasterSid', 'COA', coaMap],
+                    ['DrCOAMasterSid', 'COA', coaMap],
+                ],
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                decorate: (log) => ({
                     tableName: subledgerMap.get(String(log.recordId)) || log.tableName,
-                    oldVal,
-                    newVal
-                };
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getSupplierTdsMappingLogs(recordId?: string) {
+    private async getSupplierTdsMappingLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
 
@@ -3746,49 +3102,19 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getLeadLogs(recordId?: string) {
+    private async getLeadLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
 
@@ -3799,99 +3125,45 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [country, state, city] = await Promise.all([
-                this._db.countryMaster.findMany({
-                    select: {
-                        CountryMasterSid: true,
-                        countryName: true
-                    }
-                }),
-                this._db.stateMaster.findMany({
-                    select: {
-                        StateMasterSid: true,
-                        stateName: true
-                    }
-                }),
-                this._db.cityMaster.findMany({
-                    select: {
-                        CityMasterSid: true,
-                        cityName: true
-                    }
-                })
+            const [countryMap, stateMap, cityMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['CountryMasterSid']),
+                    ids => this._db.countryMaster.findMany({
+                        where: { CountryMasterSid: { in: ids } },
+                        select: { CountryMasterSid: true, countryName: true }
+                    }), 'CountryMasterSid', 'countryName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['StateMasterSid']),
+                    ids => this._db.stateMaster.findMany({
+                        where: { StateMasterSid: { in: ids } },
+                        select: { StateMasterSid: true, stateName: true }
+                    }), 'StateMasterSid', 'stateName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CityMasterSid']),
+                    ids => this._db.cityMaster.findMany({
+                        where: { CityMasterSid: { in: ids } },
+                        select: { CityMasterSid: true, cityName: true }
+                    }), 'CityMasterSid', 'cityName'),
             ]);
 
-            const countryMap = new Map<string, string>(
-                country.map(c => [String(c.CountryMasterSid), c.countryName])
-            );
-
-            const stateMap = new Map<string, string>(
-                state.map(c => [String(c.StateMasterSid), c.stateName])
-            );
-
-            const cityMap = new Map<string, string>(
-                city.map(c => [String(c.CityMasterSid), c.cityName])
-            );
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
-                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
-
-                this.replaceAndRename(oldVal, 'StateMasterSid', 'State', stateMap);
-                this.replaceAndRename(newVal, 'StateMasterSid', 'State', stateMap);
-
-                this.replaceAndRename(oldVal, 'CityMasterSid', 'City', cityMap);
-                this.replaceAndRename(newVal, 'CityMasterSid', 'City', cityMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'isQualify', yesNoMap);
-                this.replaceValueFromMap(newVal, 'isQualify', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CountryMasterSid', 'Country', countryMap],
+                    ['StateMasterSid', 'State', stateMap],
+                    ['CityMasterSid', 'City', cityMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['isQualify', AuditLogService.YES_NO_MAP],
+                ],
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getMeetingLogs(recordId?: string) {
+    private async getMeetingLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
             let conditions: any[] = [];
             conditions = [
@@ -3901,53 +3173,22 @@ export class AuditLogService {
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
             const LeadOrCustomer = {
                 L: 'Lead',
                 C: 'Customer'
-            }
+            } as Record<string, string>;
 
-            const ignoredFields = [
-                'createdOn', 'updatedOn', 'createdBy', 'updatedBy', 'CustomerMasterSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'LeadOrCustomer', LeadOrCustomer);
-                this.replaceValueFromMap(newVal, 'LeadOrCustomer', LeadOrCustomer);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['LeadOrCustomer', LeadOrCustomer],
+                ],
+                ignored: ['CustomerMasterSid'],
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -3988,38 +3229,35 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getCompanyLogs(recordId?: string) {
+    private async getCompanyLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
             let branchRows: any[] = [];
             let bankRows: any[] = [];
 
             const companyMasterSid = Number(recordId);
 
-            const [
-                branch
-            ] = await Promise.all([
-                this._db.branchMaster.findMany({
-                    where: { CompanyMasterSid: companyMasterSid },
-                    select: {
-                        BranchMasterSid: true,
-                        branchName: true
-                    }
-                }),
-            ]);
-            branchRows = branch;
-            bankRows = branchRows.length ? await this._db.branchBank.findMany({
-                where: {
-                    BranchMasterSid: { in: branchRows.map(b => b.BranchMasterSid) },
-                },
+            branchRows = await this._db.branchMaster.findMany({
+                where: { CompanyMasterSid: companyMasterSid },
                 select: {
-                    BranchBankSid: true,
-                    BankName: true,
                     BranchMasterSid: true,
-                },
-            })
+                    branchName: true
+                }
+            });
+
+            bankRows = branchRows.length
+                ? await this._db.branchBank.findMany({
+                    where: {
+                        BranchMasterSid: { in: branchRows.map(b => b.BranchMasterSid) },
+                    },
+                    select: {
+                        BranchBankSid: true,
+                        BankName: true,
+                        BranchMasterSid: true,
+                    },
+                })
                 : [];
-            conditions = [
+
+            const conditions = [
                 {
                     tableName: 'CompanyMaster',
                     recordId: recordId,
@@ -4027,7 +3265,7 @@ export class AuditLogService {
                 ...(branchRows.length
                     ? [{
                         tableName: 'BranchMaster',
-                        recordId: { in: bankRows.map(x => String(x.BranchMasterSid)) },
+                        recordId: { in: branchRows.map(x => String(x.BranchMasterSid)) },
                     }]
                     : []),
                 ...(bankRows.length
@@ -4038,57 +3276,33 @@ export class AuditLogService {
                     : []),
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [country, currency, city, state] = await Promise.all([
-                this._db.countryMaster.findMany({
-                    select: {
-                        CountryMasterSid: true,
-                        countryName: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true,
-                    }
-                }),
-                this._db.cityMaster.findMany({
-                    select: {
-                        CityMasterSid: true,
-                        cityName: true
-                    }
-                }),
-                this._db.stateMaster.findMany({
-                    select: {
-                        StateMasterSid: true,
-                        stateName: true
-                    }
-                })
-            ])
+            const [countryMap, currencyMap, cityMap, stateMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['CountryMasterSid']),
+                    ids => this._db.countryMaster.findMany({
+                        where: { CountryMasterSid: { in: ids } },
+                        select: { CountryMasterSid: true, countryName: true }
+                    }), 'CountryMasterSid', 'countryName'),
 
-            const countryMap = new Map<string, string>(
-                country.map(c => [String(c.CountryMasterSid), c.countryName])
-            );
+                this.buildScopedMap(this.collectIds(logs, ['CurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: { CurrencyMasterSid: { in: ids } },
+                        select: { CurrencyMasterSid: true, currencyCode: true }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
 
-            const currencyMap = new Map<string, string>(
-                currency.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
+                this.buildScopedMap(this.collectIds(logs, ['CityMasterSid']),
+                    ids => this._db.cityMaster.findMany({
+                        where: { CityMasterSid: { in: ids } },
+                        select: { CityMasterSid: true, cityName: true }
+                    }), 'CityMasterSid', 'cityName'),
 
-            const cityMap = new Map<string, string>(
-                city.map(c => [String(c.CityMasterSid), c.cityName])
-            );
-
-            const stateMap = new Map<string, string>(
-                state.map(c => [String(c.StateMasterSid), c.stateName])
-            );
+                this.buildScopedMap(this.collectIds(logs, ['StateMasterSid']),
+                    ids => this._db.stateMaster.findMany({
+                        where: { StateMasterSid: { in: ids } },
+                        select: { StateMasterSid: true, stateName: true }
+                    }), 'StateMasterSid', 'stateName'),
+            ]);
 
             const branchMap = new Map<string, string>(
                 branchRows.map((b) => [String(b.BranchMasterSid), `Branch [${b.branchName}]`])
@@ -4105,171 +3319,70 @@ export class AuditLogService {
                 })
             );
 
-            const ignoredFields = [
-                'createdBy', 'createdOn', 'updatedOn', 'updatedBy',
-                'companyLogo', 'reportLogo'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const rowLabelMaps = {
-                branchMap,
-                bankMap
-            };
-
-            const formattedLogs = logs.map((logs: any) => {
-                const oldVal = { ...(logs.oldVal || {}) };
-                const newVal = { ...(logs.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
-                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
-
-                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'CityMasterSid', 'City', cityMap);
-                this.replaceAndRename(newVal, 'CityMasterSid', 'City', cityMap);
-
-                this.replaceAndRename(oldVal, 'StateMasterSid', 'State', stateMap);
-                this.replaceAndRename(newVal, 'StateMasterSid', 'State', stateMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'isHo', yesNoMap);
-                this.replaceValueFromMap(newVal, 'isHo', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'PrintOnInvoice', yesNoMap);
-                this.replaceValueFromMap(newVal, 'PrintOnInvoice', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...logs,
-                    sectionLabel: this.getCompanyLabel(logs.tableName),
-                    rowLabel: this.getCompanyRowLabel(logs, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CountryMasterSid', 'Country', countryMap],
+                    ['CurrencyMasterSid', 'Currency', currencyMap],
+                    ['CityMasterSid', 'City', cityMap],
+                    ['StateMasterSid', 'State', stateMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['isHo', AuditLogService.YES_NO_MAP],
+                    ['PrintOnInvoice', AuditLogService.YES_NO_MAP],
+                ],
+                ignored: [
+                    'companyLogo', 'reportLogo', 'config'
+                ],
+                decorate: (log, oldVal, newVal) => ({
+                    sectionLabel: this.getCompanyLabel(log.tableName),
+                    rowLabel: this.getCompanyRowLabel(log, { branchMap, bankMap }, oldVal, newVal),
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getCostCenterLogs(recordId?: string) {
+    private async getCostCenterLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'CostCenterMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getProfitCenterLogs(recordId?: string) {
+    private async getProfitCenterLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'ProfitCenterMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -4308,9 +3421,8 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getTDSSetLogs(recordId?: string) {
+    private async getTDSSetLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
             let detailRows: any[] = [];
             let exemptionRows: any[] = [];
 
@@ -4341,7 +3453,7 @@ export class AuditLogService {
             detailRows = fetchedDetails;
             exemptionRows = fetchedExemptions;
 
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'TDSSetHeader',
                     recordId: recordId
@@ -4360,47 +3472,27 @@ export class AuditLogService {
                     : []),
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [country, vessel, customer] = await Promise.all([
-                this._db.countryMaster.findMany({
-                    select: {
-                        CountryMasterSid: true,
-                        countryName: true
-                    }
-                }),
-                this._db.vesselMaster.findMany({
-                    select: {
-                        VesselMasterSid: true,
-                        VesselName: true
-                    }
-                }),
-                this._db.customerMaster.findMany({
-                    select: {
-                        CustomerMasterSid: true,
-                        CustomerName: true
-                    }
-                })
-            ])
+            const [countryMap, vesselMap, customerMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['CountryMasterSid']),
+                    ids => this._db.countryMaster.findMany({
+                        where: { CountryMasterSid: { in: ids } },
+                        select: { CountryMasterSid: true, countryName: true }
+                    }), 'CountryMasterSid', 'countryName'),
 
-            const countryMap = new Map<string, string>(
-                country.map(c => [String(c.CountryMasterSid), c.countryName])
-            );
+                this.buildScopedMap(this.collectIds(logs, ['Vessel']),
+                    ids => this._db.vesselMaster.findMany({
+                        where: { VesselMasterSid: { in: ids } },
+                        select: { VesselMasterSid: true, VesselName: true }
+                    }), 'VesselMasterSid', 'VesselName'),
 
-            const vesselMap = new Map<string, string>(
-                vessel.map(c => [String(c.VesselMasterSid), c.VesselName])
-            );
-
-            const customerMap = new Map<string, string>(
-                customer.map(c => [String(c.CustomerMasterSid), c.CustomerName])
-            )
+                this.buildScopedMap(this.collectIds(logs, ['Carrier', 'Transporter']),
+                    ids => this._db.customerMaster.findMany({
+                        where: { CustomerMasterSid: { in: ids } },
+                        select: { CustomerMasterSid: true, CustomerName: true }
+                    }), 'CustomerMasterSid', 'CustomerName'),
+            ]);
 
             const detailMap = new Map<string, string>(
                 detailRows.map((d) => {
@@ -4415,210 +3507,89 @@ export class AuditLogService {
                 })
             );
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const ignoredFields = [
-                'updatedBy', 'updatedOn', 'createdBy', 'createdOn', 'CompanyMasterSid'
-            ];
-
-            const rowLabelMaps = {
-                detailMap,
-                exceptionMap
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
-                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
-
-                this.replaceAndRename(oldVal, 'Vessel', 'Vessel', vesselMap);
-                this.replaceAndRename(newVal, 'Vessel', 'Vessel', vesselMap);
-
-                this.replaceAndRename(oldVal, 'Carrier', 'Carrier', customerMap);
-                this.replaceAndRename(newVal, 'Carrier', 'Carrier', customerMap);
-
-                this.replaceAndRename(oldVal, 'Transporter', 'Transporter', customerMap);
-                this.replaceAndRename(newVal, 'Transporter', 'Transporter', customerMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CountryMasterSid', 'Country', countryMap],
+                    ['Vessel', 'Vessel', vesselMap],
+                    ['Carrier', 'Carrier', customerMap],
+                    ['Transporter', 'Transporter', customerMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: [
+                    'CompanyMasterSid'
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getTDSSetLabel(log.tableName),
-                    rowLabel: this.getTDSSetRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getTDSSetRowLabel(log, { detailMap, exceptionMap }, oldVal, newVal),
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getYearLogs(recordId?: string) {
+    private async getYearLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'YearMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const companyMap = await this.buildScopedMap(this.collectIds(logs, ['CompanyMasterSid']),
+                ids => this._db.companyMaster.findMany({
+                    where: { CompanyMasterSid: { in: ids } },
+                    select: { CompanyMasterSid: true, companyName: true }
+                }), 'CompanyMasterSid', 'companyName');
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CompanyMasterSid', 'Company', companyMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['CurrentYear', AuditLogService.YES_NO_MAP],
+                    ['YearEndCompleted', AuditLogService.YES_NO_MAP],
+                ],
             });
-
-            const [company] = await Promise.all([
-                this._db.companyMaster.findMany({
-                    select: {
-                        CompanyMasterSid: true,
-                        companyName: true
-                    }
-                })
-            ])
-
-            const companyMap = new Map<string, string>(
-                company.map(c => [String(c.CompanyMasterSid), c.companyName])
-            )
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'CompanyMasterSid', 'Company', companyMap);
-                this.replaceAndRename(newVal, 'CompanyMasterSid', 'Company', companyMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'CurrentYear', yesNoMap);
-                this.replaceValueFromMap(newVal, 'CurrentYear', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'YearEndCompleted', yesNoMap);
-                this.replaceValueFromMap(newVal, 'YearEndCompleted', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getBlClauseLogs(recordId?: string) {
+    private async getBlClauseLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'BLClauseMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const departmentMap = await this.buildScopedMap(this.collectIds(logs, ['DepartmentMasterSid']),
+                ids => this._db.departmentMaster.findMany({
+                    where: { DepartmentMasterSid: { in: ids } },
+                    select: { DepartmentMasterSid: true, departmentName: true }
+                }), 'DepartmentMasterSid', 'departmentName');
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['DepartmentMasterSid', 'Department', departmentMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['DefaultClause', AuditLogService.YES_NO_MAP],
+                ],
             });
-
-            const [department] = await Promise.all([
-                this._db.departmentMaster.findMany({
-                    select: {
-                        DepartmentMasterSid: true,
-                        departmentName: true
-                    }
-                })
-            ])
-
-            const departmentMap = new Map<string, string>(
-                department.map(c => [String(c.DepartmentMasterSid), c.departmentName])
-            );
-
-            const ignoredFields = [
-                'createdBy', 'createdOn', 'updatedOn', 'updatedBy'
-            ];
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'DepartmentMasterSid', 'Department', departmentMap);
-                this.replaceAndRename(newVal, 'DepartmentMasterSid', 'Department', departmentMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'DefaultClause', yesNoMap);
-                this.replaceValueFromMap(newVal, 'DefaultClause', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -4658,9 +3629,8 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getChargeLogs(recordId?: string) {
+    private async getChargeLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
             let taxRows: any[] = [];
             let tdsRows: any[] = [];
 
@@ -4689,7 +3659,7 @@ export class AuditLogService {
             taxRows = tax;
             tdsRows = tds;
 
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'ChargeMaster',
                     recordId: recordId
@@ -4708,57 +3678,33 @@ export class AuditLogService {
                     : []),
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [uom, currency, chargegroup, tdsset] = await Promise.all([
-                this._db.uOMMaster.findMany({
-                    select: {
-                        UOMMasterSid: true,
-                        UOMCode: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
-                this._db.chargeGroup.findMany({
-                    select: {
-                        ChargeGroupSid: true,
-                        GroupName: true
-                    }
-                }),
-                this._db.tDSSetHeader.findMany({
-                    select: {
-                        TDSSetHeaderSid: true,
-                        TDSSetName: true
-                    }
-                })
-            ])
+            const [uomMap, currencyMap, chargeGroupMap, tdsSetMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['UOM']),
+                    ids => this._db.uOMMaster.findMany({
+                        where: { UOMMasterSid: { in: ids } },
+                        select: { UOMMasterSid: true, UOMCode: true }
+                    }), 'UOMMasterSid', 'UOMCode'),
 
-            const uomMap = new Map<string, string>(
-                uom.map(c => [String(c.UOMMasterSid), c.UOMCode])
-            );
+                this.buildScopedMap(this.collectIds(logs, ['CurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: { CurrencyMasterSid: { in: ids } },
+                        select: { CurrencyMasterSid: true, currencyCode: true }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
 
-            const currencyMap = new Map<string, string>(
-                currency.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
+                this.buildScopedMap(this.collectIds(logs, ['ChargeGroupSid']),
+                    ids => this._db.chargeGroup.findMany({
+                        where: { ChargeGroupSid: { in: ids } },
+                        select: { ChargeGroupSid: true, GroupName: true }
+                    }), 'ChargeGroupSid', 'GroupName'),
 
-            const chargeGroupMap = new Map<string, string>(
-                chargegroup.map(c => [String(c.ChargeGroupSid), c.GroupName])
-            );
-
-            const tdsSetMap = new Map<string, string>(
-                tdsset.map(c => [String(c.TDSSetHeaderSid), c.TDSSetName])
-            );
+                this.buildScopedMap(this.collectIds(logs, ['TDSSet']),
+                    ids => this._db.tDSSetHeader.findMany({
+                        where: { TDSSetHeaderSid: { in: ids } },
+                        select: { TDSSetHeaderSid: true, TDSSetName: true }
+                    }), 'TDSSetHeaderSid', 'TDSSetName'),
+            ]);
 
             const chargeTaxMap = new Map<string, string>(
                 taxRows.map((t) => {
@@ -4778,656 +3724,277 @@ export class AuditLogService {
                 })
             );
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const ignoredFields = [
-                'updatedBy', 'updatedOn', 'createdBy', 'createdOn', 'CompanyMasterSid', 'HSSACMasterSid'
-            ];
-
-            const rowLabelMaps = {
-                taxMap: chargeTaxMap,
-                tdsMap: chargeTdsMap
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'UOM', 'UOM', uomMap);
-                this.replaceAndRename(newVal, 'UOM', 'UOM', uomMap);
-
-                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'ChargeGroupSid', 'ChargeGroup', chargeGroupMap);
-                this.replaceAndRename(newVal, 'ChargeGroupSid', 'ChargeGroup', chargeGroupMap);
-
-                this.replaceAndRename(oldVal, 'TDSSet', 'TDSSet', tdsSetMap);
-                this.replaceAndRename(newVal, 'TDSSet', 'TDSSet', tdsSetMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['UOM', 'UOM', uomMap],
+                    ['CurrencyMasterSid', 'Currency', currencyMap],
+                    ['ChargeGroupSid', 'ChargeGroup', chargeGroupMap],
+                    ['TDSSet', 'TDSSet', tdsSetMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: [
+                    'CompanyMasterSid', 'HSSACMasterSid'
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getChargeLabel(log.tableName),
-                    rowLabel: this.getChargeRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getChargeRowLabel(log, { taxMap: chargeTaxMap, tdsMap: chargeTdsMap }, oldVal, newVal),
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getChargeGroupLogs(recordId?: string) {
+    private async getChargeGroupLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'ChargeGroup',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getContainerTypeLogs(recordId?: string) {
+    private async getContainerTypeLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'ContainerTypeMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getCurrencyLogs(recordId?: string) {
+    private async getCurrencyLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'CurrencyMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const countryMap = await this.buildScopedMap(this.collectIds(logs, ['CountryMasterSid']),
+                ids => this._db.countryMaster.findMany({
+                    where: { CountryMasterSid: { in: ids } },
+                    select: { CountryMasterSid: true, countryName: true }
+                }), 'CountryMasterSid', 'countryName');
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CountryMasterSid', 'Country', countryMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const [country] = await Promise.all([
-                this._db.countryMaster.findMany({
-                    select: {
-                        CountryMasterSid: true,
-                        countryName: true
-                    }
-                })
-            ])
-
-            const countryMap = new Map<string, string>(
-                country.map(c => [String(c.CountryMasterSid), c.countryName])
-            );
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
-                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getDepartmentLogs(recordId?: string) {
+    private async getDepartmentLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'DepartmentMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const coaMap = await this.buildScopedMap(this.collectIds(logs, ['RevenueCOAMasterSid', 'CostCOAMasterSid']),
+                ids => this._db.cOAMaster.findMany({
+                    where: { COAMasterSid: { in: ids } },
+                    select: { COAMasterSid: true, LedgerName: true }
+                }), 'COAMasterSid', (row) => row.LedgerName ?? '');
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['RevenueCOAMasterSid', 'RevenueCOA', coaMap],
+                    ['CostCOAMasterSid', 'CostCOA', coaMap],
+                ],
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const [coa] = await Promise.all([
-                this._db.cOAMaster.findMany({
-                    select: {
-                        COAMasterSid: true,
-                        LedgerName: true
-                    }
-                })
-            ])
-
-            const coaMap = new Map<string, string>(
-                coa.map(c => [String(c.COAMasterSid), c.LedgerName ?? ''])
-            );
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'RevenueCOAMasterSid', 'RevenueCOA', coaMap);
-                this.replaceAndRename(newVal, 'RevenueCOAMasterSid', 'RevenueCOA', coaMap);
-
-                this.replaceAndRename(oldVal, 'CostCOAMasterSid', 'CostCOA', coaMap);
-                this.replaceAndRename(newVal, 'CostCOAMasterSid', 'CostCOA', coaMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getDivisionLogs(recordId?: string) {
+    private async getDivisionLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'DivisionMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getHawbStockLogs(recordId?: string) {
+    private async getHawbStockLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'HawbStock',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getHSSACLogs(recordId?: string) {
+    private async getHSSACLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'HSSACMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getMawbStockLogs(recordId?: string) {
+    private async getMawbStockLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'MawbStock',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const customerMap = await this.buildScopedMap(this.collectIds(logs, ['Customer']),
+                ids => this._db.customerMaster.findMany({
+                    where: { CustomerMasterSid: { in: ids } },
+                    select: { CustomerMasterSid: true, CustomerName: true }
+                }), 'CustomerMasterSid', 'CustomerName');
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['Customer', 'Customer', customerMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const [customer] = await Promise.all([
-                this._db.customerMaster.findMany({
-                    select: {
-                        CustomerMasterSid: true,
-                        CustomerName: true
-                    }
-                }),
-            ])
-
-            const customerMap = new Map<string, string>(
-                customer.map(c => [String(c.CustomerMasterSid), c.CustomerName])
-            );
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'Customer', 'Customer', customerMap);
-                this.replaceAndRename(newVal, 'Customer', 'Customer', customerMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getMileStoneLogs(recordId?: string) {
+    private async getMileStoneLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'MilestoneMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['AutoCapture', AuditLogService.YES_NO_MAP],
+                    ['AutomailRequire', AuditLogService.YES_NO_MAP],
+                ],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'AutoCapture', yesNoMap);
-                this.replaceValueFromMap(newVal, 'AutoCapture', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'AutomailRequire', yesNoMap);
-                this.replaceValueFromMap(newVal, 'AutomailRequire', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getNetworkLogs(recordId?: string) {
+    private async getNetworkLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'NetworkMaster',
                     recordId: recordId
                 }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const countryMap = await this.buildScopedMap(this.collectIds(logs, ['CountrySid']),
+                ids => this._db.countryMaster.findMany({
+                    where: { CountryMasterSid: { in: ids } },
+                    select: { CountryMasterSid: true, countryName: true }
+                }), 'CountryMasterSid', 'countryName');
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CountrySid', 'Country', countryMap],
+                ],
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
             });
-
-            const [country] = await Promise.all([
-                this._db.countryMaster.findMany({
-                    select: {
-                        CountryMasterSid: true,
-                        countryName: true
-                    }
-                })
-            ])
-
-            const countryMap = new Map<string, string>(
-                country.map(c => [String(c.CountryMasterSid), c.countryName])
-            );
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'CountrySid', 'Country', countryMap);
-                this.replaceAndRename(newVal, 'CountrySid', 'Country', countryMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -5450,36 +4017,35 @@ export class AuditLogService {
             case 'CustomerBranch':
                 return (
                     rowLabelMaps.branchMap.get(recordId) ||
-                    `Product [${newVal.BranchName || oldVal.BranchName || recordId}]`
+                    `Branch [${newVal.BranchName || oldVal.BranchName || recordId}]`
                 );
 
             case 'CustomerSalesTeam':
                 return (
                     rowLabelMaps.salesmanMap.get(recordId) ||
-                    `Rates [${newVal.Salesman || oldVal.Salesman || recordId
-                    }]`
+                    `Salesman [${newVal.Salesman || oldVal.Salesman || recordId}]`
                 );
 
             case 'CustomerBrEmail':
                 return (
                     rowLabelMaps.emailMap.get(recordId) ||
-                    `Connection [${newVal.MenuMasterSid || oldVal.MenuMasterSid || recordId}]`
+                    `Email [${newVal.MenuMasterSid || oldVal.MenuMasterSid || recordId}]`
                 );
 
             case 'CustomerLogin':
                 return (
                     rowLabelMaps.loginMap.get(recordId) ||
-                    `Cargo [${newVal.LoginName || oldVal.LoginName || recordId}]`
+                    `Login [${newVal.LoginName || oldVal.LoginName || recordId}]`
                 );
             case 'CustomerMilestone':
                 return (
                     rowLabelMaps.milestoneMap.get(recordId) ||
-                    `Customer [${newVal.MilestoneMasterSid || oldVal.MilestoneMasterSid || recordId}]`
+                    `Milestone [${newVal.MilestoneMasterSid || oldVal.MilestoneMasterSid || recordId}]`
                 );
             case 'CusBranchContact':
                 return (
                     rowLabelMaps.contactMap.get(recordId) ||
-                    `Branch [${newVal.ContactName || oldVal.ContactName || recordId} - ${newVal.ContactType || oldVal.ContactType || ''}]`
+                    `Contact [${newVal.ContactName || oldVal.ContactName || recordId} - ${newVal.ContactType || oldVal.ContactType || ''}]`
                 );
             default:
                 return null;
@@ -5500,198 +4066,125 @@ export class AuditLogService {
         return sectionMap[tableName] || tableName;
     }
 
-    private async getOrganizationLogs(recordId?: string) {
+    private async getOrganizationLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            let branchRows: any[] = [];
-            let salesmanRows: any[] = [];
-            let emailRows: any[] = [];
-            let loginRows: any[] = [];
-            let milestoneRows: any[] = [];
-            let contactRows: any[] = [];
-
             const customerMasterSid = Number(recordId);
 
             const [
-                branch,
-                salesman,
-                email,
-                login,
-                milestone,
-                contact
+                branchRows,
+                salesmanRows,
+                emailRows,
+                loginRows,
+                milestoneRows,
+                contactRows
             ] = await Promise.all([
                 this._db.customerBranch.findMany({
                     where: { CustomerMasterSid: customerMasterSid },
-                    select: {
-                        CustomerBranchSid: true,
-                        BranchName: true
-                    }
+                    select: { CustomerBranchSid: true, BranchName: true }
                 }),
                 this._db.customerSalesTeam.findMany({
                     where: { CustomerMasterSid: customerMasterSid },
-                    select: {
-                        CustomerSalesSid: true,
-                        Salesman: true
-                    }
+                    select: { CustomerSalesSid: true, Salesman: true }
                 }),
                 this._db.customerBrEmail.findMany({
                     where: { CustomerMasterSid: customerMasterSid },
-                    select: {
-                        CustomerBrEmailSid: true,
-                        MenuMasterSid: true
-                    }
+                    select: { CustomerBrEmailSid: true, MenuMasterSid: true }
                 }),
                 this._db.customerLogin.findMany({
                     where: { CustomerMasterSid: customerMasterSid },
-                    select: {
-                        CustomerLoginSid: true,
-                        LoginName: true
-                    }
+                    select: { CustomerLoginSid: true, LoginName: true }
                 }),
                 this._db.customerMilestone.findMany({
                     where: { CustomerMasterSid: customerMasterSid },
-                    select: {
-                        CustomerMilestoneSid: true,
-                        MilestoneMasterSid: true
-                    }
+                    select: { CustomerMilestoneSid: true, MilestoneMasterSid: true }
                 }),
                 this._db.cusBranchContact.findMany({
                     where: { CustomerMasterSid: customerMasterSid },
-                    select: {
-                        CusBranchContactSid: true,
-                        ContactName: true,
-                        ContactType: true
-                    }
+                    select: { CusBranchContactSid: true, ContactName: true, ContactType: true }
                 }),
             ]);
 
-            branchRows = branch;
-            salesmanRows = salesman;
-            emailRows = email;
-            loginRows = login;
-            milestoneRows = milestone;
-            contactRows = contact;
-
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'CustomerMaster',
                     recordId: recordId
                 },
                 ...(branchRows.length
-                    ? [{
-                        tableName: 'CustomerBranch',
-                        recordId: { in: branchRows.map(x => String(x.CustomerBranchSid)) }
-                    }]
+                    ? [{ tableName: 'CustomerBranch', recordId: { in: branchRows.map(x => String(x.CustomerBranchSid)) } }]
                     : []),
                 ...(salesmanRows.length
-                    ? [{
-                        tableName: 'CustomerSalesTeam',
-                        recordId: { in: salesmanRows.map(x => String(x.CustomerSalesSid)) }
-                    }]
+                    ? [{ tableName: 'CustomerSalesTeam', recordId: { in: salesmanRows.map(x => String(x.CustomerSalesSid)) } }]
                     : []),
                 ...(emailRows.length
-                    ? [{
-                        tableName: 'CustomerBrEmail',
-                        recordId: { in: emailRows.map(x => String(x.CustomerBrEmailSid)) }
-                    }]
+                    ? [{ tableName: 'CustomerBrEmail', recordId: { in: emailRows.map(x => String(x.CustomerBrEmailSid)) } }]
                     : []),
                 ...(loginRows.length
-                    ? [{
-                        tableName: 'CustomerLogin',
-                        recordId: { in: loginRows.map(x => String(x.CustomerLoginSid)) }
-                    }]
+                    ? [{ tableName: 'CustomerLogin', recordId: { in: loginRows.map(x => String(x.CustomerLoginSid)) } }]
                     : []),
                 ...(milestoneRows.length
-                    ? [{
-                        tableName: 'CustomerMilestone',
-                        recordId: { in: milestoneRows.map(x => String(x.CustomerMilestoneSid)) }
-                    }]
+                    ? [{ tableName: 'CustomerMilestone', recordId: { in: milestoneRows.map(x => String(x.CustomerMilestoneSid)) } }]
                     : []),
                 ...(contactRows.length
-                    ? [{
-                        tableName: 'CusBranchContact',
-                        recordId: { in: contactRows.map(x => String(x.CusBranchContactSid)) }
-                    }]
+                    ? [{ tableName: 'CusBranchContact', recordId: { in: contactRows.map(x => String(x.CusBranchContactSid)) } }]
                     : []),
-
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [menu, milestones, currency, state, city, user, department] = await Promise.all([
-                this._db.menuMaster.findMany({
-                    select: {
-                        MenuMasterSid: true,
-                        MenuName: true
-                    }
-                }),
-                this._db.milestoneMaster.findMany({
-                    select: {
-                        MilestoneMasterSid: true,
-                        MilestoneName: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
-                this._db.stateMaster.findMany({
-                    select: {
-                        StateMasterSid: true,
-                        stateName: true
-                    }
-                }),
-                this._db.cityMaster.findMany({
-                    select: {
-                        CityMasterSid: true,
-                        cityName: true
-                    }
-                }),
-                this._db.userMaster.findMany({
-                    select: {
-                        UserMasterSid: true,
-                        userName: true
-                    }
-                }),
-                this._db.departmentMaster.findMany({
-                    select: {
-                        DepartmentMasterSid: true,
-                        departmentName: true
-                    }
-                }),
+            const [menuMap, milestonesMap, salesMap, currencyMap, stateMap, cityMap, departmentMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['MenuMasterSid']),
+                    ids => this._db.menuMaster.findMany({
+                        where: { MenuMasterSid: { in: ids } },
+                        select: { MenuMasterSid: true, MenuName: true }
+                    }), 'MenuMasterSid', 'MenuName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['MilestoneMasterSid']),
+                    ids => this._db.milestoneMaster.findMany({
+                        where: { MilestoneMasterSid: { in: ids } },
+                        select: { MilestoneMasterSid: true, MilestoneName: true }
+                    }), 'MilestoneMasterSid', 'MilestoneName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['Salesman']),
+                    ids => this._db.userMaster.findMany({
+                        where: { UserMasterSid: { in: ids } },
+                        select: { UserMasterSid: true, userName: true }
+                    }), 'UserMasterSid', 'userName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: { CurrencyMasterSid: { in: ids } },
+                        select: { CurrencyMasterSid: true, currencyCode: true }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['StateMasterSid']),
+                    ids => this._db.stateMaster.findMany({
+                        where: { StateMasterSid: { in: ids } },
+                        select: { StateMasterSid: true, stateName: true }
+                    }), 'StateMasterSid', 'stateName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CityMasterSid']),
+                    ids => this._db.cityMaster.findMany({
+                        where: { CityMasterSid: { in: ids } },
+                        select: { CityMasterSid: true, cityName: true }
+                    }), 'CityMasterSid', 'cityName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['DepartmentMasterSid']),
+                    ids => this._db.departmentMaster.findMany({
+                        where: { DepartmentMasterSid: { in: ids } },
+                        select: { DepartmentMasterSid: true, departmentName: true }
+                    }), 'DepartmentMasterSid', 'departmentName'),
             ]);
-
-            const menuMap = new Map<string, string>(
-                menu.map(c => [String(c.MenuMasterSid), c.MenuName])
-            );
-
-            const milestonesMap = new Map<string, string>(
-                milestones.map(c => [String(c.MilestoneMasterSid), c.MilestoneName])
-            );
-
-            const salesMap = new Map<string, string>(
-                user.map(u => [String(u.UserMasterSid), u.userName])
-            );
 
             const branchMap = new Map<string, string>(
                 branchRows.map((b) => [String(b.CustomerBranchSid), `Branch [${b.BranchName}]`])
             );
 
             const salesmanMap = new Map<string, string>(
-                salesmanRows.map((s) => [String(s.CustomerSalesSid), `Salesman [${salesMap.get(String(s.Salesman))}]`])
+                salesmanRows.map((s) => [String(s.CustomerSalesSid), `Salesman [${salesMap.get(String(s.Salesman)) ?? s.Salesman}]`])
             );
 
             const emailMap = new Map<string, string>(
-                emailRows.map((e) => [String(e.CustomerBrEmailSid), `Email [${menuMap.get(String(e.MenuMasterSid))}]`])
+                emailRows.map((e) => [String(e.CustomerBrEmailSid), `Email [${menuMap.get(String(e.MenuMasterSid)) ?? e.MenuMasterSid}]`])
             );
 
             const loginMap = new Map<string, string>(
@@ -5699,654 +4192,257 @@ export class AuditLogService {
             );
 
             const milestoneMap = new Map<string, string>(
-                milestoneRows.map((m) => [String(m.CustomerMilestoneSid), `Milestone [${milestonesMap.get(String(m.MilestoneMasterSid))}]`])
+                milestoneRows.map((m) => [String(m.CustomerMilestoneSid), `Milestone [${milestonesMap.get(String(m.MilestoneMasterSid)) ?? m.MilestoneMasterSid}]`])
             );
 
             const contactMap = new Map<string, string>(
                 contactRows.map((c) => [String(c.CusBranchContactSid), `Contact [${c.ContactName} - ${c.ContactType}]`])
             );
 
-            const currencyMap = new Map<string, string>(
-                currency.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
-
-            const stateMap = new Map<string, string>(
-                state.map(c => [String(c.StateMasterSid), c.stateName])
-            );
-
-            const cityMap = new Map<string, string>(
-                city.map(c => [String(c.CityMasterSid), c.cityName])
-            );
-
-            const departmentMap = new Map<string, string>(
-                department.map(d => [String(d.DepartmentMasterSid), d.departmentName])
-            );
-
             const brMap = new Map<string, string>(
                 branchRows.map((b) => [String(b.CustomerBranchSid), b.BranchName])
             );
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy',
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy',
-            ];
-
-            const rowLabelMaps = {
-                branchMap,
-                salesmanMap,
-                emailMap,
-                loginMap,
-                milestoneMap,
-                contactMap
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-
-                this.replaceAndRename(oldVal, 'StateMasterSid', 'State', stateMap);
-                this.replaceAndRename(newVal, 'StateMasterSid', 'State', stateMap);
-
-                this.replaceAndRename(oldVal, 'CityMasterSid', 'City', cityMap);
-                this.replaceAndRename(newVal, 'CityMasterSid', 'City', cityMap);
-
-                this.replaceAndRename(oldVal, 'Salesman', 'Salesperson', salesMap);
-                this.replaceAndRename(newVal, 'Salesman', 'Salesperson', salesMap);
-
-                this.replaceAndRename(oldVal, 'MenuMasterSid', 'Menu', menuMap);
-                this.replaceAndRename(newVal, 'MenuMasterSid', 'Menu', menuMap);
-
-                this.replaceAndRename(oldVal, 'CustomerBranchSid', 'Branch', brMap);
-                this.replaceAndRename(newVal, 'CustomerBranchSid', 'Branch', brMap);
-
-                this.replaceArrayIdsWithNames(oldVal, 'DepartmentMasterSid', departmentMap);
-                this.replaceArrayIdsWithNames(newVal, 'DepartmentMasterSid', departmentMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CurrencyMasterSid', 'Currency', currencyMap],
+                    ['StateMasterSid', 'State', stateMap],
+                    ['CityMasterSid', 'City', cityMap],
+                    ['Salesman', 'Salesperson', salesMap],
+                    ['MenuMasterSid', 'Menu', menuMap],
+                    ['CustomerBranchSid', 'Branch', brMap],
+                ],
+                arrayRules: [
+                    ['DepartmentMasterSid', departmentMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getOrganizationLabel(log.tableName),
-                    rowLabel: this.getOrganizationRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                }
-            });
-            return formattedLogs;
-        } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-    }
-
-    private async getPackageTypeLogs(recordId?: string) {
-        try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'PackageTypeMaster',
-                    recordId: recordId
-                }
-            ];
-
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
-        } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-    }
-
-    private async getTaxGroupLogs(recordId?: string) {
-        try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'TaxGroup',
-                    recordId: recordId
-                }
-            ];
-
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
-        } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-    }
-
-    private async getPortMasterLogs(recordId?: string) {
-        try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'PortMaster',
-                    recordId: recordId
-                }
-            ];
-
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const [country,state, city,zone] = await Promise.all([
-                this._db.countryMaster.findMany({
-                    select: {
-                        CountryMasterSid: true,
-                        countryName: true
-                    }
+                    rowLabel: this.getOrganizationRowLabel(log, { branchMap, salesmanMap, emailMap, loginMap, milestoneMap, contactMap }, oldVal, newVal),
                 }),
-                this._db.stateMaster.findMany({
-                    select: {
-                        StateMasterSid: true,
-                        stateName: true
-                    }
-                }),
-                this._db.cityMaster.findMany({
-                    select: {
-                        CityMasterSid: true,
-                        cityName: true
-                    }
-                }),
-                this._db.zoneMaster.findMany({
-                    select: {
-                        ZoneMasterSid: true,
-                        ZoneName: true
-                    }
-                })
-            ]) 
-
-            const countryMap = new Map<string, string>(
-                country.map(c => [String(c.CountryMasterSid), c.countryName])
-            );
-
-            const stateMap = new Map<string, string>(
-                state.map(c => [String(c.StateMasterSid), c.stateName])
-            );
-
-            const cityMap = new Map<string, string>(
-                city.map(c => [String(c.CityMasterSid), c.cityName])
-            );
-
-            const zoneMap = new Map<string, string>(
-                zone.map(c => [String(c.ZoneMasterSid), c.ZoneName])
-            );
-            
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
-                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
-
-                this.replaceAndRename(oldVal, 'StateMasterSid', 'State', stateMap);
-                this.replaceAndRename(newVal, 'StateMasterSid', 'State', stateMap);
-
-                this.replaceAndRename(oldVal, 'CityMasterSid', 'City', cityMap);
-                this.replaceAndRename(newVal, 'CityMasterSid', 'City', cityMap);
-
-                this.replaceAndRename(oldVal, 'ZoneMasterSid', 'Region', zoneMap);
-                this.replaceAndRename(newVal, 'ZoneMasterSid', 'Region', zoneMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'CBMRequire', yesNoMap);
-                this.replaceValueFromMap(newVal, 'CBMRequire', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getProductLogs(recordId?: string) {
+    private async getPackageTypeLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'ProductMaster',
-                    recordId: recordId
-                }
+            const conditions = [
+                { tableName: 'PackageTypeMaster', recordId: recordId }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
             });
+        } catch (error) {
+            return this.fail(error);
+        }
+    }
 
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
+    private async getTaxGroupLogs(recordId?: string, query: AuditLogQuery = {}) {
+        try {
+            const conditions = [
+                { tableName: 'TaxGroup', recordId: recordId }
             ];
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+            });
+        } catch (error) {
+            return this.fail(error);
+        }
+    }
+
+    private async getPortMasterLogs(recordId?: string, query: AuditLogQuery = {}) {
+        try {
+            const conditions = [
+                { tableName: 'PortMaster', recordId: recordId }
+            ];
+
+            const logs = await this.fetchLogs(conditions, query);
+
+            const [countryMap, stateMap, cityMap, zoneMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['CountryMasterSid']),
+                    ids => this._db.countryMaster.findMany({
+                        where: { CountryMasterSid: { in: ids } },
+                        select: { CountryMasterSid: true, countryName: true }
+                    }), 'CountryMasterSid', 'countryName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['StateMasterSid']),
+                    ids => this._db.stateMaster.findMany({
+                        where: { StateMasterSid: { in: ids } },
+                        select: { StateMasterSid: true, stateName: true }
+                    }), 'StateMasterSid', 'stateName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CityMasterSid']),
+                    ids => this._db.cityMaster.findMany({
+                        where: { CityMasterSid: { in: ids } },
+                        select: { CityMasterSid: true, cityName: true }
+                    }), 'CityMasterSid', 'cityName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ZoneMasterSid']),
+                    ids => this._db.zoneMaster.findMany({
+                        where: { ZoneMasterSid: { in: ids } },
+                        select: { ZoneMasterSid: true, ZoneName: true }
+                    }), 'ZoneMasterSid', 'ZoneName'),
+            ]);
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CountryMasterSid', 'Country', countryMap],
+                    ['StateMasterSid', 'State', stateMap],
+                    ['CityMasterSid', 'City', cityMap],
+                    ['ZoneMasterSid', 'Region', zoneMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['CBMRequire', AuditLogService.YES_NO_MAP],
+                ],
+            });
+        } catch (error) {
+            return this.fail(error);
+        }
+    }
+
+    private async getProductLogs(recordId?: string, query: AuditLogQuery = {}) {
+        try {
+            const conditions = [
+                { tableName: 'ProductMaster', recordId: recordId }
+            ];
+
+            const logs = await this.fetchLogs(conditions, query);
 
             const typeMap = {
                 1: 'General',
                 2: 'Haz',
                 3: 'Frozen'
-            }
+            } as Record<string, string>;
 
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'ProductType', typeMap);
-                this.replaceValueFromMap(newVal, 'ProductType', typeMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['ProductType', typeMap],
+                ],
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getVoyageLogs(recordId?: string) {
+    private async getVoyageLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'VoyageMasterHeader',
-                    recordId: recordId
-                }
+            const conditions = [
+                { tableName: 'VoyageMasterHeader', recordId: recordId }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const [portMap, customerMap, vesselMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['POLSid', 'PODSid']),
+                    ids => this._db.portMaster.findMany({
+                        where: { PortMasterSid: { in: ids } },
+                        select: { PortMasterSid: true, PortCode: true }
+                    }), 'PortMasterSid', 'PortCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['Carrier']),
+                    ids => this._db.customerMaster.findMany({
+                        where: { CustomerMasterSid: { in: ids } },
+                        select: { CustomerMasterSid: true, CustomerName: true }
+                    }), 'CustomerMasterSid', 'CustomerName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['VesselMasterSid']),
+                    ids => this._db.vesselMaster.findMany({
+                        where: { VesselMasterSid: { in: ids } },
+                        select: { VesselMasterSid: true, VesselName: true }
+                    }), 'VesselMasterSid', 'VesselName'),
+            ]);
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['Carrier', 'Carrier', customerMap],
+                    ['POLSid', 'POL', portMap],
+                    ['PODSid', 'POD', portMap],
+                    ['VesselMasterSid', 'Vessel', vesselMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['CoLoad', AuditLogService.YES_NO_MAP],
+                ],
             });
-
-            const [port,customer,vessel] = await Promise.all([
-                this._db.portMaster.findMany({
-                    select: {
-                        PortMasterSid: true,
-                        PortCode: true
-                    }
-                }),
-                this._db.customerMaster.findMany({
-                    select: {
-                        CustomerMasterSid: true,
-                        CustomerName: true
-                    }
-                }),
-                this._db.vesselMaster.findMany({
-                    select: {
-                        VesselMasterSid: true,
-                        VesselName: true
-                    }
-                })
-            ])
-
-            const portMap = new Map<string, string>(
-                port.map(p => [String(p.PortMasterSid), p.PortCode])
-            );
-
-            const customerMap = new Map<string, string>(
-                customer.map(c => [String(c.CustomerMasterSid), c.CustomerName])
-            );
-
-            const vesselMap = new Map<string, string>(
-                vessel.map(c => [String(c.VesselMasterSid), c.VesselName])
-            );
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'CoLoad', yesNoMap);
-                this.replaceValueFromMap(newVal, 'CoLoad', yesNoMap);
-
-                this.replaceAndRename(oldVal, 'Carrier', 'Carrier', customerMap);
-                this.replaceAndRename(newVal, 'Carrier', 'Carrier', customerMap);
-
-                this.replaceAndRename(oldVal, 'POLSid', 'POL', portMap);
-                this.replaceAndRename(newVal, 'POLSid', 'POL', portMap);
-
-                this.replaceAndRename(oldVal, 'PODSid', 'POD', portMap);
-                this.replaceAndRename(newVal, 'PODSid', 'POD', portMap);
-
-                this.replaceAndRename(oldVal, 'VesselMasterSid', 'Vessel', portMap);
-                this.replaceAndRename(newVal, 'VesselMasterSid', 'Vessel', portMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getSectorLogs(recordId?: string) {
+    private async getSectorLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'SectorMaster',
-                    recordId: recordId
-                }
+            const conditions = [
+                { tableName: 'SectorMaster', recordId: recordId }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getUOMLogs(recordId?: string) {
+    private async getUOMLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'UOMMaster',
-                    recordId: recordId
-                }
+            const conditions = [
+                { tableName: 'UOMMaster', recordId: recordId }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['VolumeReq', AuditLogService.YES_NO_MAP],
+                    ['WeightReq', AuditLogService.YES_NO_MAP],
+                    ['DimensionReq', AuditLogService.YES_NO_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            }
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'VolumeReq', yesNoMap);
-                this.replaceValueFromMap(newVal, 'VolumeReq', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'WeightReq', yesNoMap);
-                this.replaceValueFromMap(newVal, 'WeightReq', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'DimensionReq', yesNoMap);
-                this.replaceValueFromMap(newVal, 'DimensionReq', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getUnitLogs(recordId?: string) {
+    private async getUnitLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'UnitMaster',
-                    recordId: recordId
-                }
+            const conditions = [
+                { tableName: 'UnitMaster', recordId: recordId }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -6373,13 +4469,13 @@ export class AuditLogService {
     private getTariffLabel(tableName: string): string {
         const sectionMap: Record<string, string> = {
             TariffHeader: 'Tariff',
-            TariffDetail: 'Detail',        };
+            TariffDetail: 'Detail',
+        };
         return sectionMap[tableName] || tableName;
     }
 
-    private async getTariffLogs(recordId?: string) {
+    private async getTariffLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
             let detailRows: any[] = [];
 
             const tariffSid = Number(recordId);
@@ -6395,11 +4491,11 @@ export class AuditLogService {
                         CargoType: true
                     }
                 })
-            ])
+            ]);
 
             detailRows = fetchedDetails;
 
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'TariffHeader',
                     recordId: recordId
@@ -6412,14 +4508,7 @@ export class AuditLogService {
                     : [])
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
             const detailMap = new Map<string, string>(
                 detailRows.map((d) => {
@@ -6429,222 +4518,84 @@ export class AuditLogService {
                 })
             );
 
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const rowLabelMaps = {
-                detailMap
-            }
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getTariffLabel(log.tableName),
-                    rowLabel: this.getTariffRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getTariffRowLabel(log, { detailMap }, oldVal, newVal),
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getTaxLogs(recordId?: string) {
+    private async getTaxLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'TaxMaster',
-                    recordId: recordId
-                }
+            const conditions = [
+                { tableName: 'TaxMaster', recordId: recordId }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            const taxGroupMap = await this.buildScopedMap(this.collectIds(logs, ['TaxGroupSid']),
+                ids => this._db.taxGroup.findMany({
+                    where: { TaxGroupSid: { in: ids } },
+                    select: { TaxGroupSid: true, TaxGroup: true }
+                }), 'TaxGroupSid', 'TaxGroup');
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['TaxGroupSid', 'TaxGroup', taxGroupMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['TaxExempt', AuditLogService.YES_NO_MAP],
+                ],
             });
-
-            const [taxgroup] = await Promise.all([
-                this._db.taxGroup.findMany({
-                    select: {
-                        TaxGroupSid: true,
-                        TaxGroup: true
-                    }
-                })
-            ])
-
-            const taxGroupMap = new Map<string, string>(
-                taxgroup.map(c => [String(c.TaxGroupSid), c.TaxGroup])
-            );
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            }
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'TaxGroupSid', 'TaxGroup', taxGroupMap);
-                this.replaceAndRename(newVal, 'TaxGroupSid', 'TaxGroup', taxGroupMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'TaxExempt', yesNoMap);
-                this.replaceValueFromMap(newVal, 'TaxExempt', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getZoneLogs(recordId?: string) {
+    private async getZoneLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'ZoneMaster',
-                    recordId: recordId
-                }
+            const conditions = [
+                { tableName: 'ZoneMaster', recordId: recordId }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
-    private async getVesselLogs(recordId?: string) {
+    private async getVesselLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'VesselMaster',
-                    recordId: recordId
-                }
+            const conditions = [
+                { tableName: 'VesselMaster', recordId: recordId }
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
             });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -6671,13 +4622,13 @@ export class AuditLogService {
     private getStdChargeLabel(tableName: string): string {
         const sectionMap: Record<string, string> = {
             StdRateHeader: 'Standard Charge',
-            StdTariffDetail: 'Detail',        };
+            StdTariffDetail: 'Detail',
+        };
         return sectionMap[tableName] || tableName;
     }
 
-    private async getStdChargeLogs(recordId?: string) {
+    private async getStdChargeLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
             let detailRows: any[] = [];
 
             const stdChargeSid = Number(recordId);
@@ -6694,11 +4645,11 @@ export class AuditLogService {
                         CargoType: true
                     }
                 })
-            ])
+            ]);
 
             detailRows = fetchedDetails;
 
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'StdRateHeader',
                     recordId: recordId
@@ -6711,104 +4662,62 @@ export class AuditLogService {
                     : [])
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [charge,uom,currency] = await Promise.all([
-                this._db.chargeMaster.findMany({
-                    select: {
-                        ChargeMasterSid: true,
-                        chargeCode: true,
-                    }
-                }),
-                this._db.uOMMaster.findMany({
-                    select: {
-                        UOMMasterSid: true,
-                        UOMCode: true
-                    }
-                }),
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
-            ])
+            const [chargeMap, uomMap, currencyMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['ChargeMasterSid']),
+                    ids => this._db.chargeMaster.findMany({
+                        where: { ChargeMasterSid: { in: ids } },
+                        select: { ChargeMasterSid: true, chargeCode: true }
+                    }), 'ChargeMasterSid', 'chargeCode'),
 
-            const chargeMap = new Map<string, string>(
-                charge.map(c => [String(c.ChargeMasterSid), c.chargeCode])
-            );
+                this.buildScopedMap(this.collectIds(logs, ['UomSid']),
+                    ids => this._db.uOMMaster.findMany({
+                        where: { UOMMasterSid: { in: ids } },
+                        select: { UOMMasterSid: true, UOMCode: true }
+                    }), 'UOMMasterSid', 'UOMCode'),
 
-            const uomMap = new Map<string, string>(
-                uom.map(c => [String(c.UOMMasterSid), c.UOMCode])
-            );
+                this.buildScopedMap(this.collectIds(logs, ['SaleCurrency', 'CostCurrency']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: { CurrencyMasterSid: { in: ids } },
+                        select: { CurrencyMasterSid: true, currencyCode: true }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
+            ]);
 
-            const currencyMap = new Map<string, string>(
-                currency.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
+            // detailMap needs charge codes for ALL detail rows (not just logged ones),
+            // so load the charge labels for the detail rows' ChargeMasterSid set.
+            const detailChargeMap = await this.buildScopedMap(
+                [...new Set(detailRows.map(d => Number(d.ChargeMasterSid)).filter(n => !Number.isNaN(n)))],
+                ids => this._db.chargeMaster.findMany({
+                    where: { ChargeMasterSid: { in: ids } },
+                    select: { ChargeMasterSid: true, chargeCode: true }
+                }), 'ChargeMasterSid', 'chargeCode');
 
             const detailMap = new Map<string, string>(
                 detailRows.map((d) => {
-                    const chargeCode = chargeMap.get(String(d.ChargeMasterSid))|| d.StdTariffDetailSid;
+                    const chargeCode = detailChargeMap.get(String(d.ChargeMasterSid)) || d.StdTariffDetailSid;
                     const cargoType = d.CargoType?.toString().trim() || '';
                     return [String(d.StdTariffDetailSid), `Detail [${chargeCode} - ${cargoType}]`];
                 })
             );
 
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const rowLabelMaps = {
-                detailMap
-            }
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'ChargeMasterSid', 'Charge', chargeMap);
-                this.replaceAndRename(newVal, 'ChargeMasterSid', 'Charge', chargeMap);
-
-                this.replaceAndRename(oldVal, 'UomSid', 'UOM', uomMap);
-                this.replaceAndRename(newVal, 'UomSid', 'UOM', uomMap);
-
-                this.replaceAndRename(oldVal, 'SaleCurrency', 'SalesCurrency', currencyMap);    
-                this.replaceAndRename(newVal, 'SaleCurrency', 'SalesCurrency', currencyMap);
-                
-                this.replaceAndRename(oldVal, 'CostCurrency', 'CostCurrency', currencyMap);    
-                this.replaceAndRename(newVal, 'CostCurrency', 'CostCurrency', currencyMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['ChargeMasterSid', 'Charge', chargeMap],
+                    ['UomSid', 'UOM', uomMap],
+                    ['SaleCurrency', 'SalesCurrency', currencyMap],
+                    ['CostCurrency', 'CostCurrency', currencyMap],
+                ],
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getStdChargeLabel(log.tableName),
-                    rowLabel: this.getStdChargeRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getStdChargeRowLabel(log, { detailMap }, oldVal, newVal),
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -6834,14 +4743,14 @@ export class AuditLogService {
 
     private getTermsLabel(tableName: string): string {
         const sectionMap: Record<string, string> = {
-            TermsAndConditionsMaster: 'Terms and Conditions',   
-            TermsAndConditionsDetail: 'Detail',        };
+            TermsAndConditionsMaster: 'Terms and Conditions',
+            TermsAndConditionsDetail: 'Detail',
+        };
         return sectionMap[tableName] || tableName;
     }
 
-    private async getTermsLogs(recordId?: string) {
+    private async getTermsLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
             let detailRows: any[] = [];
 
             const termSid = Number(recordId);
@@ -6850,19 +4759,17 @@ export class AuditLogService {
                 terms
             ] = await Promise.all([
                 this._db.termsAndConditionsDetail.findMany({
-                    where: {
-                        TermsAndConditionsMasterSid: termSid,
-                    },
-                    select:{
+                    where: { TermsAndConditionsMasterSid: termSid },
+                    select: {
                         TermsAndConditionsDetailSid: true,
                         TandC: true,
                     }
                 })
-            ])
+            ]);
 
             detailRows = terms;
 
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'TermsAndConditionsMaster',
                     recordId: recordId
@@ -6870,502 +4777,220 @@ export class AuditLogService {
                 ...(detailRows.length
                     ? [{
                         tableName: 'TermsAndConditionsDetail',
-                        recordId: {
-                            in: detailRows.map(d => String(d.TermsAndConditionsDetailSid))
-                        }
+                        recordId: { in: detailRows.map(d => String(d.TermsAndConditionsDetailSid)) }
                     }]
                     : [])
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
             const detailMap = new Map<string, string>(
                 detailRows.map((d) => [String(d.TermsAndConditionsDetailSid), d.TandC])
             );
 
-             const rowLabelMaps = {
-                detailMap
-            }
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const yesNoMap = {
-                S: 'Yes',
-                N: 'No'
-            }
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'IsDefaut', yesNoMap);
-                this.replaceValueFromMap(newVal, 'IsDefaut', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    sectionLabel: this.getTermsLabel(log.tableName),
-                    rowLabel: this.getTermsRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
-        } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-    }
-
-    private async getPrintLogs(recordId?: string) {
-        try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'PrintMaster',
-                    recordId: recordId
-                }
-            ];
-
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy', 'TaxGroupSid'
-            ];
-
-            const [menu] = await Promise.all([
-                this._db.menuMaster.findMany({
-                    select: {
-                        MenuMasterSid: true,
-                        MenuName: true
-                    }
-                }),
-            ])
-
-            const menuMap = new Map<string, string>(
-                menu.map(c => [String(c.MenuMasterSid), c.MenuName])
-            );
-
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.replaceAndRename(oldVal, 'MenuMasterSid', 'Menu', menuMap);
-                this.replaceAndRename(newVal, 'MenuMasterSid', 'Menu', menuMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
-        } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-    }
-
-    private async getCountryLogs(recordId?: string) {
-        try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'CountryMaster',
-                    recordId: recordId
-                }
-            ];
-
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
-
-            const [currency,zone] = await Promise.all([
-                this._db.currencyMaster.findMany({
-                    select: {
-                        CurrencyMasterSid: true,
-                        currencyCode: true
-                    }
-                }),
-                this._db.zoneMaster.findMany({
-                    select: {
-                        ZoneMasterSid: true,
-                        ZoneName: true
-                    }
-                })
-            ])
-
-            const currencyMap = new Map<string, string>(
-                currency.map(c => [String(c.CurrencyMasterSid), c.currencyCode])
-            );
-
-            const zoneMap = new Map<string, string>(
-                zone.map(c => [String(c.ZoneMasterSid), c.ZoneName])
-            );
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceAndRename(oldVal, 'CurrencyMasterSid', 'Currency', currencyMap);    
-                this.replaceAndRename(newVal, 'CurrencyMasterSid', 'Currency', currencyMap);
-                
-                this.replaceAndRename(oldVal, 'ZoneMasterSid', 'Zone', zoneMap);
-                this.replaceAndRename(newVal, 'ZoneMasterSid', 'Zone', zoneMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
-        } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-    }
-
-    private async getStateLogs(recordId?: string) {
-        try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'StateMaster',
-                    recordId: recordId
-                }
-            ];
-
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
-
-            const [country,zone] = await Promise.all([
-                this._db.countryMaster.findMany({
-                    select: {
-                        CountryMasterSid: true,
-                        countryName: true
-                    }
-                }),
-                this._db.zoneMaster.findMany({
-                    select: {
-                        ZoneMasterSid: true,
-                        ZoneName: true
-                    }
-                })
-            ])
-
-            const countryMap = new Map<string, string>(
-                country.map(c => [String(c.CountryMasterSid), c.countryName])
-            );
-
-            const zoneMap = new Map<string, string>(
-                zone.map(c => [String(c.ZoneMasterSid), c.ZoneName])
-            );
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
             const yesNoMap = {
                 Y: 'Yes',
                 N: 'No'
-            }
+            } as Record<string, string>;
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);    
-                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
-                
-                this.replaceAndRename(oldVal, 'ZoneMasterSid', 'Zone', zoneMap);
-                this.replaceAndRename(newVal, 'ZoneMasterSid', 'Zone', zoneMap);
-
-                this.replaceValueFromMap(oldVal, 'IsUnionTerritory', yesNoMap);
-                this.replaceValueFromMap(newVal, 'IsUnionTerritory', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
-        } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-    }
-
-    private async getIncoLogs(recordId?: string) {
-        try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'IncoMaster',
-                    recordId: recordId
-                }
-            ];
-
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
-
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
-        } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-    }
-
-    private async getImcoLogs(recordId?: string) {
-        try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'ImcoMaster',
-                    recordId: recordId
-                }
-            ];
-
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
-            });
-            return formattedLogs;
-        } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
-        }
-    }
-
-    private async getCityLogs(recordId?: string) {
-        try {
-            let conditions: any[] = [];
-            conditions = [
-                {
-                    tableName: 'CityMaster',
-                    recordId: recordId
-                }
-            ];
-
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
-
-            const [country,state] =await Promise.all([
-                this._db.countryMaster.findMany({
-                    select: {
-                        CountryMasterSid: true,
-                        countryName: true
-                    }
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['IsDefaut', yesNoMap],
+                ],
+                ignored: ['TaxGroupSid'],
+                decorate: (log, oldVal, newVal) => ({
+                    sectionLabel: this.getTermsLabel(log.tableName),
+                    rowLabel: this.getTermsRowLabel(log, { detailMap }, oldVal, newVal),
                 }),
-                this._db.stateMaster.findMany({
-                    select: {
-                        StateMasterSid: true,
-                        stateName: true
-                    }
-                }),
-            ])
+            });
+        } catch (error) {
+            return this.fail(error);
+        }
+    }
 
-            const countryMap = new Map<string, string>(
-                country.map(c => [String(c.CountryMasterSid), c.countryName])
-            );
-
-            const stateMap = new Map<string, string>(
-                state.map(c => [String(c.StateMasterSid), c.stateName])
-            );
-
-            const ignoredFields = [
-                'createdOn', 'createdBy', 'updatedOn', 'updatedBy', 'TaxGroupSid'
+    private async getPrintLogs(recordId?: string, query: AuditLogQuery = {}) {
+        try {
+            const conditions = [
+                { tableName: 'PrintMaster', recordId: recordId }
             ];
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
+            const logs = await this.fetchLogs(conditions, query);
 
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
+            const menuMap = await this.buildScopedMap(this.collectIds(logs, ['MenuMasterSid']),
+                ids => this._db.menuMaster.findMany({
+                    where: { MenuMasterSid: { in: ids } },
+                    select: { MenuMasterSid: true, MenuName: true }
+                }), 'MenuMasterSid', 'MenuName');
 
-                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
-                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
-
-                this.replaceAndRename(oldVal, 'StateMasterSid', 'State', stateMap);
-                this.replaceAndRename(newVal, 'StateMasterSid', 'State', stateMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal
-                };
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['MenuMasterSid', 'Menu', menuMap],
+                ],
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
+        }
+    }
+
+    private async getCountryLogs(recordId?: string, query: AuditLogQuery = {}) {
+        try {
+            const conditions = [
+                { tableName: 'CountryMaster', recordId: recordId }
+            ];
+
+            const logs = await this.fetchLogs(conditions, query);
+
+            const [currencyMap, zoneMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['CurrencyMasterSid']),
+                    ids => this._db.currencyMaster.findMany({
+                        where: { CurrencyMasterSid: { in: ids } },
+                        select: { CurrencyMasterSid: true, currencyCode: true }
+                    }), 'CurrencyMasterSid', 'currencyCode'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ZoneMasterSid']),
+                    ids => this._db.zoneMaster.findMany({
+                        where: { ZoneMasterSid: { in: ids } },
+                        select: { ZoneMasterSid: true, ZoneName: true }
+                    }), 'ZoneMasterSid', 'ZoneName'),
+            ]);
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CurrencyMasterSid', 'Currency', currencyMap],
+                    ['ZoneMasterSid', 'Zone', zoneMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
+            });
+        } catch (error) {
+            return this.fail(error);
+        }
+    }
+
+    private async getStateLogs(recordId?: string, query: AuditLogQuery = {}) {
+        try {
+            const conditions = [
+                { tableName: 'StateMaster', recordId: recordId }
+            ];
+
+            const logs = await this.fetchLogs(conditions, query);
+
+            const [countryMap, zoneMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['CountryMasterSid']),
+                    ids => this._db.countryMaster.findMany({
+                        where: { CountryMasterSid: { in: ids } },
+                        select: { CountryMasterSid: true, countryName: true }
+                    }), 'CountryMasterSid', 'countryName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['ZoneMasterSid']),
+                    ids => this._db.zoneMaster.findMany({
+                        where: { ZoneMasterSid: { in: ids } },
+                        select: { ZoneMasterSid: true, ZoneName: true }
+                    }), 'ZoneMasterSid', 'ZoneName'),
+            ]);
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CountryMasterSid', 'Country', countryMap],
+                    ['ZoneMasterSid', 'Zone', zoneMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['IsUnionTerritory', AuditLogService.YES_NO_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
+            });
+        } catch (error) {
+            return this.fail(error);
+        }
+    }
+
+    private async getIncoLogs(recordId?: string, query: AuditLogQuery = {}) {
+        try {
+            const conditions = [
+                { tableName: 'IncoMaster', recordId: recordId }
+            ];
+
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+            });
+        } catch (error) {
+            return this.fail(error);
+        }
+    }
+
+    private async getImcoLogs(recordId?: string, query: AuditLogQuery = {}) {
+        try {
+            const conditions = [
+                { tableName: 'ImcoMaster', recordId: recordId }
+            ];
+
+            const logs = await this.fetchLogs(conditions, query);
+
+            return this.formatLogs(logs, {
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
+            });
+        } catch (error) {
+            return this.fail(error);
+        }
+    }
+
+    private async getCityLogs(recordId?: string, query: AuditLogQuery = {}) {
+        try {
+            const conditions = [
+                { tableName: 'CityMaster', recordId: recordId }
+            ];
+
+            const logs = await this.fetchLogs(conditions, query);
+
+            const [countryMap, stateMap] = await Promise.all([
+                this.buildScopedMap(this.collectIds(logs, ['CountryMasterSid']),
+                    ids => this._db.countryMaster.findMany({
+                        where: { CountryMasterSid: { in: ids } },
+                        select: { CountryMasterSid: true, countryName: true }
+                    }), 'CountryMasterSid', 'countryName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['StateMasterSid']),
+                    ids => this._db.stateMaster.findMany({
+                        where: { StateMasterSid: { in: ids } },
+                        select: { StateMasterSid: true, stateName: true }
+                    }), 'StateMasterSid', 'stateName'),
+            ]);
+
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['CountryMasterSid', 'Country', countryMap],
+                    ['StateMasterSid', 'State', stateMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                ],
+                ignored: ['TaxGroupSid'],
+            });
+        } catch (error) {
+            return this.fail(error);
         }
     }
 
     private getUserRowLabel(
         log: any,
-        rowLabelMaps : {
-            companyMap: Map<string, string>,
-            branchMap: Map<string, string>,
+        rowLabelMaps: {
+            companyMap: Map<string, string>;
+            branchMap: Map<string, string>;
         },
         oldVal: Record<string, any>,
         newVal: Record<string, any>,
@@ -7375,14 +5000,14 @@ export class AuditLogService {
         switch (log.tableName) {
             case 'UserCompanyMaster':
                 return (
-                    rowLabelMaps.companyMap.get(recordId) || 
+                    rowLabelMaps.companyMap.get(recordId) ||
                     `Company [${newVal.companyName || oldVal.companyName || recordId}]`
                 );
-            
+
             case 'UserBranchMaster':
                 return (
                     rowLabelMaps.branchMap.get(recordId) ||
-                    `[${newVal.BranchName || oldVal.BranchName || recordId}]`
+                    `Branch [${newVal.BranchName || oldVal.BranchName || recordId}]`
                 );
             default:
                 return null;
@@ -7391,39 +5016,28 @@ export class AuditLogService {
 
     private getUserLabel(tableName: string): string {
         const sectionMap: Record<string, string> = {
-            UserMaster : 'User',
-            UserCompanyMaster : 'Company',
-            UserBranchMaster : 'Branch',
+            UserMaster: 'User',
+            UserCompanyMaster: 'Company',
+            UserBranchMaster: 'Branch',
         };
 
         return sectionMap[tableName] || tableName;
     }
 
-    private async getUserLogs(recordId?: string) {
+    private async getUserLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
-            let companyRows: any[] = [];
-            let branchRows: any[] = [];
-
             const userid = Number(recordId);
 
-            const[
-                company,
-                branch,
+            const [
+                companyRows,
+                branchRows,
             ] = await Promise.all([
                 this._db.userCompanyMaster.findMany({
-                    where: {
-                        UserMasterSid: userid
-                    },
-                    select: {
-                        UserCompanyMasterSid: true,
-                        CompanyMasterSid: true
-                    }
+                    where: { UserMasterSid: userid },
+                    select: { UserCompanyMasterSid: true, CompanyMasterSid: true }
                 }),
                 this._db.userBranchMaster.findMany({
-                    where: {
-                        UserMasterSid: userid
-                    },
+                    where: { UserMasterSid: userid },
                     select: {
                         UserBranchMasterSid: true,
                         BranchMasterSid: true,
@@ -7432,173 +5046,112 @@ export class AuditLogService {
                 }),
             ]);
 
-            companyRows = company;
-            branchRows = branch;
-
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'UserMaster',
                     recordId: recordId
                 },
                 ...(companyRows.length
-                    ? [{
-                        tableName: 'UserCompanyMaster',
-                        recordId: { in: companyRows.map(c => String(c.UserCompanyMasterSid)) }
-                    }]
-                :[]),
+                    ? [{ tableName: 'UserCompanyMaster', recordId: { in: companyRows.map(c => String(c.UserCompanyMasterSid)) } }]
+                    : []),
                 ...(branchRows.length
-                    ? [{
-                        tableName: 'UserBranchMaster',
-                        recordId: { in: branchRows.map(b => String(b.UserBranchMasterSid)) }
-                    }]
-                : []),
+                    ? [{ tableName: 'UserBranchMaster', recordId: { in: branchRows.map(b => String(b.UserBranchMasterSid)) } }]
+                    : []),
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [companies,branches,userType,user,country] = await Promise.all([
-                this._db.companyMaster.findMany({
-                    select: {
-                        CompanyMasterSid: true,
-                        companyName: true
-                    }
-                }),
-                this._db.branchMaster.findMany({
-                    select: {
-                        CompanyMasterSid: true,
-                        BranchMasterSid: true,
-                        branchName: true
-                    }
-                }),
-                this._db.userType.findMany({
-                    select: {
-                        UserTypeSid: true,
-                        name: true
-                    }
-                }),
-                this._db.userMaster.findMany({
-                    select: {
-                        UserMasterSid: true,
-                        userName: true,
-                    }
-                }),
-                this._db.countryMaster.findMany({
-                    select: {
-                        CountryMasterSid: true,
-                        countryName: true
-                    }
-                }),
+            // Company/branch label maps are needed for the row-label decorators of the
+            // sub-rows we already fetched, so they must cover those rows' FK ids — collect
+            // those ids together with any referenced in the logs themselves.
+            const companyIds = [
+                ...this.collectIds(logs, ['CompanyMasterSid']),
+                ...companyRows.map(c => Number(c.CompanyMasterSid)),
+                ...branchRows.map(b => Number(b.CompanyMasterSid)),
+            ].filter(n => !Number.isNaN(n));
+
+            const branchIds = [
+                ...this.collectIds(logs, ['BranchMasterSid']),
+                ...branchRows.map(b => Number(b.BranchMasterSid)),
+            ].filter(n => !Number.isNaN(n));
+
+            const [companydataMap, branchdataMap, userTypeMap, userMap, countryMap] = await Promise.all([
+                this.buildScopedMap([...new Set(companyIds)],
+                    ids => this._db.companyMaster.findMany({
+                        where: { CompanyMasterSid: { in: ids } },
+                        select: { CompanyMasterSid: true, companyName: true }
+                    }), 'CompanyMasterSid', 'companyName'),
+
+                this.buildScopedMap([...new Set(branchIds)],
+                    ids => this._db.branchMaster.findMany({
+                        where: { BranchMasterSid: { in: ids } },
+                        select: { BranchMasterSid: true, branchName: true }
+                    }), 'BranchMasterSid', 'branchName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['userTypeId']),
+                    ids => this._db.userType.findMany({
+                        where: { UserTypeSid: { in: ids } },
+                        select: { UserTypeSid: true, name: true }
+                    }), 'UserTypeSid', 'name'),
+
+                this.buildScopedMap(this.collectIds(logs, ['DeptHead']),
+                    ids => this._db.userMaster.findMany({
+                        where: { UserMasterSid: { in: ids } },
+                        select: { UserMasterSid: true, userName: true }
+                    }), 'UserMasterSid', 'userName'),
+
+                this.buildScopedMap(this.collectIds(logs, ['CountryMasterSid']),
+                    ids => this._db.countryMaster.findMany({
+                        where: { CountryMasterSid: { in: ids } },
+                        select: { CountryMasterSid: true, countryName: true }
+                    }), 'CountryMasterSid', 'countryName'),
             ]);
-
-            const companydataMap = new Map<string,string>(
-                companies.map(c => [String(c.CompanyMasterSid),c.companyName])
-            );
-            const branchdataMap = new Map<string,string>(
-                branches.map(b => [String(b.BranchMasterSid),b.branchName])
-            );
-            const userTypeMap = new Map<string,string>(
-                userType.map(u => [String(u.UserTypeSid),u.name])
-            );
-            const userMap = new Map<string,string>(
-                user.map(u => [String(u.UserMasterSid),u.userName])
-            );
-            const countryMap = new Map<string, string>(
-                country.map(c => [String(c.CountryMasterSid), c.countryName])
-            );
 
             const companyMap = new Map<string, string>(
                 companyRows.map(c => [
                     String(c.UserCompanyMasterSid),
-                    `Company ${companydataMap.get(String(c.CompanyMasterSid))}`
+                    `Company ${companydataMap.get(String(c.CompanyMasterSid)) ?? c.CompanyMasterSid}`
                 ])
             );
 
             const branchMap = new Map<string, string>(
                 branchRows.map(b => [
                     String(b.UserBranchMasterSid),
-                    `Branch ${branchdataMap.get(String(b.BranchMasterSid))} - ${companydataMap.get(String(b.CompanyMasterSid))}`
+                    `Branch ${branchdataMap.get(String(b.BranchMasterSid)) ?? b.BranchMasterSid} - ${companydataMap.get(String(b.CompanyMasterSid)) ?? b.CompanyMasterSid}`
                 ])
             );
-
-            const yesNoMap = {
-                Y: 'Yes',
-                N: 'No'
-            };
 
             const isMap = {
                 1: 'Yes',
                 0: 'No'
-            }
+            } as Record<string, string>;
 
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const ignoredFields = [
-                'CreatedBy', 'CreatedOn', 'UpdatedBy', 'UpdatedOn', 'userPassword',
-                'createdBy', 'createdOn', 'updatedBy', 'updatedOn', 'UserMasterSid', 'BranchMasterSid' , 'CompanyMasterSid','UserBranchMasterSid','UserCompanyMasterSid'
-            ]
-
-            const rowLabelMaps = {
-                companyMap,
-                branchMap
-            }
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceAndRename(oldVal, 'userTypeId', 'UserType' , userTypeMap);
-                this.replaceAndRename(newVal, 'userTypeId', 'UserType' , userTypeMap);
-
-                this.replaceAndRename(oldVal, 'DeptHead', 'ReportingTo' , userMap);
-                this.replaceAndRename(newVal, 'DeptHead', 'ReportingTo' , userMap);
-
-                this.replaceAndRename(oldVal, 'CountryMasterSid', 'Country', countryMap);
-                this.replaceAndRename(newVal, 'CountryMasterSid', 'Country', countryMap);
-
-                this.replaceValueFromMap(oldVal, 'status', statusMap);
-                this.replaceValueFromMap(newVal, 'status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.replaceValueFromMap(oldVal, 'isSalesperson', isMap);
-                this.replaceValueFromMap(newVal, 'isSalesperson', isMap);
-
-                this.replaceValueFromMap(oldVal, 'isLoginUser', yesNoMap);
-                this.replaceValueFromMap(newVal, 'isLoginUser', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'GiveAccess', yesNoMap);
-                this.replaceValueFromMap(newVal, 'GiveAccess', yesNoMap);
-
-                this.replaceValueFromMap(oldVal, 'IsDefault', yesNoMap);
-                this.replaceValueFromMap(newVal, 'IsDefault', yesNoMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
-                    oldVal,
-                    newVal,
+            return this.formatLogs(logs, {
+                renameRules: [
+                    ['userTypeId', 'UserType', userTypeMap],
+                    ['DeptHead', 'ReportingTo', userMap],
+                    ['CountryMasterSid', 'Country', countryMap],
+                ],
+                valueRules: [
+                    ['status', AuditLogService.STATUS_MAP],
+                    ['Status', AuditLogService.STATUS_MAP],
+                    ['isSalesperson', isMap],
+                    ['isLoginUser', AuditLogService.YES_NO_MAP],
+                    ['GiveAccess', AuditLogService.YES_NO_MAP],
+                    ['IsDefault', AuditLogService.YES_NO_MAP],
+                ],
+                ignored: [
+                    'userPassword',
+                    'UserMasterSid', 'BranchMasterSid', 'CompanyMasterSid',
+                    'UserBranchMasterSid', 'UserCompanyMasterSid',
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getUserLabel(log.tableName),
-                    rowLabel: this.getUserRowLabel(log, rowLabelMaps,oldVal,newVal),
-                };
-            })
-            return formattedLogs;
+                    rowLabel: this.getUserRowLabel(log, { companyMap, branchMap }, oldVal, newVal),
+                }),
+            });
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
 
@@ -7625,14 +5178,13 @@ export class AuditLogService {
     private getReportMasterLabel(tableName: string): string {
         const sectionMap: Record<string, string> = {
             ReportMaster: 'Report',
-            ReportMasterDetail: 'Parameter',        
+            ReportMasterDetail: 'Parameter',
         };
         return sectionMap[tableName] || tableName;
     }
 
-    private async getReportMasterLogs(recordId?: string) {
+    private async getReportMasterLogs(recordId?: string, query: AuditLogQuery = {}) {
         try {
-            let conditions: any[] = [];
             let detailRows: any[] = [];
 
             const reportSid = Number(recordId);
@@ -7647,11 +5199,11 @@ export class AuditLogService {
                         ParameterName: true,
                     }
                 })
-            ])
+            ]);
 
             detailRows = fetchedDetails;
 
-            conditions = [
+            const conditions = [
                 {
                     tableName: 'ReportMaster',
                     recordId: recordId
@@ -7664,27 +5216,13 @@ export class AuditLogService {
                     : [])
             ];
 
-            const logs = await this._db.auditLog.findMany({
-                where: {
-                    OR: conditions
-                },
-                orderBy: {
-                    changedAt: 'desc'
-                }
-            });
+            const logs = await this.fetchLogs(conditions, query);
 
-            const [company] = await Promise.all([
-                this._db.companyMaster.findMany({
-                    select: {
-                        CompanyMasterSid: true,
-                        companyName: true
-                    }
-                })
-            ])
-
-            const companyMap = new Map<string, string>(
-                company.map(c => [String(c.CompanyMasterSid), c.companyName])
-            );
+            const companyMap = await this.buildScopedMap(this.collectIds(logs, ['ReportExcludedCompany']),
+                ids => this._db.companyMaster.findMany({
+                    where: { CompanyMasterSid: { in: ids } },
+                    select: { CompanyMasterSid: true, companyName: true }
+                }), 'CompanyMasterSid', 'companyName');
 
             const detailMap = new Map<string, string>(
                 detailRows.map((d) => {
@@ -7693,47 +5231,20 @@ export class AuditLogService {
                 })
             );
 
-            const ignoredFields = [
-                'CreatedOn', 'CreatedBy', 'UpdatedOn', 'UpdatedBy'
-            ];
-
-            const statusMap = {
-                A: 'Active',
-                S: 'Suspended',
-                D: 'Deleted'
-            };
-
-            const rowLabelMaps = {
-                detailMap
-            }
-
-            const formattedLogs = logs.map((log: any) => {
-                const oldVal = { ...(log.oldVal || {}) };
-                const newVal = { ...(log.newVal || {}) };
-
-                this.replaceValueFromMap(oldVal, 'Status', statusMap);
-                this.replaceValueFromMap(newVal, 'Status', statusMap);
-
-                this.replaceArrayIdsWithNames(oldVal, 'ReportExcludedCompany', companyMap);    
-                this.replaceArrayIdsWithNames(newVal, 'ReportExcludedCompany', companyMap);
-
-                this.removeIgnoredFields(oldVal, ignoredFields);
-                this.removeIgnoredFields(newVal, ignoredFields);
-
-                return {
-                    ...log,
+            return this.formatLogs(logs, {
+                arrayRules: [
+                    ['ReportExcludedCompany', companyMap],
+                ],
+                valueRules: [
+                    ['Status', AuditLogService.STATUS_MAP],
+                ],
+                decorate: (log, oldVal, newVal) => ({
                     sectionLabel: this.getReportMasterLabel(log.tableName),
-                    rowLabel: this.getReportMasterRowLabel(log, rowLabelMaps, oldVal, newVal),
-                    oldVal,
-                    newVal
-                };
+                    rowLabel: this.getReportMasterRowLabel(log, { detailMap }, oldVal, newVal),
+                }),
             });
-            return formattedLogs;
         } catch (error) {
-            this.logger.warn(`getAuditLogsError: ${error}`);
-            throw new Error(`Error fetching audit logs: ${error.message}`);
+            return this.fail(error);
         }
     }
-
 }
-
