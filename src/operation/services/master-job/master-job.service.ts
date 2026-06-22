@@ -1709,12 +1709,106 @@ export class MasterJobService {
                     timeout: 120000,
                 }
             )
+
+            // Bill of Lading upload: create ONE linked House Job AFTER the master
+            // transaction has committed. Done outside the transaction so that any
+            // failure here can never roll back the successfully created Master Job.
+            if (payload?.billOfLadingHouseJob?.CustomerMasterSid && (newMasterJob as any)?.MasterJobSid) {
+                try {
+                    await this.createBillOfLadingHouseJob(payload, (newMasterJob as any).MasterJobSid);
+                } catch (err) {
+                    console.error('Bill of Lading house job creation failed:', err);
+                }
+            }
+
             return {
                 newMasterJob,
             };
         } catch (error) {
             throw error;
         }
+    }
+
+    /**
+     * Creates a single House Job (with one cargo + product) from the house-level
+     * data captured during a Bill of Lading upload on the Master Job screen, and
+     * allocates its cargo to the master container created from the same BoL.
+     */
+    private async createBillOfLadingHouseJob(payload: any, masterJobSid: number): Promise<void> {
+        const bol = payload.billOfLadingHouseJob;
+        const createdBy = payload.createdBy || '';
+
+        // Allocate the cargo to the master container just created from the BoL.
+        let containerSid: number | null = null;
+        if (bol.ContainerNumber) {
+            const container = await this._db.masterJobContainer.findFirst({
+                where: { MasterJobSid: masterJobSid, ContainerNumber: bol.ContainerNumber, Status: 'A' },
+                select: { MasterJobContainerSid: true },
+            });
+            containerSid = container?.MasterJobContainerSid ?? null;
+        }
+
+        const houseJob = await this._db.houseJob.create({
+            data: {
+                MasterJobSid: masterJobSid,
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                DepartmentMasterSid: bol.DepartmentMasterSid || payload.DepartmentMasterSid,
+                CustomerMasterSid: Number(bol.CustomerMasterSid),
+                BookingNo: '',
+                HBLNo: bol.HBLNo || '',
+                HBLDate: bol.HBLDate ? new Date(bol.HBLDate) : null,
+                MBLNo: payload.MBLNo || '',
+                MBLDate: payload.MBLDate ? new Date(payload.MBLDate) : null,
+                ShipperName: bol.ShipperName || '',
+                ShipperAddress: bol.ShipperAddress || '',
+                ConsigneeName: bol.ConsigneeName || '',
+                ConsigneeAddress: bol.ConsigneeAddress || '',
+                Notify: bol.Notify || '',
+                FreightTerms: bol.FreightTerms || '',
+                VesselName: bol.VesselName || '',
+                VoyageNo: bol.VoyageNo || '',
+                POO: bol.POO || '',
+                POL: bol.POL || '',
+                POD: bol.POD || '',
+                FPD: bol.FPD || '',
+                createdBy,
+                status: 'A',
+            },
+        });
+
+        const cargo = bol.cargo || {};
+        const createdCargo = await this._db.houseJobCargo.create({
+            data: {
+                HouseJobSid: houseJob.HouseJobSid,
+                CompanyMasterSid: houseJob.CompanyMasterSid,
+                BranchMasterSid: houseJob.BranchMasterSid!,
+                CargoType: 'General',
+                NoOfPackage: Number(cargo.NoOfPackage) || 0,
+                GrossWeight: Number(cargo.GrossWeight) || 0,
+                Volume: Number(cargo.Volume) || 0,
+                CommodityDescription: cargo.CommodityDescription || '',
+                FreightTerms: bol.FreightTerms || '',
+                createdBy,
+                status: 'A',
+            },
+        });
+
+        await this._db.houseJobProduct.create({
+            data: {
+                HouseJobSid: houseJob.HouseJobSid,
+                HouseJobCargoSid: createdCargo.HouseJobCargoSid,
+                MasterJobContainerSid: containerSid,
+                ProductName: (cargo.CommodityDescription || 'Cargo').substring(0, 100),
+                ProductDescription: cargo.CommodityDescription || '',
+                ShippingBillNo: '',
+                ExternaPkg: '',
+                ExternlQty: String(cargo.NoOfPackage || ''),
+                GrossWeight: Number(cargo.GrossWeight) || 0,
+                Volume: Number(cargo.Volume) || 0,
+                createdBy,
+            },
+        });
     }
 
     async getAllMasterJobs(payload: any) {

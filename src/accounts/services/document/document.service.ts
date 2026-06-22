@@ -762,6 +762,7 @@ export interface BillOfLadingData {
   grossWeight: string;
   measurement: string;
   containerDetails: string;
+  containerType: string;
   consolNumber: string;
   confidence: number;
   extractedText?: string;
@@ -797,6 +798,11 @@ export class DocumentService {
     const cleanText = this.cleanText(text);
     const lines = this.getLines(cleanText);
 
+    // Layout-aware block for B/Ls (e.g. Trans Asia Line) that list the five route
+    // labels together followed by their five values in order. Falls back to the
+    // legacy per-label extractors when this layout is not detected.
+    const routeBlock = this.extractRouteBlock(lines);
+
     const result: BillOfLadingData = {
       blNumber: this.extractBLNumber(lines, cleanText),
       dateOfIssue: this.extractDateOfIssue(lines, cleanText),
@@ -810,11 +816,11 @@ export class DocumentService {
       notifyPartyAddress: '',
       deliveryAgent: '',
       deliveryAgentAddress: '',
-      portOfLoading: this.extractPortOfLoading(lines),
-      portOfDischarge: this.extractPortOfDischarge(lines),
+      portOfLoading: routeBlock.portOfLoading || this.extractPortOfLoading(lines),
+      portOfDischarge: routeBlock.portOfDischarge || this.extractPortOfDischarge(lines),
       placeOfReceipt: '',
       placeOfDelivery: '',
-      vesselVoyage: this.extractVesselVoyage(lines, cleanText),
+      vesselVoyage: routeBlock.vesselVoyage || this.extractVesselVoyage(lines, cleanText),
       cargoDetails: '',
       cargoDescription: '',
       marksAndNumbers: '',
@@ -823,6 +829,7 @@ export class DocumentService {
       grossWeight: '',
       measurement: '',
       containerDetails: '',
+      containerType: '',
       consolNumber: '',
       confidence: 0,
       extractedText: cleanText.substring(0, 500) + '...'
@@ -844,8 +851,8 @@ export class DocumentService {
     result.deliveryAgent = deliveryAgentInfo.name;
     result.deliveryAgentAddress = deliveryAgentInfo.address;
 
-    result.placeOfReceipt = result.portOfLoading;
-    result.placeOfDelivery = result.portOfDischarge;
+    result.placeOfReceipt = routeBlock.placeOfReceipt || result.portOfLoading;
+    result.placeOfDelivery = routeBlock.placeOfDelivery || result.portOfDischarge;
 
     const cargoInfo = this.extractCargoInfo(lines);
     result.cargoDetails = cargoInfo.details;
@@ -859,6 +866,7 @@ export class DocumentService {
     const containerInfo = this.extractContainerInfo(cleanText);
     result.containerDetails = containerInfo.details;
     result.consolNumber = containerInfo.consolNumber;
+    result.containerType = this.extractContainerType(cleanText);
 
     result.confidence = this.calculateConfidence(result);
     return result;
@@ -889,14 +897,17 @@ export class DocumentService {
 
   private extractDateOfIssue(lines: string[], text: string): string {
     const datePattern = /\b\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4}\b|\b\d{4}-\d{2}-\d{2}\b/;
-    const labelIndex = lines.findIndex(line => /Place and Date of Issue/i.test(line));
+    // Look near a "Date of Issue" (or "Place and Date of Issue") label first.
+    const labelIndex = lines.findIndex(line => /(Place and )?Date of Issue/i.test(line));
     if (labelIndex >= 0) {
-      for (let index = Math.max(0, labelIndex - 1); index <= Math.min(lines.length - 1, labelIndex + 5); index++) {
+      for (let index = Math.max(0, labelIndex - 1); index <= Math.min(lines.length - 1, labelIndex + 12); index++) {
         const match = lines[index].match(datePattern);
         if (match) return this.normalizeDate(match[0]);
       }
     }
-    return '';
+    // Fallback: first dd/mm/yyyy date anywhere in the document.
+    const anyDate = text.match(/\b\d{1,2}[-\/]\d{1,2}[-\/]\d{4}\b/);
+    return anyDate ? this.normalizeDate(anyDate[0]) : '';
   }
 
   private normalizeDate(value: string): string {
@@ -907,15 +918,29 @@ export class DocumentService {
   }
 
   private extractPlaceOfIssue(lines: string[], text: string): string {
-    const labelIndex = lines.findIndex(line => /Place and Date of Issue/i.test(line));
-    const cityPattern = /\b(MUMBAI|DUBAI|CHENNAI|SINGAPORE)\b/i;
+    const cityPattern = /\b(MUMBAI|DUBAI|CHENNAI|SINGAPORE|NHAVA SHEVA|JEBEL ALI|COLOMBO|KARACHI)\b/i;
+
+    // 1) Near a "Place of Issue" / "Place and Date of Issue" label.
+    const labelIndex = lines.findIndex(line => /Place\s*(and\s*Date\s*)?of\s*Issue/i.test(line));
     if (labelIndex >= 0) {
-      for (let index = Math.max(0, labelIndex - 3); index <= Math.min(lines.length - 1, labelIndex + 5); index++) {
+      for (let index = Math.max(0, labelIndex - 3); index <= Math.min(lines.length - 1, labelIndex + 15); index++) {
         const match = lines[index].match(cityPattern);
         if (match) return match[1].toUpperCase();
       }
     }
-    return '';
+
+    // 2) Near a "Freight Paid at" label (the issue city sits in the same table row).
+    const freightPaidIndex = lines.findIndex(line => /Freight\s*Paid\s*at/i.test(line));
+    if (freightPaidIndex >= 0) {
+      for (let index = freightPaidIndex; index <= Math.min(lines.length - 1, freightPaidIndex + 8); index++) {
+        const match = lines[index].match(cityPattern);
+        if (match) return match[1].toUpperCase();
+      }
+    }
+
+    // 3) Fallback: first recognised issue city anywhere in the document.
+    const anyCity = text.match(cityPattern);
+    return anyCity ? anyCity[1].toUpperCase() : '';
   }
 
   private extractFreightTerms(text: string): string {
@@ -932,7 +957,8 @@ export class DocumentService {
   private extractConsigneeInfo(lines: string[]): { name: string; address: string } {
     if (/^Consignor$/i.test(lines[0] || '') && /^Consignee$/i.test(lines[1] || '')) return this.splitPartyBlock(lines, 3, 1);
     const labelIndex = lines.findIndex(line => /^Consignee/i.test(line));
-    const values = labelIndex >= 0 ? this.extractLinesBetween(lines, labelIndex, [/^Notify/i], 8) : [];
+    // Stop at Notify / Booking / B/L No so right-column fields don't leak into the address.
+    const values = labelIndex >= 0 ? this.extractLinesBetween(lines, labelIndex, [/^Notify/i, /^Booking\b/i, /B\/?L\s*No/i], 8) : [];
     return { name: values[0] || '', address: values.slice(1).join(', ') };
   }
 
@@ -955,6 +981,69 @@ export class DocumentService {
     const labelIndex = lines.findIndex(line => /Delivery Agent/i.test(line));
     const values = labelIndex >= 0 ? this.extractLinesBetween(lines, labelIndex, [/Freight Payable|Other particulars/i], 5) : [];
     return { name: values[0] || '', address: values.slice(1).join(', ') };
+  }
+
+  /**
+   * Handles B/L layouts where the route labels appear as a consecutive block
+   *   Vessel / Voyage
+   *   Place of Receipt
+   *   Port of Loading
+   *   Port of Discharge
+   *   Place of Delivery
+   * immediately followed by their five values in the same order. Returns empty
+   * strings when this layout is not detected so the caller can fall back.
+   */
+  private extractRouteBlock(lines: string[]): {
+    vesselVoyage: string;
+    placeOfReceipt: string;
+    portOfLoading: string;
+    portOfDischarge: string;
+    placeOfDelivery: string;
+  } {
+    const empty = { vesselVoyage: '', placeOfReceipt: '', portOfLoading: '', portOfDischarge: '', placeOfDelivery: '' };
+
+    const vesselIdx = lines.findIndex(line => /^Vessel\s*\/?\s*Voy(?:age)?/i.test(line));
+    if (vesselIdx < 0) return empty;
+
+    // Confirm the following lines are the expected route labels (in order).
+    const labelSeq = [
+      /Place\s+of\s+Receipt/i,
+      /Port\s+of\s+Loading/i,
+      /Port\s+of\s+Discharge/i,
+      /Place\s+of\s+Delivery/i,
+    ];
+    let cursor = vesselIdx + 1;
+    let matchedLabels = 0;
+    for (const pattern of labelSeq) {
+      if (cursor < lines.length && pattern.test(lines[cursor])) {
+        cursor++;
+        matchedLabels++;
+      }
+    }
+    // Need at least 3 of the 4 trailing labels to be confident about the layout.
+    if (matchedLabels < 3) return empty;
+
+    // Collect the next five value lines (skip blanks, route labels and clause noise).
+    const values: string[] = [];
+    for (let i = cursor; i < lines.length && values.length < 5; i++) {
+      const raw = lines[i].trim();
+      if (!raw || this.isRouteLabelLine(raw)) continue;
+      if (/^(SAID TO CONTAIN|SHIPPERS|FREIGHT|RECEIVED|CY\/CY|FCL\/FCL|PARTICULARS)/i.test(raw)) continue;
+      values.push(raw);
+    }
+    if (values.length < 5) return empty;
+
+    return {
+      vesselVoyage: values[0],
+      placeOfReceipt: values[1],
+      portOfLoading: values[2],
+      portOfDischarge: values[3],
+      placeOfDelivery: values[4],
+    };
+  }
+
+  private isRouteLabelLine(line: string): boolean {
+    return /^(Vessel\s*\/?\s*Voy|Place\s+of\s+Receipt|Port\s+of\s+Loading|Port\s+of\s+Discharge|Place\s+of\s+Delivery)/i.test(line.trim());
   }
 
   private extractPortOfLoading(lines: string[]): string {
@@ -997,7 +1086,9 @@ export class DocumentService {
   private extractCargoInfo(lines: string[]): Pick<BillOfLadingData, 'cargoDetails' | 'cargoDescription' | 'marksAndNumbers' | 'numberOfPackages' | 'packageType' | 'grossWeight' | 'measurement'> & { details: string; description: string } {
     const packageLine = lines.find(line => /\b\d+\s+(CARTONS?|PACKAGES?|PALLETS?)\b/i.test(line)) || '';
     const packageMatch = packageLine.match(/\b(\d+)\s+(CARTONS?|PACKAGES?|PALLETS?)\b/i);
-    const cargoLine = lines.find(line => /TEXTILE PIECE GOODS|READYMADE GARMENTS|SPARE PARTS/i.test(line)) || '';
+    const cargoLine = lines.find(line => /TEXTILE PIECE GOODS|READYMADE GARMENTS|SPARE PARTS|WOVEN|GARMENT|FABRIC|ENGINE PART|TROUSER/i.test(line))
+      || lines.find(line => /PACKAGES?\s+ONLY/i.test(line))
+      || '';
     const measurement = lines.find(line => /\b\d+(?:\.\d+)?\s*(?:CBM|M3)\b/i.test(line)) || '';
     const grossWeight = this.extractGrossWeight(lines);
     const marksIndex = lines.findIndex(line => /^MARKS/i.test(line));
@@ -1018,6 +1109,13 @@ export class DocumentService {
   private extractGrossWeight(lines: string[]): string {
     const sameLine = lines.find(line => /GR\.WT\s*:\s*\d/i.test(line));
     if (sameLine) return `${sameLine.match(/\d[\d,.]*/)?.[0] || ''} KGS`.trim();
+    // Trans Asia style: a "Gr 17521.560" line carrying the cargo gross weight.
+    const grLine = lines.find(line => /\bGr\.?\s+[\d,]+\.\d+/i.test(line));
+    if (grLine) return `${grLine.match(/[\d,]+\.\d+/)?.[0] || ''} KGS`.trim();
+    // Fallback: the cargo gross weight is typically the first 3-decimal number
+    // in the document (e.g. "17521.560"); container totals use 2 decimals.
+    const threeDecimal = lines.map(line => line.match(/\b(\d{2,7}\.\d{3})\b/)?.[1]).find(Boolean);
+    if (threeDecimal) return `${threeDecimal} KGS`;
     const numberIndex = lines.findIndex((line, index) => /^\d[\d,.]*$/.test(line) && /KGS?/i.test(lines[index + 1] || ''));
     return numberIndex >= 0 ? `${lines[numberIndex]} KGS` : '';
   }
@@ -1027,6 +1125,19 @@ export class DocumentService {
       details: text.match(/\b[A-Z]{4}\d{7}\b/)?.[0] || '',
       consolNumber: text.match(/(?:C\.SEAL|C\.S\.No|SEAL)[:\s]*([A-Z0-9-]+)/i)?.[1] || ''
     };
+  }
+
+  /**
+   * Extracts the ISO container size+type, e.g. "40HC", "20GP", "45HQ".
+   * Handles "1X40`HC", "40 HC" and the "TLXU5405052 40HC" container-table form.
+   */
+  private extractContainerType(text: string): string {
+    // Normalise quotes/backticks to spaces so "40`HC" / "40'HC" become "40 HC".
+    const normalized = text.toUpperCase().replace(/[`'’"]/g, ' ');
+    // Match 20/40/45 + ISO type. Allow a preceding letter (e.g. "X40HC", "1X40 HC")
+    // but NOT a preceding digit, so it is not picked from a longer number (5405052).
+    const match = normalized.match(/(?:^|[^0-9])(20|40|45)\s*(HC|HQ|GP|DC|DV|RF|RH|RE|OT|FR|TK|FL|PW)\b/);
+    return match ? `${match[1]}${match[2]}` : '';
   }
 
   private cleanDuplicatedValue(value: string): string {
