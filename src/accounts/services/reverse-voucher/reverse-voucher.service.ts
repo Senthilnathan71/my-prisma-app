@@ -131,7 +131,8 @@ export class ReverseVoucherService {
                                 ProfitCenter: detail.ProfitCenterMasterSid,
                                 YearMasterSid: detail.YearMasterSid || payload.YearMasterSid,
                                 CreatedBy: payload.CreatedBy || 'System',
-                                Status: 'A'
+                                Status: 'A',
+                                Narration: detail.Narration,
                             }
                         });
 

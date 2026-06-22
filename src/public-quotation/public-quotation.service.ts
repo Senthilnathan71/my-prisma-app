@@ -25,93 +25,133 @@ export class PublicQuotationService {
       PUBLIC_RESOURCE_MENU_CODES.QUOTATION,
     );
 
+    const ACTIVE = 'A';
+
     const header = await this._db.quoteHeader.findUnique({
-      where: { QuoteHeaderSid: tokenRow.ResourceSid },
-      include: {
-        quoteRoute: true,
-        quoteCargo: true,
-        quoteCarrier: true,
-        quoteCharge: true,
+    where: { QuoteHeaderSid: tokenRow.ResourceSid },
+    include: {
+      quoteRoute: {
+        where: { status: ACTIVE },
+        orderBy: { createdOn: 'desc' },
+        include: {
+          quoteCarrier: {
+            where: { status: ACTIVE },
+            orderBy: { createdOn: 'desc' },
+            include: {
+              quoteCharge: {
+                where: { status: ACTIVE },
+                orderBy: { createdOn: 'desc' },
+              },
+            },
+          },
+          quoteCargo: {
+            where: { Status: ACTIVE },
+            orderBy: { CreatedOn: 'desc' },
+            include: {
+              quoteProduct: {
+                where: { Status: ACTIVE },
+                orderBy: { CreatedOn: 'desc' },
+              },
+            },
+          },
+        },
       },
-    });
+    },
+  });
 
     if (!header || header.deletedAt || header.status === 'I') {
       throw new PublicAccessTokenError('NOT_FOUND');
     }
 
     const portSids = new Set<number>();
+    const currencySids = new Set<number>();
+    const departmentSids = new Set<number>();
     for (const r of header.quoteRoute) {
       if (r.PORSid) portSids.add(r.PORSid);
       if (r.POLSid) portSids.add(r.POLSid);
       if (r.PODSid) portSids.add(r.PODSid);
       if (r.FDPSid) portSids.add(r.FDPSid);
+      if (r.DepartmentMasterSid) departmentSids.add(r.DepartmentMasterSid);
+      for (const carrier of r.quoteCarrier) {
+      for (const ch of carrier.quoteCharge) {
+        if (ch.CostCurrencyMasterSid) currencySids.add(ch.CostCurrencyMasterSid);
+        if (ch.RevenueCurrencyMasterSid) currencySids.add(ch.RevenueCurrencyMasterSid);
+      }
+    }
     }
 
-    const ports =
-      portSids.size > 0
-        ? await this._db.portMaster.findMany({
-            where: { PortMasterSid: { in: Array.from(portSids) } },
-            select: { PortMasterSid: true, PortCode: true, PortName: true },
-          })
-        : [];
-    const portMap = new Map(ports.map((p) => [p.PortMasterSid, p]));
+     const ports =
+    portSids.size > 0
+      ? await this._db.portMaster.findMany({
+          where: { PortMasterSid: { in: Array.from(portSids) } },
+          select: { PortMasterSid: true, PortCode: true, PortName: true },
+        })
+      : [];
+  const portMap = new Map(ports.map((p) => [p.PortMasterSid, p]));
 
-    const currencySids = new Set<number>();
-    for (const c of header.quoteCharge) {
-      if (c.CurrencyMasterSid) currencySids.add(c.CurrencyMasterSid);
-    }
+  const departments = 
+        departmentSids.size > 0
+      ? await this._db.departmentMaster.findMany({
+          where: { DepartmentMasterSid: { in: Array.from(departmentSids) } },
+          select: { DepartmentMasterSid: true, departmentName: true },
+        })
+      : [];
+  const departmentMap = new Map(departments.map((d) => [d.DepartmentMasterSid, d.departmentName]));
+
     const currencies =
-      currencySids.size > 0
-        ? await this._db.currencyMaster.findMany({
-            where: { CurrencyMasterSid: { in: Array.from(currencySids) } },
-            select: { CurrencyMasterSid: true, currencyCode: true },
-          })
-        : [];
-    const currencyMap = new Map(
-      currencies.map((c) => [c.CurrencyMasterSid, c.currencyCode]),
-    );
+    currencySids.size > 0
+      ? await this._db.currencyMaster.findMany({
+          where: { CurrencyMasterSid: { in: Array.from(currencySids) } },
+          select: { CurrencyMasterSid: true, currencyCode: true },
+        })
+      : [];
+  const currencyMap = new Map(
+    currencies.map((c) => [c.CurrencyMasterSid, c.currencyCode]),
+  );
 
     return {
-      quoteHeaderSid: header.QuoteHeaderSid,
-      quoteNumber: header.QuoteNumber,
-      quoteDate: header.QuoteDate,
-      customerName: header.CustomerName,
-      validFrom: header.QuoteValidFrom,
-      validTo: header.QuoteValidTo,
-      routes: header.quoteRoute.map((r) => ({
-        quoteRouteSid: r.QuoteRouteSid,
-        por: portMap.get(r.PORSid) ?? null,
-        pol: portMap.get(r.POLSid) ?? null,
-        pod: portMap.get(r.PODSid) ?? null,
-        fdp: portMap.get(r.FDPSid) ?? null,
-        transitDays: r.TransitDays,
-      })),
-      cargo: header.quoteCargo.map((c) => ({
-        cargoType: c.CargoType,
-        containerType: c.ContainerType,
-        qty: c.Qty,
-        grossWeight: c.GrossWeight,
-        netWeight: c.NetWeight,
-        cbm: c.Volume,
-        shipmentTerms: c.ShipmentTerms,
-      })),
-      carriers: header.quoteCarrier.map((carrier) => ({
+    quoteHeaderSid: header.QuoteHeaderSid,
+    quoteNumber: header.QuoteNumber,
+    quoteDate: header.QuoteDate,
+    customerName: header.CustomerName,
+    validFrom: header.QuoteValidFrom,
+    validTo: header.QuoteValidTo,
+    routes: header.quoteRoute.map((r) => ({
+      quoteRouteSid: r.QuoteRouteSid,
+      department: departmentMap.get(r.DepartmentMasterSid) ?? null,
+      por: portMap.get(r.PORSid) ?? null,
+      pol: portMap.get(r.POLSid) ?? null,
+      pod: portMap.get(r.PODSid) ?? null,
+      fdp: portMap.get(r.FDPSid) ?? null,
+      carriers: r.quoteCarrier.map((carrier) => ({
         quoteCarrierSid: carrier.QuoteCarrierSid,
         carrierName: carrier.CarrierName,
         transitTime: carrier.TransitTime,
         approvalStatus: carrier.ApprovalStatus,
-        charges: header.quoteCharge
-          .filter((ch) => ch.QuoteCarrierSid === carrier.QuoteCarrierSid)
-          .map((ch) => ({
-            chargeName: ch.ChargeDisplayName,
-            qty: ch.Qty,
-            rate: ch.Rate,
-            amount: ch.Amount,
-            currency: ch.CurrencyMasterSid
-              ? (currencyMap.get(ch.CurrencyMasterSid) ?? null)
-              : null,
-          })),
+        charges: carrier.quoteCharge.map((ch) => ({
+          chargeName: ch.ChargeDisplayName,
+          qty: ch.Qty,
+          revenue:ch.RevenueRate,
+          revenuelcamount: ch.RevenueAmount,
+          revenuecurrency: ch.RevenueCurrencyMasterSid
+            ? (currencyMap.get(ch.RevenueCurrencyMasterSid) ?? null)
+            : null,
+        })),
       })),
+      cargo: r.quoteCargo.map((c) => ({
+        cargoType: c.CargoType,
+        grossWeight: c.GrossWeight,
+        netWeight: c.NetWeight,
+        cbm: c.Volume,
+        shipmentTerms: c.ShipmentTerms,
+        products: c.quoteProduct.map((p) => ({
+          productName: p.ProductName,
+          grossWeight: p.GrossWeight,
+          netweight: p.NetWeight,
+          volume: p.Volume,
+        })),
+      })),
+    })),
       expiresAt: tokenRow.ExpiresAt,
     };
   }

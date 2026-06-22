@@ -943,6 +943,31 @@ export class FfUserMasterService {
         }
     }
 
+    async getUsersByRole(companyMasterSid: number, roleMasterSid: number) {
+        return this._db.userRoleMaster.findMany({
+            where: {
+                RoleMasterSid: roleMasterSid,
+                status: 'A',
+                userCompanyMaster: {
+                    CompanyMasterSid: companyMasterSid,
+                },
+            },
+            select: {
+                userCompanyMaster: {
+                    select: {
+                        userMaster: {
+                            select: {
+                                UserMasterSid: true,
+                                userName: true,
+                                status: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
     async getAllSalesperson(CompanyMasterSid: number) {
         try {
             const allSalespersons = await this._db.userMaster.findMany({
