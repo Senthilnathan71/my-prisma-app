@@ -422,7 +422,8 @@ export class JournalVoucherService {
             BranchMasterSid: existing.BranchMasterSid,
             ChargeMasterSid: detail.ChargeMasterSid,
             ChargeDescription: detail.ChargeDescription || '',
-            HSSACMasterSid: detail.HSSACMasterSid || null,
+            // Tolerate either field — frontend now sends HSSACMasterSid, but create reads HSSACCode.
+            HSSACMasterSid: detail.HSSACMasterSid ?? detail.HSSACCode ?? null,
             Narration: detail.Narration || '',
             ChargeUOMSid: detail.ChargeUOMSid || null,
             NumberOfUnit: detail.NumberOfUnit || 1,
@@ -835,8 +836,10 @@ return {
                 let sumOfDebits = 0;
                 let sumOfCredits = 0;
                 chargeLineItems.forEach(detail => {
-                    if (detail.DrCr === 'D') sumOfDebits += (toNumber(detail.LocalAmount) + toNumber(detail.TaxAmount1));
-                    else sumOfCredits += (toNumber(detail.LocalAmount) + toNumber(detail.TaxAmount1))
+                    // Include both tax components — India 'Intra' splits the line tax into CGST (TaxAmount1)
+                    // + SGST (TaxAmount2); counting only TaxAmount1 would read a balanced voucher as off.
+                    if (detail.DrCr === 'D') sumOfDebits += (toNumber(detail.LocalAmount) + toNumber(detail.TaxAmount1) + toNumber(detail.TaxAmount2));
+                    else sumOfCredits += (toNumber(detail.LocalAmount) + toNumber(detail.TaxAmount1) + toNumber(detail.TaxAmount2))
                 });
                 const roundedDebits = roundAmount(sumOfDebits, amountDecimals);
                 const roundedCredits = roundAmount(sumOfCredits, amountDecimals);
@@ -982,12 +985,15 @@ return {
      * Validate debit/credit balance
      */
     private validateDebitCreditBalance(details: any[]): void {
+        // Count both tax components: India 'Intra' splits the line tax into CGST (TaxAmount1)
+        // + SGST (TaxAmount2). TaxAmount2 is 0 for UAE/single-tax, so this is a no-op there.
         const debitTotal = details
             .filter(d => d.DrCr === 'D')
             .reduce((sum, d) => {
             const localAmount = Number(d.LocalAmount || 0);
             const taxAmount1 = Number(d.TaxAmount1 || 0);
-            return sum + localAmount + taxAmount1;
+            const taxAmount2 = Number(d.TaxAmount2 || 0);
+            return sum + localAmount + taxAmount1 + taxAmount2;
         }, 0);
 
         const creditTotal = details
@@ -995,7 +1001,8 @@ return {
             .reduce((sum, d) => {
             const localAmount = Number(d.LocalAmount || 0);
             const taxAmount1 = Number(d.TaxAmount1 || 0);
-            return sum + localAmount + taxAmount1;
+            const taxAmount2 = Number(d.TaxAmount2 || 0);
+            return sum + localAmount + taxAmount1 + taxAmount2;
         }, 0);
 
         const difference = Number(Math.abs(debitTotal - creditTotal).toFixed(2));
