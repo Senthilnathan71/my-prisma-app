@@ -1625,17 +1625,17 @@ export class AccountsReportsService {
             };
           }
 
-          currencyWiseSummary[currency].totalOutstanding += oscurramt;
+          currencyWiseSummary[currency].totalOutstanding += signedOutstandingLocal;
 
           if (ageingDays <= 30)
-            currencyWiseSummary[currency].bucket_0_30 += oscurramt;
+            currencyWiseSummary[currency].bucket_0_30 += signedOutstandingLocal;
           else if (ageingDays <= 60)
-            currencyWiseSummary[currency].bucket_31_60 += oscurramt;
+            currencyWiseSummary[currency].bucket_31_60 += signedOutstandingLocal;
           else if (ageingDays <= 90)
-            currencyWiseSummary[currency].bucket_61_90 += oscurramt;
+            currencyWiseSummary[currency].bucket_61_90 += signedOutstandingLocal;
           else if (ageingDays <= 120)
-            currencyWiseSummary[currency].bucket_91_120 += oscurramt;
-          else currencyWiseSummary[currency].bucket_121_above += oscurramt;
+            currencyWiseSummary[currency].bucket_91_120 += signedOutstandingLocal;
+          else currencyWiseSummary[currency].bucket_121_above += signedOutstandingLocal;
 
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
