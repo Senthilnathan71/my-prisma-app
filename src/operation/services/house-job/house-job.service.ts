@@ -126,6 +126,8 @@ export class HouseJobService {
             VesselName: proxy?.VesselName || null,
             VoyageNo: proxy?.VoyageNo || null,
             POO: proxy?.POO || null,
+            POL: proxy?.POL || null,
+            POD: proxy?.POD || null,
             FPD: proxy?.FPD || null,
             CarrierName: proxy?.CarrierName || null,
             CreatedBy: createdBy,
