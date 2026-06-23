@@ -3769,10 +3769,6 @@ export class AccountsReportsService {
             SubledgerType: 'Tax',
             TaxType: 'Input',
           },
-          OR : [
-            { MasterJobSid : { not :null }},
-            { HouseJobSid : { not :null }},
-          ],
           voucherTypeMaster: {
             DocumentTypeCode: {
               in: [
@@ -4067,6 +4063,7 @@ export class AccountsReportsService {
                 DOC_TYPE_CODE.INVOICE,
                 DOC_TYPE_CODE.JOURNAL_VOUCHER,
                 DOC_TYPE_CODE.CREDIT_NOTE,
+                DOC_TYPE_CODE.INVOICE_NON_JOB
               ],
             },
           },
@@ -5342,6 +5339,7 @@ export class AccountsReportsService {
             DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
             DOC_TYPE_CODE.JOURNAL_VOUCHER,
             DOC_TYPE_CODE.PAYMENT,
+            DOC_TYPE_CODE.INVOICE_NON_JOB
             // DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER,
           ],
         },
@@ -5424,9 +5422,7 @@ export class AccountsReportsService {
           (detail.DrCr === 'C' ? -1 : 1) * toNumber(detail.LocalAmount),
           2,
         );
-        if (!detail.MasterJobSid && !detail.HouseJobSid) {
-          continue;
-        }
+       
         const allowedInputCodes: string[] = [
           DOC_TYPE_CODE.VENDOR_INVOICE,
           DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
@@ -5454,6 +5450,7 @@ export class AccountsReportsService {
           DOC_TYPE_CODE.INVOICE,
           DOC_TYPE_CODE.CREDIT_NOTE,
           DOC_TYPE_CODE.JOURNAL_VOUCHER,
+          DOC_TYPE_CODE.INVOICE_NON_JOB
         ];
         if (!allowedOutputCodes.includes(this.normaliseVatText(documentTypeCode))) {
           continue;
@@ -5741,10 +5738,6 @@ export class AccountsReportsService {
             SubledgerType: 'Tax',
             TaxType: 'Input',
           },
-          OR : [
-            { MasterJobSid : { not :null }},
-            { HouseJobSid : { not :null }},
-          ],
           voucherTypeMaster: {
             DocumentTypeCode: {
               in: [
@@ -5837,6 +5830,7 @@ export class AccountsReportsService {
                 DOC_TYPE_CODE.INVOICE,
                 DOC_TYPE_CODE.JOURNAL_VOUCHER,
                 DOC_TYPE_CODE.CREDIT_NOTE,
+                DOC_TYPE_CODE.INVOICE_NON_JOB
               ],
             },
           },
@@ -6902,6 +6896,8 @@ export class AccountsReportsService {
       const inwardVoucherCodes = [
         DOC_TYPE_CODE.VENDOR_INVOICE,
         DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+        DOC_TYPE_CODE.PAYMENT,
+        DOC_TYPE_CODE.JOURNAL_VOUCHER,
       ];
 
       const branches =
@@ -7279,6 +7275,8 @@ export class AccountsReportsService {
       const outwardVoucherCodes = [
         DOC_TYPE_CODE.INVOICE,
         DOC_TYPE_CODE.CREDIT_NOTE,
+        DOC_TYPE_CODE.JOURNAL_VOUCHER,
+        DOC_TYPE_CODE.INVOICE_NON_JOB
       ];
 
       const branches =
@@ -7741,10 +7739,14 @@ export class AccountsReportsService {
       const outputVoucherCodes = [
         DOC_TYPE_CODE.INVOICE,
         DOC_TYPE_CODE.CREDIT_NOTE,
+        DOC_TYPE_CODE.JOURNAL_VOUCHER,
+        DOC_TYPE_CODE.INVOICE_NON_JOB
       ];
       const inputVoucherCodes = [
         DOC_TYPE_CODE.VENDOR_INVOICE,
         DOC_TYPE_CODE.VENDOR_CREDIT_NOTE,
+        DOC_TYPE_CODE.PAYMENT,
+        DOC_TYPE_CODE.JOURNAL_VOUCHER,
       ];
       const gstVoucherCodes = [...outputVoucherCodes, ...inputVoucherCodes];
 
