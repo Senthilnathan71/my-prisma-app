@@ -224,6 +224,10 @@ export class SearchOutstandingDto {
   @IsOptional()
   @IsNumber()
   BranchMasterSid?: number;
+
+  @IsOptional()
+  @IsString()
+  VoucherDateTo?: string; // YYYY-MM-DD — only return OS with VoucherDate <= this (backdated vouchers)
 }
 
 /**

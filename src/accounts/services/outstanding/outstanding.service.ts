@@ -146,7 +146,8 @@ export class OutstandingService {
     ledgerMasterSid: number,
     exception ?: DocTypeCode,
     BranchMasterSid ?: number | number[],
-    ledgerType ?: string
+    ledgerType ?: string,
+    voucherDateTo ?: string
   ): Promise<CustomerOutstandingResponseDto> {
     try {
       this.logger.log(
@@ -166,6 +167,8 @@ export class OutstandingService {
           LedgerMasterSid: ledgerMasterSid,
           Status: 'A',
           VoucherHeader : { PostStatus : 'P'},
+          // Item 6 — only pull outstanding dated on/before the voucher date (backdated payment/receipt).
+          ...(voucherDateTo ? { VoucherDate: { lte: new Date(voucherDateTo) } } : {}),
           subledgerMaster : {
             SubledgerType : 'Customer'
           },

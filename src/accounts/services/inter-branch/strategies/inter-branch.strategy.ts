@@ -35,6 +35,8 @@ export interface EntryPlanInput {
   partyLedgerMasterSid: number; // SubledgerMasterSid
   sourceBranchName?: string;
   partyName?: string;
+  /** Instrument label for the bridge-line narration, e.g. "NEFT 678" (empty for cash). */
+  instrument?: string;
   branches: ResolvedBranchAllocation[];
 }
 
@@ -73,6 +75,7 @@ export abstract class InterBranchStrategy {
     const docWord = isReceipt ? 'receipt' : 'payment';
     const party = input.partyName || 'party';
     const sourceBr = input.sourceBranchName || 'source branch';
+    const instrPart = input.instrument ? ` ${input.instrument}` : '';
     const owningName = (b: ResolvedBranchAllocation) => b.allotmentBranchName || `branch ${b.allotmentBranchSid}`;
 
     // ── JV① — source re-allocation JV (booked in the source branch) ──
@@ -97,8 +100,8 @@ export abstract class InterBranchStrategy {
         Amount: b.currencyAmount,
         LocalAmount: b.localAmount,
         Narration: isReceipt
-          ? `Amount due to ${owningName(b)} — ${docWord} collected at ${sourceBr} for ${party}`
-          : `Amount recoverable from ${owningName(b)} — ${docWord} made at ${sourceBr} for ${party}`,
+          ? `Being Amt received from ${party}${instrPart} by ${sourceBr} Br`
+          : `Being Amt paid to ${party}${instrPart} On behalf of ${owningName(b)} Br`,
       })),
     ];
 
@@ -136,8 +139,8 @@ export abstract class InterBranchStrategy {
           Amount: b.currencyAmount,
           LocalAmount: b.localAmount,
           Narration: isReceipt
-            ? `Amount receivable from ${sourceBr} — ${docWord} collected there for ${party}`
-            : `Amount payable to ${sourceBr} — ${docWord} made there for ${party}`,
+            ? `Being Cash received from ${party}${instrPart} by ${sourceBr} Br`
+            : `On behalf of paid to ${party}${instrPart} by ${sourceBr} Br`,
         },
         ...partyLines,
       ];
