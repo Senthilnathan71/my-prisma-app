@@ -56,6 +56,7 @@ import { AuditLogController } from './controllers/audit-log/audit-log.controller
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TrackingController } from './controllers/tracking/tracking.controller';
 import { TrackingService } from './services/tracking/tracking.service';
+import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
 
 @Module({
 	imports: [
@@ -114,6 +115,7 @@ import { TrackingService } from './services/tracking/tracking.service';
 		ShippingInstructionService,
 		AuditLogService,
 		TrackingService,
+		MenuUserConfigService,
 	],
 	controllers: [
 		BookingController,

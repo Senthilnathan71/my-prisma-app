@@ -6,6 +6,7 @@ import * as moment from 'moment-timezone';
 import { parseDateFromString, statusWhereClause, toNumber } from 'src/common/helper';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { Prisma } from '@prisma/client';
+import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
 interface searchHouseJob {
     search: string,
     page: number,
@@ -28,6 +29,7 @@ export class HouseJobService {
         private menuService: MenuService,
         private logger: Logger,
         private numberSeriesService: NumberSeriesService,
+        private menuUserConfigService: MenuUserConfigService
     ) { }
 
     private isClosedJobStatus(status: string | null | undefined): boolean {
@@ -809,6 +811,13 @@ export class HouseJobService {
                     }
                 }
 
+                const resourcePerson =
+        (await this.menuUserConfigService.getConfiguredUser(
+          payload.CompanyMasterSid,
+          payload.BranchMasterSid,
+          numberSeriesMenuId,
+        ));
+
                 // Create House Job Others
                 let finalHouseJobOthers: any = null;
                 const otherPayload = payload.houseJobOthers || {};
@@ -872,6 +881,7 @@ export class HouseJobService {
                             DODate: otherPayload.DODate ? new Date(otherPayload.DODate) : null,
                             status: 'A',
                             createdBy: payload.createdBy,
+                            ResourcePerson: resourcePerson || payload.ResourcePerson,
                         }
                     });
                 }

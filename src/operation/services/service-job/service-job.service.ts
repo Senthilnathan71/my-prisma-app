@@ -10,6 +10,7 @@ import * as moment from 'moment-timezone';
 import { DuplicateCheckDTO } from 'src/operation/DTO/service-job.dto';
 import * as ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
+import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
 
 export class CreateServiceJobDto {
     FreightPPCC: string;
@@ -96,6 +97,7 @@ export class ServiceJobService {
         private readonly commonService: OperationCommonService,
         private readonly menuService: MenuService,
         private readonly numberSeriesService: NumberSeriesService,
+        private menuUserConfigService: MenuUserConfigService
     ) { }
 
     /**
@@ -368,6 +370,13 @@ export class ServiceJobService {
                 }
             }
 
+            const resourcePerson =
+        (await this.menuUserConfigService.getConfiguredUser(
+          payload.CompanyMasterSid,
+          payload.BranchMasterSid,
+          serviceJobMenuId,
+        ));
+
             let createdOthers;
 
             if (houseJobOthers && Object.keys(houseJobOthers).length > 0) {
@@ -408,6 +417,7 @@ export class ServiceJobService {
 
                         createdBy: payload.createdBy,
                         status: 'A',
+                        ResourcePerson: resourcePerson,
                     }
                 });
             }

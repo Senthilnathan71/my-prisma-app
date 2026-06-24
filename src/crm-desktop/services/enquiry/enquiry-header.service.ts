@@ -5,6 +5,7 @@ import * as moment from 'moment-timezone';
 import { parseDateFromString, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
+import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 
 @Injectable()
@@ -12,7 +13,8 @@ export class EnquiryHeaderService {
     constructor(
         private _db: DatabaseService, 
         private logger: Logger,
-        private numberSeriesService: NumberSeriesService
+        private numberSeriesService: NumberSeriesService,
+        private menuUserConfigService: MenuUserConfigService
     ) { }
 
     async createEnquiry(payload) {
@@ -55,6 +57,13 @@ export class EnquiryHeaderService {
                     throw err;
                 }
             }
+
+            const resourcePerson =
+        (await this.menuUserConfigService.getConfiguredUser(
+          payload.CompanyMasterSid,
+          payload.BranchMasterSid,
+          MenuMasterSid,
+        ));
 
                 // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
@@ -160,6 +169,7 @@ export class EnquiryHeaderService {
                         AdditionalService: enquiryOther.AdditionalService,
                         PickupAddress: enquiryOther.PickupAddress,
                         CreatedBy: payload.createdBy,
+                        ResourcePerson: resourcePerson,
                     }
                 })
                 if (enquiryHeader && payload.LeadOrCustomer === "L") {

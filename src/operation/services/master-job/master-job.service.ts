@@ -15,6 +15,7 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
 import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
 import * as ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
+import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
 
 interface searchMasterJob {
     search: string,
@@ -35,6 +36,7 @@ export class MasterJobService {
         private commonService: OperationCommonService,
         private numberSeriesService: NumberSeriesService,
         private companyConfigService: CompanyConfigService,
+        private menuUserConfigService: MenuUserConfigService,
         @Inject(forwardRef(() => VoucherService))
         private voucherService: VoucherService,
     ) { }
@@ -734,6 +736,12 @@ export class MasterJobService {
                         data: connectionPayload
                     });
                 }
+                const resourcePerson =
+        (await this.menuUserConfigService.getConfiguredUser(
+          payload.CompanyMasterSid,
+          payload.BranchMasterSid,
+          menuId,
+        ));
 
                 const otherFormValue = payload.others;
                 let createdOther;
@@ -764,7 +772,7 @@ export class MasterJobService {
                         ImportMasterJobSid: otherFormValue?.ImportMasterJobSid ? Number(otherFormValue?.ImportMasterJobSid) : null,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
-
+                        ResourcePerson: resourcePerson,
                     }
 
                     createdOther = await prisma.masterJobOthers.create({
