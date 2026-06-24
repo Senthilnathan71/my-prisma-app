@@ -7,6 +7,7 @@ import { MenuService } from 'src/settings/services/menu/menu.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { HouseJobService } from '../house-job/house-job.service';
+import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
 
 @Injectable()
 export class AgentMasterAirWaybillService {
@@ -16,7 +17,8 @@ export class AgentMasterAirWaybillService {
     private readonly menuService: MenuService,
     private readonly numberSeriesService: NumberSeriesService,
     private readonly companyConfigService: CompanyConfigService,
-    private logger: Logger
+    private logger: Logger,
+    private menuUserConfigService: MenuUserConfigService
   ) {}
 
   private parseConfigBoolean(value: any): boolean {
@@ -232,6 +234,13 @@ export class AgentMasterAirWaybillService {
       };
     });
 
+    const resourcePerson =
+        (await this.menuUserConfigService.getConfiguredUser(
+          payload.CompanyMasterSid,
+          payload.BranchMasterSid,
+          masterMenuId,
+        ));
+
     const housePayload = {
       ...payload,
       MasterJobSid: transactionResult.masterJob.MasterJobSid,
@@ -240,6 +249,7 @@ export class AgentMasterAirWaybillService {
       HBLNo: null,
       JobType: 'Agent',
       MenuMasterSid: masterMenuId || null,
+      ResourcePerson: resourcePerson,
     };
 
     try {

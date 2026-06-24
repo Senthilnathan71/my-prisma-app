@@ -8,6 +8,7 @@ import { GlobalConfigService } from "src/common/config/master-config.service";
 import { contains } from "class-validator";
 import { statusWhereClause, toCamelCase, toNumber } from "src/common/helper";
 import { NumberSeriesService } from "src/settings/services/number-series/number-series.service";
+import { MenuUserConfigService } from "src/settings/services/menu-user-config/menu-user-config.service";
 
 interface authLogDTO {
     CompanyMasterSid : number,
@@ -28,6 +29,7 @@ export class QuotationService {
         private _db: DatabaseService, private logger: Logger,
         private globalConfigService: GlobalConfigService,
         private numberSeriesService: NumberSeriesService,
+        private menuUserConfigService: MenuUserConfigService
     ) { }
 
     async createQuotation(payload) {
@@ -71,6 +73,13 @@ export class QuotationService {
                 }
             }
 
+            const resourcePerson =
+        (await this.menuUserConfigService.getConfiguredUser(
+          payload.CompanyMasterSid,
+          payload.BranchMasterSid,
+          MenuMasterSid,
+        ));
+
             // Step 1: Create Quote Header
             const quoteDate = payload.QuoteDate ? new Date(payload.QuoteDate) : new Date();
             const quoteHeaderPayload: any = {
@@ -104,6 +113,7 @@ export class QuotationService {
                 InternalApprovedOn: payload.InternalApprovedBy ? new Date() : null,
                 CustomerApprovedBy: payload.CustomerApprovedBy || null,
                 CustomerApprovedOn: payload.CustomerApprovedBy ? new Date() : null,
+                ResourcePerson: resourcePerson,
 
             };
 

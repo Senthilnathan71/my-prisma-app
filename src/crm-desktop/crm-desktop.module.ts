@@ -10,6 +10,7 @@ import { QuotationController } from "./controllers/quotation/quotation.controlle
 import { SettingsModule } from "src/settings/settings.module";
 import { GlobalConfigService } from "src/common/config/master-config.service";
 import { EmailService } from "src/email/email.service";
+import { MenuUserConfigService } from "src/settings/services/menu-user-config/menu-user-config.service";
 
 @Module({
     imports: [SettingsModule],
@@ -21,6 +22,7 @@ import { EmailService } from "src/email/email.service";
         QuotationService,
         GlobalConfigService,
         EmailService,
+        MenuUserConfigService
     ],
     controllers:[
         LeadController,

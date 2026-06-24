@@ -11,6 +11,7 @@ import { NumberSeriesService } from 'src/settings/services/number-series/number-
 import { DuplicateCheckDTO } from 'src/operation/DTO/booking.dto';
 import * as ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
+import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
 
 interface CostRevenueDTO {
     MenuMasterSid?: number,
@@ -56,6 +57,7 @@ export class BookingService {
         private commonService: OperationCommonService,
         private currencyExchangeService: CurrencyExchangeService,
         private numberSeriesService: NumberSeriesService,
+        private menuUserConfigService: MenuUserConfigService
     ) { }
 
     private getCargoPayloadList(payload: any): any[] {
@@ -324,7 +326,12 @@ export class BookingService {
             this.logger.log(`[BookingData] Field lengths - JobType: ${payload.JobType?.length}, VoyageNo:
 ${payload.VoyageNo?.length}, MovementType: ${payload.MovementType?.length}, ShipmentType:
 ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
-
+ const resourcePerson =
+        (await this.menuUserConfigService.getConfiguredUser(
+          payload.CompanyMasterSid,
+          payload.BranchMasterSid,
+          payload.MenuMasterSid,
+        ));
             const bookingHeader = await this._db.$transaction(async (prisma) => {
                 /**
                     |--------------------------------------------------
@@ -514,6 +521,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                 SwitchLocation: otherPayload?.SwitchLocation || '',
                 CarrierBookingRef: otherPayload?.CarrierBookingRef || '',
                 CarrierBookingDate: otherPayload?.CarrierBookingDate || null,
+                ResourcePerson: resourcePerson,
             }
 
             let createdOthers = await this._db.bookingOthers.create({

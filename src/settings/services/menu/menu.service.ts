@@ -584,7 +584,7 @@ export class MenuService {
      */
     async getDocumentMenusForNumberSeries() {
         try {
-            const documentMenuCodes = ['BKN', 'RAT', 'MA1', 'MJB', 'HJB', 'QUA', 'HBL', 'MA2'];
+            const documentMenuCodes = ['BKN', 'RAT', 'MA1', 'MJB', 'HJB', 'QUA', 'HBL', 'MA2','SC2'];
             const documentMenuNames = ['enquiry', 'quotation', 'master job', 'house job', 'master air', 'house air', 'rate request'];
 
             const menus = await this._db.menuMaster.findMany({
