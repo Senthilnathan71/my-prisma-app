@@ -158,8 +158,8 @@ model VoucherDetail {
 
   @@index([VoucherHeaderSid])
   @@index([CompanyMasterSid, BranchMasterSid, VoucherHeaderSid])
-  @@index([CostRevenueChargesSid,Status])
-  @@index([BookingRatesSid,Status])
+  @@index([CostRevenueChargesSid, Status])
+  @@index([BookingRatesSid, Status])
 }
 
 model VoucherOthers {
@@ -178,8 +178,10 @@ model VoucherOthers {
   IRNQRCode         String?        @db.VarChar(300)
   IRNStatus         String?        @db.VarChar(10)
   BookingHeaderSid  Int?
+  ResourcePerson    Int?
   bookingHeader     BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   VoucherHeader     VoucherHeader  @relation(fields: [VoucherHeaderSid], references: [VoucherHeaderSid])
+  resourceUser      UserMaster?    @relation(fields: [ResourcePerson], references: [UserMasterSid])
 }
 
 model VoucherTDS {

@@ -1,43 +1,43 @@
 model ReportSchedule {
-  ReportScheduleSid  Int              @id @default(autoincrement())
-  CreatedOn          DateTime         @default(now()) @db.Timestamptz(6)
-  CreatedBy          String           @db.VarChar(100)
-  UpdatedOn          DateTime         @default(now()) @db.Timestamptz(6)
-  UpdatedBy          String?          @db.VarChar(100)
-  Status             String           @default("A") @db.Char(1)
+  ReportScheduleSid Int      @id @default(autoincrement())
+  CreatedOn         DateTime @default(now()) @db.Timestamptz(6)
+  CreatedBy         String   @db.VarChar(100)
+  UpdatedOn         DateTime @default(now()) @db.Timestamptz(6)
+  UpdatedBy         String?  @db.VarChar(100)
+  Status            String   @default("A") @db.Char(1)
 
-  CompanyMasterSid   Int
-  CompanyMaster      CompanyMaster    @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  CompanyMasterSid Int
+  CompanyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
 
-  ScheduleName       String           @db.VarChar(200)
+  ScheduleName String @db.VarChar(200)
 
   /// FK to ReportMaster — dynamically loads all available reports
-  ReportMasterSid    Int
-  ReportMaster       ReportMaster     @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
+  ReportMasterSid Int
+  ReportMaster    ReportMaster @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
 
   SubledgerMasterSid Int?
   SubledgerMaster    SubledgerMaster? @relation(fields: [SubledgerMasterSid], references: [SubledgerMasterSid])
   COAMasterSid       Int?
 
   /// JSON array of BranchMasterSid values, null = all branches
-  BranchFilter       Json?
+  BranchFilter Json?
 
-  Frequency          String           @db.VarChar(10) // DAILY | WEEKLY | MONTHLY
-  DayOfWeek          Int? // 0=Sun..6=Sat (WEEKLY)
-  DayOfMonth         Int? // 1-28 (MONTHLY)
-  ScheduleTime       String           @db.VarChar(5) // "HH:mm" 24h
-  TimeZone           String?          @db.VarChar(50)
+  Frequency    String  @db.VarChar(10) // DAILY | WEEKLY | MONTHLY
+  DayOfWeek    Int? // 0=Sun..6=Sat (WEEKLY)
+  DayOfMonth   Int? // 1-28 (MONTHLY)
+  ScheduleTime String  @db.VarChar(5) // "HH:mm" 24h
+  TimeZone     String? @db.VarChar(50)
 
-  ToEmails           String           @db.VarChar(1000)
-  CcEmails           String?          @db.VarChar(1000)
-  ReportFormat       String           @db.VarChar(10) // EXCEL | PDF
+  ToEmails     String  @db.VarChar(1000)
+  CcEmails     String? @db.VarChar(1000)
+  ReportFormat String  @db.VarChar(10) // EXCEL | PDF
 
   /// Additional report-specific parameters (e.g. ageingType, CurrencyWise)
-  ReportParams       Json?
-  IsActive           Boolean          @default(true)
-  LastRunAt          DateTime?        @db.Timestamptz(6)
-  LastRunStatus      String?          @db.VarChar(20) // SUCCESS | FAILED
-  LastRunMessage     String?          @db.VarChar(500)
+  ReportParams   Json?
+  IsActive       Boolean   @default(true)
+  LastRunAt      DateTime? @db.Timestamptz(6)
+  LastRunStatus  String?   @db.VarChar(20) // SUCCESS | FAILED
+  LastRunMessage String?   @db.VarChar(500)
 
   @@index([CompanyMasterSid])
   @@index([IsActive])

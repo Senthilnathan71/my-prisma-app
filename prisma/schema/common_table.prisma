@@ -1,44 +1,44 @@
 model CostRevenueCharges {
-  CostRevenueChargesSid       Int                @id @default(autoincrement())
+  CostRevenueChargesSid       Int                    @id @default(autoincrement())
   TransactionSid              Int?
   MenuMasterSid               Int
-  ShipmentNo                  String?            @db.VarChar
-  MasterJobNo                 String?            @db.VarChar
+  ShipmentNo                  String?                @db.VarChar
+  MasterJobNo                 String?                @db.VarChar
   CompanyMasterSid            Int
   BranchMasterSid             Int
-  SerialNumber                Decimal?           @db.Decimal(3, 0)
+  SerialNumber                Decimal?               @db.Decimal(3, 0)
   ChargeMasterSid             Int?
-  ChargeDescription           String?            @db.VarChar(100)
+  ChargeDescription           String?                @db.VarChar(100)
   ChargeUomSid                Int?
-  createdOn                   DateTime           @default(now()) @db.Timestamptz(6)
-  updatedOn                   DateTime?          @updatedAt @db.Timestamptz(6)
+  createdOn                   DateTime               @default(now()) @db.Timestamptz(6)
+  updatedOn                   DateTime?              @updatedAt @db.Timestamptz(6)
   deletedAt                   DateTime?
-  createdBy                   String             @db.VarChar(100)
-  updatedBy                   String?            @db.VarChar(100)
-  status                      String?            @default("A") @db.Char(1)
-  Remarks                     String?            @db.VarChar(100)
+  createdBy                   String                 @db.VarChar(100)
+  updatedBy                   String?                @db.VarChar(100)
+  status                      String?                @default("A") @db.Char(1)
+  Remarks                     String?                @db.VarChar(100)
   CostAgentBranchSid          Int?
   CostAgentMasterSid          Int?
-  CostAmount                  Decimal?           @db.Decimal(15, 3)
+  CostAmount                  Decimal?               @db.Decimal(15, 3)
   CostChargeUomSid            Int
   CostCurrencyMasterSid       Int?
-  CostDrCr                    String?            @db.Char(1)
-  CostExchangeRate            Decimal?           @db.Decimal(8, 4)
-  CostLocalAmount             Decimal?           @db.Decimal(15, 3)
-  CostNumberOfUnit            Decimal?           @db.Decimal(15, 3)
-  CostPrepaidCollect          String?            @db.VarChar(10)
-  CostRate                    Decimal?           @db.Decimal(15, 3)
-  RevenueAmount               Decimal?           @db.Decimal(15, 3)
+  CostDrCr                    String?                @db.Char(1)
+  CostExchangeRate            Decimal?               @db.Decimal(8, 4)
+  CostLocalAmount             Decimal?               @db.Decimal(15, 3)
+  CostNumberOfUnit            Decimal?               @db.Decimal(15, 3)
+  CostPrepaidCollect          String?                @db.VarChar(10)
+  CostRate                    Decimal?               @db.Decimal(15, 3)
+  RevenueAmount               Decimal?               @db.Decimal(15, 3)
   RevenueChargeUomSid         Int
   RevenueCurrencyMasterSid    Int?
   RevenueCustomerBranchSid    Int?
   RevenueCustomerMasterSid    Int?
-  RevenueDrCr                 String?            @db.Char(1)
-  RevenueExchangeRate         Decimal?           @db.Decimal(8, 4)
-  RevenueLocalAmount          Decimal?           @db.Decimal(15, 3)
-  RevenueNumberOfUnit         Decimal?           @db.Decimal(15, 3)
-  RevenuePrepaidCollect       String?            @db.VarChar(10)
-  RevenueRate                 Decimal?           @db.Decimal(15, 3)
+  RevenueDrCr                 String?                @db.Char(1)
+  RevenueExchangeRate         Decimal?               @db.Decimal(8, 4)
+  RevenueLocalAmount          Decimal?               @db.Decimal(15, 3)
+  RevenueNumberOfUnit         Decimal?               @db.Decimal(15, 3)
+  RevenuePrepaidCollect       String?                @db.VarChar(10)
+  RevenueRate                 Decimal?               @db.Decimal(15, 3)
   CostVoucherHeaderSid        Int?
   CostVoucherTypeMasterSid    Int?
   RevenueVoucherHeaderSid     Int?
@@ -52,31 +52,31 @@ model CostRevenueCharges {
   ChargeSubledgerMasterSid    Int?
   PaymentRequestSid           Int?
   TariffDetailSid             Int?
-  bookingRates                BookingRates?      @relation(fields: [BookingRateSid], references: [BookingRatesSid])
-  branchMaster                BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  chargeMaster                ChargeMaster?      @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
-  chargeCOAMaster             COAMaster?         @relation("ChargeLedger", fields: [ChargeCOAMasterSid], references: [COAMasterSid])
-  chargeSubledgerMaster       SubledgerMaster?   @relation("ChargeSubledger", fields: [ChargeSubledgerMasterSid], references: [SubledgerMasterSid])
-  companyMaster               CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  costCustomerBranch          CustomerBranch?    @relation("COST", fields: [CostAgentBranchSid], references: [CustomerBranchSid])
-  costCustomerMaster          CustomerMaster?    @relation("COST", fields: [CostAgentMasterSid], references: [CustomerMasterSid])
-  costChargeUOMMaster         UOMMaster          @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
-  costCurrencyMaster          CurrencyMaster?    @relation("COST", fields: [CostCurrencyMasterSid], references: [CurrencyMasterSid])
-  costVoucherHeader           VoucherHeader?     @relation("COST", fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
-  costVoucherTypeMaster       VoucherTypeMaster? @relation("COST", fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
-  menuMaster                  MenuMaster         @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-  paymentRequest              PaymentRequest?    @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
-  partyCOAMaster              COAMaster?         @relation("PartyLedger", fields: [PartyCOAMasterSid], references: [COAMasterSid])
-  partySubledgerMaster        SubledgerMaster?   @relation("PartySubledger", fields: [PartySubledgerMasterSid], references: [SubledgerMasterSid])
-  tariffDetail                TariffDetail?      @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
-  revenueChargeUOMMaster      UOMMaster          @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
-  revenueCurrencyMaster       CurrencyMaster?    @relation("REVENUE", fields: [RevenueCurrencyMasterSid], references: [CurrencyMasterSid])
-  revenueCustomerBranch       CustomerBranch?    @relation("REVENUE", fields: [RevenueCustomerBranchSid], references: [CustomerBranchSid])
-  revenueCustomerMaster       CustomerMaster?    @relation("REVENUE", fields: [RevenueCustomerMasterSid], references: [CustomerMasterSid])
-  revenueVoucherHeader        VoucherHeader?     @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
-  revenueVoucherTypeMaster    VoucherTypeMaster? @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
-  vendorCOAMaster             COAMaster?         @relation("VendorLedger", fields: [VendorCOAMasterSid], references: [COAMasterSid])
-  vendorSubledgerMaster       SubledgerMaster?   @relation("VendorSubledger", fields: [VendorSubledgerMasterSid], references: [SubledgerMasterSid])
+  bookingRates                BookingRates?          @relation(fields: [BookingRateSid], references: [BookingRatesSid])
+  branchMaster                BranchMaster           @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  chargeMaster                ChargeMaster?          @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
+  chargeCOAMaster             COAMaster?             @relation("ChargeLedger", fields: [ChargeCOAMasterSid], references: [COAMasterSid])
+  chargeSubledgerMaster       SubledgerMaster?       @relation("ChargeSubledger", fields: [ChargeSubledgerMasterSid], references: [SubledgerMasterSid])
+  companyMaster               CompanyMaster          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  costCustomerBranch          CustomerBranch?        @relation("COST", fields: [CostAgentBranchSid], references: [CustomerBranchSid])
+  costCustomerMaster          CustomerMaster?        @relation("COST", fields: [CostAgentMasterSid], references: [CustomerMasterSid])
+  costChargeUOMMaster         UOMMaster              @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
+  costCurrencyMaster          CurrencyMaster?        @relation("COST", fields: [CostCurrencyMasterSid], references: [CurrencyMasterSid])
+  costVoucherHeader           VoucherHeader?         @relation("COST", fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
+  costVoucherTypeMaster       VoucherTypeMaster?     @relation("COST", fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  menuMaster                  MenuMaster             @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  paymentRequest              PaymentRequest?        @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
+  partyCOAMaster              COAMaster?             @relation("PartyLedger", fields: [PartyCOAMasterSid], references: [COAMasterSid])
+  partySubledgerMaster        SubledgerMaster?       @relation("PartySubledger", fields: [PartySubledgerMasterSid], references: [SubledgerMasterSid])
+  tariffDetail                TariffDetail?          @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
+  revenueChargeUOMMaster      UOMMaster              @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
+  revenueCurrencyMaster       CurrencyMaster?        @relation("REVENUE", fields: [RevenueCurrencyMasterSid], references: [CurrencyMasterSid])
+  revenueCustomerBranch       CustomerBranch?        @relation("REVENUE", fields: [RevenueCustomerBranchSid], references: [CustomerBranchSid])
+  revenueCustomerMaster       CustomerMaster?        @relation("REVENUE", fields: [RevenueCustomerMasterSid], references: [CustomerMasterSid])
+  revenueVoucherHeader        VoucherHeader?         @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
+  revenueVoucherTypeMaster    VoucherTypeMaster?     @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  vendorCOAMaster             COAMaster?             @relation("VendorLedger", fields: [VendorCOAMasterSid], references: [COAMasterSid])
+  vendorSubledgerMaster       SubledgerMaster?       @relation("VendorSubledger", fields: [VendorSubledgerMasterSid], references: [SubledgerMasterSid])
   voucherDetail               VoucherDetail[]
   paymentRequestDetail        PaymentRequestDetail[]
 
