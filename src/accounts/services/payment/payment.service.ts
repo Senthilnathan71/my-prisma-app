@@ -70,6 +70,7 @@ export class PaymentService {
                     undefined,
                     searchDto.BranchMasterSid,
                     searchDto.LedgerType,
+                    searchDto.VoucherDateTo,
                 );
 
                 // Convert to OutstandingInvoiceDto format
@@ -147,6 +148,8 @@ export class PaymentService {
             },
             Status: 'A',
             ...(searchDto.LedgerType ? { coaMaster: { LedgerType: searchDto.LedgerType } } : {}),
+            // Item 6 — only OS dated on/before the voucher date (backdated payment/receipt).
+            ...(searchDto.VoucherDateTo ? { VoucherDate: { lte: new Date(searchDto.VoucherDateTo) } } : {}),
         };
 
         // Build dynamic where clause based on search criteria
@@ -1793,7 +1796,9 @@ export class PaymentService {
                         VoucherTypeCode: voucher?.voucherTypeMaster.DocumentTypeCode,
                         VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
                         VoucherMatchingDate : voucher.VoucherDate ,
-                        PostDate: now ,
+                        // Item 11 — matching rows take payload.PostDate as their date; use the payment date
+                        // (voucher.VoucherDate), not today, so a backdated payment's matching is on the payment date.
+                        PostDate: voucher.VoucherDate ,
                         YearMasterSid : payload.yearMasterSid,
                         Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
                         createdBy: payload.postedBy,
@@ -1853,7 +1858,8 @@ export class PaymentService {
                                 VoucherTypeCode: voucher?.voucherTypeMaster.DocumentTypeCode,
                                 VoucherTypeMasterSid: voucher?.voucherTypeMaster.VoucherTypeMasterSid,
                                 VoucherMatchingDate: voucher.VoucherDate,
-                                PostDate: now,
+                                // Item 11 — matching rows take payload.PostDate as their date; use the payment date, not today.
+                                PostDate: voucher.VoucherDate,
                                 YearMasterSid: payload.yearMasterSid,
                                 Narration: `${voucher.VoucherNumber} ${voucher.VoucherDate.toISOString().split('T')[0]} ${voucher.CurrencyCode} ${voucher.Amount}`,
                                 createdBy: payload.postedBy,

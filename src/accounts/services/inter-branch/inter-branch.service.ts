@@ -181,7 +181,7 @@ export class InterBranchService {
         allotmentBranch: { select: { branchName: true } },
         mirrorJV: { select: { VoucherNumber: true } },
         sourceJV: { select: { VoucherNumber: true } },
-        sourceVoucher: { select: { PartyMasterSid: true, CurrencyMasterSid: true, CurrencyCode: true, ExchangeRate: true, PostStatus: true } },
+        sourceVoucher: { select: { PartyMasterSid: true, CurrencyMasterSid: true, CurrencyCode: true, ExchangeRate: true, PostStatus: true, VoucherDate: true } },
       },
       orderBy: { VoucherInterBranchSid: 'asc' },
     });
@@ -328,6 +328,8 @@ export class InterBranchService {
     const strategy = interBranchStrategyFor(docTypeCode);
     const docWord = strategy.partySign === 'C' ? 'receipt' : 'payment';
     const partyName = source.PartyName || 'party';
+    // Instrument label for the inter-branch line narrations, e.g. "NEFT 678" (empty for cash).
+    const instrument = [source.InstrumentMode, source.InstrumentNumber].filter(Boolean).join(' ');
 
     const partyCOAMasterSid = source.COAMasterSid;
     const partyLedgerMasterSid = source.PartyMasterSid;
@@ -386,7 +388,7 @@ export class InterBranchService {
       });
     }
 
-    const plan = strategy.buildEntryPlan({ partyCOAMasterSid, partyLedgerMasterSid, sourceBranchName, partyName, branches: resolved });
+    const plan = strategy.buildEntryPlan({ partyCOAMasterSid, partyLedgerMasterSid, sourceBranchName, partyName, instrument, branches: resolved });
 
     const exRate = this.num(source.ExchangeRate) || 1;
     const postingInfo = {
@@ -403,6 +405,9 @@ export class InterBranchService {
         BranchMasterSid: source.BranchMasterSid,
         VoucherDate: source.VoucherDate,
         PostDate: source.PostDate || new Date(),
+        // Item 8 — "Bill No." on the inter-branch JV = the source receipt/payment voucher number.
+        DocumentNumber: source.VoucherNumber,
+        DocumentDate: source.VoucherDate,
         Narration: `Inter-branch re-allocation of ${docWord} ${source.VoucherNumber} (${sourceBranchName} → ${owningNames})`,
         PartyMasterSid: partyLedgerMasterSid,
         PartyName: source.PartyName,
@@ -450,6 +455,9 @@ export class InterBranchService {
           BranchMasterSid: mirror.allotmentBranchSid,
           VoucherDate: source.VoucherDate,
           PostDate: source.PostDate || new Date(),
+          // Item 8 — "Bill No." on the mirror JV = the source receipt/payment voucher number.
+          DocumentNumber: source.VoucherNumber,
+          DocumentDate: source.VoucherDate,
           Narration: `Inter-branch ${docWord} mirror of ${source.VoucherNumber} — ${owningBr} (from ${sourceBranchName})`,
           PartyMasterSid: partyLedgerMasterSid,
           PartyName: source.PartyName,
@@ -537,7 +545,9 @@ export class InterBranchService {
         VoucherTypeCode: jv2.voucherTypeMaster?.DocumentTypeCode,
         VoucherTypeMasterSid: jv2.voucherTypeMaster?.VoucherTypeMasterSid,
         VoucherMatchingDate: jv2.VoucherDate,
-        PostDate: new Date(),
+        // Item 11 — the matching ROWS take payload.PostDate as their date; use the payment date (not
+        // today) so a backdated payment's inter-branch matching is stamped on the payment date.
+        PostDate: jv2.VoucherDate,
         YearMasterSid: ctx.yearMasterSid,
         Narration: `Inter-branch matching for ${jv2.VoucherNumber}`,
         createdBy: ctx.postedBy,
@@ -633,7 +643,8 @@ export class InterBranchService {
         VoucherTypeCode: jv1.voucherTypeMaster?.DocumentTypeCode,
         VoucherTypeMasterSid: jv1.voucherTypeMaster?.VoucherTypeMasterSid,
         VoucherMatchingDate: jv1.VoucherDate,
-        PostDate: new Date(),
+        // Item 11 — the matching ROWS take payload.PostDate as their date; use the payment date (not today).
+        PostDate: jv1.VoucherDate,
         YearMasterSid: ctx.yearMasterSid,
         Narration: `Inter-branch source allocation for ${source.VoucherNumber}`,
         createdBy: ctx.postedBy,
