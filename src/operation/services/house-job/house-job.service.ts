@@ -228,6 +228,42 @@ export class HouseJobService {
         return createdOrUpdatedProxy;
     }
 
+    /**
+     * Splits a commodity description into the part stored on HouseJobCargo
+     * (first 500 chars) and the overflow stored on HouseJobOthers.RiderCommodityDescription
+     * (next 2000 chars). Keeps both columns within their limits and is idempotent.
+     */
+    private splitCommodityDescription(full: string | null | undefined): { head: string; rider: string } {
+        const text = String(full ?? '');
+        if (text.length <= 500) return { head: text, rider: '' };
+        return { head: text.slice(0, 500), rider: text.slice(500, 2500) };
+    }
+
+    /** Full commodity description from the primary (first non-empty) cargo payload. */
+    private getPrimaryCommodityDescription(payload: any): string {
+        const cargos = this.getHouseJobCargoPayloads(payload) || [];
+        for (const cargo of cargos) {
+            const description = String(cargo?.CommodityDescription ?? '');
+            if (description) return description;
+        }
+        return '';
+    }
+
+    /**
+     * Overflow (beyond 500 chars) of the commodity description, to be saved on the
+     * "Other" tab. Derives from the cargo description so it stays in sync; if the
+     * value arrived already split (cargo <=500 plus a rider sent separately) the two
+     * are recombined first so repeated saves are stable.
+     */
+    private getRiderCommodityDescription(payload: any, otherPayload: any): string {
+        const cargoDescription = this.getPrimaryCommodityDescription(payload);
+        const sentRider = String(otherPayload?.RiderCommodityDescription ?? '');
+        const full = (cargoDescription.length <= 500 && sentRider)
+            ? cargoDescription + sentRider
+            : cargoDescription;
+        return this.splitCommodityDescription(full).rider;
+    }
+
     private buildHouseJobCargoData(cargoPayload: any, payload: any, HouseJobSid: number, createdBy: string, updatedBy?: string | null) {
         return {
             HouseJobSid,
@@ -248,7 +284,7 @@ export class HouseJobService {
             ShipmentTerms: cargoPayload?.ShipmentTerms || '',
             FreightTerms: cargoPayload?.FreightTerms || '',
             MovementType: cargoPayload?.MovementType || '',
-            CommodityDescription: cargoPayload?.CommodityDescription || '',
+            CommodityDescription: this.splitCommodityDescription(cargoPayload?.CommodityDescription).head,
             MarksAndNumber: cargoPayload?.MarksAndNumber || '',
             LandedMarksandNumber: cargoPayload?.LandedMarksandNumber || '',
             ModeOfTransport: cargoPayload?.ModeOfTransport || '',
@@ -266,7 +302,9 @@ export class HouseJobService {
             HouseJobSid,
             HouseJobCargoSid,
             ProductName: product?.ProductName || '',
-            ProductDescription: product?.ProductDescription || cargoPayload?.CommodityDescription || '',
+            // ProductDescription column is VarChar(500); cap the fallback commodity
+            // description (which can now be up to 2500 chars) so the insert never overflows.
+            ProductDescription: String(product?.ProductDescription || cargoPayload?.CommodityDescription || '').slice(0, 500),
             ShippingBillNo: product?.ShippingBillNo || '',
             ShippingBillDate: product?.ShippingBillDate ? new Date(product.ShippingBillDate) : null,
             ExternaPkg: product?.ExternaPkg ?? product?.ExternalPkg ?? '',
@@ -870,6 +908,7 @@ export class HouseJobService {
                             Depo: otherPayload.Depo,
                             DONo: otherPayload.DONo || '',
                             DODate: otherPayload.DODate ? new Date(otherPayload.DODate) : null,
+                            RiderCommodityDescription: this.getRiderCommodityDescription(payload, otherPayload),
                             status: 'A',
                             createdBy: payload.createdBy,
                         }
@@ -1636,6 +1675,7 @@ export class HouseJobService {
                         Depo: otherPayload.Depo,
                         DONo: otherPayload.DONo || '',
                         DODate: otherPayload.DODate ? new Date(otherPayload.DODate) : null,
+                        RiderCommodityDescription: this.getRiderCommodityDescription(payload, otherPayload),
                         status: 'A',
                         updatedBy: payload.updatedBy || null,
                         updatedOn: new Date(),
@@ -1699,6 +1739,7 @@ export class HouseJobService {
                         Depo: otherPayload.Depo,
                         DONo: otherPayload.DONo || '',
                         DODate: otherPayload.DODate ? new Date(otherPayload.DODate) : null,
+                        RiderCommodityDescription: this.getRiderCommodityDescription(payload, otherPayload),
                         status: 'A',
                         createdBy: payload.updatedBy || null,
                         HouseJob: {

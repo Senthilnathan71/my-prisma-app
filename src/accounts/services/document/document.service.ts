@@ -760,6 +760,7 @@ export interface BillOfLadingData {
   numberOfPackages: string;
   packageType: string;
   grossWeight: string;
+  netWeight: string;
   measurement: string;
   containerDetails: string;
   containerType: string;
@@ -827,6 +828,7 @@ export class DocumentService {
       numberOfPackages: '',
       packageType: '',
       grossWeight: '',
+      netWeight: '',
       measurement: '',
       containerDetails: '',
       containerType: '',
@@ -861,12 +863,25 @@ export class DocumentService {
     result.numberOfPackages = cargoInfo.numberOfPackages;
     result.packageType = cargoInfo.packageType;
     result.grossWeight = cargoInfo.grossWeight;
+    result.netWeight = this.extractNetWeight(lines);
     result.measurement = cargoInfo.measurement;
 
     const containerInfo = this.extractContainerInfo(cleanText);
     result.containerDetails = containerInfo.details;
     result.consolNumber = containerInfo.consolNumber;
     result.containerType = this.extractContainerType(cleanText);
+
+    // Label-block-then-value-block templates (e.g. eBMS "BILL OF LADING") do not
+    // match the GLS/Trans-Asia layout the generic extractors target. When such a
+    // template is detected, override only the fields it can resolve confidently;
+    // everything else keeps the generic result.
+    const ebms = this.extractEbmsLayout(lines);
+    if (ebms) {
+      for (const key of Object.keys(ebms)) {
+        const value = (ebms as any)[key];
+        if (value) (result as any)[key] = value;
+      }
+    }
 
     result.confidence = this.calculateConfidence(result);
     return result;
@@ -1083,27 +1098,105 @@ export class DocumentService {
     return this.extractWithPatterns(text, [/\b(X-PRESS\s+[A-Z]+\s+\d+[A-Z])\b/i, /\b(NORTHERN\s+PRACTISE\/\d+)\b/i, /\b([A-Z][A-Z\s-]+\/\d+[A-Z]?)\b/i]);
   }
 
+  // Package units recognised in the "number / kinds of packages" column.
+  private static readonly PACKAGE_UNIT =
+    'CARTONS?|PACKAGES?|PALLETS?|CASES?|BOXES?|BAGS?|DRUMS?|ROLLS?|BUNDLES?|PIECES?|PCS|UNITS?|CTNS?';
+
   private extractCargoInfo(lines: string[]): Pick<BillOfLadingData, 'cargoDetails' | 'cargoDescription' | 'marksAndNumbers' | 'numberOfPackages' | 'packageType' | 'grossWeight' | 'measurement'> & { details: string; description: string } {
-    const packageLine = lines.find(line => /\b\d+\s+(CARTONS?|PACKAGES?|PALLETS?)\b/i.test(line)) || '';
-    const packageMatch = packageLine.match(/\b(\d+)\s+(CARTONS?|PACKAGES?|PALLETS?)\b/i);
-    const cargoLine = lines.find(line => /TEXTILE PIECE GOODS|READYMADE GARMENTS|SPARE PARTS|WOVEN|GARMENT|FABRIC|ENGINE PART|TROUSER/i.test(line))
-      || lines.find(line => /PACKAGES?\s+ONLY/i.test(line))
-      || '';
-    const measurement = lines.find(line => /\b\d+(?:\.\d+)?\s*(?:CBM|M3)\b/i.test(line)) || '';
+    const unit = DocumentService.PACKAGE_UNIT;
+
+    // Anchor line: "<count> <unit> ... ONLY" (e.g. "10 PACKAGES ONLY",
+    // "TOTAL 67 CARTONS ONLY", "50 CASES IN 1 PALLET ONLY"). The goods
+    // description block follows this line (after the "(... ONLY)" parenthetical).
+    const packageLineIdx = lines.findIndex(line =>
+      new RegExp(`\\b(?:\\d+|[A-Z]+)\\s+(?:${unit})\\b.*\\bONLY\\b`, 'i').test(line));
+    const packageLine = packageLineIdx >= 0
+      ? lines[packageLineIdx]
+      : (lines.find(line => new RegExp(`\\b\\d+\\s+(?:${unit})\\b`, 'i').test(line)) || '');
+    const packageMatch = packageLine.match(new RegExp(`\\b(\\d+)\\s+(${unit})\\b`, 'i'));
+
+    // Goods description (capped at 2500 chars by extractCargoDescription).
+    const description = this.extractCargoDescription(lines, packageLineIdx);
+
+    // Extract just the measurement token (e.g. "1.369CBM", "41.200 CBM"),
+    // not the whole line it sits on. No trailing \b so a value glued to the next
+    // word (e.g. "41.200 CBMSILVER ASTRA...") is still picked up.
+    const measurement = lines
+      .map(line => {
+        const m = line.match(/(\d+(?:\.\d+)?)\s*(CBM|M3)/i);
+        return m ? `${m[1]} ${m[2].toUpperCase()}` : '';
+      })
+      .find(Boolean) || '';
+
     const grossWeight = this.extractGrossWeight(lines);
     const marksIndex = lines.findIndex(line => /^MARKS/i.test(line));
-    const marksAndNumbers = marksIndex >= 0 ? this.extractNextValue(lines, marksIndex, 4) : '';
+    let marksAndNumbers = marksIndex >= 0 ? this.extractNextValue(lines, marksIndex, 4) : '';
+    // Reject template/label lines (e.g. eBMS "Temp. Control Instructions") so a
+    // non-marks label is never stored as the shipping marks.
+    if (/^(Temp\.?\s*Control|Bill of Lading|Country of Origin|Place of|Port of|Number and Kind|Gross Weight|Measurement|Freight|Destination|Excess Value|No\.?\s*of|As Agent|Said to Contain|Received|Vessel|Notify|Consignee|Shipper)\b/i.test(marksAndNumbers)) {
+      marksAndNumbers = '';
+    }
+
+    let numberOfPackages = packageMatch?.[1] || '';
+    let packageType = packageMatch?.[2]?.toUpperCase() || '';
+    if (!numberOfPackages) {
+      // Layouts (e.g. eBMS HBL) that state the count as "No Of Pkgs: 254".
+      const pkgCount = lines.map(line => line.match(/No\s*Of\s*Pkgs[:\s]*(\d+)/i)?.[1]).find(Boolean);
+      if (pkgCount) numberOfPackages = pkgCount;
+    }
+
     return {
-      details: cargoLine,
-      description: cargoLine,
-      cargoDetails: cargoLine,
-      cargoDescription: cargoLine,
+      details: description,
+      description,
+      cargoDetails: description,
+      cargoDescription: description,
       marksAndNumbers,
-      numberOfPackages: packageMatch?.[1] || '',
-      packageType: packageMatch?.[2]?.toUpperCase() || '',
+      numberOfPackages,
+      packageType,
       grossWeight,
       measurement: measurement.replace(/\s+/g, ' ')
     };
+  }
+
+  /**
+   * Builds the goods description from the lines that follow the package-count
+   * anchor, skipping the "(... ONLY)" parenthetical and dropping reference noise
+   * (HS CODE, invoice / shipping-bill / seal lines, freight & charge clauses).
+   * Falls back to a known goods keyword line, then a standalone "GOODS" line.
+   * The result is capped at 200 characters.
+   */
+  private extractCargoDescription(lines: string[], packageLineIdx: number): string {
+    const noise = /^(HS\s*CODE|INVOICE|INV\.?\s*NO|SHIPPING\s*BILL|SB\.?\s*NO|S\/?BILL|PI\s*NO|C\.?\s*SEAL|A\.?\s*S\.?\s*NO|C\.?\s*S\.?\s*NO|SEAL|CFS|LCL|FCL|FREIGHT|KINDLY\s*RELEASE|BL\s*NO|BATCH|MFG|EXP|CASE\s*NO|CTN|COUNTRY\s*OF\s*ORIGIN|NET\s*(WEIGHT|WT)|GROSS|GR\.?\s*WT|DESTINATION|DDC|DPC|PHC|PREPAID|COLLECT|"?\d*\s*DAYS|CONSIGNEE|CONSIGNER|CONSIGNOR|SHIPPER|SAID\s*TO\s*CONTAIN|SHIPPERS\s*LOAD|MARKS)/i;
+    const stopWeight = /\bKGS?\b|\bCBM\b|\bM3\b|^Net\s*Wt|^Gr\b/i;
+
+    const collected: string[] = [];
+    let inParen = false;
+    if (packageLineIdx >= 0) {
+      for (let i = packageLineIdx + 1; i < lines.length; i++) {
+        const raw = lines[i].trim();
+        if (!raw) continue;
+        if (inParen) { if (/\)/.test(raw)) inParen = false; continue; }
+        if (/^\(/.test(raw)) { if (!/\)/.test(raw)) inParen = true; continue; }
+        if (stopWeight.test(raw) || /^[\d,.\s]+$/.test(raw)) { if (collected.length) break; else continue; }
+        if (noise.test(raw)) { if (collected.length) break; else continue; }
+        collected.push(raw);
+        if (collected.join(' ').length >= 2500) break;
+      }
+    }
+
+    let description = collected.join(' ').replace(/\s+/g, ' ').trim();
+    if (!description) {
+      const keywordLine = lines.find(line => /TEXTILE PIECE GOODS|READYMADE GARMENTS|SPARE PARTS|WOVEN|GARMENT|FABRIC|ENGINE PART|TROUSER/i.test(line));
+      if (keywordLine) description = keywordLine.trim();
+    }
+    if (!description) {
+      const goodsLine = lines.find(line => /^GOODS$/i.test(line.trim()));
+      if (goodsLine) description = 'GOODS';
+    }
+    // Capped at 2500 so long, multi-product goods descriptions survive; House Job
+    // splits the first 500 into CommodityDescription and the rest into
+    // RiderCommodityDescription, while Master Job's column already holds 3000.
+    return description.slice(0, 2500).trim();
   }
 
   private extractGrossWeight(lines: string[]): string {
@@ -1120,10 +1213,32 @@ export class DocumentService {
     return numberIndex >= 0 ? `${lines[numberIndex]} KGS` : '';
   }
 
+  /**
+   * Net weight from the cargo column. Handles "Net Wt. : 20164.000" on one line
+   * and the "Net Wt" label followed by the value on a later line.
+   */
+  private extractNetWeight(lines: string[]): string {
+    const sameLine = lines.find(line => /Net\s*W(?:eigh)?t\.?\s*[:.]?\s*[\d,]+\.\d+/i.test(line));
+    if (sameLine) {
+      const match = sameLine.match(/Net\s*W(?:eigh)?t\.?\s*[:.]?\s*([\d,]+\.\d+)/i);
+      if (match) return `${match[1]} KGS`;
+    }
+    const labelIndex = lines.findIndex(line => /^Net\s*W(?:eigh)?t\.?\s*:?$/i.test(line.trim()));
+    if (labelIndex >= 0) {
+      for (let offset = 1; offset <= 3 && labelIndex + offset < lines.length; offset++) {
+        const match = lines[labelIndex + offset].match(/^([\d,]+\.\d+)$/);
+        if (match) return `${match[1]} KGS`;
+      }
+    }
+    return '';
+  }
+
   private extractContainerInfo(text: string): { details: string; consolNumber: string } {
     return {
       details: text.match(/\b[A-Z]{4}\d{7}\b/)?.[0] || '',
-      consolNumber: text.match(/(?:C\.SEAL|C\.S\.No|SEAL)[:\s]*([A-Z0-9-]+)/i)?.[1] || ''
+      // Require the value to start with a digit so "C/Seal No: 6756" yields ""
+      // (no consol on that BL) instead of capturing the word "No".
+      consolNumber: text.match(/(?:C\.SEAL|C\.S\.No|SEAL)[:\s]*(\d[A-Z0-9-]*)/i)?.[1] || ''
     };
   }
 
@@ -1137,7 +1252,103 @@ export class DocumentService {
     // Match 20/40/45 + ISO type. Allow a preceding letter (e.g. "X40HC", "1X40 HC")
     // but NOT a preceding digit, so it is not picked from a longer number (5405052).
     const match = normalized.match(/(?:^|[^0-9])(20|40|45)\s*(HC|HQ|GP|DC|DV|RF|RH|RE|OT|FR|TK|FL|PW)\b/);
-    return match ? `${match[1]}${match[2]}` : '';
+    if (match) return `${match[1]}${match[2]}`;
+    // Reversed form, type then size (e.g. "DC40", "HC40") used by some templates.
+    const reversed = normalized.match(/\b(HC|HQ|GP|DC|DV|RF|RH|RE|OT|FR|TK|FL|PW)\s*(20|40|45)\b/);
+    return reversed ? `${reversed[2]}${reversed[1]}` : '';
+  }
+
+  /**
+   * Handles the "label block, then value block" Bill of Lading layout (e.g. the
+   * eBMS template) where all field labels are printed first and their values
+   * follow together below. The generic line-after-label extractors cannot read
+   * this layout, so the values are resolved from stable anchors:
+   *  - parties: the company-name lines (ending LTD/LLC/LIMITED) sitting between
+   *    the label block and the first port line — 1st Shipper, 2nd Consignee,
+   *    3rd Notify (the issuing agent block above them has no LTD/LLC and is skipped)
+   *  - B/L number: "MTD BL NO : <no>" / "HBL...<digits>" / line after SAID TO CONTAIN
+   *  - place & date of issue: the "<CITY> / <dd>/<Mon>/<yyyy>" line
+   *  - ports: the NHAVA SHEVA / JEBEL ALI (etc.) value lines
+   *  - vessel: the "<NAME>/<voyage>" value line
+   * Returns null when the template signature is absent so the generic result stands.
+   */
+  private extractEbmsLayout(lines: string[]): Partial<BillOfLadingData> | null {
+    if (!lines.some(line => /Excess Value Declaration/i.test(line))) return null;
+
+    const result: Partial<BillOfLadingData> = {};
+    const joined = lines.join('\n');
+
+    // ---- B/L number ----
+    const blNumber = this.extractWithPatterns(joined, [/MTD\s*BL\s*NO\s*:?\s*([A-Z0-9]+)/i, /\b(HBL[A-Z]*\d{3,})\b/i]);
+    if (blNumber) {
+      result.blNumber = blNumber;
+    } else {
+      const stcIndex = lines.findIndex(line => /^SAID TO CONTAIN$/i.test(line));
+      if (stcIndex >= 0) {
+        const value = lines.slice(stcIndex + 1).find(line => /^[A-Z]{2,}\d{2,}$/i.test(line) && !/^DRAFT$/i.test(line));
+        if (value) result.blNumber = value;
+      }
+    }
+
+    // ---- Place & date of issue: "MUMBAI / 05/Sep/2025" ----
+    const issueLine = lines.find(line => /\/\s*\d{1,2}\/[A-Za-z]{3,}\/\d{4}/.test(line));
+    if (issueLine) {
+      const match = issueLine.match(/([A-Z][A-Za-z ]*?)\s*\/\s*(\d{1,2})\/([A-Za-z]{3,})\/(\d{4})/);
+      if (match) {
+        result.placeOfIssue = match[1].trim().toUpperCase();
+        const month = this.monthToNumber(match[3]);
+        if (month) result.dateOfIssue = `${match[2].padStart(2, '0')}-${month}-${match[4]}`;
+      }
+    }
+
+    // ---- Parties ----
+    const valueStart = lines.findIndex(line => /Excess Value Declaration/i.test(line)) + 1;
+    const portStart = lines.findIndex((line, index) => index >= valueStart && /\b(NHAVA SHEVA|JEBEL ALI|MUNDRA|COLOMBO|KARACHI|CHENNAI|TUTICORIN)\b/i.test(line));
+    const stcIndex = lines.findIndex((line, index) => index >= valueStart && /^SAID TO CONTAIN$/i.test(line));
+    let blockEnd = lines.length;
+    if (portStart > valueStart) blockEnd = portStart;
+    else if (stcIndex > valueStart) blockEnd = stcIndex;
+
+    const isCompanyName = (line: string) => /(PVT\.?\s*LTD|PRIVATE\s+LIMITED|\bLTD\b|\bLIMITED\b|\bLLC\b|\bINC\b)\.?$/i.test(String(line).trim());
+    const nameIndexes: number[] = [];
+    for (let i = valueStart; i < blockEnd; i++) {
+      if (isCompanyName(lines[i])) nameIndexes.push(i);
+    }
+    const buildParty = (position: number): { name: string; address: string } | null => {
+      const index = nameIndexes[position];
+      if (index == null) return null;
+      const end = nameIndexes[position + 1] != null ? nameIndexes[position + 1] : blockEnd;
+      const address = lines.slice(index + 1, end).filter(Boolean).join(', ').replace(/,\s*,/g, ',').replace(/\s+/g, ' ').trim();
+      return { name: lines[index].trim(), address };
+    };
+    const shipper = buildParty(0);
+    const consignee = buildParty(1);
+    const notify = buildParty(2);
+    if (shipper) { result.shipper = shipper.name; result.shipperAddress = shipper.address; }
+    if (consignee) { result.consignee = consignee.name; result.consigneeAddress = consignee.address; }
+    if (notify) { result.notifyParty = notify.name; result.notifyPartyAddress = notify.address; }
+
+    // ---- Ports ----
+    if (portStart >= 0) {
+      const portOfLoading = this.normalizePortValue(lines[portStart]);
+      const dischargeLine = lines.slice(portStart).find(line => /JEBEL ALI|MUNDRA|COLOMBO|KARACHI|DUBAI/i.test(line));
+      const portOfDischarge = dischargeLine ? this.normalizePortValue(dischargeLine) : '';
+      if (portOfLoading) { result.portOfLoading = portOfLoading; result.placeOfReceipt = portOfLoading; }
+      if (portOfDischarge) { result.portOfDischarge = portOfDischarge; result.placeOfDelivery = portOfDischarge; }
+    }
+
+    // ---- Vessel / Voyage: "<NAME>/<voyage>" (not a port, party or country line) ----
+    const vesselLine = lines.slice(valueStart, stcIndex >= 0 ? stcIndex : lines.length)
+      .find(line => /^[A-Z][A-Za-z0-9 .'\-]*\/\s*\d{1,4}$/.test(line.trim()) && !/INDIA|EMIRATES|NHAVA|JEBEL|PVT|LTD/i.test(line));
+    if (vesselLine) result.vesselVoyage = vesselLine.trim();
+
+    return result;
+  }
+
+  private monthToNumber(name: string): string {
+    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const index = months.indexOf(String(name || '').slice(0, 3).toLowerCase());
+    return index >= 0 ? String(index + 1).padStart(2, '0') : '';
   }
 
   private cleanDuplicatedValue(value: string): string {
