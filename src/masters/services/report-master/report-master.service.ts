@@ -54,6 +54,7 @@ export class ReportMasterService {
     DropDownValue: dropDownValue,
     ValidationRules: validationRules,
     ParameterQuery: detail?.ParameterQuery?.trim() || null,
+    DependsOnParameter: detail?.DependsOnParameter?.trim() || null,
   };
 }
 
@@ -79,6 +80,7 @@ private parseDropDownValue(raw: any): any {
         detail.DropDownValue || '',
         detail.ValidationRules || '',
         detail.ParameterQuery || '',
+        detail.DependsOnParameter || '',
       ].join('|');
 
       if (seen.has(key)) {
@@ -115,6 +117,7 @@ private parseDropDownValue(raw: any): any {
         DropDownValue: detail.DropDownValue,
         ValidationRules: detail.ValidationRules,
         ParameterQuery: detail.ParameterQuery,
+        DependsOnParameter: detail.DependsOnParameter,
       };
 
       if (detail.ReportMasterDetailSid && existingById.has(detail.ReportMasterDetailSid)) {
@@ -137,7 +140,8 @@ private parseDropDownValue(raw: any): any {
         && existingDetail.ParameterFieldType === detail.ParameterFieldType
         && (existingDetail.DropDownValue || null) === detail.DropDownValue
         && (existingDetail.ValidationRules || null) === detail.ValidationRules
-        && (existingDetail.ParameterQuery || null) === detail.ParameterQuery,
+        && (existingDetail.ParameterQuery || null) === detail.ParameterQuery
+        && (existingDetail.DependsOnParameter || null) === detail.DependsOnParameter,
       );
 
       if (alreadyExisting) {
@@ -447,6 +451,7 @@ private parseDropDownValue(raw: any): any {
           DropDownValue: this.parseDropDownValue(parameterData.DropDownValue),
           ValidationRules: this.parseDropDownValue(parameterData.ValidationRules),
           ParameterQuery: parameterData.ParameterQuery,
+          DependsOnParameter: parameterData.DependsOnParameter,
           ReportMasterSid: reportId
         }
       });
@@ -478,6 +483,7 @@ private parseDropDownValue(raw: any): any {
           DropDownValue: this.parseDropDownValue(parameterData.DropDownValue),
           ValidationRules: this.parseDropDownValue(parameterData.ValidationRules),
           ParameterQuery: parameterData.ParameterQuery,
+          DependsOnParameter: parameterData.DependsOnParameter,
         }
       });
 
