@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ApprovalStatus, Prisma, PrismaClient } from '@prisma/client';
 import { OutstandingReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
@@ -134,6 +134,7 @@ export class CreditRequestService {
       private globalConfigService: GlobalConfigService,
       private companyConfigService: CompanyConfigService,
       private outstandingService: OutstandingService,
+      @Inject(forwardRef(() => AccountsReportsService))
       private accountsReportsService: AccountsReportsService,
     ) { }
 
@@ -810,7 +811,7 @@ export class CreditRequestService {
     CurrentDate?: Date;
   }): Promise<any> {
     const result = await this._db.$transaction(async (prisma) => {
-      const baseDate = new Date((payload as any).current_date || payload.CurrentDate || new Date());
+      const baseDate = new Date(payload.VoucherDate || (payload as any).current_date || payload.CurrentDate || new Date());
       const customerMaster = await prisma.customerMaster.findUnique({
         where: { CustomerMasterSid: payload.CustomerMasterSid },
         select: { CashCredit: true },
@@ -2089,5 +2090,6 @@ export class CreditRequestService {
 }
 
 }
+
 
 
