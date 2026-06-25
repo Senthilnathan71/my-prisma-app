@@ -765,6 +765,7 @@ export interface BillOfLadingData {
   containerDetails: string;
   containerType: string;
   consolNumber: string;
+  sealNumber: string;
   confidence: number;
   extractedText?: string;
 }
@@ -833,8 +834,11 @@ export class DocumentService {
       containerDetails: '',
       containerType: '',
       consolNumber: '',
+      sealNumber: '',
       confidence: 0,
-      extractedText: cleanText.substring(0, 500) + '...'
+      // Carry enough text for the client to re-scan for fields not surfaced as
+      // dedicated columns (e.g. the container seal in the cargo/container block).
+      extractedText: cleanText.substring(0, 8000)
     };
 
     const shipperInfo = this.extractShipperInfo(lines);
@@ -869,7 +873,9 @@ export class DocumentService {
     const containerInfo = this.extractContainerInfo(cleanText);
     result.containerDetails = containerInfo.details;
     result.consolNumber = containerInfo.consolNumber;
+    result.sealNumber = this.extractSealNumber(cleanText);
     result.containerType = this.extractContainerType(cleanText);
+    this.logger.log(`Extracted Seal Number: ${result.sealNumber || '(none)'}`);
 
     // Label-block-then-value-block templates (e.g. eBMS "BILL OF LADING") do not
     // match the GLS/Trans-Asia layout the generic extractors target. When such a
@@ -934,17 +940,25 @@ export class DocumentService {
 
   private extractPlaceOfIssue(lines: string[], text: string): string {
     const cityPattern = /\b(MUMBAI|DUBAI|CHENNAI|SINGAPORE|NHAVA SHEVA|JEBEL ALI|COLOMBO|KARACHI)\b/i;
+    // The "Place and Date of Issue" value is "<CITY> <DATE>" (e.g. "MUMBAI 20/04/2022").
+    // Matching the city that sits immediately before the issue date avoids picking a
+    // city from a nearby Delivery Agent address ("... - JEBEL ALI") in the same block.
+    const cityBeforeDate = /\b(MUMBAI|DUBAI|CHENNAI|SINGAPORE|NHAVA SHEVA|JEBEL ALI|COLOMBO|KARACHI)\b[\s,]*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/i;
 
-    // 1) Near a "Place of Issue" / "Place and Date of Issue" label.
+    // 1) Near a "Place of Issue" / "Place and Date of Issue" label: the city before the date.
     const labelIndex = lines.findIndex(line => /Place\s*(and\s*Date\s*)?of\s*Issue/i.test(line));
     if (labelIndex >= 0) {
       for (let index = Math.max(0, labelIndex - 3); index <= Math.min(lines.length - 1, labelIndex + 15); index++) {
-        const match = lines[index].match(cityPattern);
+        const match = lines[index].match(cityBeforeDate);
         if (match) return match[1].toUpperCase();
       }
     }
 
-    // 2) Near a "Freight Paid at" label (the issue city sits in the same table row).
+    // 2) Anywhere in the document: a recognised city immediately before a date.
+    const anyCityBeforeDate = text.match(cityBeforeDate);
+    if (anyCityBeforeDate) return anyCityBeforeDate[1].toUpperCase();
+
+    // 3) Near a "Freight Paid at" label (the issue city sits in the same table row).
     const freightPaidIndex = lines.findIndex(line => /Freight\s*Paid\s*at/i.test(line));
     if (freightPaidIndex >= 0) {
       for (let index = freightPaidIndex; index <= Math.min(lines.length - 1, freightPaidIndex + 8); index++) {
@@ -953,7 +967,7 @@ export class DocumentService {
       }
     }
 
-    // 3) Fallback: first recognised issue city anywhere in the document.
+    // 4) Fallback: first recognised issue city anywhere in the document.
     const anyCity = text.match(cityPattern);
     return anyCity ? anyCity[1].toUpperCase() : '';
   }
@@ -1240,6 +1254,40 @@ export class DocumentService {
       // (no consol on that BL) instead of capturing the word "No".
       consolNumber: text.match(/(?:C\.SEAL|C\.S\.No|SEAL)[:\s]*(\d[A-Z0-9-]*)/i)?.[1] || ''
     };
+  }
+
+  /**
+   * Extracts the container line/carrier seal number for the Master Job container.
+   * Handles the labeled forms ("Seal No: 698274", "A.S.No: 698274", "Line Seal")
+   * and the container-table layout ("TLXU5405052 40HC 698274", where the seal is
+   * the token right after the container type).
+   */
+  private extractSealNumber(text: string): string {
+    // Normalise quotes/backticks to spaces so "40`HC" / "40'HC" become "40 HC",
+    // and uppercase so the patterns below can drop the case-insensitive flag.
+    const normalized = text.toUpperCase().replace(/[`'’"]/g, ' ');
+
+    // 1) Labeled seal number (line / carrier / agent seal). Must contain a digit.
+    // Handles "Seal No", "SealNo", "Line Seal", "Carrier Seal", "A.S.No"/"A S No".
+    const labeled = normalized.match(
+      /(?:LINE\s*SEAL\s*(?:NO\.?)?|CARRIER\s*SEAL|AGENT\s*SEAL|A\.?\s*S\.?\s*NO|SEAL\s*NO\.?|SEALNO)\s*[:.\s]*([A-Z]{0,4}\d{4,}[A-Z0-9-]*)/
+    );
+    if (labeled?.[1]) {
+      return labeled[1];
+    }
+
+    // 2) Container-table layout: container number + ISO type, then the seal token
+    // (e.g. "TLXU5405052 40HC 698274"). Require 4+ digits so the package count
+    // ("308 PACKAGES") is not mistaken for a seal. Separators may be "/", spaces
+    // or newlines (\s already matches \n after cleanText).
+    const table = normalized.match(
+      /[A-Z]{4}\d{7}[\s\/]*(?:1\s*X\s*)?(?:20|40|45)\s*(?:HC|HQ|GP|DC|DV|RF|RH|RE|OT|FR|TK|FL|PW)\s+([A-Z]{0,4}\d{4,}[A-Z0-9-]*)/
+    );
+    if (table?.[1]) {
+      return table[1];
+    }
+
+    return '';
   }
 
   /**
