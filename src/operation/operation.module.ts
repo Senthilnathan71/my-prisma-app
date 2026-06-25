@@ -140,6 +140,8 @@ import { MenuUserConfigService } from 'src/settings/services/menu-user-config/me
 		AuditLogController,
 		TrackingController
 	],
-	exports: [ProRateService]
+	exports: [ProRateService, CreditRequestService]
 })
 export class OperationModule { }
+
+

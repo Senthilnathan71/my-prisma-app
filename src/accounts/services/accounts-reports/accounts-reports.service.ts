@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, Post } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, Logger, NotFoundException, Post } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma } from '@prisma/client';
 import { AgeingReportQueryDto, BalanceSheetReportQueryDto, LedgerReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TopNCustomerReportQueryDto, TrialBalanceReportQueryDto, UnpostedVoucherListReportQueryDto, VATReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
@@ -11,6 +11,7 @@ import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { error } from 'console';
 import { ProRateService } from 'src/operation/services/pro-rate/pro-rate.service';
 import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
+import { CreditRequestService } from 'src/operation/services/credit-request/credit-request.service';
 // -------------------------
 // Helper types (local)
 // -------------------------
@@ -49,6 +50,8 @@ export class AccountsReportsService {
     private logger: Logger,
     private readonly proRateService: ProRateService,
     private readonly voucherService: VoucherService,
+    @Inject(forwardRef(() => CreditRequestService))
+    private readonly creditRequestService: CreditRequestService,
   ) {}
 
   async getAvailableReports(CompanyMasterSid: number) {
@@ -2068,7 +2071,7 @@ export class AccountsReportsService {
 
     try {
       this.logger.log(
-        `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
+        `Getting statement of accounts: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
       );
 
       const branches =
@@ -2113,12 +2116,14 @@ export class AccountsReportsService {
         select : {
           CustomerAddress1 : true,
           CustomerAddress2 : true,
+          CashCredit:true,
           CustomerBranch:{
             where:{
               status : 'A'
             },
             select : {
-              ContactNo : true
+              CustomerBranchSid: true,
+              ContactNo : true,
             }
           }
         }
@@ -2238,6 +2243,11 @@ export class AccountsReportsService {
       let totalOutstandingCurrency = 0;
       let totalOutstandingLocal = 0;
       let cumulativeTotal = openingBalance;
+      let totalCurrentAmount = 0;
+      let totalOverdueAmount = 0;
+      let reportCreditDays = 0;
+      let reportDueDate: Date | null = null;
+      const dueDateCache = new Map<string, { creditDays: number; dueDate: Date } | null>();
       for (const vt of voucherTransactions) {
         const originalCurrencyAmount = toNumber(vt.Amount);
         const originalLocalAmount = toNumber(vt.LocalAmount);
@@ -2297,6 +2307,58 @@ export class AccountsReportsService {
           originalCurrencyAmount !== 0
             ? roundAmount(originalLocalAmount / originalCurrencyAmount, 4)
             : 1.0;
+        const voucherDate = new Date(vt.VoucherDate);
+        const reportToDate = new Date(ToDate);
+
+        const ageingDays =
+          Math.floor(
+            (reportToDate.getTime() - voucherDate.getTime()) /
+              (1000 * 60 * 60 * 24),
+          ) + 1;
+
+        const customerBranchSid =
+          vt.houseJob?.CustomerBranchSid ??
+          customer?.CustomerBranch?.[0]?.CustomerBranchSid ??
+          null;
+        const departmentMasterSid =
+          (vt as any).DepartmentMasterSid ??
+          vt.houseJob?.DepartmentMasterSid ??
+          vt.masterJob?.DepartmentMasterSid ??
+          null;
+        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${departmentMasterSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}`;
+
+        if (!dueDateCache.has(dueDateCacheKey)) {
+          try {
+            dueDateCache.set(
+              dueDateCacheKey,
+              await this.creditRequestService.getDueDate({
+                CompanyMasterSid,
+                CustomerMasterSid: subledger.SubledgerMappingSid,
+                CustomerBranchSid: customerBranchSid,
+                DepartmentMasterSid: departmentMasterSid,
+                VoucherDate: voucherDate,
+                CurrentDate: voucherDate,
+              }),
+            );
+          } catch {
+            dueDateCache.set(dueDateCacheKey, null);
+          }
+        }
+
+        const dueDateInfo = dueDateCache.get(dueDateCacheKey) || null;
+        if (!reportCreditDays && dueDateInfo?.creditDays) {
+          reportCreditDays = Number(dueDateInfo.creditDays || 0);
+        }
+        if (!reportDueDate && dueDateInfo?.dueDate) {
+          reportDueDate = dueDateInfo.dueDate;
+        }
+
+        const creditDays = Number(dueDateInfo?.creditDays || 0);
+        const overdueDays = ageingDays > creditDays ? ageingDays - creditDays : 0;
+        const overdueAmount = overdueDays > 0 ? toNumber(signedLocalAmt) : 0;
+        const currentAmount = overdueDays > 0 ? 0 : toNumber(signedLocalAmt);
+        totalOverdueAmount += overdueAmount;
+        totalCurrentAmount += currentAmount;
 
         // Only include if there's outstanding balance
         // if (Math.abs(outstandingCurrencyAmount) > 0 || Math.abs(outstandingLocalAmount) > 0) {
@@ -2312,6 +2374,9 @@ export class AccountsReportsService {
           MasterJobNumber: vt.masterJob?.MasterJobNumber,
           HouseJobNumber: vt.houseJob?.HBLNo,
           voucherType: vt.voucherTypeMaster?.DocumentTypeCode,
+          ageingDays: ageingDays,
+          creditDays: creditDays,
+          dueDate: dueDateInfo?.dueDate || null,
           originalCurrencyAmount: toNumber(originalCurrencyAmount),
           originalLocalAmount: toNumber(originalLocalAmount),
           matchedCurrencyAmount: toNumber(matchedCurrencyAmount),
@@ -2350,10 +2415,15 @@ export class AccountsReportsService {
         branchMasterSid: branchId,
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
+        creditOrCash : customer?.CashCredit,
         ledgerName: ledger?.LedgerName,
         ledgerType: ledger?.LedgerType,
         customerAddress : customer?.CustomerAddress1 || customer?.CustomerAddress2 || '',
         contactNo : customer?.CustomerBranch?.[0]?.ContactNo || '',
+        creditDays: reportCreditDays,
+        dueDate: reportDueDate,
+        totalCurrentAmount: roundAmount(totalCurrentAmount, 2),
+        totalOverdueAmount: roundAmount(totalOverdueAmount, 2),
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
         totalOutstandingLocal: roundAmount(totalOutstandingLocal, 2),
         openingBalance: openingBalance,
@@ -2365,13 +2435,13 @@ export class AccountsReportsService {
       };
 
       this.logger.log(
-        `Customer outstanding calculated: ${transactions.length} transactions, Total=${response.totalOutstandingLocal}`,
+        `Statement of Accounts: ${transactions.length} transactions, Total=${response.totalOutstandingLocal}`,
       );
 
       return response;
     } catch (error) {
       this.logger.error(
-        `Error getting customer outstanding for ${ledgerMasterSid}: ${error.message}`,
+        `Error getting Statement of Accounts for ${ledgerMasterSid}: ${error.message}`,
         error.stack,
       );
       throw error;
@@ -2971,7 +3041,7 @@ export class AccountsReportsService {
       const transactions: any[] = [];
       let totalOutstandingCurrency = 0;
       let totalOutstandingLocal = 0;
-      let cumulativeTotal = openingBalance;
+      let cumulativeTotal = openingBalance;   
       for (const vt of voucherTransactions) {
         const originalCurrencyAmount = toNumber(vt.Amount);
         let originalLocalAmount = toNumber(vt.LocalAmount);
@@ -8486,4 +8556,11 @@ export class AccountsReportsService {
     }
   }
 }
+
+
+
+
+
+
+
 
