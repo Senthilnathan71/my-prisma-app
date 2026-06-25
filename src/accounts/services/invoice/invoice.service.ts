@@ -62,7 +62,13 @@ export class InvoiceService {
    */
   async deleteInvoiceDetail(
     voucherDetailSid: number,
-    payload: { CompanyMasterSid: number; BranchMasterSid: number; UpdatedBy: string },
+    payload: {
+      CompanyMasterSid: number;
+      BranchMasterSid: number;
+      UpdatedBy: string;
+      Amount?: number;
+      LocalAmount?: number;
+    },
   ) {
     return this._db.$transaction(async (prisma) => {
       const detail = await prisma.voucherDetail.findUnique({
@@ -120,6 +126,21 @@ export class InvoiceService {
             RevenueVoucherTypeMasterSid: null,
             UpdatedOn: new Date(),
             UpdatedBy: payload.UpdatedBy,
+          },
+        });
+      }
+
+      // 3) keep the parent header total in sync with the surviving lines. The frontend computes
+      //    Amount (party ccy) + LocalAmount (local ccy) over the remaining rows using the same
+      //    formula as Save and sends them here, so the header doesn't go stale after a line delete.
+      if (payload.Amount !== undefined || payload.LocalAmount !== undefined) {
+        await prisma.voucherHeader.update({
+          where: { VoucherHeaderSid: detail.VoucherHeaderSid },
+          data: {
+            ...(payload.Amount !== undefined ? { Amount: toNumber(payload.Amount) } : {}),
+            ...(payload.LocalAmount !== undefined ? { LocalAmount: toNumber(payload.LocalAmount) } : {}),
+            UpdatedBy: payload.UpdatedBy,
+            UpdatedOn: new Date(),
           },
         });
       }
