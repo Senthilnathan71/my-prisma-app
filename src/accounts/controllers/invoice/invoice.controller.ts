@@ -248,7 +248,13 @@ export class InvoiceController {
   @Patch('detail/delete/:voucherDetailSid')
   async deleteInvoiceDetail(
     @Param('voucherDetailSid', ParseIntPipe) voucherDetailSid: number,
-    @Body() payload: { CompanyMasterSid: number; BranchMasterSid: number; UpdatedBy: string },
+    @Body() payload: {
+      CompanyMasterSid: number;
+      BranchMasterSid: number;
+      UpdatedBy: string;
+      Amount?: number;
+      LocalAmount?: number;
+    },
   ) {
     const output = new ResponseData();
     try {
