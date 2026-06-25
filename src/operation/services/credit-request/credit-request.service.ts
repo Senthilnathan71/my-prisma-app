@@ -811,7 +811,7 @@ export class CreditRequestService {
     CurrentDate?: Date;
   }): Promise<any> {
     const result = await this._db.$transaction(async (prisma) => {
-      const baseDate = new Date((payload as any).current_date || payload.CurrentDate || new Date());
+      const baseDate = new Date(payload.VoucherDate || (payload as any).current_date || payload.CurrentDate || new Date());
       const customerMaster = await prisma.customerMaster.findUnique({
         where: { CustomerMasterSid: payload.CustomerMasterSid },
         select: { CashCredit: true },

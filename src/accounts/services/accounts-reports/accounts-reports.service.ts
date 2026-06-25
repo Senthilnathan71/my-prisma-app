@@ -2336,8 +2336,8 @@ export class AccountsReportsService {
                 CustomerMasterSid: subledger.SubledgerMappingSid,
                 CustomerBranchSid: customerBranchSid,
                 DepartmentMasterSid: departmentMasterSid,
-                VoucherDate: voucherDate,
-                CurrentDate: voucherDate,
+                VoucherDate: reportToDate,
+                CurrentDate: reportToDate,
               }),
             );
           } catch {
@@ -2420,7 +2420,7 @@ export class AccountsReportsService {
         ledgerType: ledger?.LedgerType,
         customerAddress : customer?.CustomerAddress1 || customer?.CustomerAddress2 || '',
         contactNo : customer?.CustomerBranch?.[0]?.ContactNo || '',
-        creditDays: reportCreditDays,
+        creditDays: customer?.CashCredit === 'Cash' ? 'Cash' : reportCreditDays,
         dueDate: reportDueDate,
         totalCurrentAmount: roundAmount(totalCurrentAmount, 2),
         totalOverdueAmount: roundAmount(totalOverdueAmount, 2),
@@ -8556,6 +8556,8 @@ export class AccountsReportsService {
     }
   }
 }
+
+
 
 
 
