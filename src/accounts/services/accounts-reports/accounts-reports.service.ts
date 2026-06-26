@@ -1433,6 +1433,31 @@ export class AccountsReportsService {
         where: { SubledgerMasterSid: ledgerMasterSid },
       });
 
+       if(!subledger) {
+        throw new Error(`Subledger-${ledgerMasterSid} not found`);
+      }
+
+      if(!subledger.SubledgerMappingSid) {
+        throw new Error(`No customer found for Subledger-${ledgerMasterSid}`);
+      }
+
+      const customer = await this._db.customerMaster.findUnique({
+        where: { CustomerMasterSid: subledger?.SubledgerMappingSid  },
+        select:{
+          CustomerAddress1:true,
+          CustomerAddress2:true,
+          PanType:true,
+          countryMaster:{
+            where:{
+              status:'A'
+            },
+            select:{
+              countryCode:true
+            }
+          }
+        },
+      });
+
       const ledger = await this._db.cOAMaster.findUnique({
         where: { COAMasterSid: coaMasterSid },
       });
@@ -1485,6 +1510,9 @@ export class AccountsReportsService {
         return {
           companyMasterSid: CompanyMasterSid,
           BranchMasterSid: branchId,
+          Address: customer?.CustomerAddress1 ||  '',
+          PanType: customer?.PanType || '',
+          countryCode: customer?.countryMaster?.countryCode || '',
           branchNames: resolvedBranchNames.join(', '),
           ledgerMasterSid: ledgerMasterSid,
           subledgerName: subledger?.SubledgerName,
@@ -1705,6 +1733,9 @@ export class AccountsReportsService {
         brancesInvoled,
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
+        Address: customer?.CustomerAddress1 ||  '',
+        PanType: customer?.PanType || '',
+        countryCode: customer?.countryMaster?.countryCode || '',
         ledgerName: ledger?.LedgerName,
         ledgerType: ledger?.LedgerType,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
@@ -2117,6 +2148,7 @@ export class AccountsReportsService {
           CustomerAddress1 : true,
           CustomerAddress2 : true,
           CashCredit:true,
+          PanType:true,
           CustomerBranch:{
             where:{
               status : 'A'
@@ -2124,6 +2156,14 @@ export class AccountsReportsService {
             select : {
               CustomerBranchSid: true,
               ContactNo : true,
+            }
+          },
+          countryMaster:{
+            where:{
+              status : 'A'
+            },
+            select:{
+              countryCode : true,
             }
           }
         }
@@ -2224,6 +2264,8 @@ export class AccountsReportsService {
           branchMasterSid: branchId,
           ledgerMasterSid: ledgerMasterSid,
           COAMasterSid: coaMasterSid,
+          countryCode : customer?.countryMaster?.countryCode,
+          Vatno : customer?.PanType,
           subledgerName: subledger?.SubledgerName,
           ledgerName: ledger?.LedgerName,
           ledgerType: ledger?.LedgerType,
@@ -2416,11 +2458,13 @@ export class AccountsReportsService {
         ledgerMasterSid: ledgerMasterSid!,
         subledgerName: subledger?.SubledgerName,
         creditOrCash : customer?.CashCredit,
+        countryCode : customer?.countryMaster?.countryCode,
+        Vatno: customer?.PanType,
         ledgerName: ledger?.LedgerName,
         ledgerType: ledger?.LedgerType,
         customerAddress : customer?.CustomerAddress1 || customer?.CustomerAddress2 || '',
         contactNo : customer?.CustomerBranch?.[0]?.ContactNo || '',
-        creditDays: customer?.CashCredit === 'Cash' ? 'Cash' : reportCreditDays,
+        creditDays: customer?.CashCredit === 'Cash' || reportCreditDays === 0 ? 'Cash' : reportCreditDays,
         dueDate: reportDueDate,
         totalCurrentAmount: roundAmount(totalCurrentAmount, 2),
         totalOverdueAmount: roundAmount(totalOverdueAmount, 2),
