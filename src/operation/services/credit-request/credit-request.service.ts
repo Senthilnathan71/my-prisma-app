@@ -172,15 +172,34 @@ export class CreditRequestService {
                         select: {
                             countryName: true,
                         }
-                    }
+                    },
+                    // Pull only the latest (effective) credit request detail per customer.
+                    customerCreditRequest: {
+                        orderBy: [
+                            { EffectiveFrom: 'desc' },
+                            { CustomerCreditRequestSid: 'desc' },
+                        ],
+                        take: 1,
+                        select: {
+                            Status: true,
+                            ApprovalStatus: true,
+                        },
+                    },
                 }
             }),
             this._db.customerMaster.count({ where }),
         ])
-        const enrichedItems = items.map((item) => ({
-    ...item,
-    CountryName: item.countryMaster?.countryName || null,
-  }));
+        const enrichedItems = items.map((item) => {
+            const latestCreditRequest = item.customerCreditRequest?.[0] || null;
+            return {
+                ...item,
+                CountryName: item.countryMaster?.countryName || null,
+                Status: latestCreditRequest
+                    ? (latestCreditRequest.Status === 'A' ? 'Active' : 'Inactive')
+                    : null,
+                ApprovalStatus: latestCreditRequest?.ApprovalStatus || null,
+            };
+        });
 
         return {items: enrichedItems, totalCount};
     }
