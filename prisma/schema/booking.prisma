@@ -344,6 +344,7 @@ model BookingCro {
   NoteToYard           String?       @db.VarChar(200)
   NoteToShipper        String?       @db.VarChar(200)
   ContainerReleaseDate DateTime?     @db.Date
+  EmptySurveyDate       DateTime?     @db.Date
   BookingHeader        BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   BranchMaster         BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster        CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])

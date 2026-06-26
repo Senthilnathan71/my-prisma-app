@@ -2075,6 +2075,7 @@ model MilestoneMaster {
   updatedBy           String?             @db.VarChar(100)
   status              String?             @default("A") @db.Char(1)
   Remarks             String?             @db.VarChar(500)
+  IsCustomerSpecific  String              @default("N") @db.Char(1)
   DepartmentMasterSid String[]
   CustomerMilestone   CustomerMilestone[]
   branchMaster        BranchMaster?       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
@@ -3149,6 +3150,7 @@ model HouseJobOthers {
   PlaceOfSupply             String?     @db.VarChar(100)
   ResourcePerson            Int?
   RiderCommodityDescription String?     @db.VarChar(2000)
+  ClearanceDate             DateTime?   @db.Date
   HouseJob                  HouseJob    @relation(fields: [HouseJobSid], references: [HouseJobSid])
   resourceUser              UserMaster? @relation(fields: [ResourcePerson], references: [UserMasterSid])
 }

@@ -19,6 +19,7 @@ model ReportMaster {
   /// Array of company IDs that should not see this report
   Orientation           String               @default("P") @db.Char(1) // P = Portrait, L = Landscape
   ReportExcludedCompany Json?
+  Notes                 String?              @db.VarChar(5000)
   menuMaster            MenuMaster           @relation(fields: [ReportMenuSid], references: [MenuMasterSid])
   ReportMasterDetail    ReportMasterDetail[]
   reportSchedules       ReportSchedule[]
