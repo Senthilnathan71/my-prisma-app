@@ -69,6 +69,7 @@ export class ActivityAllocationController {
       mode?: string;
       page?: number;
       limit?: number;
+      search?: string;
       companyId?: number;
       branchId?: number;
     },
@@ -110,6 +111,7 @@ export class ActivityAllocationController {
         branchMasterSid,
         pageNum,
         limitNum,
+        body.search?.trim() || '',
       );
 
       this.logger.log('✅ [Controller] Service returned:', {
