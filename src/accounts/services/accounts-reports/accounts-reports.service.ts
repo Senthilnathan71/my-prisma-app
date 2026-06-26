@@ -2336,8 +2336,8 @@ export class AccountsReportsService {
                 CustomerMasterSid: subledger.SubledgerMappingSid,
                 CustomerBranchSid: customerBranchSid,
                 DepartmentMasterSid: departmentMasterSid,
-                VoucherDate: reportToDate,
-                CurrentDate: reportToDate,
+                VoucherDate: voucherDate,
+                CurrentDate: voucherDate,
               }),
             );
           } catch {
