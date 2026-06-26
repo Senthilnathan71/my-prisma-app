@@ -20,6 +20,7 @@ export class CreateServiceJobDto {
     HBLNo?: string;
     HBLDate?: Date;
     ShipmentNo?: string;
+    SalesmanSid?: number;
     JobType?: string;
     VesselName?: string;
     VoyageNo?: string;
@@ -66,6 +67,7 @@ export class UpdateServiceJobDto {
     HBLNo?: string;
     HBLDate?: Date;
     ShipmentNo?: string;
+    SalesmanSid?: number;
     VesselName?: string;
     VoyageNo?: string;
     ETD?: Date;
@@ -254,6 +256,7 @@ export class ServiceJobService {
                     BranchMasterSid: mainPayload.BranchMasterSid,
                     DepartmentMasterSid: mainPayload.DepartmentMasterSid,
                     ShipmentNo: serviceJobRefNo,
+                    SalesmanSid: mainPayload.SalesmanSid ?? null,
                     CustomerMasterSid: mainPayload.CustomerMasterSid,
                     CustomerBranchSid: mainPayload.CustomerBranchSid || null,
                     CustomerName: mainPayload.CustomerName,
@@ -582,6 +585,7 @@ export class ServiceJobService {
 
             const houseJobUpdateData: any = {
                 CustomerMasterSid: mainPayload.CustomerMasterSid,
+                SalesmanSid: mainPayload.SalesmanSid ?? null,
                 CustomerBranchSid: mainPayload.CustomerBranchSid || null,
                 CustomerName: mainPayload.CustomerName,
                 CustomerAddress: mainPayload.CustomerAddress,
