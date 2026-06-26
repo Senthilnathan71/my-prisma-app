@@ -463,6 +463,7 @@ export class ActivityAllocationService {
     branchMasterSid?: number,
     page: number = 1,
     limit: number = 100,
+    search: string = '',
   ): Promise<WorkloadDetailResponse> {
     if (!companyMasterSid) {
       throw new BadRequestException('companyMasterSid is required');
@@ -496,6 +497,7 @@ export class ActivityAllocationService {
         branchMasterSid,
         safePage,
         safeLimit,
+        search?.trim() || '',
       );
       data = result.data;
       total = result.total;
@@ -550,6 +552,7 @@ export class ActivityAllocationService {
     branchMasterSid?: number,
     page: number = 1,
     limit: number = 50,
+    search: string = '',
   ): Promise<{ data: WorkloadRow[]; total: number }> {
     const where: any = {
       CompanyMasterSid: companyMasterSid,
@@ -560,6 +563,12 @@ export class ActivityAllocationService {
     if (branchMasterSid) where.BranchMasterSid = branchMasterSid;
     if (mode === 'Pending') where.QuoteHeaderSid = null;
     else if (mode === 'Processed') where.QuoteHeaderSid = { not: null };
+    if (search) {
+      where.OR = [
+        { EnquiryNumber: { contains: search, mode: 'insensitive' } },
+        { CustomerName: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const skip = (page - 1) * limit;
 
@@ -608,6 +617,7 @@ export class ActivityAllocationService {
     branchMasterSid?: number,
     page: number = 1,
     limit: number = 50,
+    search: string = '',
   ): Promise<{ data: WorkloadRow[]; total: number }> {
     const where: any = {
       CompanyMasterSid: companyMasterSid,
@@ -618,6 +628,13 @@ export class ActivityAllocationService {
     if (branchMasterSid) where.BranchMasterSid = branchMasterSid;
     if (mode === 'Pending') where.BookingHeaderSid = null;
     else if (mode === 'Processed') where.BookingHeaderSid = { not: null };
+    if (search) {
+      where.OR = [
+        { QuoteNumber: { contains: search, mode: 'insensitive' } },
+        { CustomerName: { contains: search, mode: 'insensitive' } },
+        { bookingHeader: { is: { BookingNo: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
 
     const skip = (page - 1) * limit;
 
@@ -669,6 +686,7 @@ export class ActivityAllocationService {
     branchMasterSid?: number,
     page: number = 1,
     limit: number = 50,
+    search: string = '',
   ): Promise<{ data: WorkloadRow[]; total: number }> {
     const where: any = {
       CompanyMasterSid: companyMasterSid,
@@ -679,6 +697,13 @@ export class ActivityAllocationService {
     if (branchMasterSid) where.BranchMasterSid = branchMasterSid;
     if (mode === 'Pending') where.MasterNoSid = null;
     else if (mode === 'Processed') where.MasterNoSid = { not: null };
+    if (search) {
+      where.OR = [
+        { BookingNo: { contains: search, mode: 'insensitive' } },
+        { CustomerName: { contains: search, mode: 'insensitive' } },
+        { quotationHeader: { is: { QuoteNumber: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
 
     const skip = (page - 1) * limit;
 
@@ -732,6 +757,7 @@ export class ActivityAllocationService {
     branchMasterSid?: number,
     page: number = 1,
     limit: number = 50,
+    search: string = '',
   ): Promise<{ data: WorkloadRow[]; total: number }> {
     const where: any = {
       CompanyMasterSid: companyMasterSid,
@@ -742,6 +768,13 @@ export class ActivityAllocationService {
       BookingStatus: { in: ['Booked', 'Cargo Received'] },
     };
     if (branchMasterSid) where.BranchMasterSid = branchMasterSid;
+    if (search) {
+      where.OR = [
+        { BookingNo: { contains: search, mode: 'insensitive' } },
+        { CustomerName: { contains: search, mode: 'insensitive' } },
+        { quotationHeader: { is: { QuoteNumber: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
 
     const skip = (page - 1) * limit;
 
@@ -793,6 +826,7 @@ export class ActivityAllocationService {
     branchMasterSid?: number,
     page: number = 1,
     limit: number = 50,
+    search: string = '',
   ): Promise<{ data: WorkloadRow[]; total: number }> {
     const where: any = {
       CompanyMasterSid: companyMasterSid,
@@ -800,6 +834,12 @@ export class ActivityAllocationService {
       CreatedBy: user.userEmail,
     };
     if (branchMasterSid) where.BranchMasterSid = branchMasterSid;
+    if (search) {
+      where.OR = [
+        { MasterJobNumber: { contains: search, mode: 'insensitive' } },
+        { houseJob: { some: { CustomerName: { contains: search, mode: 'insensitive' } } } },
+      ];
+    }
 
     const skip = (page - 1) * limit;
 
