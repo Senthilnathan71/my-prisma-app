@@ -98,6 +98,14 @@ export class PaymentRequestService {
       throw new BadRequestException('Please select at least one prepaid cost row');
     }
 
+    // Authorization (menu-only, mirrors the Credit Request flow). The frontend sends an
+    // `authDetails` block when an authorizer changes the approval status.
+    const authDetails = payload.authDetails || {};
+    const requestedStatus = this.normalizePaymentApprovalStatus(
+      payload.PaymentRequestStatus,
+      existing.PaymentRequestStatus as ApprovalStatus,
+    );
+
     return this.db.$transaction(async (tx) => {
       await this.unlinkExistingSourceCharges(
         paymentRequestSid,
@@ -107,13 +115,22 @@ export class PaymentRequestService {
       );
       await this.validateSourceChargesForPaymentRequest(detailRows, payload, tx, paymentRequestSid);
 
+      // Resolve the approval status against the authorizer's level: a non-final authorizer
+      // requesting "Approved" is downgraded to "WaitingForFinalApproval".
+      const resolvedStatus = await this.resolvePaymentRequestApprovalStatus(
+        tx,
+        authDetails,
+        existing.PaymentRequestStatus as ApprovalStatus,
+        requestedStatus,
+      );
+
       await tx.paymentRequest.update({
         where: { PaymentRequestSid: paymentRequestSid },
         data: {
           PaymentRequestDate: new Date(payload.PaymentRequestDate || payload.RequestDate || existing.PaymentRequestDate),
           CashBank: payload.CashBank || existing.CashBank,
           DepartmentMasterSid: Number(payload.DepartmentMasterSid),
-          PaymentRequestStatus: payload.PaymentRequestStatus || existing.PaymentRequestStatus,
+          PaymentRequestStatus: resolvedStatus,
           Party: this.toNullableNumber(payload.Party) ?? null,
           PayableTo: payload.PayableTo || payload.PartyName || '',
           BookingSid: this.toNullableNumber(payload.BookingSid),
@@ -125,6 +142,11 @@ export class PaymentRequestService {
           UpdatedOn: new Date()
         },
       });
+
+      // Record the approval in the authority log when an authorizer changed the status.
+      if (existing.PaymentRequestStatus !== resolvedStatus && authDetails?.canAuthorize) {
+        await this.writePaymentRequestAuthorityLog(tx, paymentRequestSid, payload, authDetails, resolvedStatus);
+      }
 
       const existingDetails = existing.paymentRequestDetails || [];
       const existingDetailMap = new Map(
@@ -388,6 +410,98 @@ export class PaymentRequestService {
         VoucherSid: voucherSid,
         UpdatedBy: updatedBy || 'System',
         UpdatedOn: new Date()
+      },
+    });
+  }
+
+  private normalizePaymentApprovalStatus(status: any, fallback: ApprovalStatus): ApprovalStatus {
+    const value = typeof status === 'string' ? status : status?.value;
+    return Object.values(ApprovalStatus).includes(value as ApprovalStatus)
+      ? (value as ApprovalStatus)
+      : fallback;
+  }
+
+  /**
+   * Resolve the approval status the document should be saved with. A non-final authorizer who
+   * requests "Approved" is downgraded to "WaitingForFinalApproval"; only the final authorizer
+   * (FinalAuthority = 'Y') can move it to "Approved". When no authorization is configured the
+   * requested status is honoured as-is.
+   */
+  private async resolvePaymentRequestApprovalStatus(
+    tx: any,
+    authDetails: any,
+    existingStatus: ApprovalStatus,
+    requestedStatus: ApprovalStatus,
+  ): Promise<ApprovalStatus> {
+    if (existingStatus === ApprovalStatus.Approved) {
+      return ApprovalStatus.Approved;
+    }
+    if (existingStatus === requestedStatus) {
+      return existingStatus;
+    }
+    if (!authDetails?.AuthorizationRequired) {
+      return requestedStatus;
+    }
+
+    const authorityDetailSid = Number(authDetails?.AuthorityDetailSid || 0);
+    if (!authDetails?.canAuthorize || !authorityDetailSid) {
+      throw new BadRequestException('Authority detail is required to approve this payment request.');
+    }
+
+    const authorityDetail = await tx.authorityDetail.findFirst({
+      where: { AuthorityDetailSid: authorityDetailSid, status: 'A' },
+      select: { FinalAuthority: true, AuthorityLevel: true },
+    });
+    if (!authorityDetail) {
+      throw new BadRequestException('Authority detail not found for this payment request.');
+    }
+
+    if (requestedStatus === ApprovalStatus.Approved && authorityDetail.FinalAuthority !== 'Y') {
+      return ApprovalStatus.WaitingForFinalApproval;
+    }
+
+    return requestedStatus;
+  }
+
+  /** Write one authority-log row per approver, blocking a duplicate approval by the same authorizer. */
+  private async writePaymentRequestAuthorityLog(
+    tx: any,
+    paymentRequestSid: number,
+    payload: any,
+    authDetails: any,
+    finalStatus: ApprovalStatus,
+  ): Promise<void> {
+    if (!authDetails?.AuthorizationRequired) {
+      return;
+    }
+    const authorityDetailSid = Number(authDetails?.AuthorityDetailSid || 0);
+    if (!authDetails?.canAuthorize || !authorityDetailSid) {
+      throw new BadRequestException('Authority detail is required to approve this payment request.');
+    }
+
+    const existingAuthLog = await tx.authorityLog.findFirst({
+      where: {
+        AuthorityDetailSid: authorityDetailSid,
+        DocumentSid: Number(paymentRequestSid),
+        Status: 'A',
+      },
+    });
+    if (existingAuthLog) {
+      throw new BadRequestException('You have already approved this payment request.');
+    }
+
+    await tx.authorityLog.create({
+      data: {
+        CompanyMasterSid: Number(payload.CompanyMasterSid),
+        BranchMasterSid: Number(payload.BranchMasterSid || authDetails?.BranchMasterSid || 0),
+        AuthorityDetailSid: authorityDetailSid,
+        AuthorisedDate: new Date(),
+        ApprovalStatus: finalStatus,
+        DocumentSid: Number(paymentRequestSid),
+        Remarks: authDetails?.Remarks || `PaymentRequest:${paymentRequestSid} Status:${finalStatus}`,
+        CreatedBy: authDetails?.ApprovedBy || payload.UpdatedBy || payload.CreatedBy || 'system',
+        UpdatedBy: payload.UpdatedBy || payload.CreatedBy || null,
+        Status: 'A',
       },
     });
   }

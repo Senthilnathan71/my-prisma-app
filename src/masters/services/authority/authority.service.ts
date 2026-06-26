@@ -321,7 +321,7 @@ export class AuthorityService {
                         this.globalConfigService.getMasterData('branch_master', item.BranchMasterSid, item.CompanyMasterSid) :
                         { BranchMasterSid: null, branchName: '' },
 
-                    item.MenuMasterSid !== null ?
+                    item.MenuMaster !== null ?
                         this.globalConfigService.getMasterData('menu_master', item.MenuMaster) :
                         { MenuMasterSid: null, MenuName: '' }
                 ])
