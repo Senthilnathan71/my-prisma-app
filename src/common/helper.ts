@@ -152,6 +152,27 @@ export function addDaysCalendar(date:Date, days:number) : Date {
 }
 
 /**
+ * Decide whether a customer's `CashCredit` flag means CREDIT.
+ * The column holds mixed values ('Cash' | 'Credit' | 'Prepd' | '' | null), and
+ * both 'Cash' and 'Credit' start with 'C' — so only a value that clearly says
+ * "credit" counts as CREDIT. Everything else (Cash/Prepd/blank/null/unknown)
+ * defaults to CASH, the safe side for credit control.
+ */
+export function isCreditCustomer(cashCredit?: string | null): boolean {
+  return (cashCredit ?? '').trim().toUpperCase().startsWith('CRE');
+}
+
+/**
+ * Normalize any date (or now) to UTC midnight (date-only). Mirrors the trick in
+ * currency-exchange.getExchangeRate so effective-dated lookups against `@db.Date`
+ * columns don't slip a day across timezones.
+ */
+export function toUtcDateOnly(input?: Date | string | null): Date {
+  const d = input ? new Date(input) : new Date();
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+}
+
+/**
   * Helper: Converts Prisma Decimal to number
 */
 export function toNumber(value: any): number {

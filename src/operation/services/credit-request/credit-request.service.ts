@@ -6,7 +6,7 @@ import { AccountsReportsService } from 'src/accounts/services/accounts-reports/a
 import { CustomerOutstandingResponseDto } from 'src/accounts/dto/outstanding.dto';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
-import { addDaysCalendar, statusWhereClause } from 'src/common/helper';
+import { addDaysCalendar, isCreditCustomer, statusWhereClause, toUtcDateOnly } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { CreditLimitDto, CreditSummaryDto, OutstandingDto, ValidateBLDODto, ValidateCreditDto } from 'src/masters/DTO/credit-limit.dto';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
@@ -88,6 +88,22 @@ interface BLDOValidationResult {
   ViolatingVouchers: BLDOViolatingVoucher[];
 }
 
+export interface ResolveCreditTermsArgs {
+  companyMasterSid: number;
+  customerMasterSid: number;
+  customerBranchSid?: number | null;
+  departmentMasterSid?: number | null;
+  asOfDate?: Date | string | null; // defaults to today
+}
+
+export interface ResolvedCreditTerms {
+  customerType: CustomerType; // 'CASH' | 'CREDIT'
+  creditDays: number;
+  creditLimit: number;
+  selectedCreditRequestSid: number | null;
+  creditRequest: Prisma.CustomerCreditRequestGetPayload<{}> | null;
+}
+
 export interface CustomerCreditRequestInterface {
   CustomerCreditRequestSid?: number;
   CustomerMasterSid: number;
@@ -101,7 +117,7 @@ export interface CustomerCreditRequestInterface {
   PublishedDays: number;
   PublishedLimit: number;
   EffectiveFrom: Date | string;
-  EffectiveTo: Date | string;
+  EffectiveTo?: Date | string | null;
   ApprovalStatus?: ApprovalStatus | null;
   ApprovedBy?: string | null;
   CreatedBy: string;
@@ -370,7 +386,7 @@ export class CreditRequestService {
           PublishedDays: payload.PublishedDays,
           PublishedLimit: payload.PublishedLimit,
           EffectiveFrom: new Date(payload.EffectiveFrom),
-          EffectiveTo: new Date(payload.EffectiveTo),
+          EffectiveTo: payload.EffectiveTo ? new Date(payload.EffectiveTo) : null,
           ApprovalStatus: payload.ApprovalStatus || ApprovalStatus.Pending,
           CreatedBy: payload.CreatedBy,
           Status: 'A',
@@ -611,7 +627,7 @@ export class CreditRequestService {
               PublishedDays: item.PublishedDays,
               PublishedLimit: item.PublishedLimit,
               EffectiveFrom: new Date(item.EffectiveFrom),
-              EffectiveTo: new Date(item.EffectiveTo),
+              EffectiveTo: item.EffectiveTo ? new Date(item.EffectiveTo) : null,
               ApprovalStatus: requestedApprovalStatus,
               CreatedBy: item.CreatedBy,
               Status: 'A',
@@ -714,7 +730,7 @@ export class CreditRequestService {
                 PublishedDays: item.PublishedDays,
                 PublishedLimit: item.PublishedLimit,
                 EffectiveFrom: new Date(item.EffectiveFrom),
-                EffectiveTo: new Date(item.EffectiveTo),
+                EffectiveTo: item.EffectiveTo ? new Date(item.EffectiveTo) : null,
                 ApprovalStatus: finalApprovalStatus,
                 UpdatedBy: item.UpdatedBy || item.CreatedBy,
                 UpdatedOn: new Date(),
@@ -741,7 +757,7 @@ export class CreditRequestService {
                 PublishedDays: item.PublishedDays,
                 PublishedLimit: item.PublishedLimit,
                 EffectiveFrom: new Date(item.EffectiveFrom),
-                EffectiveTo: new Date(item.EffectiveTo),
+                EffectiveTo: item.EffectiveTo ? new Date(item.EffectiveTo) : null,
                 ApprovalStatus: finalApprovalStatus,
                 CreatedBy: item.CreatedBy,
                 Status: 'A',
@@ -829,88 +845,34 @@ export class CreditRequestService {
     current_date?: Date;
     CurrentDate?: Date;
   }): Promise<any> {
-    const result = await this._db.$transaction(async (prisma) => {
-      const baseDate = new Date(payload.VoucherDate || (payload as any).current_date || payload.CurrentDate || new Date());
-      const customerMaster = await prisma.customerMaster.findUnique({
-        where: { CustomerMasterSid: payload.CustomerMasterSid },
-        select: { CashCredit: true },
-      });
+    const baseDate = new Date(
+      payload.VoucherDate ||
+        (payload as any).current_date ||
+        payload.CurrentDate ||
+        new Date(),
+    );
 
-      if (!customerMaster) {
-        throw new BadRequestException('Customer not found');
-      }
-
-      if (customerMaster.CashCredit === 'Cash') {
-        return {
-          creditDays : 1,
-          dueDate : addDaysCalendar(baseDate, 5),
-        }
-      }
-
-      const baseWhere: Prisma.CustomerCreditRequestWhereInput = {
-        CompanyMasterSid: payload.CompanyMasterSid,
-        CustomerMasterSid: payload.CustomerMasterSid,
-        ApprovalStatus: ApprovalStatus.Approved,
-        EffectiveFrom: { lte: baseDate },
-        EffectiveTo: { gte: baseDate },
-        Status: 'A',
-      };
-
-      // 1. Department specific
-      const departmentSpecific = await this.getCreditRequest(
-        {
-          ...baseWhere,
-          CustomerBranchSid: payload.CustomerBranchSid ?? undefined,
-          DepartmentMasterSid: payload.DepartmentMasterSid ?? undefined,
-        },
-        prisma,
-      );
-
-      if (departmentSpecific?.CreditDays != null) {
-        return {
-          creditDays : departmentSpecific?.CreditDays,
-          dueDate : addDaysCalendar(baseDate, departmentSpecific?.CreditDays),
-        }
-      }
-
-      // 2. Branch specific (no department)
-      const branchSpecific = await this.getCreditRequest(
-        {
-          ...baseWhere,
-          CustomerBranchSid: payload.CustomerBranchSid ?? undefined,
-          DepartmentMasterSid: null,
-        },
-        prisma,
-      );
-
-      if (branchSpecific?.CreditDays != null) {
-        return {
-          creditDays : branchSpecific?.CreditDays,
-          dueDate : addDaysCalendar(baseDate, branchSpecific?.CreditDays),
-        }
-      }
-
-      // 3. Party specific (no branch, no department)
-      const partySpecific = await this.getCreditRequest(
-        {
-          ...baseWhere,
-          CustomerBranchSid: null,
-          DepartmentMasterSid: null,
-        },
-        prisma,
-      );
-
-      if (partySpecific?.CreditDays != null) {
-        return {
-          creditDays : partySpecific?.CreditDays,
-          dueDate : addDaysCalendar(baseDate, partySpecific?.CreditDays),
-        }
-      }
-
-      throw new BadRequestException('No credit request found');
+    // Statement uses branch -> customer-only priority (department intentionally
+    // ignored). Latest approved request effective on the voucher date; EffectiveTo
+    // is not considered.
+    const terms = await this.resolveCreditTerms({
+      companyMasterSid: payload.CompanyMasterSid,
+      customerMasterSid: payload.CustomerMasterSid,
+      customerBranchSid: payload.CustomerBranchSid,
+      departmentMasterSid: undefined,
+      asOfDate: baseDate,
     });
 
-    return result;
+    // CASH (or no approved/effective request): due date is the EXACT transaction
+    // date passed in (VoucherDate/BookingDate) — no grace days.
+    if (terms.customerType === CustomerType.CASH) {
+      return { creditDays: 0, dueDate: baseDate };
+    }
+
+    return {
+      creditDays: terms.creditDays,
+      dueDate: addDaysCalendar(baseDate, terms.creditDays),
+    };
   }
 
   async getCreditRequest(
@@ -919,6 +881,89 @@ export class CreditRequestService {
   ) {
     const prisma = tx ?? this._db;
     return prisma.customerCreditRequest.findFirst({ where });
+  }
+
+  /**
+   * Single source of truth for "what are this customer's credit terms (CASH vs
+   * CREDIT, days, limit) effective on a given date".
+   *
+   * Rules (shared by BL/DO release, booking-save, Statement and OS/Ageing reports):
+   *  1. Customer flagged CASH (or unknown flag) -> CASH (days 0, limit 0).
+   *  2. No credit request, or none APPROVED -> CASH.
+   *  3. No request effective on/before `asOfDate` -> CASH.
+   *  4. Match on EffectiveFrom only (EffectiveTo is ignored); pick the LATEST
+   *     (`EffectiveFrom <= asOfDate`, newest first) — mirrors getExchangeRate.
+   * Scope priority: branch+dept -> branch -> customer-only.
+   * Never throws — callers that need an error wrap it.
+   */
+  async resolveCreditTerms(
+    args: ResolveCreditTermsArgs,
+    tx?: PrismaClient | Prisma.TransactionClient,
+  ): Promise<ResolvedCreditTerms> {
+    const db = tx ?? this._db;
+    const CASH: ResolvedCreditTerms = {
+      customerType: CustomerType.CASH,
+      creditDays: 0,
+      creditLimit: 0,
+      selectedCreditRequestSid: null,
+      creditRequest: null,
+    };
+
+    const customer = await db.customerMaster.findUnique({
+      where: { CustomerMasterSid: args.customerMasterSid },
+      select: { CashCredit: true },
+    });
+    // Rule 1 (+ missing customer): CASH
+    if (!customer || !isCreditCustomer(customer.CashCredit)) {
+      return CASH;
+    }
+
+    const asOf = toUtcDateOnly(args.asOfDate);
+    const baseWhere: Prisma.CustomerCreditRequestWhereInput = {
+      CompanyMasterSid: args.companyMasterSid,
+      CustomerMasterSid: args.customerMasterSid,
+      Status: 'A',
+      ApprovalStatus: ApprovalStatus.Approved, // rule 2: approved only
+      EffectiveFrom: { lte: asOf }, // rule 4: EffectiveFrom only — no EffectiveTo
+    };
+    const orderBy: Prisma.CustomerCreditRequestOrderByWithRelationInput[] = [
+      { EffectiveFrom: 'desc' }, // rule 4: latest effective
+      { CustomerCreditRequestSid: 'desc' }, // tie-break (mirror getExchangeRate)
+    ];
+
+    // Scope priority: branch+dept -> branch -> customer-only.
+    const scopes: Prisma.CustomerCreditRequestWhereInput[] = [];
+    if (args.customerBranchSid && args.departmentMasterSid) {
+      scopes.push({
+        CustomerBranchSid: args.customerBranchSid,
+        DepartmentMasterSid: args.departmentMasterSid,
+      });
+    }
+    if (args.customerBranchSid) {
+      scopes.push({
+        CustomerBranchSid: args.customerBranchSid,
+        DepartmentMasterSid: null,
+      });
+    }
+    scopes.push({ CustomerBranchSid: null, DepartmentMasterSid: null });
+
+    for (const scope of scopes) {
+      const req = await db.customerCreditRequest.findFirst({
+        where: { ...baseWhere, ...scope },
+        orderBy,
+      });
+      if (req) {
+        return {
+          customerType: CustomerType.CREDIT,
+          creditDays: Number(req.CreditDays ?? 0),
+          creditLimit: Number(req.CreditLimit ?? 0),
+          selectedCreditRequestSid: req.CustomerCreditRequestSid,
+          creditRequest: req,
+        };
+      }
+    }
+    // Rules 2 & 3: CREDIT-flagged but nothing approved/effective -> CASH
+    return CASH;
   }
 
 
@@ -931,69 +976,22 @@ export class CreditRequestService {
    */
   async getCreditLimit(dto: CreditLimitDto): Promise<CreditLimitResult> {
     try {
-      const currentDate = new Date(); 
-      
-      // Base where clause
-      const baseWhere: any = {
-        CustomerMasterSid: dto.customerMasterSid,
-        CompanyMasterSid: dto.companyMasterSid,
-        Status: 'A',
-        ApprovalStatus: ApprovalStatus.Approved,
-        EffectiveFrom: { lte: currentDate },
-        EffectiveTo: { gte: currentDate },
-      };
-      const hasBranch = !!dto.customerBranchSid;
-      const hasDept = !!dto.departmentMasterSid;
-
-      // 1) Customer + Branch + Department
-      if (hasBranch && hasDept) {
-        const deptCredit = await this._db.customerCreditRequest.findFirst({
-          where: {
-            ...baseWhere,
-            CustomerBranchSid: dto.customerBranchSid,
-            DepartmentMasterSid: dto.departmentMasterSid,
-          },
-          orderBy: { CustomerCreditRequestSid: 'desc' },
-        });
-
-        if (deptCredit) {
-          return this.mapCreditLimitResponse(deptCredit);
-        }
-      }
-
-      // 2) Customer + Branch only
-      if (hasBranch) {
-        const branchCredit = await this._db.customerCreditRequest.findFirst({
-          where: {
-            ...baseWhere,
-            CustomerBranchSid: dto.customerBranchSid,
-            DepartmentMasterSid: null,
-          },
-          orderBy: { CustomerCreditRequestSid: 'desc' },
-        });
-
-        if (branchCredit) {
-          return this.mapCreditLimitResponse(branchCredit);
-        }
-      }
-
-      // 3) Customer only (fallback for any case)
-      const customerCredit = await this._db.customerCreditRequest.findFirst({
-        where: {
-          ...baseWhere,
-          CustomerBranchSid: null,
-          DepartmentMasterSid: null,
-        },
-        orderBy: { CustomerCreditRequestSid: 'desc' },
+      // Latest approved request effective today (EffectiveFrom only, no EffectiveTo).
+      const terms = await this.resolveCreditTerms({
+        companyMasterSid: dto.companyMasterSid,
+        customerMasterSid: dto.customerMasterSid,
+        customerBranchSid: dto.customerBranchSid,
+        departmentMasterSid: dto.departmentMasterSid,
+        asOfDate: new Date(),
       });
 
-      if (customerCredit) {
-        return this.mapCreditLimitResponse(customerCredit);
+      if (terms.customerType === CustomerType.CASH || !terms.creditRequest) {
+        throw new NotFoundException(
+          'No approved credit limit found for this customer',
+        );
       }
 
-      throw new NotFoundException(
-        'No approved credit limit found for this customer',
-      );
+      return this.mapCreditLimitResponse(terms.creditRequest);
     } catch (error) {
       this.logger.error(`Error fetching credit limit: ${error.message}`);
       throw error;
@@ -1308,7 +1306,6 @@ export class CreditRequestService {
     dto: ValidateBLDODto,
   ): Promise<BLDOValidationResult> {
     try {
-      const customerType = await this.getCustomerType(dto.CustomerMasterSid);
       const isCreditRequestCheckingEnabled = await this.isCreditRequestCheckingEnabled(
         dto.CompanyMasterSid,
       );
@@ -1317,7 +1314,7 @@ export class CreditRequestService {
         return {
           IsValid: true,
           Errors: [],
-          CustomerType: customerType,
+          CustomerType: await this.getCustomerType(dto.CustomerMasterSid),
           CreditLimit: 0,
           CreditDays: 0,
           RemainingCreditLimit: null,
@@ -1327,33 +1324,22 @@ export class CreditRequestService {
         };
       }
 
+      // Latest approved credit terms effective on the BL/DO document date
+      // (EffectiveFrom only; CASH when no approved/effective request).
+      const terms = await this.resolveCreditTerms({
+        companyMasterSid: dto.CompanyMasterSid,
+        customerMasterSid: dto.CustomerMasterSid,
+        customerBranchSid: dto.CustomerBranchSid,
+        asOfDate: dto.DocumentDate,
+      });
+
       const customerCurrencyCode = await this.getCustomerCurrencyCode(dto.CustomerMasterSid);
-      let effectiveCustomerType = customerType;
+      const effectiveCustomerType = terms.customerType;
       const currentDate = new Date();
       const errors: string[] = [];
-      let creditLimit = 0;
-      let creditDays = 0;
-      let selectedCreditRequestSid: number | null = null;
-
-      if (customerType === CustomerType.CREDIT) {
-        try {
-          const creditRequest = await this.getBLDOCreditRequest(dto);
-
-          if (creditRequest) {
-            creditLimit = Number(creditRequest.CreditLimit || 0);
-            creditDays = Number(creditRequest.CreditDays || 0);
-            selectedCreditRequestSid = creditRequest.CustomerCreditRequestSid;
-          } else {
-            effectiveCustomerType = CustomerType.CASH;
-          }
-        } catch (error) {
-          if (error instanceof BadRequestException) {
-            effectiveCustomerType = CustomerType.CASH;
-          } else {
-            throw error;
-          }
-        }
-      }
+      const creditLimit = terms.creditLimit;
+      const creditDays = terms.creditDays;
+      const selectedCreditRequestSid = terms.selectedCreditRequestSid;
 
       const outstandingReport = await this.getBLDOOutstandingReport(dto, currentDate);
       console.log(dto , outstandingReport);
@@ -1428,7 +1414,7 @@ export class CreditRequestService {
         throw new NotFoundException('Customer not found');
       }
 
-      return customer.CashCredit?.toUpperCase() === 'CREDIT'
+      return isCreditCustomer(customer.CashCredit)
         ? CustomerType.CREDIT
         : CustomerType.CASH;
     } catch (error) {
@@ -1597,101 +1583,6 @@ export class CreditRequestService {
   private calculateDaysDifference(startDate: Date, endDate: Date): number {
     const diffTime = Math.abs(endDate.getTime() - new Date(startDate).getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  }
-
-  private async getBLDOCreditRequest(dto: ValidateBLDODto) {
-    const documentDate = new Date(dto.DocumentDate);
-    const baseWhere: Prisma.CustomerCreditRequestWhereInput = {
-      CompanyMasterSid: dto.CompanyMasterSid,
-      CustomerMasterSid: dto.CustomerMasterSid,
-      Status: 'A',
-      ApprovalStatus: ApprovalStatus.Approved,
-      EffectiveFrom: { lte: documentDate },
-      EffectiveTo: { gte: documentDate },
-    };
-
-    const branchCreditRequest = await this._db.customerCreditRequest.findFirst({
-      where: {
-        ...baseWhere,
-        CustomerBranchSid: dto.CustomerBranchSid,
-      },
-      orderBy: {
-        CustomerCreditRequestSid: 'desc',
-      },
-    });
-
-    if (branchCreditRequest) {
-      return branchCreditRequest;
-    }
-
-    const commonCreditRequest = await this._db.customerCreditRequest.findFirst({
-      where: {
-        ...baseWhere,
-        CustomerBranchSid: null,
-      },
-      orderBy: {
-        CustomerCreditRequestSid: 'desc',
-      },
-    });
-
-    if (commonCreditRequest) {
-      return commonCreditRequest;
-    }
-
-    throw new BadRequestException(
-      await this.buildBLDOCreditRequestMessage(dto, documentDate),
-    );
-  }
-
-  private async buildBLDOCreditRequestMessage(
-    dto: ValidateBLDODto,
-    documentDate: Date,
-  ): Promise<string> {
-    const scopedRequests = await this._db.customerCreditRequest.findMany({
-      where: {
-        CompanyMasterSid: dto.CompanyMasterSid,
-        CustomerMasterSid: dto.CustomerMasterSid,
-        Status: 'A',
-        OR: [
-          { CustomerBranchSid: dto.CustomerBranchSid ?? null },
-          { CustomerBranchSid: null },
-        ],
-      },
-      select: {
-        CustomerCreditRequestSid: true,
-        ApprovalStatus: true,
-        EffectiveFrom: true,
-        EffectiveTo: true,
-      },
-      orderBy: {
-        CustomerCreditRequestSid: 'desc',
-      },
-      take: 10,
-    });
-
-    if (!scopedRequests.length) {
-      return 'No credit request is configured for this customer.';
-    }
-
-    const matchingDateRequest = scopedRequests.find(
-      (item) =>
-        new Date(item.EffectiveFrom) <= documentDate &&
-        new Date(item.EffectiveTo) >= documentDate,
-    );
-
-    if (matchingDateRequest && matchingDateRequest.ApprovalStatus !== ApprovalStatus.Approved) {
-      return `Credit request is ${matchingDateRequest.ApprovalStatus} for this customer. Approval is required before BL/DO validation can pass.`;
-    }
-
-    const approvedRequest = scopedRequests.find(
-      (item) => item.ApprovalStatus === ApprovalStatus.Approved,
-    );
-
-    if (approvedRequest) {
-      return 'No approved credit request is active for this customer on the selected document date.';
-    }
-
-    return 'Credit request exists for this customer, but it is not approved yet.';
   }
 
   private async getBLDOOutstandingReport(

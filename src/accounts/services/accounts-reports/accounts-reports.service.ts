@@ -2,7 +2,7 @@ import { BadRequestException, forwardRef, Inject, Injectable, Logger, NotFoundEx
 import { DatabaseService } from 'src/database/database.service';
 import { ApprovalStatus, Prisma } from '@prisma/client';
 import { AgeingReportQueryDto, BalanceSheetReportQueryDto, LedgerReportQueryDto, OutstandingReportQueryDto, ProfitLossReportQueryDto, StatementLedgerReportQueryDto, TopNCustomerReportQueryDto, TrialBalanceReportQueryDto, UnpostedVoucherListReportQueryDto, VATReportQueryDto } from 'src/accounts/dto/accounts-reports.dto';
-import { roundAmount, toNumber } from 'src/common/helper';
+import { isCreditCustomer, roundAmount, toNumber, toUtcDateOnly } from 'src/common/helper';
 import { CustomerOutstandingResponseDto, CustomerOutstandingTransactionDto } from 'src/accounts/dto/outstanding.dto';
 import { transcode } from 'buffer';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -549,7 +549,10 @@ export class AccountsReportsService {
     for (const currencyGroup of ageingResult) {
       for (const sl of currencyGroup.subledgers) {
         try {
-          const credit = await this.getCreditRequest(sl.SubledgerMasterSid);
+          const credit = await this.getCreditRequest(
+            sl.SubledgerMasterSid,
+            CompanyMasterSid,
+          );
           sl.CreditDays = credit.CreditDays;
           sl.CreditLimit = credit.CreditLimit;
         } catch (e) {
@@ -1019,39 +1022,47 @@ export class AccountsReportsService {
       brs.forEach((b) => branchNameMap.set(b.CustomerBranchSid, b.BranchName));
     }
 
-    // --- Credit Days / Limit per customer (batch; same rule as getCreditRequest) ---
+    // --- Credit Days / Limit per customer (batch; same rule as getCreditRequest:
+    //     latest APPROVED request with EffectiveFrom <= today, EffectiveTo ignored,
+    //     across ALL branches/departments). Kept as one query to avoid N round-trips. ---
     const creditByCustomer = new Map<
       number,
       { CreditDays: number; CreditLimit: number }
     >();
     if (customerSids.length) {
+      const today = toUtcDateOnly(new Date());
       const custs = await this._db.customerMaster.findMany({
         where: { CustomerMasterSid: { in: customerSids } },
         select: {
           CustomerMasterSid: true,
           CashCredit: true,
           customerCreditRequest: {
-            where: { ApprovalStatus: ApprovalStatus.Approved, Status: 'A' },
+            where: {
+              CompanyMasterSid,
+              ApprovalStatus: ApprovalStatus.Approved,
+              Status: 'A',
+              EffectiveFrom: { lte: today },
+            },
+            orderBy: [
+              { EffectiveFrom: 'desc' },
+              { CustomerCreditRequestSid: 'desc' },
+            ],
+            take: 1,
             select: { CreditDays: true, CreditLimit: true },
           },
         },
       });
       for (const c of custs) {
-        const reqs = c.customerCreditRequest ?? [];
-        if (c.CashCredit === 'C' || reqs.length === 0) {
-          creditByCustomer.set(c.CustomerMasterSid, {
-            CreditDays: 0,
-            CreditLimit: 0,
-          });
-          continue;
-        }
-        const top = reqs.reduce((acc, r) =>
-          toNumber(r.CreditLimit) > toNumber(acc.CreditLimit) ? r : acc,
+        const top = c.customerCreditRequest?.[0];
+        creditByCustomer.set(
+          c.CustomerMasterSid,
+          !isCreditCustomer(c.CashCredit) || !top
+            ? { CreditDays: 0, CreditLimit: 0 }
+            : {
+                CreditDays: toNumber(top.CreditDays),
+                CreditLimit: toNumber(top.CreditLimit),
+              },
         );
-        creditByCustomer.set(c.CustomerMasterSid, {
-          CreditDays: toNumber(top.CreditDays),
-          CreditLimit: toNumber(top.CreditLimit),
-        });
       }
     }
 
@@ -1232,7 +1243,7 @@ export class AccountsReportsService {
     };
   }
 
-  async getCreditRequest(SubledgerMasterSid: number) {
+  async getCreditRequest(SubledgerMasterSid: number, companyMasterSid: number) {
     try {
       const subledger = await this._db.subledgerMaster.findUnique({
         where: {
@@ -1251,43 +1262,40 @@ export class AccountsReportsService {
         throw new BadRequestException('No mapping found.');
       }
 
+      // Customer-level report: pick the LATEST approved+active request effective
+      // today across ALL the customer's branches/departments (EffectiveFrom only,
+      // EffectiveTo ignored); CASH customers / none -> 0/0. Branch-agnostic because
+      // the subledger row aggregates the customer across branches.
+      const today = toUtcDateOnly(new Date());
       const customer = await this._db.customerMaster.findUnique({
-        where: {
-          CustomerMasterSid: subledger.SubledgerMappingSid!,
-        },
-        include: {
+        where: { CustomerMasterSid: subledger.SubledgerMappingSid },
+        select: {
+          CashCredit: true,
           customerCreditRequest: {
             where: {
+              CompanyMasterSid: companyMasterSid,
               ApprovalStatus: ApprovalStatus.Approved,
               Status: 'A',
+              EffectiveFrom: { lte: today },
             },
+            orderBy: [
+              { EffectiveFrom: 'desc' },
+              { CustomerCreditRequestSid: 'desc' },
+            ],
+            take: 1,
+            select: { CreditDays: true, CreditLimit: true },
           },
         },
       });
 
-      if (!customer) {
-        throw new BadRequestException('No customer found.');
+      const top = customer?.customerCreditRequest?.[0];
+      if (!customer || !isCreditCustomer(customer.CashCredit) || !top) {
+        return { CreditDays: 0, CreditLimit: 0 };
       }
-
-      if (
-        customer.CashCredit === 'C' ||
-        customer.customerCreditRequest.length === 0
-      ) {
-        return {
-          CreditDays: 0,
-          CreditLimit: 0,
-        };
-      }
-
-      const allCreditReq = customer.customerCreditRequest || [];
-      const reqWithHighestLimit = allCreditReq.reduce((acc, req) => {
-        if (req.CreditLimit > acc.CreditLimit) return req;
-        return acc;
-      });
 
       return {
-        CreditDays: reqWithHighestLimit.CreditDays,
-        CreditLimit: reqWithHighestLimit.CreditLimit,
+        CreditDays: toNumber(top.CreditDays),
+        CreditLimit: toNumber(top.CreditLimit),
       };
     } catch (error) {
       throw error;
@@ -2464,7 +2472,7 @@ export class AccountsReportsService {
         ledgerType: ledger?.LedgerType,
         customerAddress : customer?.CustomerAddress1 || customer?.CustomerAddress2 || '',
         contactNo : customer?.CustomerBranch?.[0]?.ContactNo || '',
-        creditDays: customer?.CashCredit === 'Cash' || reportCreditDays === 0 ? 'Cash' : reportCreditDays,
+        creditDays: !isCreditCustomer(customer?.CashCredit) || reportCreditDays === 0 ? 'Cash' : reportCreditDays,
         dueDate: reportDueDate,
         totalCurrentAmount: roundAmount(totalCurrentAmount, 2),
         totalOverdueAmount: roundAmount(totalOverdueAmount, 2),
