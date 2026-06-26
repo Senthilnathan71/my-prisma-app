@@ -3234,7 +3234,7 @@ model CustomerCreditRequest {
   PublishedDays            Int
   PublishedLimit           Int
   EffectiveFrom            DateTime          @db.Date
-  EffectiveTo              DateTime          @db.Date
+  EffectiveTo              DateTime?          @db.Date
   ApprovalStatus           ApprovalStatus
   company                  CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch           CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
