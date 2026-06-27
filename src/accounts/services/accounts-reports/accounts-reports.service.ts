@@ -2272,6 +2272,7 @@ export class AccountsReportsService {
           branchMasterSid: branchId,
           ledgerMasterSid: ledgerMasterSid,
           COAMasterSid: coaMasterSid,
+          customerAddress : customer?.CustomerAddress1 || '',
           countryCode : customer?.countryMaster?.countryCode,
           Vatno : customer?.PanType,
           subledgerName: subledger?.SubledgerName,
@@ -2405,7 +2406,7 @@ export class AccountsReportsService {
 
         const creditDays = Number(dueDateInfo?.creditDays || 0);
         const overdueDays = ageingDays > creditDays ? ageingDays - creditDays : 0;
-        const overdueAmount = overdueDays > 0 ? toNumber(signedLocalAmt) : 0;
+        const overdueAmount = overdueDays > 0 ? toNumber(signedoutstandingLocalAmount) : 0;
         const currentAmount = overdueDays > 0 ? 0 : toNumber(signedLocalAmt);
         totalOverdueAmount += overdueAmount;
         totalCurrentAmount += currentAmount;
@@ -2470,7 +2471,7 @@ export class AccountsReportsService {
         Vatno: customer?.PanType,
         ledgerName: ledger?.LedgerName,
         ledgerType: ledger?.LedgerType,
-        customerAddress : customer?.CustomerAddress1 || customer?.CustomerAddress2 || '',
+        customerAddress : customer?.CustomerAddress1 || '',
         contactNo : customer?.CustomerBranch?.[0]?.ContactNo || '',
         creditDays: !isCreditCustomer(customer?.CashCredit) || reportCreditDays === 0 ? 'Cash' : reportCreditDays,
         dueDate: reportDueDate,
