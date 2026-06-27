@@ -2241,6 +2241,8 @@ export class AccountsReportsService {
         include: {
           VoucherHeader: {
             select: {
+              CustomerBranchSid : true,
+              DepartmentMasterSid: true,
               PostStatus: true,
             },
           },
@@ -2367,15 +2369,8 @@ export class AccountsReportsService {
               (1000 * 60 * 60 * 24),
           ) + 1;
 
-        const customerBranchSid =
-          vt.houseJob?.CustomerBranchSid ??
-          customer?.CustomerBranch?.[0]?.CustomerBranchSid ??
-          null;
-        const departmentMasterSid =
-          (vt as any).DepartmentMasterSid ??
-          vt.houseJob?.DepartmentMasterSid ??
-          vt.masterJob?.DepartmentMasterSid ??
-          null;
+        const customerBranchSid = vt.VoucherHeader?.CustomerBranchSid ?? null;
+        const departmentMasterSid = vt.VoucherHeader?.DepartmentMasterSid ?? null;
         const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${departmentMasterSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}`;
 
         if (!dueDateCache.has(dueDateCacheKey)) {
@@ -2397,7 +2392,7 @@ export class AccountsReportsService {
         }
 
         const dueDateInfo = dueDateCache.get(dueDateCacheKey) || null;
-        if (!reportCreditDays && dueDateInfo?.creditDays) {
+        if (dueDateInfo?.creditDays) {
           reportCreditDays = Number(dueDateInfo.creditDays || 0);
         }
         if (!reportDueDate && dueDateInfo?.dueDate) {
