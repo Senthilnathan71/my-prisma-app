@@ -2832,6 +2832,7 @@ model MasterJobOthers {
   ImportMasterJobSid    Int?
   JobLossReason         String?     @db.VarChar(300)
   ResourcePerson        Int?
+  YardReceivedOn        DateTime?   @db.Date
   masterJob             MasterJob   @relation(fields: [MasterJobSid], references: [MasterJobSid])
   resourceUser          UserMaster? @relation(fields: [ResourcePerson], references: [UserMasterSid])
 }
