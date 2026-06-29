@@ -2440,11 +2440,29 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     CompanyMasterSid: payload.CompanyMasterSid,
                     BranchMasterSid: payload.BranchMasterSid,
                     Status: 'A'
-                },
-                orderBy: {
-                    ShipmentMilestoneSid: 'asc'
                 }
             })
+
+            // Order by the milestone's configured SortBy. ShipmentMilestoneSid is only insertion
+            // order, which does not reflect the real sequence (e.g. Quote Send -> Quote Approved ->
+            // Booking Confirmed get captured out of order). MilestoneMaster has no Prisma relation
+            // here, so fetch the SortBy values and sort; MilestoneDate is the tie-breaker.
+            const masterSids = [...new Set(allShipmentMilestone.map((m) => m.MilestoneMasterSid))];
+            const masters = masterSids.length
+                ? await this._db.milestoneMaster.findMany({
+                    where: { MilestoneMasterSid: { in: masterSids } },
+                    select: { MilestoneMasterSid: true, SortBy: true }
+                })
+                : [];
+            const sortMap = new Map(masters.map((m) => [m.MilestoneMasterSid, Number(m.SortBy)]));
+
+            allShipmentMilestone.sort((a, b) => {
+                const sa = sortMap.get(a.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+                const sb = sortMap.get(b.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+                if (sa !== sb) return sa - sb;
+                return new Date(a.MilestoneDate).getTime() - new Date(b.MilestoneDate).getTime();
+            });
+
             return allShipmentMilestone;
         } catch (error) {
             throw error;
