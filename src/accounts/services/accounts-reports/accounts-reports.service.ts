@@ -1412,6 +1412,10 @@ export class AccountsReportsService {
       this.logger.log(
         `Getting customer outstanding: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
       );
+      const dueDateVoucherTypes = new Set<string>([
+        DOC_TYPE_CODE.INVOICE,
+        DOC_TYPE_CODE.INVOICE_NON_JOB,
+      ]);
 
       const branches =
         branchId && branchId.length > 0
@@ -1704,10 +1708,13 @@ export class AccountsReportsService {
         }
 
         const dueDateInfo = dueDateCache.get(dueDateCacheKey) || null;
+        const shouldShowDueDate = dueDateVoucherTypes.has(
+          vt.voucherTypeMaster?.DocumentTypeCode || '',
+        );
         if (dueDateInfo?.creditDays) {
           reportCreditDays = Number(dueDateInfo.creditDays || 0);
         }
-        if (!reportDueDate && dueDateInfo?.dueDate) {
+        if (!reportDueDate && shouldShowDueDate && dueDateInfo?.dueDate) {
           reportDueDate = dueDateInfo.dueDate;
         }
 
@@ -1752,7 +1759,7 @@ export class AccountsReportsService {
             ageingBucket: ageingSummary,
             cumulativeOutstanding: cumulativeTotal,
             localAmt: localAmt,
-            dueDate: dueDateInfo?.dueDate || null,
+            dueDate: shouldShowDueDate ? dueDateInfo?.dueDate || null : null,
           });
 
           totalOutstandingCurrency += signedOriginalCurrency;
