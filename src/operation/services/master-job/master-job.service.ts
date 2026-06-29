@@ -2192,6 +2192,27 @@ export class MasterJobService {
                 }
             });
             
+            // Resolve the linked import/export master job number. The linked job
+            // lives in the destination company/branch (cross-company), so look it
+            // up by its primary key without a company/branch filter. Pick the
+            // others row that actually carries the link (not necessarily index 0).
+            const linkedImportMasterJobSid =
+                (masterJobDetails.others || []).find((other: any) => other?.ImportMasterJobSid)?.ImportMasterJobSid || null;
+            let ImportMasterJobNumber = '';
+            let ImportMasterJobCompanyMasterSid: number | null = null;
+            let ImportMasterJobBranchMasterSid: number | null = null;
+            if (linkedImportMasterJobSid) {
+                const linkedMasterJob = await prisma.masterJob.findUnique({
+                    where: { MasterJobSid: Number(linkedImportMasterJobSid) },
+                    select: { MasterJobNumber: true, CompanyMasterSid: true, BranchMasterSid: true },
+                });
+                ImportMasterJobNumber = linkedMasterJob?.MasterJobNumber || '';
+                // The linked job's own company/branch is the real Export-to-Import
+                // destination, which isn't persisted on the source job's others.
+                ImportMasterJobCompanyMasterSid = linkedMasterJob?.CompanyMasterSid ?? null;
+                ImportMasterJobBranchMasterSid = linkedMasterJob?.BranchMasterSid ?? null;
+            }
+
             return {
                 ...masterJobDetails,
                 containers : enrichedContainers || [],
@@ -2201,7 +2222,10 @@ export class MasterJobService {
                 houseJob: houseJobWithCharges,
                 costRevenueCharges: allCostRevenueCharges,
                 containerActivities: allActivities,
-                houseJobCustoms: masterJobDetails.houseJobCustoms || []
+                houseJobCustoms: masterJobDetails.houseJobCustoms || [],
+                ImportMasterJobNumber,
+                ImportMasterJobCompanyMasterSid,
+                ImportMasterJobBranchMasterSid
             }
         });
     } catch (error) {
