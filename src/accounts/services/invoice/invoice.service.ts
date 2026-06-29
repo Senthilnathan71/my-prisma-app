@@ -348,6 +348,17 @@ export class InvoiceService {
                   Volume: true,
                   ChargeableWeight: true
                 }
+              },
+              bookingProduct:{
+                where:{
+                  status:'A'
+                },
+                select:{
+                  GrossWeight:true,
+                  Volume:true,
+                  ExternlQty:true,
+                  ExternaPkg:true,
+                }
               }
             }
           },

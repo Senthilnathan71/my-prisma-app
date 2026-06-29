@@ -3960,6 +3960,7 @@ export class OperationReportsService {
               return {
                 HouseJobSid: hj.HouseJobSid,
                 HBLNo: hj.HBLNo,
+                MBLNo : hj?.MBLNo,
                 houseStatus: hj.HouseStatus,
                 jobType: hj.JobType,
                 customerName: customer.find(
