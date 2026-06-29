@@ -15,6 +15,9 @@ export class NumberSeriesService {
     private logger: Logger,
   ) {}
 
+  /** Maximum allowed total length of a generated document number. */
+  private readonly MAX_DOC_LENGTH = 35;
+
   /**
    * Get all configurations for a branch
    */
@@ -71,6 +74,14 @@ export class NumberSeriesService {
    * Create or update configuration (upsert)
    */
   async upsertConfig(payload: any) {
+    // Restrict the configured format so generated numbers stay within the cap.
+    const estimatedLength = this.estimateFormattedLength(payload);
+    if (estimatedLength > this.MAX_DOC_LENGTH) {
+      throw new BadRequestException(
+        `Document number format is ${estimatedLength} characters; the maximum allowed is ${this.MAX_DOC_LENGTH}. Please remove some components or reduce the sequence length.`,
+      );
+    }
+
     const existing = await this._db.numberSeriesConfig.findFirst({
       where: {
         CompanyMasterSid: payload.CompanyMasterSid,
@@ -262,7 +273,7 @@ export class NumberSeriesService {
         }
 
         // 5. Build the formatted number
-        return await this.buildFormattedNumber(
+        const formatted = await this.buildFormattedNumber(
           prisma,
           config,
           nextNumber,
@@ -272,6 +283,15 @@ export class NumberSeriesService {
           polCode,
           podCode,
         );
+
+        // Backstop: never emit a document number longer than the cap
+        if (formatted.length > this.MAX_DOC_LENGTH) {
+          throw new BadRequestException(
+            `Generated document number "${formatted}" is ${formatted.length} characters, exceeding the maximum of ${this.MAX_DOC_LENGTH}. Please adjust the Operation Doc Number settings for this menu.`,
+          );
+        }
+
+        return formatted;
       },
       {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -363,6 +383,47 @@ export class NumberSeriesService {
     );
 
     return { preview, nextNumber };
+  }
+
+  /**
+   * Estimate the formatted-number length for a config payload using the same
+   * placeholder widths as the live preview (ports = 3 each, 'BOTH' = 7;
+   * department = 2). Used to block saving a format that exceeds MAX_DOC_LENGTH.
+   */
+  private estimateFormattedLength(payload: any): number {
+    const lengths: number[] = [];
+    if (payload.CompanyFlagRequired === 'Y' && payload.CompanyPrefix) {
+      lengths.push(String(payload.CompanyPrefix).length);
+    }
+    if (payload.BranchFlagRequired === 'Y' && payload.BranchPrefix) {
+      lengths.push(String(payload.BranchPrefix).length);
+    }
+    if (payload.OperationFlagRequired === 'Y' && payload.OperationCode) {
+      lengths.push(String(payload.OperationCode).length);
+    }
+    if (payload.POLPODFlagRequired === 'Y') {
+      const mode = payload.POLPODMode || 'BOTH';
+      lengths.push(mode === 'BOTH' ? 7 : 3); // 'XXX-XXX' or 'XXX'
+    }
+    if (payload.DepartmentCodeRequired === 'Y') {
+      lengths.push(2); // department code placeholder (e.g. 'LE')
+    }
+    if (payload.MonthFlagRequired === 'Y') {
+      lengths.push(2);
+    }
+    if (payload.YearFlagRequired === 'Y') {
+      lengths.push(2);
+    }
+    lengths.push(Number(payload.NumberLength) || 5); // sequence
+
+    const sep =
+      payload.Separator !== null && payload.Separator !== undefined
+        ? String(payload.Separator)
+        : '/';
+    return (
+      lengths.reduce((sum, n) => sum + n, 0) +
+      sep.length * Math.max(0, lengths.length - 1)
+    );
   }
 
   /**
