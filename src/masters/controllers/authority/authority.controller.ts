@@ -233,6 +233,30 @@ export class AuthorityController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Record an approve/reject decision for a document' })
+    @ApiCreatedResponse({
+        description: 'Persists the decision and returns the refreshed approval log.',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('authorize')
+    async authorizeDocument(@Body() payload: any) {
+        const resp = new ResponseData();
+        try {
+            const result = await this.authorityService.authorizeDocument(payload);
+            resp.data = result;
+            resp.message = 'Approval recorded successfully.';
+        } catch (error) {
+            this.logger.warn(`Authorize Document Error: ${JSON.stringify(error)}, ${error}`);
+            resp.status = false;
+            resp.message =
+                error instanceof BadRequestException || error instanceof UnauthorizedException
+                    ? error.message
+                    : 'Internal Server Error';
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get approval status and log for a document under a menu' })
     @ApiCreatedResponse({
         description: 'Returns approval status or pending message for the given document and menu.',

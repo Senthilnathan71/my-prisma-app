@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { ApprovalStatus, Prisma } from '@prisma/client';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { parseDateFromString, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -679,6 +679,89 @@ export class AuthorityService {
             totalNumberOfAuthorizers,
             message: "User is a valid authorizer for this menu."
         };
+    }
+
+    /**
+     * Records an approve/reject decision for a document under a menu.
+     * Enforces that the caller is a valid authorizer, has not already acted,
+     * and that approvals follow the configured level order (Level 1 -> 2 -> 3).
+     * Returns the refreshed approval status/log for the document.
+     */
+    async authorizeDocument(payload: any) {
+        const decision = String(payload.decision || payload.ApprovalStatus || '').trim();
+        if (decision !== 'Approved' && decision !== 'Rejected') {
+            throw new BadRequestException('Invalid approval decision. Expected Approved or Rejected.');
+        }
+
+        const menuMasterSid = Number(payload.MenuMasterSid);
+        const documentSid = Number(payload.DocumentSid);
+        const companyMasterSid = Number(payload.CompanyMasterSid);
+        const branchMasterSid = Number(payload.BranchMasterSid);
+        if (!menuMasterSid || !documentSid || !companyMasterSid || !branchMasterSid) {
+            throw new BadRequestException('Menu, document, company and branch are required to authorize.');
+        }
+
+        // 1. Confirm the caller is a valid authorizer for this scope and not already acted.
+        const auth = await this.isUserAuthorizer(payload);
+        if (!auth.canAuthorize) {
+            throw new BadRequestException(auth.message || 'You are not authorized to approve this document.');
+        }
+        if (auth.alreadyApproved) {
+            throw new BadRequestException('You have already acted on this document.');
+        }
+
+        const authorityDetailSid = Number(auth.AuthorityDetailSid);
+        const myLevel = Number(auth.AuthorityLevel || 0);
+        if (!authorityDetailSid) {
+            throw new BadRequestException('Authority detail not found for the current user.');
+        }
+
+        // 2. Sequential enforcement: every lower level must already be Approved and none Rejected.
+        const departmentMasterSid = payload.DepartmentMasterSid ? Number(payload.DepartmentMasterSid) : undefined;
+        const beforeStatus = await this.getApprovalStatusData(
+            menuMasterSid, documentSid, companyMasterSid, branchMasterSid, departmentMasterSid, payload.DepartmentMaster
+        );
+        const logData: any[] = beforeStatus?.logData || [];
+
+        if (logData.some(row => row.approvalStatus === 'Rejected')) {
+            throw new BadRequestException('This document has already been rejected.');
+        }
+
+        // The Final authorizer may approve directly; lower pending levels are auto-marked as
+        // skipped by getApprovalStatusData. Non-final levels must still follow the order.
+        const isFinalAuthorizer = auth.FinalAuthority === 'Y' || (auth.FinalAuthority as any) === true;
+        if (!isFinalAuthorizer) {
+            const pendingLowerLevel = logData.find(
+                row => Number(row.approvalLevel) < myLevel && row.approvalStatus !== 'Approved'
+            );
+            if (pendingLowerLevel) {
+                throw new BadRequestException(
+                    `Level ${pendingLowerLevel.approvalLevel} must approve before you can act.`
+                );
+            }
+        }
+
+        // 3. Persist this level's decision.
+        const approvedBy = payload.ApprovedBy || payload.UpdatedBy || payload.CreatedBy || 'system';
+        await this._db.authorityLog.create({
+            data: {
+                CompanyMasterSid: companyMasterSid,
+                BranchMasterSid: branchMasterSid,
+                AuthorityDetailSid: authorityDetailSid,
+                AuthorisedDate: new Date(),
+                ApprovalStatus: decision as ApprovalStatus,
+                DocumentSid: documentSid,
+                Remarks: payload.Remarks || null,
+                CreatedBy: approvedBy,
+                UpdatedBy: approvedBy,
+                Status: 'A',
+            },
+        });
+
+        // 4. Return refreshed status so the caller can re-render immediately.
+        return this.getApprovalStatusData(
+            menuMasterSid, documentSid, companyMasterSid, branchMasterSid, departmentMasterSid, payload.DepartmentMaster
+        );
     }
 
 
