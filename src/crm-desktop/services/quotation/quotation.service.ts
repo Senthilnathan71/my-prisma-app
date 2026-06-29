@@ -1414,6 +1414,7 @@ export class QuotationService {
                 CustomerName: enquiry.CustomerName,
                 Email: enquiry.Email,
                 CustomerRef: enquiry.CustomerRef,
+                Remarks: enquiry.Remarks,
                 TransportBy: enquiry.TransportBy,
                 ClearanceBy: enquiry.ClearanceBy,
                 LeadOrCustomer: enquiry.LeadOrCustomer === 'C',

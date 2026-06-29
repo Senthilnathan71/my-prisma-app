@@ -771,6 +771,7 @@ export class MasterJobService {
                         AgentRef: otherFormValue?.AgentRef,
                         ImportMasterJobSid: otherFormValue?.ImportMasterJobSid ? Number(otherFormValue?.ImportMasterJobSid) : null,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
+                        YardReceivedOn: otherFormValue?.YardReceivedOn ? new Date(otherFormValue?.YardReceivedOn) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
                         ResourcePerson: resourcePerson,
                     }
@@ -2491,6 +2492,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         AgentRef: otherFormValue?.AgentRef,
                         ImportMasterJobSid: otherFormValue?.ImportMasterJobSid ? Number(otherFormValue?.ImportMasterJobSid) : null,
                         ExportDoDate: otherFormValue?.ExportDoDate ? new Date(otherFormValue?.ExportDoDate) : null,
+                        YardReceivedOn: otherFormValue?.YardReceivedOn ? new Date(otherFormValue?.YardReceivedOn) : null,
                         SOBDate: otherFormValue?.SOBDate ? new Date(otherFormValue?.SOBDate) : null,
                         UpdatedBy : payload.updatedBy,
                         UpdatedOn : new Date(),
