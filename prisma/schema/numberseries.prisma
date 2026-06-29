@@ -12,7 +12,10 @@ model NumberSeriesConfig {
   CompanyPrefix          String? @db.VarChar(10) // e.g., "BE"
   BranchFlagRequired     String  @default("N") @db.Char(1) // Y/N - Include branch prefix
   BranchPrefix           String? @db.VarChar(10) // e.g., "DU"
-  POLPODFlagRequired     String  @default("N") @db.Char(1) // Y/N - Include both POL and POD port codes
+  OperationFlagRequired  String  @default("N") @db.Char(1) // Y/N - Include operation code (shown after branch)
+  OperationCode          String? @db.VarChar(10) // e.g., "BKG", "QTN", "MJB" - editable, prefilled from MenuCode
+  POLPODFlagRequired     String  @default("N") @db.Char(1) // Y/N - master on/off for POL/POD port codes
+  POLPODMode             String  @default("BOTH") @db.VarChar(5) // POL | POD | BOTH (only used when POLPODFlagRequired='Y')
   DepartmentCodeRequired String  @default("N") @db.Char(1) // Y/N - Include dept code from DepartmentMaster
   MonthFlagRequired      String  @default("N") @db.Char(1) // Y/N - Include month (MM format)
   YearFlagRequired       String  @default("N") @db.Char(1) // Y/N - Include YearCode from YearMaster

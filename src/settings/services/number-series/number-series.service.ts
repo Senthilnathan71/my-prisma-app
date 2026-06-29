@@ -87,7 +87,10 @@ export class NumberSeriesService {
           CompanyPrefix: payload.CompanyPrefix,
           BranchFlagRequired: payload.BranchFlagRequired || 'N',
           BranchPrefix: payload.BranchPrefix,
+          OperationFlagRequired: payload.OperationFlagRequired || 'N',
+          OperationCode: payload.OperationCode ?? null,
           POLPODFlagRequired: payload.POLPODFlagRequired ?? 'N',
+          POLPODMode: payload.POLPODMode || 'BOTH',
           POLPODPortWiseCounter: payload.POLPODPortWiseCounter ?? 'Y',
           DepartmentCodeRequired: payload.DepartmentCodeRequired || 'N',
           MonthFlagRequired: payload.MonthFlagRequired || 'N',
@@ -112,7 +115,10 @@ export class NumberSeriesService {
           CompanyPrefix: payload.CompanyPrefix,
           BranchFlagRequired: payload.BranchFlagRequired || 'N',
           BranchPrefix: payload.BranchPrefix,
+          OperationFlagRequired: payload.OperationFlagRequired || 'N',
+          OperationCode: payload.OperationCode ?? null,
           POLPODFlagRequired: payload.POLPODFlagRequired ?? 'N',
+          POLPODMode: payload.POLPODMode || 'BOTH',
           POLPODPortWiseCounter: payload.POLPODPortWiseCounter ?? 'Y',
           DepartmentCodeRequired: payload.DepartmentCodeRequired || 'N',
           MonthFlagRequired: payload.MonthFlagRequired || 'N',
@@ -197,21 +203,11 @@ export class NumberSeriesService {
         const deptSid =
           config.DepartmentWiseCounter === 'Y' ? DepartmentMasterSid : null;
 
-        // Resolve port codes and counter key Sids for POL/POD flag
+        // Resolve port codes and counter key Sids for POL/POD flag (honours POLPODMode)
         // polSid/podSid are included in counter key only when PortWiseCounter='Y' (Case I)
         // When PortWiseCounter='N' (Case II), sids are null → shared counter, but port codes still appear in the number
-        let polCode: string | undefined;
-        let podCode: string | undefined;
-        const polSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (POLSid ?? null) : null;
-        const podSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (PODSid ?? null) : null;
-        if (config.POLPODFlagRequired === 'Y' && POLSid && PODSid) {
-          const [polPort, podPort] = await Promise.all([
-            prisma.portMaster.findUnique({ where: { PortMasterSid: POLSid }, select: { PortCode: true } }),
-            prisma.portMaster.findUnique({ where: { PortMasterSid: PODSid }, select: { PortCode: true } }),
-          ]);
-          polCode = polPort?.PortCode ? (polPort.PortCode.length > 3 ? polPort.PortCode.slice(-3) : polPort.PortCode) : undefined;
-          podCode = podPort?.PortCode ? (podPort.PortCode.length > 3 ? podPort.PortCode.slice(-3) : podPort.PortCode) : undefined;
-        }
+        const { polSid, podSid, polCode, podCode } =
+          await this.resolvePortSegment(prisma, config, POLSid, PODSid);
 
         // 4. Get or create counter with row-level locking
         let counter = await prisma.numberSeriesCounter.findFirst({
@@ -327,19 +323,9 @@ export class NumberSeriesService {
     const deptSid =
       config.DepartmentWiseCounter === 'Y' ? DepartmentMasterSid : null;
 
-    // Resolve port codes for POL/POD flag
-    let polCode: string | undefined;
-    let podCode: string | undefined;
-    const polSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (POLSid ?? null) : null;
-    const podSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (PODSid ?? null) : null;
-    if (config.POLPODFlagRequired === 'Y' && POLSid && PODSid) {
-      const [polPort, podPort] = await Promise.all([
-        this._db.portMaster.findUnique({ where: { PortMasterSid: POLSid }, select: { PortCode: true } }),
-        this._db.portMaster.findUnique({ where: { PortMasterSid: PODSid }, select: { PortCode: true } }),
-      ]);
-      polCode = polPort?.PortCode ? (polPort.PortCode.length > 3 ? polPort.PortCode.slice(-3) : polPort.PortCode) : undefined;
-      podCode = podPort?.PortCode ? (podPort.PortCode.length > 3 ? podPort.PortCode.slice(-3) : podPort.PortCode) : undefined;
-    }
+    // Resolve port codes for POL/POD flag (honours POLPODMode)
+    const { polSid, podSid, polCode, podCode } =
+      await this.resolvePortSegment(this._db, config, POLSid, PODSid);
 
     const counter = await this._db.numberSeriesCounter.findFirst({
       where: {
@@ -380,6 +366,54 @@ export class NumberSeriesService {
   }
 
   /**
+   * Resolve POL/POD counter-key sids and display codes based on POLPODMode.
+   * - Counter-key sids are included only when PortWiseCounter !== 'N'.
+   * - Only the port(s) selected by POLPODMode (POL | POD | BOTH) are resolved.
+   * Shared by generateNextNumber / previewNextNumber / resetCounter.
+   */
+  private async resolvePortSegment(
+    prisma: any,
+    config: any,
+    POLSid?: number,
+    PODSid?: number,
+  ): Promise<{
+    polSid: number | null;
+    podSid: number | null;
+    polCode?: string;
+    podCode?: string;
+  }> {
+    const mode = config.POLPODMode || 'BOTH';
+    const on = config.POLPODFlagRequired === 'Y';
+    const wantPol = on && (mode === 'POL' || mode === 'BOTH');
+    const wantPod = on && (mode === 'POD' || mode === 'BOTH');
+    const portWise = config.POLPODPortWiseCounter !== 'N';
+
+    const polSid = wantPol && portWise ? (POLSid ?? null) : null;
+    const podSid = wantPod && portWise ? (PODSid ?? null) : null;
+
+    const last3 = (code?: string) =>
+      code ? (code.length > 3 ? code.slice(-3) : code) : undefined;
+
+    let polCode: string | undefined;
+    let podCode: string | undefined;
+    if (wantPol && POLSid) {
+      const polPort = await prisma.portMaster.findUnique({
+        where: { PortMasterSid: POLSid },
+        select: { PortCode: true },
+      });
+      polCode = last3(polPort?.PortCode);
+    }
+    if (wantPod && PODSid) {
+      const podPort = await prisma.portMaster.findUnique({
+        where: { PortMasterSid: PODSid },
+        select: { PortCode: true },
+      });
+      podCode = last3(podPort?.PortCode);
+    }
+    return { polSid, podSid, polCode, podCode };
+  }
+
+  /**
    * Build formatted number string based on configuration
    */
   private async buildFormattedNumber(
@@ -406,12 +440,24 @@ export class NumberSeriesService {
       parts.push(config.BranchPrefix);
     }
 
-    // 3. POL-POD segment (e.g., MAA-CHE)
-    if (config.POLPODFlagRequired === 'Y' && polCode && podCode) {
-      parts.push(`${polCode}-${podCode}`);
+    // 3. Operation Code (e.g., BKG, QTN, MJB) — shown after branch
+    if (config.OperationFlagRequired === 'Y' && config.OperationCode) {
+      parts.push(config.OperationCode);
     }
 
-    // 4. Department Code (fetched from DepartmentMaster)
+    // 4. POL/POD segment by mode (POL | POD | BOTH)
+    if (config.POLPODFlagRequired === 'Y') {
+      const mode = config.POLPODMode || 'BOTH';
+      if (mode === 'POL' && polCode) {
+        parts.push(polCode);
+      } else if (mode === 'POD' && podCode) {
+        parts.push(podCode);
+      } else if (mode === 'BOTH' && polCode && podCode) {
+        parts.push(`${polCode}-${podCode}`); // e.g., MAA-CHE
+      }
+    }
+
+    // 5. Department Code (fetched from DepartmentMaster)
     if (config.DepartmentCodeRequired === 'Y' && DepartmentMasterSid) {
       const dept = await prisma.departmentMaster.findUnique({
         where: { DepartmentMasterSid },
@@ -422,17 +468,17 @@ export class NumberSeriesService {
       }
     }
 
-    // 5. Month (MM format)
+    // 6. Month (MM format)
     if (config.MonthFlagRequired === 'Y') {
       parts.push(now.format('MM'));
     }
 
-    // 6. Year (YearCode from YearMaster)
+    // 7. Year (YearCode from YearMaster)
     if (config.YearFlagRequired === 'Y' && yearMaster?.YearCode) {
       parts.push(String(yearMaster.YearCode).slice(-2)); // e.g., "25"
     }
 
-    // 7. Sequence Number (padded to configured length)
+    // 8. Sequence Number (padded to configured length)
     const paddedNumber = sequenceNumber
       .toString()
       .padStart(config.NumberLength || 5, '0');
@@ -618,8 +664,12 @@ export class NumberSeriesService {
     const month = config.ResetOption === 'Monthly' ? now.month() + 1 : null;
     const deptSid =
       config.DepartmentWiseCounter === 'Y' ? DepartmentMasterSid : null;
-    const polSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (POLSid ?? null) : null;
-    const podSid = (config.POLPODFlagRequired === 'Y' && config.POLPODPortWiseCounter !== 'N') ? (PODSid ?? null) : null;
+    const { polSid, podSid } = await this.resolvePortSegment(
+      this._db,
+      config,
+      POLSid,
+      PODSid,
+    );
 
     // Reset to StartingNumber - 1 so the next generated number will be StartingNumber
     // Using max(0, StartingNumber - 1) to handle edge case where StartingNumber is 1

@@ -42,6 +42,16 @@ export class CreateNumberSeriesConfigDto {
   @IsString()
   @IsIn(['Y', 'N'])
   @IsOptional()
+  OperationFlagRequired?: string;
+
+  @IsString()
+  @Length(0, 10)
+  @IsOptional()
+  OperationCode?: string;
+
+  @IsString()
+  @IsIn(['Y', 'N'])
+  @IsOptional()
   DepartmentCodeRequired?: string;
 
   @IsString()
@@ -58,6 +68,11 @@ export class CreateNumberSeriesConfigDto {
   @IsIn(['Y', 'N'])
   @IsOptional()
   POLPODFlagRequired?: string;
+
+  @IsString()
+  @IsIn(['POL', 'POD', 'BOTH'])
+  @IsOptional()
+  POLPODMode?: string;
 
   @IsString()
   @IsIn(['Y', 'N'])
