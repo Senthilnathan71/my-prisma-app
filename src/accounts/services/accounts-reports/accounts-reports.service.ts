@@ -1455,6 +1455,7 @@ export class AccountsReportsService {
           CustomerAddress1:true,
           CustomerAddress2:true,
           PanType:true,
+          CashCredit:true,
           countryMaster:{
             where:{
               status:'A'
@@ -1538,6 +1539,10 @@ export class AccountsReportsService {
       let cumulativeTotal = 0;
       let localAmt = 0;
       let oscurrenecyAmt = 0;
+      let totalOverdueAmount = 0;
+      let reportCreditDays = 0;
+      let reportDueDate: Date | null = null;
+      const dueDateCache = new Map<string, { creditDays: number; dueDate: Date } | null>();
       const ageingSummary = {
         totalOutstanding: 0,
         bucket_0_30: 0,
@@ -1676,6 +1681,41 @@ export class AccountsReportsService {
             currencyWiseSummary[currency].bucket_91_120 += signedOutstandingLocal;
           else currencyWiseSummary[currency].bucket_121_above += signedOutstandingLocal;
 
+        const customerBranchSid = vt.VoucherHeader?.CustomerBranchSid ?? null;
+        const departmentMasterSid = vt.VoucherHeader?.DepartmentMasterSid ?? null;
+        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${departmentMasterSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}`;
+
+        if (!dueDateCache.has(dueDateCacheKey)) {
+          try {
+            dueDateCache.set(
+              dueDateCacheKey,
+              await this.creditRequestService.getDueDate({
+                CompanyMasterSid,
+                CustomerMasterSid: subledger.SubledgerMappingSid,
+                CustomerBranchSid: customerBranchSid,
+                DepartmentMasterSid: departmentMasterSid,
+                VoucherDate: voucherDate,
+                CurrentDate: voucherDate,
+              }),
+            );
+          } catch {
+            dueDateCache.set(dueDateCacheKey, null);
+          }
+        }
+
+        const dueDateInfo = dueDateCache.get(dueDateCacheKey) || null;
+        if (dueDateInfo?.creditDays) {
+          reportCreditDays = Number(dueDateInfo.creditDays || 0);
+        }
+        if (!reportDueDate && dueDateInfo?.dueDate) {
+          reportDueDate = dueDateInfo.dueDate;
+        }
+
+        const creditDays = Number(dueDateInfo?.creditDays || 0);
+        const overdueDays = ageingDays > creditDays ? ageingDays - creditDays : 0;
+        const overdueAmount = overdueDays > 0 ? toNumber(signedOutstandingLocal) : 0;
+        totalOverdueAmount += overdueAmount;
+
           transactions.push({
             voucherTransactionSid: vt.VoucherTransactionSid,
             voucherHeaderSid: vt.VoucherHeaderSid,
@@ -1712,6 +1752,7 @@ export class AccountsReportsService {
             ageingBucket: ageingSummary,
             cumulativeOutstanding: cumulativeTotal,
             localAmt: localAmt,
+            dueDate: dueDateInfo?.dueDate || null,
           });
 
           totalOutstandingCurrency += signedOriginalCurrency;
@@ -1740,6 +1781,8 @@ export class AccountsReportsService {
         branchNames: resolvedBranchNames.join(', '),
         brancesInvoled,
         ledgerMasterSid: ledgerMasterSid!,
+        creditDays: !isCreditCustomer(customer?.CashCredit) || reportCreditDays === 0 ? 'Cash' : reportCreditDays,
+        totalOverdueAmount: roundAmount(totalOverdueAmount, 2),
         subledgerName: subledger?.SubledgerName,
         Address: customer?.CustomerAddress1 ||  '',
         PanType: customer?.PanType || '',
@@ -4607,6 +4650,7 @@ export class AccountsReportsService {
                 return {
                   HouseJobSid: hj.HouseJobSid,
                   HBLNo: hj.HBLNo,
+                  MBLNo: hj?.MBLNo,
                   houseStatus: hj.HouseStatus,
                   jobType: hj.JobType,
                   customerName: customer.find(
