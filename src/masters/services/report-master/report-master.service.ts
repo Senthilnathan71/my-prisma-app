@@ -200,6 +200,7 @@ private parseDropDownValue(raw: any): any {
             ReportFormat: payload.ReportFormat,
             ReportExcludedCompany: payload.ReportExcludedCompany,
             Orientation: payload.Orientation,
+            Notes:payload.Notes
           }
         });
 
@@ -269,6 +270,7 @@ private parseDropDownValue(raw: any): any {
             ReportFormat: newData.ReportFormat,
             ReportExcludedCompany: newData.ReportExcludedCompany,
             Orientation: newData.Orientation,
+            Notes : newData.Notes
           },
         });
 
@@ -382,6 +384,7 @@ private parseDropDownValue(raw: any): any {
           ReportType: true,
           ReportFormat: true,
           Orientation: true,
+          Notes:true,
           ReportExcludedCompany: true,
         },
         orderBy: { ReportDisplayName: 'asc' },
