@@ -58,9 +58,21 @@ export interface ShipmentMilestoneSaveContext {
 }
 
 /**
- * Create or update each milestone in `milestones`, scoped/keyed from `context`.
- *   - Row WITH ShipmentMilestoneSid  -> update (so re-saving never duplicates).
- *   - Row WITHOUT ShipmentMilestoneSid -> create.
+ * Create or update each milestone in `milestones`, scoped/keyed from `context`,
+ * with duplicate prevention by milestone **code**.
+ *
+ *   - Row WITH ShipmentMilestoneSid    -> update by PK (an existing, loaded row).
+ *   - Row WITHOUT ShipmentMilestoneSid -> de-duplicated create:
+ *       if an ACTIVE milestone with the SAME MilestoneCode already exists on this
+ *       shipment (or was just saved in this same call), that row is UPDATED instead
+ *       of inserting a second one; otherwise a new row is created.
+ *
+ * Why by code, not MilestoneMasterSid: the master is multi-department, so two
+ * different MilestoneMasterSid records can share one MilestoneCode. Code is the real
+ * business identity. The milestone row stores MilestoneMasterSid (not the code), so
+ * codes are resolved once from milestoneMaster. When a code can't be resolved the
+ * key falls back to the MilestoneMasterSid so we still never insert an exact dup.
+ *
  * HouseJobSid / BookingHeaderSid are written only when supplied (non-null), so an
  * existing Booking link is never wiped when a House Job re-saves the same milestone.
  * Returns the saved/updated rows in input order (empty array when nothing to save).
@@ -80,41 +92,118 @@ export async function saveShipmentMilestones(
     ...(context.BookingHeaderSid != null ? { BookingHeaderSid: context.BookingHeaderSid } : {}),
   };
 
-  const saved: any[] = [];
-  for (const milestone of list) {
-    const shared = {
-      ...linkData,
-      ShipmentNo: context.ShipmentNo,
-      MilestoneMasterSid: milestone.MilestoneMasterSid,
-      MilestoneName: milestone.MilestoneName,
-      MilestoneDate: milestone.MilestoneDate,
-      Remarks: milestone.Remarks,
-      AutoCaptured: toAutoCaptured(milestone.AutoCaptured),
-    };
+  // 1) Existing ACTIVE rows for this shipment (same identity used by the fetch),
+  //    so a new row can be de-duplicated against what is already saved.
+  const orConditions: any[] = [];
+  if (context.HouseJobSid != null) orConditions.push({ HouseJobSid: context.HouseJobSid });
+  if (context.BookingHeaderSid != null) orConditions.push({ BookingHeaderSid: context.BookingHeaderSid });
+  if (context.ShipmentNo) orConditions.push({ ShipmentNo: context.ShipmentNo });
 
-    if (milestone.ShipmentMilestoneSid) {
-      const updated = await tx.shipmentMilestone.update({
-        where: { ShipmentMilestoneSid: milestone.ShipmentMilestoneSid },
-        data: {
-          ...shared,
-          Status: toStatusChar(milestone.Status),
-          UpdatedBy: context.actorEmail ?? milestone.UpdatedBy ?? milestone.CreatedBy ?? 'system',
-          UpdatedOn: new Date(),
-        },
-      });
-      saved.push(updated);
-    } else {
-      const created = await tx.shipmentMilestone.create({
-        data: {
-          ...shared,
-          CompanyMasterSid: context.CompanyMasterSid,
-          BranchMasterSid: context.BranchMasterSid,
-          Status: 'A',
-          CreatedBy: context.actorEmail ?? milestone.CreatedBy ?? milestone.UpdatedBy ?? 'system',
-        },
-      });
-      saved.push(created);
+  let existingRows: any[] = [];
+  if (orConditions.length) {
+    const existingWhere: any = { Status: 'A', deletedAt: null, OR: orConditions };
+    if (context.CompanyMasterSid != null) existingWhere.CompanyMasterSid = context.CompanyMasterSid;
+    if (context.BranchMasterSid != null) existingWhere.BranchMasterSid = context.BranchMasterSid;
+    existingRows = await tx.shipmentMilestone.findMany({
+      where: existingWhere,
+      select: { ShipmentMilestoneSid: true, MilestoneMasterSid: true },
+    });
+  }
+
+  // 2) Resolve MilestoneMasterSid -> MilestoneCode for every master involved
+  //    (incoming + existing), in one lookup.
+  const allMasterSids = [
+    ...new Set(
+      [...list.map((m) => m.MilestoneMasterSid), ...existingRows.map((r) => r.MilestoneMasterSid)]
+        .filter((value) => value != null)
+        .map((value) => Number(value)),
+    ),
+  ];
+  const codeMap = new Map<number, string>();
+  if (allMasterSids.length) {
+    const masters = await tx.milestoneMaster.findMany({
+      where: { MilestoneMasterSid: { in: allMasterSids } },
+      select: { MilestoneMasterSid: true, MilestoneCode: true },
+    });
+    for (const master of masters) {
+      codeMap.set(master.MilestoneMasterSid, master.MilestoneCode);
     }
+  }
+
+  // Dedup key: the milestone code (case-insensitive) when known, else the master Sid.
+  const dedupKey = (milestoneMasterSid: any): string | null => {
+    if (milestoneMasterSid == null) return null;
+    const code = codeMap.get(Number(milestoneMasterSid));
+    return code != null && String(code).trim() !== ''
+      ? `CODE:${String(code).trim().toLowerCase()}`
+      : `MID:${milestoneMasterSid}`;
+  };
+
+  // Existing active rows indexed by dedup key (first one wins).
+  const existingByKey = new Map<string, number>();
+  for (const row of existingRows) {
+    const key = dedupKey(row.MilestoneMasterSid);
+    if (key && !existingByKey.has(key)) {
+      existingByKey.set(key, row.ShipmentMilestoneSid);
+    }
+  }
+
+  const buildShared = (milestone: any) => ({
+    ...linkData,
+    ShipmentNo: context.ShipmentNo,
+    MilestoneMasterSid: milestone.MilestoneMasterSid,
+    MilestoneName: milestone.MilestoneName,
+    MilestoneDate: milestone.MilestoneDate,
+    Remarks: milestone.Remarks,
+    AutoCaptured: toAutoCaptured(milestone.AutoCaptured),
+  });
+
+  const updateBySid = (sid: number, milestone: any) =>
+    tx.shipmentMilestone.update({
+      where: { ShipmentMilestoneSid: sid },
+      data: {
+        ...buildShared(milestone),
+        Status: toStatusChar(milestone.Status),
+        UpdatedBy: context.actorEmail ?? milestone.UpdatedBy ?? milestone.CreatedBy ?? 'system',
+        UpdatedOn: new Date(),
+      },
+    });
+
+  // Tracks codes already created/updated in THIS call (in-payload dedup).
+  const seenKey = new Map<string, number>();
+  const saved: any[] = [];
+
+  for (const milestone of list) {
+    const key = dedupKey(milestone.MilestoneMasterSid);
+
+    // Explicit existing row -> always update by its own PK.
+    if (milestone.ShipmentMilestoneSid) {
+      const updated = await updateBySid(milestone.ShipmentMilestoneSid, milestone);
+      saved.push(updated);
+      if (key) seenKey.set(key, milestone.ShipmentMilestoneSid);
+      continue;
+    }
+
+    // New row -> if the same code already exists (this call or in DB), update it.
+    const targetSid = key ? seenKey.get(key) ?? existingByKey.get(key) : undefined;
+    if (targetSid) {
+      const updated = await updateBySid(targetSid, milestone);
+      saved.push(updated);
+      if (key) seenKey.set(key, targetSid);
+      continue;
+    }
+
+    const created = await tx.shipmentMilestone.create({
+      data: {
+        ...buildShared(milestone),
+        CompanyMasterSid: context.CompanyMasterSid,
+        BranchMasterSid: context.BranchMasterSid,
+        Status: 'A',
+        CreatedBy: context.actorEmail ?? milestone.CreatedBy ?? milestone.UpdatedBy ?? 'system',
+      },
+    });
+    saved.push(created);
+    if (key) seenKey.set(key, created.ShipmentMilestoneSid);
   }
 
   return saved;
