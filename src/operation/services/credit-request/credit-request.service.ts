@@ -374,6 +374,14 @@ export class CreditRequestService {
    */
   async createSingleCustomerCreditReq(payload: CustomerCreditRequestInterface) {
     try {
+      const effectiveFrom = toUtcDateOnly(payload.EffectiveFrom);
+      const today = toUtcDateOnly(new Date());
+      if (effectiveFrom.getTime() !== today.getTime()) {
+        throw new BadRequestException(
+          'Effective From must be today for a new credit request',
+        );
+      }
+
       const creditRequest = await this._db.customerCreditRequest.create({
         data: {
           CustomerMasterSid: payload.CustomerMasterSid,
@@ -385,7 +393,7 @@ export class CreditRequestService {
           CreditLimit: payload.CreditLimit,
           PublishedDays: payload.PublishedDays,
           PublishedLimit: payload.PublishedLimit,
-          EffectiveFrom: new Date(payload.EffectiveFrom),
+          EffectiveFrom: effectiveFrom,
           EffectiveTo: payload.EffectiveTo ? new Date(payload.EffectiveTo) : null,
           ApprovalStatus: payload.ApprovalStatus || ApprovalStatus.Pending,
           CreatedBy: payload.CreatedBy,
@@ -840,27 +848,25 @@ export class CreditRequestService {
     CompanyMasterSid: number;
     CustomerMasterSid: number;
     CustomerBranchSid: number | null;
-    DepartmentMasterSid: number | null;
     VoucherDate: Date;
     current_date?: Date;
     CurrentDate?: Date;
   }): Promise<any> {
-    const baseDate = new Date(
-      payload.VoucherDate ||
-        (payload as any).current_date ||
+    const baseDate = new Date(payload.VoucherDate);
+    const termsSelectionDate = new Date(
+      (payload as any).current_date ||
         payload.CurrentDate ||
         new Date(),
     );
 
-    // Statement uses branch -> customer-only priority (department intentionally
-    // ignored). Latest approved request effective on the voucher date; EffectiveTo
-    // is not considered.
+    // Select the currently effective approved terms, but always calculate the due
+    // date from the original transaction date.
     const terms = await this.resolveCreditTerms({
       companyMasterSid: payload.CompanyMasterSid,
       customerMasterSid: payload.CustomerMasterSid,
       customerBranchSid: payload.CustomerBranchSid,
       departmentMasterSid: undefined,
-      asOfDate: baseDate,
+      asOfDate: termsSelectionDate,
     });
 
     // CASH (or no approved/effective request): due date is the EXACT transaction
@@ -1324,13 +1330,13 @@ export class CreditRequestService {
         };
       }
 
-      // Latest approved credit terms effective on the BL/DO document date
-      // (EffectiveFrom only; CASH when no approved/effective request).
+      // Release validation uses the latest approved terms effective today. The
+      // historical document date must not hide a subsequently effective request.
       const terms = await this.resolveCreditTerms({
         companyMasterSid: dto.CompanyMasterSid,
         customerMasterSid: dto.CustomerMasterSid,
         customerBranchSid: dto.CustomerBranchSid,
-        asOfDate: dto.DocumentDate,
+        asOfDate: new Date(),
       });
 
       const customerCurrencyCode = await this.getCustomerCurrencyCode(dto.CustomerMasterSid);
