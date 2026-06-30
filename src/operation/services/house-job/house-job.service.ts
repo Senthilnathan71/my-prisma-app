@@ -620,6 +620,23 @@ export class HouseJobService {
                 throw new BadRequestException('Department not found.');
             }
 
+            // Prevent generating a second House Job for a Booking that already has an Active one.
+            // Suspended (status 'S') House Jobs are ignored so a regenerated House Job is allowed.
+            // Enforced on the backend so the rule holds regardless of the caller/UI.
+            if (payload.BookingHeaderSid) {
+                const existingActiveHouseJob = await this._db.houseJob.findFirst({
+                    where: {
+                        BookingHeaderSid: Number(payload.BookingHeaderSid),
+                        status: 'A'
+                    },
+                    select: { HouseJobSid: true }
+                });
+
+                if (existingActiveHouseJob) {
+                    throw new BadRequestException('Booking already has an Active House Job.');
+                }
+            }
+
             const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
             const menuId = await this.resolveHouseJobMenuSid(department.departmentType, payload.JobType);
             const resolvedHouseStatus = await this.resolveHouseStatusForMasterJob(payload.MasterJobSid, payload.HouseStatus);
@@ -1439,6 +1456,13 @@ export class HouseJobService {
             const menuId = await this.resolveHouseJobMenuSid(department.departmentType, payload.JobType);
             const resolvedHouseStatus = await this.resolveHouseStatusForMasterJob(payload.MasterJobSid, payload.HouseStatus);
 
+            // When a House Job is suspended (status 'S') we release its Booking linkage so the
+            // Booking is free to generate a new House Job and can itself be suspended afterwards.
+            // BookingHeaderSid is @unique on HouseJob, so it must be cleared here (Postgres allows
+            // multiple NULLs) — otherwise regeneration would hit the unique constraint.
+            const isSuspending = String(payload.status ?? '').trim().charAt(0).toUpperCase() === 'S';
+            const linkedBookingHeaderSid = payload.BookingHeaderSid ? Number(payload.BookingHeaderSid) : null;
+
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
 
                 const updatedHouseJob = await prisma.houseJob.update({
@@ -1447,7 +1471,7 @@ export class HouseJobService {
                     },
                     data: {
                         MasterJobSid: payload.MasterJobSid || null,
-                        BookingHeaderSid: payload.BookingHeaderSid || null,
+                        BookingHeaderSid: isSuspending ? null : (payload.BookingHeaderSid || null),
                         ColoadedBy: payload.ColoadedBy || '',
                         BookingNo: payload.BookingNo || '',
                         BookingDateTime: payload.BookingDateTime || null,
@@ -1540,8 +1564,24 @@ export class HouseJobService {
                 };
             });
             
-            // 🔁 Sync HBL / MBL to BookingHeader (ONLY if BookingHeaderSid exists)
-            if (payload.BookingHeaderSid) {
+            // 🔁 Release Booking linkage when the House Job is suspended.
+            // This is the reverse of the sync below: it frees the Booking so it can
+            // generate a new House Job (and can itself be suspended afterwards).
+            if (isSuspending && linkedBookingHeaderSid) {
+                await this._db.bookingHeader.update({
+                    where: {
+                        BookingHeaderSid: linkedBookingHeaderSid
+                    },
+                    data: {
+                        HouseJobSid: null,
+                        HBLNo: null,
+                        MBLNo: null,
+                        updatedBy: payload.updatedBy
+                    }
+                });
+            }
+            // 🔁 Sync HBL / MBL to BookingHeader (ONLY if BookingHeaderSid exists and not suspending)
+            else if (payload.BookingHeaderSid) {
 
                 const houseJob = await this._db.houseJob.findUnique({
                     where: { HouseJobSid },
@@ -2360,6 +2400,8 @@ export class HouseJobService {
                 mode: 'insensitive'
             },
             CompanyMasterSid: companyMasterSid,
+            // Only Active House Jobs count toward uniqueness. Suspended ('S') jobs are
+            // ignored so a regenerated House Job can reuse the original HBL No.
             status: 'A'
         };
 
@@ -2398,6 +2440,8 @@ export class HouseJobService {
             },
             MasterJobSid: masterJobSid,
             CompanyMasterSid: companyMasterSid,
+            // Suspended ('S') House Jobs are ignored so a regenerated House Job under the
+            // same Master Job can reuse the original HBL No.
             status: 'A'
         };
 
