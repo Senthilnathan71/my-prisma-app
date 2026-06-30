@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
+import { saveShipmentMilestones, relinkBookingMilestonesToHouseJob } from '../shipment-milestone/shipment-milestone.helper';
 import { MenuService } from 'src/settings/services/menu/menu.service';
 import * as moment from 'moment-timezone';
 import { parseDateFromString, statusWhereClause, toNumber } from 'src/common/helper';
@@ -1118,28 +1119,14 @@ export class HouseJobService {
                     }
                 }
 
-                let finalAllMilestones: any = [];
-                const allMilestones = payload.milestones || [];
-                if (allMilestones.length > 0) {
-                    for (const milestone of allMilestones) {
-                        const createdMilestone = await prisma.shipmentMilestone.create({
-                            data: {
-                                HouseJobSid: houseJob.HouseJobSid,
-                                ShipmentNo: houseJob.ShipmentNo!,
-                                CompanyMasterSid: houseJob.CompanyMasterSid,
-                                BranchMasterSid: houseJob.BranchMasterSid!,
-                                CreatedBy: payload.createdBy,
-                                Status: "A",
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured,
-                            }
-                        });
-                        finalAllMilestones.push(createdMilestone);
-                    }
-                }
+                const finalAllMilestones = await saveShipmentMilestones(prisma, payload.milestones, {
+                    ShipmentNo: houseJob.ShipmentNo!,
+                    CompanyMasterSid: houseJob.CompanyMasterSid,
+                    BranchMasterSid: houseJob.BranchMasterSid!,
+                    HouseJobSid: houseJob.HouseJobSid,
+                    BookingHeaderSid: houseJob.BookingHeaderSid,
+                    actorEmail: payload.createdBy,
+                });
 
                 if (houseJob.MasterJobSid) {
                     await this.recalculateMasterJobTotals(
@@ -1162,6 +1149,24 @@ export class HouseJobService {
                 //         AutoCaptured : milestone.AutoCaptured ? 'Y' : 'N'
                 //     }))
                 //   })
+
+                // Link the source Booking's pre-conversion milestones (HouseJobSid NULL) to this
+                // House Job. Safe because a Booking can have only one Active House Job (guarded above).
+                const bookingIdsForMilestones = Array.from(new Set<number>([
+                    ...(payload.BookingHeaderSid ? [Number(payload.BookingHeaderSid)] : []),
+                    ...((payload.shipmentList || [])
+                        .map((s: any) => Number(s.BookingHeaderSid))
+                        .filter((value: number) => !!value)),
+                ]));
+                if (bookingIdsForMilestones.length) {
+                    await relinkBookingMilestonesToHouseJob(prisma, {
+                        BookingHeaderSid: bookingIdsForMilestones,
+                        HouseJobSid: houseJob.HouseJobSid,
+                        CompanyMasterSid: houseJob.CompanyMasterSid,
+                        BranchMasterSid: houseJob.BranchMasterSid,
+                        actorEmail: payload.createdBy,
+                    });
+                }
 
                 return {
                     houseJob,
@@ -2150,53 +2155,14 @@ export class HouseJobService {
                 }
             }
 
-            const finalShipmentMilestones: any[] = [];
-            const milestonePayload = payload.milestones || [];
-
-            if (milestonePayload.length > 0) {
-                for (const milestone of milestonePayload) {
-                    let createdMilestone;
-                    let updatedMilestone;
-                    if (milestone.ShipmentMilestoneSid) {
-                        // Update existing milestone
-                        updatedMilestone = await this._db.shipmentMilestone.update({
-                            where: {
-                                ShipmentMilestoneSid: milestone.ShipmentMilestoneSid
-                            },
-                            data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
-                                ShipmentNo: updatedHouseJob.ShipmentNo!,
-                                UpdatedBy: milestone.UpdatedBy || milestone.CreatedBy,
-                                UpdatedOn: new Date(),
-                                Status: String(milestone.Status).charAt(0),
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured,
-                            }
-                        });
-                    } else {
-                        // Create new milestone
-                        createdMilestone = await this._db.shipmentMilestone.create({
-                            data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
-                                ShipmentNo: updatedHouseJob.ShipmentNo!,
-                                CompanyMasterSid: milestone.CompanyMasterSid,
-                                BranchMasterSid: milestone.BranchMasterSid,
-                                CreatedBy: milestone.UpdatedBy,
-                                Status: "A",
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured,
-                            }
-                        });
-                    }
-                    finalShipmentMilestones.push(updatedMilestone || createdMilestone);
-                }
-            }
+            const finalShipmentMilestones = await saveShipmentMilestones(this._db, payload.milestones, {
+                ShipmentNo: updatedHouseJob.ShipmentNo!,
+                CompanyMasterSid: updatedHouseJob.CompanyMasterSid,
+                BranchMasterSid: updatedHouseJob.BranchMasterSid!,
+                HouseJobSid: updatedHouseJob.HouseJobSid,
+                BookingHeaderSid: updatedHouseJob.BookingHeaderSid,
+                actorEmail: payload.updatedBy,
+            });
 
            
 

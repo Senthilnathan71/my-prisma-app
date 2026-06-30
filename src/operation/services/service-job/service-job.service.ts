@@ -4,6 +4,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { MenuService } from 'src/settings/services/menu/menu.service';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
+import { saveShipmentMilestones } from '../shipment-milestone/shipment-milestone.helper';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { statusWhereClause } from 'src/common/helper';
 import * as moment from 'moment-timezone';
@@ -425,28 +426,14 @@ export class ServiceJobService {
                 });
             }
 
-            const createdMilestones: any[] = [];
-            const milestonePayload = milestones || [];
-            if (milestonePayload.length > 0) {
-                for (const milestone of milestonePayload) {
-                    const createdMilestone = await prisma.shipmentMilestone.create({
-                        data: {
-                            HouseJobSid: houseJob.HouseJobSid,
-                            ShipmentNo: houseJob.ShipmentNo!,
-                            CompanyMasterSid: houseJob.CompanyMasterSid,
-                            BranchMasterSid: houseJob.BranchMasterSid!,
-                            CreatedBy: payload.createdBy,
-                            Status: 'A',
-                            MilestoneMasterSid: milestone.MilestoneMasterSid,
-                            Remarks: milestone.Remarks,
-                            MilestoneName: milestone.MilestoneName,
-                            MilestoneDate: milestone.MilestoneDate,
-                            AutoCaptured: milestone.AutoCaptured,
-                        }
-                    });
-                    createdMilestones.push(createdMilestone);
-                }
-            }
+            const createdMilestones = await saveShipmentMilestones(prisma, milestones, {
+                ShipmentNo: houseJob.ShipmentNo!,
+                CompanyMasterSid: houseJob.CompanyMasterSid,
+                BranchMasterSid: houseJob.BranchMasterSid!,
+                HouseJobSid: houseJob.HouseJobSid,
+                BookingHeaderSid: houseJob.BookingHeaderSid,
+                actorEmail: payload.createdBy,
+            });
 
 
             return {
@@ -774,45 +761,14 @@ export class ServiceJobService {
                 }
             }
 
-            const milestonePayload = milestones || [];
-            if (milestonePayload.length > 0) {
-                for (const milestone of milestonePayload) {
-                    if (milestone.ShipmentMilestoneSid) {
-                        await prisma.shipmentMilestone.update({
-                            where: {
-                                ShipmentMilestoneSid: milestone.ShipmentMilestoneSid
-                            },
-                            data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
-                                ShipmentNo: updatedHouseJob.ShipmentNo!,
-                                UpdatedBy: milestone.UpdatedBy || payload.updatedBy,
-                                Status: String(milestone.Status || 'A').charAt(0),
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured,
-                            }
-                        });
-                    } else {
-                        await prisma.shipmentMilestone.create({
-                            data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
-                                ShipmentNo: updatedHouseJob.ShipmentNo!,
-                                CompanyMasterSid: milestone.CompanyMasterSid || updatedHouseJob.CompanyMasterSid,
-                                BranchMasterSid: milestone.BranchMasterSid || updatedHouseJob.BranchMasterSid!,
-                                CreatedBy: milestone.UpdatedBy || payload.updatedBy,
-                                Status: 'A',
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured,
-                            }
-                        });
-                    }
-                }
-            }
+            await saveShipmentMilestones(prisma, milestones, {
+                ShipmentNo: updatedHouseJob.ShipmentNo!,
+                CompanyMasterSid: updatedHouseJob.CompanyMasterSid,
+                BranchMasterSid: updatedHouseJob.BranchMasterSid!,
+                HouseJobSid: updatedHouseJob.HouseJobSid,
+                BookingHeaderSid: updatedHouseJob.BookingHeaderSid,
+                actorEmail: payload.updatedBy,
+            });
 
 
             return this.fetchServiceJobById(houseJobSid,payload.CompanyMasterSid,payload.BranchMasterSid);
