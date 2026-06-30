@@ -1788,7 +1788,7 @@ export class AccountsReportsService {
         branchNames: resolvedBranchNames.join(', '),
         brancesInvoled,
         ledgerMasterSid: ledgerMasterSid!,
-        creditDays: !isCreditCustomer(customer?.CashCredit) || reportCreditDays === 0 ? 'Cash' : reportCreditDays,
+        creditDays: !isCreditCustomer(customer?.CashCredit) || reportCreditDays === 0 ? 'Cash' : `${reportCreditDays} Days`,
         totalOverdueAmount: roundAmount(totalOverdueAmount, 2),
         subledgerName: subledger?.SubledgerName,
         Address: customer?.CustomerAddress1 ||  '',
