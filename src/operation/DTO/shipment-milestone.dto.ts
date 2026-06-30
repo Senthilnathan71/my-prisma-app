@@ -84,6 +84,10 @@ export class ShipmentMilestoneCreateDTO {
     @IsOptional()
     @IsInt()
     HouseJobSid?: number | null;
+
+    @IsOptional()
+    @IsInt()
+    BookingHeaderSid?: number | null;
 }
 
 export class ShipmentMilestoneFetchDTO {
@@ -204,6 +208,9 @@ export class ShipmentMilestoneSafeInsertDTO {
     @MaxLength(200)
     Remarks?: string | null;
 
+    @IsOptional()
+    @IsInt()
+    BookingHeaderSid?: number | null;   // anchor booking-stage milestones (e.g. EXDO) on the booking
 }
 
 export class ShipmentMilestoneInsertByMasterJobDTO {

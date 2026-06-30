@@ -226,6 +226,7 @@ export class ShipmentMilestoneService {
                 MilestoneDate: payload.MilestoneDate || new Date(),
                 AutoCaptured: 'Y',
                 Remarks: payload.Remarks || "System auto inserted",
+                BookingHeaderSid: payload.BookingHeaderSid ?? null,
                 HouseJobSid: null
             }, tx);
 
