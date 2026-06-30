@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
+import { saveShipmentMilestones, relinkBookingMilestonesToHouseJob } from '../shipment-milestone/shipment-milestone.helper';
 import { MenuService } from 'src/settings/services/menu/menu.service';
 import * as moment from 'moment-timezone';
 import { parseDateFromString, statusWhereClause, toNumber } from 'src/common/helper';
@@ -620,6 +621,23 @@ export class HouseJobService {
                 throw new BadRequestException('Department not found.');
             }
 
+            // Prevent generating a second House Job for a Booking that already has an Active one.
+            // Suspended (status 'S') House Jobs are ignored so a regenerated House Job is allowed.
+            // Enforced on the backend so the rule holds regardless of the caller/UI.
+            if (payload.BookingHeaderSid) {
+                const existingActiveHouseJob = await this._db.houseJob.findFirst({
+                    where: {
+                        BookingHeaderSid: Number(payload.BookingHeaderSid),
+                        status: 'A'
+                    },
+                    select: { HouseJobSid: true }
+                });
+
+                if (existingActiveHouseJob) {
+                    throw new BadRequestException('Booking already has an Active House Job.');
+                }
+            }
+
             const isAgentMasterAirWaybill = String(payload.JobType || '').toLowerCase() === 'agent';
             const menuId = await this.resolveHouseJobMenuSid(department.departmentType, payload.JobType);
             const resolvedHouseStatus = await this.resolveHouseStatusForMasterJob(payload.MasterJobSid, payload.HouseStatus);
@@ -1101,28 +1119,14 @@ export class HouseJobService {
                     }
                 }
 
-                let finalAllMilestones: any = [];
-                const allMilestones = payload.milestones || [];
-                if (allMilestones.length > 0) {
-                    for (const milestone of allMilestones) {
-                        const createdMilestone = await prisma.shipmentMilestone.create({
-                            data: {
-                                HouseJobSid: houseJob.HouseJobSid,
-                                ShipmentNo: houseJob.ShipmentNo!,
-                                CompanyMasterSid: houseJob.CompanyMasterSid,
-                                BranchMasterSid: houseJob.BranchMasterSid!,
-                                CreatedBy: payload.createdBy,
-                                Status: "A",
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured,
-                            }
-                        });
-                        finalAllMilestones.push(createdMilestone);
-                    }
-                }
+                const finalAllMilestones = await saveShipmentMilestones(prisma, payload.milestones, {
+                    ShipmentNo: houseJob.ShipmentNo!,
+                    CompanyMasterSid: houseJob.CompanyMasterSid,
+                    BranchMasterSid: houseJob.BranchMasterSid!,
+                    HouseJobSid: houseJob.HouseJobSid,
+                    BookingHeaderSid: houseJob.BookingHeaderSid,
+                    actorEmail: payload.createdBy,
+                });
 
                 if (houseJob.MasterJobSid) {
                     await this.recalculateMasterJobTotals(
@@ -1145,6 +1149,24 @@ export class HouseJobService {
                 //         AutoCaptured : milestone.AutoCaptured ? 'Y' : 'N'
                 //     }))
                 //   })
+
+                // Link the source Booking's pre-conversion milestones (HouseJobSid NULL) to this
+                // House Job. Safe because a Booking can have only one Active House Job (guarded above).
+                const bookingIdsForMilestones = Array.from(new Set<number>([
+                    ...(payload.BookingHeaderSid ? [Number(payload.BookingHeaderSid)] : []),
+                    ...((payload.shipmentList || [])
+                        .map((s: any) => Number(s.BookingHeaderSid))
+                        .filter((value: number) => !!value)),
+                ]));
+                if (bookingIdsForMilestones.length) {
+                    await relinkBookingMilestonesToHouseJob(prisma, {
+                        BookingHeaderSid: bookingIdsForMilestones,
+                        HouseJobSid: houseJob.HouseJobSid,
+                        CompanyMasterSid: houseJob.CompanyMasterSid,
+                        BranchMasterSid: houseJob.BranchMasterSid,
+                        actorEmail: payload.createdBy,
+                    });
+                }
 
                 return {
                     houseJob,
@@ -1439,6 +1461,13 @@ export class HouseJobService {
             const menuId = await this.resolveHouseJobMenuSid(department.departmentType, payload.JobType);
             const resolvedHouseStatus = await this.resolveHouseStatusForMasterJob(payload.MasterJobSid, payload.HouseStatus);
 
+            // When a House Job is suspended (status 'S') we release its Booking linkage so the
+            // Booking is free to generate a new House Job and can itself be suspended afterwards.
+            // BookingHeaderSid is @unique on HouseJob, so it must be cleared here (Postgres allows
+            // multiple NULLs) — otherwise regeneration would hit the unique constraint.
+            const isSuspending = String(payload.status ?? '').trim().charAt(0).toUpperCase() === 'S';
+            const linkedBookingHeaderSid = payload.BookingHeaderSid ? Number(payload.BookingHeaderSid) : null;
+
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
 
                 const updatedHouseJob = await prisma.houseJob.update({
@@ -1447,7 +1476,7 @@ export class HouseJobService {
                     },
                     data: {
                         MasterJobSid: payload.MasterJobSid || null,
-                        BookingHeaderSid: payload.BookingHeaderSid || null,
+                        BookingHeaderSid: isSuspending ? null : (payload.BookingHeaderSid || null),
                         ColoadedBy: payload.ColoadedBy || '',
                         BookingNo: payload.BookingNo || '',
                         BookingDateTime: payload.BookingDateTime || null,
@@ -1540,8 +1569,24 @@ export class HouseJobService {
                 };
             });
             
-            // 🔁 Sync HBL / MBL to BookingHeader (ONLY if BookingHeaderSid exists)
-            if (payload.BookingHeaderSid) {
+            // 🔁 Release Booking linkage when the House Job is suspended.
+            // This is the reverse of the sync below: it frees the Booking so it can
+            // generate a new House Job (and can itself be suspended afterwards).
+            if (isSuspending && linkedBookingHeaderSid) {
+                await this._db.bookingHeader.update({
+                    where: {
+                        BookingHeaderSid: linkedBookingHeaderSid
+                    },
+                    data: {
+                        HouseJobSid: null,
+                        HBLNo: null,
+                        MBLNo: null,
+                        updatedBy: payload.updatedBy
+                    }
+                });
+            }
+            // 🔁 Sync HBL / MBL to BookingHeader (ONLY if BookingHeaderSid exists and not suspending)
+            else if (payload.BookingHeaderSid) {
 
                 const houseJob = await this._db.houseJob.findUnique({
                     where: { HouseJobSid },
@@ -2110,53 +2155,14 @@ export class HouseJobService {
                 }
             }
 
-            const finalShipmentMilestones: any[] = [];
-            const milestonePayload = payload.milestones || [];
-
-            if (milestonePayload.length > 0) {
-                for (const milestone of milestonePayload) {
-                    let createdMilestone;
-                    let updatedMilestone;
-                    if (milestone.ShipmentMilestoneSid) {
-                        // Update existing milestone
-                        updatedMilestone = await this._db.shipmentMilestone.update({
-                            where: {
-                                ShipmentMilestoneSid: milestone.ShipmentMilestoneSid
-                            },
-                            data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
-                                ShipmentNo: updatedHouseJob.ShipmentNo!,
-                                UpdatedBy: milestone.UpdatedBy || milestone.CreatedBy,
-                                UpdatedOn: new Date(),
-                                Status: String(milestone.Status).charAt(0),
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured,
-                            }
-                        });
-                    } else {
-                        // Create new milestone
-                        createdMilestone = await this._db.shipmentMilestone.create({
-                            data: {
-                                HouseJobSid: updatedHouseJob.HouseJobSid,
-                                ShipmentNo: updatedHouseJob.ShipmentNo!,
-                                CompanyMasterSid: milestone.CompanyMasterSid,
-                                BranchMasterSid: milestone.BranchMasterSid,
-                                CreatedBy: milestone.UpdatedBy,
-                                Status: "A",
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured,
-                            }
-                        });
-                    }
-                    finalShipmentMilestones.push(updatedMilestone || createdMilestone);
-                }
-            }
+            const finalShipmentMilestones = await saveShipmentMilestones(this._db, payload.milestones, {
+                ShipmentNo: updatedHouseJob.ShipmentNo!,
+                CompanyMasterSid: updatedHouseJob.CompanyMasterSid,
+                BranchMasterSid: updatedHouseJob.BranchMasterSid!,
+                HouseJobSid: updatedHouseJob.HouseJobSid,
+                BookingHeaderSid: updatedHouseJob.BookingHeaderSid,
+                actorEmail: payload.updatedBy,
+            });
 
            
 
@@ -2360,6 +2366,8 @@ export class HouseJobService {
                 mode: 'insensitive'
             },
             CompanyMasterSid: companyMasterSid,
+            // Only Active House Jobs count toward uniqueness. Suspended ('S') jobs are
+            // ignored so a regenerated House Job can reuse the original HBL No.
             status: 'A'
         };
 
@@ -2398,6 +2406,8 @@ export class HouseJobService {
             },
             MasterJobSid: masterJobSid,
             CompanyMasterSid: companyMasterSid,
+            // Suspended ('S') House Jobs are ignored so a regenerated House Job under the
+            // same Master Job can reuse the original HBL No.
             status: 'A'
         };
 

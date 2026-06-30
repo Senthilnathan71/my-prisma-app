@@ -8,6 +8,7 @@ import { parseDateFromString, toNumber } from 'src/common/helper';
 import { LoadingPlanService } from '../loading-plan/loading-plan.service';
 import { MenuService } from 'src/settings/services/menu/menu.service';
 import { OperationCommonService } from '../operation-common/operation-common.service';
+import { relinkBookingMilestonesToHouseJob } from '../shipment-milestone/shipment-milestone.helper';
 import { catchError, of } from 'rxjs';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { MilestoneCode, MilestoneCategory, getDefaultMilestoneCodes, getMilestoneByCode } from './milestone-registry';
@@ -1493,6 +1494,17 @@ export class MasterJobService {
                             },
                         }).catch(err => {
                             console.error('bookingHeader update error:', err);
+                        });
+
+                        // Link the Booking's pre-conversion milestones (HouseJobSid NULL) to the
+                        // newly generated House Job. Preserves BookingHeaderSid + ShipmentNo; only
+                        // adds HouseJobSid so the House Job screen / Tracking can fetch by HouseJobSid.
+                        await relinkBookingMilestonesToHouseJob(prisma, {
+                            BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                            HouseJobSid: houseJob.HouseJobSid,
+                            CompanyMasterSid: houseJob.CompanyMasterSid,
+                            BranchMasterSid: houseJob.BranchMasterSid,
+                            actorEmail: payload.createdBy,
                         });
 
                         allCreatedHouseJobs.push(houseJob);

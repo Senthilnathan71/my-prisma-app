@@ -1686,8 +1686,7 @@ export class AccountsReportsService {
           else currencyWiseSummary[currency].bucket_121_above += signedOutstandingLocal;
 
         const customerBranchSid = vt.VoucherHeader?.CustomerBranchSid ?? null;
-        const departmentMasterSid = vt.VoucherHeader?.DepartmentMasterSid ?? null;
-        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${departmentMasterSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}`;
+        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}|${reportToDate.toISOString().slice(0, 10)}`;
 
         if (!dueDateCache.has(dueDateCacheKey)) {
           try {
@@ -1697,9 +1696,8 @@ export class AccountsReportsService {
                 CompanyMasterSid,
                 CustomerMasterSid: subledger.SubledgerMappingSid,
                 CustomerBranchSid: customerBranchSid,
-                DepartmentMasterSid: departmentMasterSid,
                 VoucherDate: voucherDate,
-                CurrentDate: voucherDate,
+                CurrentDate: reportToDate,
               }),
             );
           } catch {
@@ -1756,6 +1754,7 @@ export class AccountsReportsService {
               )?.userName || '',
             naration: vt.Narration,
             ageingDays: ageingDays,
+            creditDays: creditDays,
             ageingBucket: ageingSummary,
             cumulativeOutstanding: cumulativeTotal,
             localAmt: localAmt,
@@ -2420,8 +2419,7 @@ export class AccountsReportsService {
           ) + 1;
 
         const customerBranchSid = vt.VoucherHeader?.CustomerBranchSid ?? null;
-        const departmentMasterSid = vt.VoucherHeader?.DepartmentMasterSid ?? null;
-        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${departmentMasterSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}`;
+        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}|${reportToDate.toISOString().slice(0, 10)}`;
 
         if (!dueDateCache.has(dueDateCacheKey)) {
           try {
@@ -2431,9 +2429,8 @@ export class AccountsReportsService {
                 CompanyMasterSid,
                 CustomerMasterSid: subledger.SubledgerMappingSid,
                 CustomerBranchSid: customerBranchSid,
-                DepartmentMasterSid: departmentMasterSid,
                 VoucherDate: voucherDate,
-                CurrentDate: voucherDate,
+                CurrentDate: reportToDate,
               }),
             );
           } catch {

@@ -203,7 +203,7 @@ export class ValidateBLDODto {
 
   @ApiProperty({
     example: '2026-03-30',
-    description: 'Document date used for picking the active credit request',
+    description: 'BL/DO document date',
   })
   @IsDateString()
   DocumentDate: string;

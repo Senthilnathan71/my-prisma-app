@@ -5,6 +5,7 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import * as moment from 'moment-timezone';
 import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { OperationCommonService, RateDTO } from '../operation-common/operation-common.service';
+import { saveShipmentMilestones, getShipmentMilestones } from '../shipment-milestone/shipment-milestone.helper';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
 import { statusWhereClause } from 'src/common/helper';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
@@ -636,30 +637,15 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                 |--------------------------------------------------
             */
 
-            const allMilestones: any[] = (payload.milestones || []).map((milestone) => {
-                const milestoneData = {
-                    ShipmentNo: bookingHeader.ShipmentNo,
-                    CompanyMasterSid: bookingHeader.CompanyMasterSid,
-                    BranchMasterSid: bookingHeader.BranchMasterSid,
-                    CreatedBy: payload.createdBy,
-                    Status: 'A',
-                    MilestoneMasterSid: milestone.MilestoneMasterSid,
-                    Remarks: milestone.Remarks,
-                    MilestoneName: milestone.MilestoneName,
-                    MilestoneDate: milestone.MilestoneDate,
-                    AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
-                }
-                return milestoneData;
-            })
-
-            let createdMilestones;
-            if (allMilestones.length > 0) {
-                createdMilestones = await this._db.shipmentMilestone.createMany({
-                    data: allMilestones
-                }).catch(err => {
-                    throw new InternalServerErrorException('Something went wrong while creating shipmentMilestone', err)
-                })
-            }
+            const createdMilestones = await saveShipmentMilestones(this._db, payload.milestones, {
+                ShipmentNo: bookingHeader.ShipmentNo,
+                CompanyMasterSid: bookingHeader.CompanyMasterSid,
+                BranchMasterSid: bookingHeader.BranchMasterSid,
+                BookingHeaderSid: bookingHeader.BookingHeaderSid,
+                actorEmail: payload.createdBy,
+            }).catch(err => {
+                throw new InternalServerErrorException('Something went wrong while creating shipmentMilestone', err)
+            });
 
             if (bookingHeader.QuotationHeaderSid) {
                 try {
@@ -1354,45 +1340,15 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     |--------------------------------------------------
                 */
 
-                const finalBookingMilestones: any[] = [];
-                for (const milestone of payload.milestones) {
-                    let createdMilestones;
-                    let updatedMilestones;
-                    if (!updatedBooking.ShipmentNo) continue;
-                    if (!milestone.ShipmentMilestoneSid) {
-                        createdMilestones = await prisma.shipmentMilestone.create({
-                            data: {
-                                ShipmentNo: updatedBooking.ShipmentNo,
-                                CompanyMasterSid: payload.CompanyMasterSid,
-                                BranchMasterSid: payload.BranchMasterSid,
-                                CreatedBy: payload.updatedBy,
-                                Status: 'A',
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
-                            }
-                        })
-                    } else {
-                        updatedMilestones = await prisma.shipmentMilestone.update({
-                            where: { ShipmentMilestoneSid: milestone.ShipmentMilestoneSid },
-                            data: {
-                                ShipmentNo: updatedBooking.ShipmentNo,
-                                UpdatedBy: payload.updatedBy,
-                                UpdatedOn: new Date(),
-                                Status: milestone.Status === "Active" ? 'A' : 'S',
-                                MilestoneMasterSid: milestone.MilestoneMasterSid,
-                                Remarks: milestone.Remarks,
-                                MilestoneName: milestone.MilestoneName,
-                                MilestoneDate: milestone.MilestoneDate,
-                                AutoCaptured: milestone.AutoCaptured ? 'Y' : 'N'
-                            }
-                        })
-                    }
-                    const data = createdMilestones || updatedMilestones;
-                    finalBookingMilestones.push(data);
-                }
+                const finalBookingMilestones = !updatedBooking.ShipmentNo
+                    ? []
+                    : await saveShipmentMilestones(prisma, payload.milestones, {
+                        ShipmentNo: updatedBooking.ShipmentNo,
+                        CompanyMasterSid: payload.CompanyMasterSid,
+                        BranchMasterSid: payload.BranchMasterSid,
+                        BookingHeaderSid: updatedBooking.BookingHeaderSid,
+                        actorEmail: payload.updatedBy,
+                    });
 
                 return {
                     updatedBooking,
@@ -2426,44 +2382,82 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     Remarks: true
                 }
             })
-            return allMilestones;
+
+            // Department-wise filtering of the milestone dropdown. A milestone master stores its
+            // allowed department(s) on DepartmentMasterSid (the master entry saves department NAMES
+            // via a multi-select). When the caller supplies the current job's department, only
+            // milestones configured for that department are returned. With no department supplied
+            // the full company/branch list is returned (backward compatible). Filtering is done in
+            // the service (not a Prisma where) so it is independent of the DepartmentMasterSid
+            // column shape — array, JSON string, CSV, or a single value are all handled.
+            const filterTokens = this.buildDepartmentFilterTokens(payload);
+            if (!filterTokens.length) {
+                return allMilestones;
+            }
+            return allMilestones.filter((milestone) =>
+                this.extractDepartmentTokens(milestone.DepartmentMasterSid).some((dept) =>
+                    filterTokens.includes(dept)
+                )
+            );
         } catch (error) {
             throw error;
         }
     }
 
+    /** Department tokens the caller wants to filter by (name and/or SID), lowercased. */
+    private buildDepartmentFilterTokens(payload: any): string[] {
+        const tokens: string[] = [];
+        const push = (value: any) => {
+            if (value === null || value === undefined) return;
+            const normalized = String(value).trim().toLowerCase();
+            if (normalized) tokens.push(normalized);
+        };
+        const collect = (value: any) => {
+            if (Array.isArray(value)) value.forEach(push);
+            else push(value);
+        };
+        collect(payload?.DepartmentName);
+        collect(payload?.DepartmentMasterSid);
+        return [...new Set(tokens)];
+    }
+
+    /** Normalize a milestone's DepartmentMasterSid (array / JSON string / CSV / single value) into lowercase tokens. */
+    private extractDepartmentTokens(raw: any): string[] {
+        if (raw === null || raw === undefined) return [];
+        let list: any[] = [];
+        if (Array.isArray(raw)) {
+            list = raw;
+        } else if (typeof raw === 'string') {
+            const trimmed = raw.trim();
+            if (trimmed.startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    list = Array.isArray(parsed) ? parsed : [parsed];
+                } catch {
+                    list = trimmed.split(',');
+                }
+            } else {
+                list = trimmed.split(',');
+            }
+        } else {
+            list = [raw];
+        }
+        return list.map((value) => String(value).trim().toLowerCase()).filter((value) => value !== '');
+    }
+
     async getShipmentMilestoneByShipmentNo(payload: any) {
         try {
-            const allShipmentMilestone = await this._db.shipmentMilestone.findMany({
-                where: {
-                    ShipmentNo: payload.ShipmentNo,
-                    CompanyMasterSid: payload.CompanyMasterSid,
-                    BranchMasterSid: payload.BranchMasterSid,
-                    Status: 'A'
-                }
-            })
-
-            // Order by the milestone's configured SortBy. ShipmentMilestoneSid is only insertion
-            // order, which does not reflect the real sequence (e.g. Quote Send -> Quote Approved ->
-            // Booking Confirmed get captured out of order). MilestoneMaster has no Prisma relation
-            // here, so fetch the SortBy values and sort; MilestoneDate is the tie-breaker.
-            const masterSids = [...new Set(allShipmentMilestone.map((m) => m.MilestoneMasterSid))];
-            const masters = masterSids.length
-                ? await this._db.milestoneMaster.findMany({
-                    where: { MilestoneMasterSid: { in: masterSids } },
-                    select: { MilestoneMasterSid: true, SortBy: true }
-                })
-                : [];
-            const sortMap = new Map(masters.map((m) => [m.MilestoneMasterSid, Number(m.SortBy)]));
-
-            allShipmentMilestone.sort((a, b) => {
-                const sa = sortMap.get(a.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
-                const sb = sortMap.get(b.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
-                if (sa !== sb) return sa - sb;
-                return new Date(a.MilestoneDate).getTime() - new Date(b.MilestoneDate).getTime();
+            // Common fetch: keyed by HouseJobSid / BookingHeaderSid / ShipmentNo (OR),
+            // scoped by Company + Branch + Status='A' + deletedAt=NULL, ordered by master SortBy.
+            // Booking screen passes BookingHeaderSid; House/Service screens pass HouseJobSid.
+            // ShipmentNo remains a fallback for legacy rows and callers that only send it.
+            return await getShipmentMilestones(this._db, {
+                HouseJobSid: payload.HouseJobSid,
+                BookingHeaderSid: payload.BookingHeaderSid,
+                ShipmentNo: payload.ShipmentNo,
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
             });
-
-            return allShipmentMilestone;
         } catch (error) {
             throw error;
         }
