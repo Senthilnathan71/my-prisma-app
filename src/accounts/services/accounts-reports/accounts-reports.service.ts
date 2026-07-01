@@ -5818,6 +5818,45 @@ export class AccountsReportsService {
         details: any[];
       };
 
+      // Standard-rated (non-zero %) tax subledgers for this company. A VAT row that
+      // lands under one of these but has ZERO tax is the overseas/zero-rated artifact
+      // (e.g. a 5%-mapped charge on an overseas party) and is excluded from VAT201.
+      // Genuine "0%" subledger rows (TaxRate = 0) are NOT in this set, so they are kept
+      // and continue to report their zero-rated taxable base.
+      const taxSubledgers = await this._db.subledgerMaster.findMany({
+        where: {
+          CompanyMasterSid: CompanyId,
+          SubledgerType: 'Tax',
+          Status: 'A',
+        },
+        select: { SubledgerMasterSid: true, SubledgerMappingSid: true },
+      });
+
+      const mappingSids = taxSubledgers
+        .map((s) => s.SubledgerMappingSid)
+        .filter((id): id is number => id != null);
+
+      const standardRatedTaxMasters = mappingSids.length
+        ? await this._db.taxMaster.findMany({
+            where: { TaxMasterSid: { in: mappingSids }, TaxRate: { gt: 0 } },
+            select: { TaxMasterSid: true },
+          })
+        : [];
+
+      const standardRatedTaxMasterSids = new Set(
+        standardRatedTaxMasters.map((t) => t.TaxMasterSid),
+      );
+
+      const standardRatedSubledgerSids = new Set<number>(
+        taxSubledgers
+          .filter(
+            (s) =>
+              s.SubledgerMappingSid != null &&
+              standardRatedTaxMasterSids.has(s.SubledgerMappingSid),
+          )
+          .map((s) => s.SubledgerMasterSid),
+      );
+
       // Aggregation helper – handles null safety & grouping
 
       const aggregateByLedger = (
@@ -5862,6 +5901,12 @@ export class AccountsReportsService {
 
           const taxableAmount = toNumber(detail.TaxableAmount);
           const taxAmount = toNumber(detail.LocalAmount);
+
+          // Overseas/zero-rated artifact: a standard-rated (e.g. 5%) subledger row
+          // that posted with zero VAT. Drop it. Genuine 0% subledger rows (not in the
+          // set) are kept even though their tax is 0, so zero-rated taxable base still
+          // reports.
+          if (taxAmount === 0 && standardRatedSubledgerSids.has(sid)) continue;
 
           if (targetMap.has(sid)) {
             const entry = targetMap.get(sid)!;
