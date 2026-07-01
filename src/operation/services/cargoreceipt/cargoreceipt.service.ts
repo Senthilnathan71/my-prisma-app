@@ -34,6 +34,7 @@ export class CargoreceiptService {
           departmentMaster: { select: { departmentName: true, DepartmentMasterSid: true } },
           bookingProduct: {
             select: {
+              BookingProductSid: true,
               ProductName: true,
               ShippingBillNo: true,
               ShippingBillDate: true,
@@ -107,11 +108,17 @@ export class CargoreceiptService {
           updatedOn: new Date(),
         };
 
+        // Match on the unique BookingProductSid. Matching on ShippingBillNo is unsafe
+        // because it is often empty/duplicated, causing one product to overwrite another.
+        if (productData.BookingProductSid == null) {
+          continue;
+        }
+
         const updateResult = await this._db.bookingProduct.updateMany({
           where: {
             BookingHeaderSid,
             status: 'A',
-            ShippingBillNo: productData.ShippingBillNo,
+            BookingProductSid: Number(productData.BookingProductSid),
           },
           data: updateData,
         });
