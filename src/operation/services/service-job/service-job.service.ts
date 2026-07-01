@@ -427,7 +427,8 @@ export class ServiceJobService {
             }
 
             const createdMilestones = await saveShipmentMilestones(prisma, milestones, {
-                ShipmentNo: houseJob.ShipmentNo!,
+                // Service Job milestones are keyed by HBLNo (fallback to ShipmentNo when HBL is absent).
+                ShipmentNo: houseJob.HBLNo || houseJob.ShipmentNo!,
                 CompanyMasterSid: houseJob.CompanyMasterSid,
                 BranchMasterSid: houseJob.BranchMasterSid!,
                 HouseJobSid: houseJob.HouseJobSid,
@@ -762,7 +763,8 @@ export class ServiceJobService {
             }
 
             await saveShipmentMilestones(prisma, milestones, {
-                ShipmentNo: updatedHouseJob.ShipmentNo!,
+                // Service Job milestones are keyed by HBLNo (fallback to ShipmentNo when HBL is absent).
+                ShipmentNo: updatedHouseJob.HBLNo || updatedHouseJob.ShipmentNo!,
                 CompanyMasterSid: updatedHouseJob.CompanyMasterSid,
                 BranchMasterSid: updatedHouseJob.BranchMasterSid!,
                 HouseJobSid: updatedHouseJob.HouseJobSid,

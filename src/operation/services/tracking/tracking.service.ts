@@ -897,8 +897,7 @@ export class TrackingService {
 
   private async findMasterScreenMilestones(houseJobs: any[]) {
     const houseShipmentNos = houseJobs
-      .map((item) => this.houseMilestoneKey(item))
-      .filter((value): value is string => !!value);
+      .flatMap((item) => this.houseMilestoneKeys(item));
     const bookingNos = houseJobs
       .map((item) => item?.bookingHeader?.BookingNo || item?.BookingNo)
       .filter((value): value is string => !!value);
@@ -948,11 +947,11 @@ export class TrackingService {
   }
 
   private async findHouseJobScreenMilestones(houseJob: any, booking: any) {
-    const houseShipmentNo = this.houseMilestoneKey(houseJob);
+    const houseShipmentNos = this.houseMilestoneKeys(houseJob);
     const bookingNo = houseJob?.bookingHeader?.BookingNo || booking?.BookingNo;
 
-    const houseMilestones = houseShipmentNo
-      ? await this.findMilestonesByShipmentNos([houseShipmentNo], 'HOUSE')
+    const houseMilestones = houseShipmentNos.length
+      ? await this.findMilestonesByShipmentNos(houseShipmentNos, 'HOUSE')
       : [];
     const bookingMilestones =
       houseJob?.BookingHeaderSid && bookingNo
@@ -963,13 +962,13 @@ export class TrackingService {
   }
 
   /**
-   * Milestone key resolution: ShipmentNo is primary. HBLNo is used as a fallback
-   * ONLY for transhipment jobs where ShipmentNo can legitimately be missing.
+   * Milestone keys for a House Job. House / Service Job milestones are stored keyed by
+   * HBLNo (see house-job/service-job create), while legacy rows and Booking-origin
+   * (relinked) rows use ShipmentNo (= BookingNo). Both are returned so Tracking finds
+   * all of them; Booking-origin rows are also fetched separately by BookingNo.
    */
-  private houseMilestoneKey(houseJob: any): string | null {
-    if (houseJob?.ShipmentNo) return houseJob.ShipmentNo;
-    if (this.isTranshipmentType(houseJob?.JobType) && houseJob?.HBLNo) return houseJob.HBLNo;
-    return null;
+  private houseMilestoneKeys(houseJob: any): string[] {
+    return [houseJob?.HBLNo, houseJob?.ShipmentNo].filter((value): value is string => !!value);
   }
 
   private findMilestonesByShipmentNos(shipmentNos: string[], source: 'BOOKING' | 'HOUSE') {

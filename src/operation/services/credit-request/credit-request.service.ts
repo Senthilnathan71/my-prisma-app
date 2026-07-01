@@ -24,7 +24,7 @@ interface CreditLimitResult {
   departmentMasterSid?: number;
   branchMasterSid: number;
   effectiveFrom: Date;
-  effectiveTo: Date;
+  effectiveTo: Date | null;
   approvalStatus: string;
 }
 
@@ -1687,14 +1687,17 @@ export class CreditRequestService {
       );
     }
 
-    // Warning 3: Credit expiring soon (within 7 days)
-    const daysUntilExpiry = Math.ceil(
-      (creditLimit.effectiveTo.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
-    );
-    if (daysUntilExpiry > 0 && daysUntilExpiry <= 7) {
-      warnings.push(
-        `Credit limit expires in ${daysUntilExpiry} day(s) on ${creditLimit.effectiveTo.toLocaleDateString('en-IN')}`,
+    // Warning 3: Credit expiring soon (within 7 days).
+    // A null EffectiveTo represents an open-ended credit request.
+    if (creditLimit.effectiveTo) {
+      const daysUntilExpiry = Math.ceil(
+        (creditLimit.effectiveTo.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
       );
+      if (daysUntilExpiry > 0 && daysUntilExpiry <= 7) {
+        warnings.push(
+          `Credit limit expires in ${daysUntilExpiry} day(s) on ${creditLimit.effectiveTo.toLocaleDateString('en-IN')}`,
+        );
+      }
     }
 
     return {
