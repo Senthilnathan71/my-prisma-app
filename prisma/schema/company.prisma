@@ -346,6 +346,8 @@ model CurrencyMaster {
   Symbol               String?                @db.Char(1)
   RoundOf              String?                @db.VarChar(100)
   SubUnitIn            String?                @db.VarChar(30)
+  GroupingStyle        String?                @default("International") @db.VarChar(20)
+  GroupSeparator       String?                @default("Comma") @db.VarChar(10)
   CountryMasterSid     Int?
   branchBank           BranchBank[]
   branchMaster         BranchMaster[]

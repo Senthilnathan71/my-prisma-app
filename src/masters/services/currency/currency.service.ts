@@ -88,6 +88,8 @@ export class CurrencyService {
           ShortCode: true,
           RoundOf:true,
           SubUnitIn: true,
+          GroupingStyle: true,
+          GroupSeparator: true,
           status:true
         }
       });
@@ -122,6 +124,8 @@ export class CurrencyService {
           ShortCode: true,
           RoundOf:true,
           SubUnitIn: true,
+          GroupingStyle: true,
+          GroupSeparator: true,
           status:true
         }
       });
