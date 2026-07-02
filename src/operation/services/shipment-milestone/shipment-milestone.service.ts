@@ -211,12 +211,16 @@ export class ShipmentMilestoneService {
             Number(item.SortBy),
         ]));
 
-        return rows.sort((left, right) => {
-            const leftSort = sortMap.get(left.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
-            const rightSort = sortMap.get(right.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
-            return leftSort - rightSort ||
-                left.MilestoneDate.getTime() - right.MilestoneDate.getTime();
-        });
+        return rows
+            .sort((left, right) => {
+                const leftSort = sortMap.get(left.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+                const rightSort = sortMap.get(right.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+                return leftSort - rightSort ||
+                    left.MilestoneDate.getTime() - right.MilestoneDate.getTime();
+            })
+            // Attach the configured SortBy so the frontend can order reliably by the row's
+            // own value (its master may not be in the department dropdown it uses for lookup).
+            .map(row => ({ ...row, SortBy: sortMap.get(row.MilestoneMasterSid) ?? null }));
     }
 
     async getShipmentMilestoneByShipmentNo(

@@ -383,5 +383,7 @@ export async function getShipmentMilestones(
     return da - dbb;
   });
 
-  return rows;
+  // Attach the configured SortBy so the frontend can order reliably by the row's own value
+  // (a saved milestone's master may not be in the department dropdown it uses for lookup).
+  return rows.map((row: any) => ({ ...row, SortBy: sortMap.get(row.MilestoneMasterSid) ?? null }));
 }
