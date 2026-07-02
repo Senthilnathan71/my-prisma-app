@@ -1021,7 +1021,9 @@ export class TrackingService {
       eventName,
       eventDate: saved?.MilestoneDate ?? null,
       eventTime: saved?.MilestoneDate ? this.formatTime(saved.MilestoneDate) : null,
-      location: this.resolveLocation(eventName, booking, houseJob, masterJob),
+      // Only captured milestones get a location — a pending milestone hasn't happened yet,
+      // so showing a projected port (e.g. "Arrival Notice Sent" -> POD) is misleading.
+      location: saved ? this.resolveLocation(eventName, booking, houseJob, masterJob) : null,
       remarks: saved?.Remarks ?? null,
       state: 'pending' as TrackingState,
       source: saved?.source ?? 'system',

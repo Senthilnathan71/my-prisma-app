@@ -234,15 +234,7 @@ export class InvoiceNonJobService {
         });
 
         if (Array.isArray(normalized.VoucherDetail)) {
-          await tx.voucherDetail.updateMany({
-            where: { VoucherHeaderSid: voucherHeaderSid, Status: 'A' },
-            data: {
-              Status: 'D',
-              UpdatedBy: normalized.UpdatedBy || 'System',
-              UpdatedOn: new Date(),
-            },
-          });
-          await this.createVoucherDetails(tx, voucherHeaderSid, normalized);
+          await this.syncVoucherDetails(tx, voucherHeaderSid, normalized);
         }
 
         if (normalized.VoucherOthers) {
@@ -342,9 +334,8 @@ export class InvoiceNonJobService {
     };
   }
 
-  private async createVoucherDetails(tx: any, voucherHeaderSid: number, payload: any) {
-    if (!Array.isArray(payload.VoucherDetail)) return;
-    const details = payload.VoucherDetail.map((detail: any, index: number) => ({
+  private buildVoucherDetailData(voucherHeaderSid: number, payload: any, detail: any, index: number) {
+    return {
       VoucherHeaderSid: voucherHeaderSid,
       CreatedBy: payload.CreatedBy || payload.UpdatedBy || 'System',
       CreatedOn: new Date(),
@@ -379,10 +370,65 @@ export class InvoiceNonJobService {
       HouseJobSid: null,
       DepartmentMasterSid: null,
       Narration: payload.Narration || '',
-    }));
+    };
+  }
+
+  private async createVoucherDetails(tx: any, voucherHeaderSid: number, payload: any) {
+    if (!Array.isArray(payload.VoucherDetail)) return;
+    const details = payload.VoucherDetail.map((detail: any, index: number) =>
+      this.buildVoucherDetailData(voucherHeaderSid, payload, detail, index),
+    );
 
     if (details.length) {
       await tx.voucherDetail.createMany({ data: details });
+    }
+  }
+
+  /**
+   * Reconcile detail rows on update WITHOUT churning primary keys:
+   * - rows that arrive with an existing VoucherDetailSid are updated in place
+   *   (so the same VoucherDetailSid is preserved, and CreatedBy/CreatedOn are kept),
+   * - rows with no matching SID are inserted,
+   * - previously-active rows that are no longer present are soft-deleted (Status 'D').
+   */
+  private async syncVoucherDetails(tx: any, voucherHeaderSid: number, payload: any) {
+    if (!Array.isArray(payload.VoucherDetail)) return;
+
+    const existingRows = await tx.voucherDetail.findMany({
+      where: { VoucherHeaderSid: voucherHeaderSid, Status: 'A' },
+      select: { VoucherDetailSid: true },
+    });
+    const existingSids = new Set<number>(existingRows.map((row: any) => Number(row.VoucherDetailSid)));
+    const keptSids = new Set<number>();
+
+    for (let index = 0; index < payload.VoucherDetail.length; index++) {
+      const detail = payload.VoucherDetail[index];
+      const data = this.buildVoucherDetailData(voucherHeaderSid, payload, detail, index);
+      const sid = detail?.VoucherDetailSid ? Number(detail.VoucherDetailSid) : null;
+
+      if (sid && existingSids.has(sid)) {
+        keptSids.add(sid);
+        // Preserve creation audit fields on update.
+        const { CreatedBy, CreatedOn, ...updateData } = data;
+        await tx.voucherDetail.update({
+          where: { VoucherDetailSid: sid },
+          data: updateData,
+        });
+      } else {
+        await tx.voucherDetail.create({ data });
+      }
+    }
+
+    const removedSids = [...existingSids].filter((sid) => !keptSids.has(sid));
+    if (removedSids.length) {
+      await tx.voucherDetail.updateMany({
+        where: { VoucherDetailSid: { in: removedSids } },
+        data: {
+          Status: 'D',
+          UpdatedBy: payload.UpdatedBy || payload.CreatedBy || 'System',
+          UpdatedOn: new Date(),
+        },
+      });
     }
   }
 

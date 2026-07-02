@@ -7421,6 +7421,9 @@ console.log('Created product:', createdProduct);
                         data: {
                             ...houseOtherData,
                             HouseJobSid: createdHouseJob.HouseJobSid,
+                            // Clearance is per-job / per-company. The transferred Import job has
+                            // not cleared yet, so it must NOT inherit the source Export's date.
+                            ClearanceDate: null,
                             createdBy: createdBy,
                             status: 'A',
                         }
