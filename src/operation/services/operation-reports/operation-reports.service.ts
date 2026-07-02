@@ -6692,7 +6692,9 @@ export class OperationReportsService {
 
       const vendorRows = Array.from(vendorRowsMap.values());
 
-      const subledgerIds = Array.from(vendorRowsMap.keys());
+      const subledgerIds = Array.from(
+        new Set([...customerRowsMap.keys(), ...vendorRowsMap.keys()]),
+      );
 
       const subledgers = await this._db.subledgerMaster.findMany({
         where: {
@@ -6781,6 +6783,13 @@ export class OperationReportsService {
 
         vendor.CreditDays = credit?.CreditDays ?? 0;
         vendor.CreditLimit = credit?.CreditLimit ?? 0;
+      });
+
+      customerRowsMap.forEach((customer, subledgerId) => {
+        const credit = subledgerCreditMap.get(subledgerId);
+
+        customer.CreditDays = credit?.CreditDays ?? 0;
+        customer.CreditLimit = credit?.CreditLimit ?? 0;
       });
 
       return {

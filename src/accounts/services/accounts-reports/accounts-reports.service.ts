@@ -5820,16 +5820,23 @@ export class AccountsReportsService {
 
       // Standard-rated (non-zero %) tax subledgers for this company. A VAT row that
       // lands under one of these but has ZERO tax is the overseas/zero-rated artifact
-      // (e.g. a 5%-mapped charge on an overseas party) and is excluded from VAT201.
-      // Genuine "0%" subledger rows (TaxRate = 0) are NOT in this set, so they are kept
-      // and continue to report their zero-rated taxable base.
+      // (e.g. a 5%-mapped charge on an overseas party). Instead of dropping it, its
+      // taxable base is RECLASSIFIED onto the VAT 0% (zero-rated) ledger of the same
+      // direction (Input/Output) so the amount still reports — just moved from the
+      // "VAT 5%" line to the "VAT 0%" line. Genuine 0% subledger rows (TaxRate = 0)
+      // are not standard-rated, so they already report as-is on their own 0% ledger.
       const taxSubledgers = await this._db.subledgerMaster.findMany({
         where: {
           CompanyMasterSid: CompanyId,
           SubledgerType: 'Tax',
           Status: 'A',
         },
-        select: { SubledgerMasterSid: true, SubledgerMappingSid: true },
+        select: {
+          SubledgerMasterSid: true,
+          SubledgerMappingSid: true,
+          SubledgerName: true,
+          TaxType: true,
+        },
       });
 
       const mappingSids = taxSubledgers
@@ -5857,6 +5864,40 @@ export class AccountsReportsService {
           .map((s) => s.SubledgerMasterSid),
       );
 
+      // Zero-rated (0%) tax masters → their subledgers are the destination for the
+      // standard-rated-with-zero-tax rows above. Resolve one 0% ledger per direction.
+      const zeroRatedTaxMasters = mappingSids.length
+        ? await this._db.taxMaster.findMany({
+            where: { TaxMasterSid: { in: mappingSids }, TaxRate: { lte: 0 } },
+            select: { TaxMasterSid: true },
+          })
+        : [];
+
+      const zeroRatedTaxMasterSids = new Set(
+        zeroRatedTaxMasters.map((t) => t.TaxMasterSid),
+      );
+
+      type ZeroRatedTarget = { sid: number; name: string } | null;
+      const zeroRatedTargetByType: { Input: ZeroRatedTarget; Output: ZeroRatedTarget } =
+        { Input: null, Output: null };
+
+      for (const s of taxSubledgers) {
+        if (
+          s.SubledgerMappingSid == null ||
+          !zeroRatedTaxMasterSids.has(s.SubledgerMappingSid)
+        ) {
+          continue;
+        }
+        const dir =
+          s.TaxType === 'Input' ? 'Input' : s.TaxType === 'Output' ? 'Output' : null;
+        if (dir && !zeroRatedTargetByType[dir]) {
+          zeroRatedTargetByType[dir] = {
+            sid: s.SubledgerMasterSid,
+            name: s.SubledgerName ?? 'VAT 0%',
+          };
+        }
+      }
+
       // Aggregation helper – handles null safety & grouping
 
       const aggregateByLedger = (
@@ -5880,15 +5921,16 @@ export class AccountsReportsService {
             } | null;
           } | null;
         }>,
+        zeroRatedTarget: ZeroRatedTarget = null,
       ): { local: LedgerSummary[]; overseas: LedgerSummary[] } => {
         const localMap = new Map<number, LedgerSummary>();
         const overseasMap = new Map<number, LedgerSummary>();
 
         for (const detail of details) {
-          const sid = detail.subledgerMaster?.SubledgerMasterSid;
+          let sid = detail.subledgerMaster?.SubledgerMasterSid;
           if (sid == null) continue;
 
-          const ledgerName =
+          let ledgerName =
             detail.subledgerMaster?.SubledgerName ?? 'Unknown Tax Ledger';
 
           const countryCode =
@@ -5903,10 +5945,18 @@ export class AccountsReportsService {
           const taxAmount = toNumber(detail.LocalAmount);
 
           // Overseas/zero-rated artifact: a standard-rated (e.g. 5%) subledger row
-          // that posted with zero VAT. Drop it. Genuine 0% subledger rows (not in the
-          // set) are kept even though their tax is 0, so zero-rated taxable base still
-          // reports.
-          if (taxAmount === 0 && standardRatedSubledgerSids.has(sid)) continue;
+          // that posted with ZERO VAT. Do NOT drop it — reclassify its taxable base
+          // onto the VAT 0% (zero-rated) ledger of this direction so it reports under
+          // "VAT 0%" instead of "VAT 5%". If no 0% ledger exists for this direction,
+          // the row is left on its own ledger (still never removed).
+          if (
+            taxAmount === 0 &&
+            standardRatedSubledgerSids.has(sid) &&
+            zeroRatedTarget
+          ) {
+            sid = zeroRatedTarget.sid;
+            ledgerName = zeroRatedTarget.name;
+          }
 
           if (targetMap.has(sid)) {
             const entry = targetMap.get(sid)!;
@@ -5963,6 +6013,7 @@ export class AccountsReportsService {
         select: {
           COAMasterSid: true,
           DrCr: true,
+          VoucherDate: true,
           TaxableAmount: true,
           LocalAmount: true,
           subledgerMaster: {
@@ -5978,6 +6029,7 @@ export class AccountsReportsService {
                 select: {
                   customerMaster: {
                     select: {
+                      CustomerName: true,
                       countryMaster: {
                         select: {
                           countryCode: true,
@@ -6017,7 +6069,7 @@ export class AccountsReportsService {
         VoucherHeader: row.VoucherHeader,
       }));
 
-      const inputTax = aggregateByLedger(inputTaxDetails);
+      const inputTax = aggregateByLedger(inputTaxDetails, zeroRatedTargetByType.Input);
 
       // OUTPUT TAX – Sales / Output VAT (also classified local/overseas)
 
@@ -6052,6 +6104,7 @@ export class AccountsReportsService {
         select: {
           COAMasterSid: true,
           DrCr: true,
+          VoucherDate: true,
           TaxableAmount: true,
           LocalAmount: true,
           subledgerMaster: {
@@ -6062,10 +6115,12 @@ export class AccountsReportsService {
           },
           VoucherHeader: {
             select: {
+              VoucherNumber: true,
               customerBranch: {
                 select: {
                   customerMaster: {
                     select: {
+                      CustomerName: true,
                       countryMaster: {
                         select: {
                           countryCode: true,
@@ -6105,7 +6160,76 @@ export class AccountsReportsService {
         VoucherHeader: row.VoucherHeader,
       }));
 
-      const outputTax = aggregateByLedger(outputTaxDetails);
+      const outputTax = aggregateByLedger(outputTaxDetails, zeroRatedTargetByType.Output);
+
+      // ---- Annexures (detail lists; main report totals are NOT affected) ----
+      // 1) reclassifiedZeroRated: standard-rated (5%) subledger rows that posted with
+      //    ZERO tax. Their taxable base is shown under VAT 0% in the main report; they
+      //    are also listed here so the 5% -> 0% reclassification is auditable.
+      // 2) taxEqualsTaxable: rows where Taxable Amount == Tax Amount (both non-zero) —
+      //    e.g. a JV / Payment posted directly to the VAT ledger to adjust or pay VAT.
+      const ANNEX_EPSILON = 0.005;
+      const buildAnnexures = (rows: any[], direction: 'Input' | 'Output') => {
+        const reclassifiedZeroRated: any[] = [];
+        const taxEqualsTaxable: any[] = [];
+        for (const row of rows) {
+          const taxable = Number(row.TaxableAmount || 0);
+          const tax = Number(row.LocalAmount || 0);
+          const sid = row.subledgerMaster?.SubledgerMasterSid ?? null;
+
+          // Local vs Outside GCC — same rule as aggregateByLedger (by party country).
+          const countryCode =
+            row.VoucherHeader?.customerBranch?.customerMaster?.countryMaster
+              ?.countryCode ?? 'UNKNOWN';
+          const isLocal = ['AE', 'SA', 'QA', 'OM', 'KW'].includes(countryCode);
+
+          const record = {
+            Direction: direction,
+            Locality: isLocal ? 'Local' : 'Overseas',
+            VoucherNumber: row.VoucherHeader?.VoucherNumber ?? null,
+            VoucherDate: row.VoucherDate ?? null,
+            LedgerName: row.subledgerMaster?.SubledgerName ?? '',
+            PartyName:
+              row.VoucherHeader?.customerBranch?.customerMaster?.CustomerName ?? '',
+            TaxableAmount: taxable,
+            TaxAmount: tax,
+          };
+
+          // Annexure 1 — same condition as the VAT 5% -> VAT 0 reclassification.
+          if (
+            Math.abs(tax) < ANNEX_EPSILON &&
+            Math.abs(taxable) >= ANNEX_EPSILON &&
+            sid != null &&
+            standardRatedSubledgerSids.has(sid)
+          ) {
+            reclassifiedZeroRated.push(record);
+          }
+
+          // Annexure 2 — taxable equals tax, both non-zero.
+          if (
+            Math.abs(taxable) >= ANNEX_EPSILON &&
+            Math.abs(tax) >= ANNEX_EPSILON &&
+            Math.abs(taxable - tax) < ANNEX_EPSILON
+          ) {
+            taxEqualsTaxable.push(record);
+          }
+        }
+        return { reclassifiedZeroRated, taxEqualsTaxable };
+      };
+
+      const inputAnnex = buildAnnexures(inputTaxTransactions, 'Input');
+      const outputAnnex = buildAnnexures(outputTaxTransactions, 'Output');
+
+      const annexure = {
+        reclassifiedZeroRated: [
+          ...inputAnnex.reclassifiedZeroRated,
+          ...outputAnnex.reclassifiedZeroRated,
+        ],
+        taxEqualsTaxable: [
+          ...inputAnnex.taxEqualsTaxable,
+          ...outputAnnex.taxEqualsTaxable,
+        ],
+      };
 
       // Unposted Voucher
 
@@ -6190,6 +6314,7 @@ export class AccountsReportsService {
         BranchName: branchName,
         inputTax,
         outputTax,
+        annexure,
         payment: {
           totalPayment,
           totalPaymentVoucher,
