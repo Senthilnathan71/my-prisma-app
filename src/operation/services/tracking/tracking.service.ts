@@ -283,13 +283,47 @@ export class TrackingService {
   }
 
   private async resolveContainerSearch(reference: string, context: TrackingContext): Promise<ResolvedEntities> {
+    // A physical container can be reused across MULTIPLE House Jobs in DIFFERENT Master
+    // Jobs. Gather EVERY House Job whose product rows reference this container — by the
+    // ContainerNo string or via the linked Master Job container — so a shared container
+    // opens the same "pick a House Job" match modal as a shared HBL (not just the first).
+    const houseJobs = await this.db.houseJob.findMany({
+      where: {
+        status: 'A',
+        ...this.customerContextWhere(context),
+        Products: {
+          some: {
+            status: 'A',
+            OR: [
+              { ContainerNo: { equals: reference, mode: 'insensitive' } },
+              { masterJobContainer: { ContainerNumber: { equals: reference, mode: 'insensitive' } } },
+            ],
+          },
+        },
+      },
+      select: this.houseJobSelect(true),
+    });
+
+    if (houseJobs.length > 1) {
+      return { kind: 'multiple', matches: houseJobs.map((item) => this.toMatchRow(item)) };
+    }
+    if (houseJobs.length === 1) {
+      const houseJob = houseJobs[0];
+      return {
+        kind: 'single',
+        booking: houseJob.bookingHeader || null,
+        houseJob,
+        masterJob: houseJob.masterJob || null,
+        scope: 'HOUSE',
+      };
+    }
+
+    // No House Job references the container — fall back to a Master Job that carries it
+    // (declared on the master but not yet mapped to a house), shown at master level.
     const masterJob = await this.db.masterJob.findFirst({
       where: {
         Status: 'A',
         ...this.companyContextWhere(context),
-        ...(this.hasCustomerContext(context)
-          ? { houseJob: { some: { status: 'A', ...this.customerContextWhere(context) } } }
-          : {}),
         containers: {
           some: { Status: 'A', ContainerNumber: { equals: reference, mode: 'insensitive' } },
         },
@@ -297,32 +331,10 @@ export class TrackingService {
       select: this.masterJobSelect(true, context),
     });
     if (masterJob) {
-      return this.containerToResolution(masterJob, reference);
+      return { kind: 'single', booking: null, houseJob: null, masterJob, scope: 'CONTAINER' };
     }
 
-    const houseJob = await this.db.houseJob.findFirst({
-      where: {
-        status: 'A',
-        ...this.customerContextWhere(context),
-        Products: { some: { status: 'A', ContainerNo: { equals: reference, mode: 'insensitive' } } },
-      },
-      select: this.houseJobSelect(true),
-    });
-    if (!houseJob) return { kind: 'not_found' };
-
-    const master = houseJob.masterJob
-      ? await this.ensureMasterWithHouses(houseJob.masterJob, context)
-      : null;
-    if (master) {
-      return this.containerToResolution(master, reference);
-    }
-    return {
-      kind: 'single',
-      booking: houseJob.bookingHeader || null,
-      houseJob,
-      masterJob: null,
-      scope: 'HOUSE',
-    };
+    return { kind: 'not_found' };
   }
 
   /**
