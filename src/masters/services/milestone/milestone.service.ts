@@ -14,8 +14,8 @@ export class MilestoneService {
             const allMilestones = await this._db.milestoneMaster.findMany({
                 where: {
                     status: "A",
-                    CompanyMasterSid: CompanyMasterSid,
-                    BranchMasterSid: BranchMasterSid
+                    // MilestoneMaster is company-level (not differentiated by branch)
+                    CompanyMasterSid: CompanyMasterSid
                 },
                 include: {
                     branchMaster: true,
@@ -50,8 +50,7 @@ export class MilestoneService {
             const milestone = await this._db.milestoneMaster.findUnique({
                 where: {
                     MilestoneMasterSid: MilestoneMasterSid,
-                    CompanyMasterSid: CompanyMasterSid,
-                    BranchMasterSid: BranchMasterSid
+                    CompanyMasterSid: CompanyMasterSid   // company-level; no branch filter
                 },
                 include: {
                     branchMaster: true,
@@ -131,8 +130,7 @@ export class MilestoneService {
         const where: any = {
 
             status: statusWhereClause,
-            CompanyMasterSid: activeCompanyId,
-            BranchMasterSid: activeBranchId,
+            CompanyMasterSid: activeCompanyId,   // MilestoneMaster is company-level; no branch filter
             ...(search
                 ? {
                     OR: [

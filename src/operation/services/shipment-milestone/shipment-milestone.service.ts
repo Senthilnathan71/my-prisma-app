@@ -100,7 +100,7 @@ export class ShipmentMilestoneService {
             const milestone = await tx.milestoneMaster.findFirst({
                 where: {
                     CompanyMasterSid: CompanyMasterSid,
-                    BranchMasterSid: BranchMasterSid,
+                    // MilestoneMaster is company-level (not differentiated by branch)
                     DepartmentMasterSid: { has: DepartmentName },
                     ShipmentType: JobType,
                     MilestoneCode: MilestoneCode,
@@ -227,7 +227,7 @@ export class ShipmentMilestoneService {
                 AutoCaptured: 'Y',
                 Remarks: payload.Remarks || "System auto inserted",
                 BookingHeaderSid: payload.BookingHeaderSid ?? null,
-                HouseJobSid: null
+                HouseJobSid: payload.HouseJobSid ?? null
             }, tx);
 
             return insertedMilestone;
@@ -285,7 +285,7 @@ export class ShipmentMilestoneService {
                     milestone = await tx.milestoneMaster.findFirst({
                         where: {
                             CompanyMasterSid: payload.CompanyMasterSid,
-                            BranchMasterSid: payload.BranchMasterSid,
+                            // MilestoneMaster is company-level (not differentiated by branch)
                             DepartmentMasterSid: { has: departmentName },
                             ShipmentType: jobType,
                             MilestoneCode: payload.MilestoneCode,
@@ -298,7 +298,7 @@ export class ShipmentMilestoneService {
                     milestone = await tx.milestoneMaster.findFirst({
                         where: {
                             CompanyMasterSid: payload.CompanyMasterSid,
-                            BranchMasterSid: payload.BranchMasterSid,
+                            // MilestoneMaster is company-level (not differentiated by branch)
                             MilestoneCode: payload.MilestoneCode,
                             status: 'A',
                         },

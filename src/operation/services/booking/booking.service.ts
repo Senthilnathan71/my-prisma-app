@@ -2373,8 +2373,8 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
             const allMilestones = await this._db.milestoneMaster.findMany({
                 where: {
                     status: 'A',
-                    CompanyMasterSid: payload.CompanyMasterSid,
-                    BranchMasterSid: payload.BranchMasterSid
+                    // MilestoneMaster is company-level (not differentiated by branch)
+                    CompanyMasterSid: payload.CompanyMasterSid
                 },
                 select: {
                     MilestoneMasterSid: true,
