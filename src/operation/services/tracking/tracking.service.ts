@@ -845,6 +845,16 @@ export class TrackingService {
     );
     const deduped = this.dedupeStoredMilestones(stored);
 
+    // Dynamic, department-based timeline: the job's configured milestone master list
+    // (SortBy order) overlaid with the saved milestones, so the timeline reflects the
+    // department's own milestones — not a hardcoded template. Transshipment source
+    // (Previous) milestones lead, then the current department's milestones. Falls back
+    // to the legacy static template only when the department has no configured milestones.
+    const dynamic = await this.buildDynamicMilestoneTimeline(deduped, scope, booking, houseJob, masterJob);
+    if (dynamic) {
+      return dynamic;
+    }
+
     const actual = deduped.length
       ? deduped.map((item, index) => ({
           eventName: item.MilestoneName,
@@ -859,6 +869,149 @@ export class TrackingService {
       : this.generateMilestones(booking, houseJob, masterJob, transportMode, cargoDates);
 
     return this.applyTimelineState(actual, transportMode);
+  }
+
+  /**
+   * Build the tracking timeline dynamically from the job's DEPARTMENT milestone master
+   * definitions (SortBy order), overlaid with the shipment's saved milestones. Returns
+   * null when the department has no configured milestones (caller falls back to the
+   * legacy static template). Only single-shipment scopes (HOUSE / BOOKING) are handled
+   * dynamically; MASTER / CONTAINER keep the template.
+   *
+   * State: milestones with a date are completed except the latest (highest SortBy) dated
+   * one which is 'current'; milestones without a date are 'pending'. Transshipment source
+   * ('PREVIOUS') milestones are shown first, then the current department's milestones.
+   */
+  private async buildDynamicMilestoneTimeline(
+    stored: any[],
+    scope: TrackingScope,
+    booking: any,
+    houseJob: any,
+    masterJob: any,
+  ): Promise<TrackingMilestone[] | null> {
+    if (scope !== 'HOUSE' && scope !== 'BOOKING') {
+      return null;
+    }
+    const entity = houseJob || booking;
+    if (!entity) {
+      return null;
+    }
+    const departmentName =
+      houseJob?.departmentMaster?.departmentName ||
+      booking?.departmentMaster?.departmentName ||
+      null;
+
+    const definitions = await this.getMilestoneDefinitionsForDepartment(
+      departmentName,
+      entity.CompanyMasterSid ?? null,
+      entity.BranchMasterSid ?? null,
+    );
+    if (!definitions.length) {
+      return null;
+    }
+
+    // Separate transshipment source (Previous) saved milestones from the current job's.
+    const sourceStored = stored.filter((item) => item.source === 'PREVIOUS');
+    const currentStored = stored.filter((item) => item.source !== 'PREVIOUS');
+
+    // Index the current saved milestones by their master, so definitions can be overlaid.
+    const savedByMaster = new Map<number, any>();
+    for (const item of currentStored) {
+      if (item.MilestoneMasterSid != null && !savedByMaster.has(item.MilestoneMasterSid)) {
+        savedByMaster.set(item.MilestoneMasterSid, item);
+      }
+    }
+
+    const used = new Set<number>();
+    const currentEvents = [...definitions]
+      .sort((a, b) => a.SortBy - b.SortBy)
+      .map((def) => {
+        const saved = savedByMaster.get(def.MilestoneMasterSid);
+        if (saved) {
+          used.add(def.MilestoneMasterSid);
+        }
+        return this.buildTimelineEvent(def.MilestoneName, saved, booking, houseJob, masterJob);
+      });
+
+    // Any saved current milestone not represented by a definition — keep it (don't lose data).
+    const currentExtras = currentStored
+      .filter((item) => item.MilestoneMasterSid == null || !used.has(item.MilestoneMasterSid))
+      .map((item) => this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob));
+
+    // Transshipment source milestones lead the timeline (all already captured).
+    const sourceEvents = sourceStored.map((item) =>
+      this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob),
+    );
+
+    return this.applyDynamicTimelineState([...sourceEvents, ...currentEvents, ...currentExtras]);
+  }
+
+  /** Fetch a department's configured milestones (active), with numeric SortBy. */
+  private async getMilestoneDefinitionsForDepartment(
+    departmentName: string | null,
+    companyMasterSid: number | null,
+    branchMasterSid: number | null,
+  ): Promise<{ MilestoneMasterSid: number; MilestoneName: string; SortBy: number }[]> {
+    if (!departmentName) {
+      return [];
+    }
+    const where: any = {
+      status: 'A',
+      DepartmentMasterSid: { has: departmentName },
+    };
+    if (companyMasterSid != null) {
+      where.CompanyMasterSid = companyMasterSid;
+    }
+    if (branchMasterSid != null) {
+      where.BranchMasterSid = branchMasterSid;
+    }
+    const masters = await this.db.milestoneMaster.findMany({
+      where,
+      select: { MilestoneMasterSid: true, MilestoneName: true, SortBy: true },
+    });
+    return masters.map((master) => ({
+      MilestoneMasterSid: master.MilestoneMasterSid,
+      MilestoneName: master.MilestoneName,
+      SortBy: Number(master.SortBy),
+    }));
+  }
+
+  private buildTimelineEvent(
+    eventName: string,
+    saved: any,
+    booking: any,
+    houseJob: any,
+    masterJob: any,
+  ): TrackingMilestone {
+    return {
+      eventName,
+      eventDate: saved?.MilestoneDate ?? null,
+      eventTime: saved?.MilestoneDate ? this.formatTime(saved.MilestoneDate) : null,
+      location: this.resolveLocation(eventName, booking, houseJob, masterJob),
+      remarks: saved?.Remarks ?? null,
+      state: 'pending' as TrackingState,
+      source: saved?.source ?? 'system',
+      sequence: 0,
+    };
+  }
+
+  /** Completed for dated milestones (latest dated = current), pending for undated — keeping SortBy order. */
+  private applyDynamicTimelineState(timeline: TrackingMilestone[]): TrackingMilestone[] {
+    let lastDatedIndex = -1;
+    timeline.forEach((event, index) => {
+      if (event.eventDate) {
+        lastDatedIndex = index;
+      }
+    });
+    return timeline.map((event, index) => ({
+      ...event,
+      sequence: index + 1,
+      state: !event.eventDate
+        ? ('pending' as TrackingState)
+        : index < lastDatedIndex
+          ? ('completed' as TrackingState)
+          : ('current' as TrackingState),
+    }));
   }
 
   /** Milestone template differs by mode: Air uses flight events, Sea uses vessel/container events. */
@@ -957,7 +1110,7 @@ export class TrackingService {
     return [...previous, ...current].sort(this.sortMilestones);
   }
 
-  private findMilestonesByExactIdentity(
+  private async findMilestonesByExactIdentity(
     identity: {
       CompanyMasterSid: number;
       BranchMasterSid: number;
@@ -966,31 +1119,53 @@ export class TrackingService {
     },
     source: 'BOOKING' | 'HOUSE' | 'EXPORT' | 'IMPORT',
   ) {
-    return this.db.shipmentMilestone
-      .findMany({
-        where: {
-          Status: 'A',
-          deletedAt: null,
-          CompanyMasterSid: identity.CompanyMasterSid,
-          BranchMasterSid: identity.BranchMasterSid,
-          ...(identity.HouseJobSid != null
-            ? { HouseJobSid: identity.HouseJobSid }
-            : { BookingHeaderSid: identity.BookingHeaderSid }),
-        },
-        orderBy: [{ MilestoneDate: 'asc' }, { CreatedOn: 'asc' }],
-        select: {
-          ShipmentMilestoneSid: true,
-          MilestoneName: true,
-          MilestoneDate: true,
-          Remarks: true,
-          CreatedOn: true,
-          CompanyMasterSid: true,
-          BranchMasterSid: true,
-          HouseJobSid: true,
-          BookingHeaderSid: true,
-        },
+    const rows = await this.db.shipmentMilestone.findMany({
+      where: {
+        Status: 'A',
+        deletedAt: null,
+        CompanyMasterSid: identity.CompanyMasterSid,
+        BranchMasterSid: identity.BranchMasterSid,
+        ...(identity.HouseJobSid != null
+          ? { HouseJobSid: identity.HouseJobSid }
+          : { BookingHeaderSid: identity.BookingHeaderSid }),
+      },
+      select: {
+        ShipmentMilestoneSid: true,
+        MilestoneMasterSid: true,
+        MilestoneName: true,
+        MilestoneDate: true,
+        Remarks: true,
+        CreatedOn: true,
+        CompanyMasterSid: true,
+        BranchMasterSid: true,
+        HouseJobSid: true,
+        BookingHeaderSid: true,
+      },
+    });
+
+    // Order by the configured milestone master SortBy (numeric), MilestoneDate as tie-break,
+    // so the timeline follows the department's workflow order — consistent with the job-flow.
+    const masterSids = [...new Set(rows.map((row) => row.MilestoneMasterSid).filter((value) => value != null))];
+    const masters = masterSids.length
+      ? await this.db.milestoneMaster.findMany({
+          where: { MilestoneMasterSid: { in: masterSids } },
+          select: { MilestoneMasterSid: true, SortBy: true },
+        })
+      : [];
+    const sortMap = new Map(masters.map((m) => [m.MilestoneMasterSid, Number(m.SortBy)]));
+
+    return rows
+      .sort((a, b) => {
+        const sa = sortMap.get(a.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+        const sb = sortMap.get(b.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+        if (sa !== sb) {
+          return sa - sb;
+        }
+        const da = a.MilestoneDate ? new Date(a.MilestoneDate).getTime() : 0;
+        const db = b.MilestoneDate ? new Date(b.MilestoneDate).getTime() : 0;
+        return da - db;
       })
-      .then((items) => items.map((item) => ({ ...item, source })));
+      .map((item) => ({ ...item, source }));
   }
 
   private async findTransferSourceHouse(

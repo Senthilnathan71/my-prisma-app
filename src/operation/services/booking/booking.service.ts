@@ -2381,6 +2381,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     MilestoneName: true,
                     MilestoneCode: true,
                     AutoCapture: true,
+                    SortBy: true,
                     DepartmentMasterSid: true,
                     Remarks: true
                 }
