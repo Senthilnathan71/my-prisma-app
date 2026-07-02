@@ -926,28 +926,50 @@ export class TrackingService {
     const sourceStored = stored.filter((item) => item.source === 'PREVIOUS');
     const currentStored = stored.filter((item) => item.source !== 'PREVIOUS');
 
-    // Index the current saved milestones by their master, so definitions can be overlaid.
+    // Index the saved milestones by master Sid AND by normalized name, so a definition
+    // can be overlaid even when the saved row's MilestoneMasterSid differs from the
+    // department definition's (the same milestone captured under a different master
+    // record). Without the name fallback the saved row would not match and would be
+    // appended as a duplicate (and wrongly become "current").
     const savedByMaster = new Map<number, any>();
+    const savedByName = new Map<string, any[]>();
     for (const item of currentStored) {
       if (item.MilestoneMasterSid != null && !savedByMaster.has(item.MilestoneMasterSid)) {
         savedByMaster.set(item.MilestoneMasterSid, item);
       }
+      const nameKey = this.normalize(item.MilestoneName);
+      if (nameKey) {
+        const list = savedByName.get(nameKey) || [];
+        list.push(item);
+        savedByName.set(nameKey, list);
+      }
     }
 
-    const used = new Set<number>();
+    // Track which saved rows have been consumed (by reference) so each is used once.
+    const usedItems = new Set<any>();
+    const takeSaved = (def: { MilestoneMasterSid: number; MilestoneName: string }) => {
+      const bySid = savedByMaster.get(def.MilestoneMasterSid);
+      if (bySid && !usedItems.has(bySid)) {
+        usedItems.add(bySid);
+        return bySid;
+      }
+      const byName = (savedByName.get(this.normalize(def.MilestoneName)) || []).find(
+        (item) => !usedItems.has(item),
+      );
+      if (byName) {
+        usedItems.add(byName);
+        return byName;
+      }
+      return undefined;
+    };
+
     const currentEvents = [...definitions]
       .sort((a, b) => a.SortBy - b.SortBy)
-      .map((def) => {
-        const saved = savedByMaster.get(def.MilestoneMasterSid);
-        if (saved) {
-          used.add(def.MilestoneMasterSid);
-        }
-        return this.buildTimelineEvent(def.MilestoneName, saved, booking, houseJob, masterJob);
-      });
+      .map((def) => this.buildTimelineEvent(def.MilestoneName, takeSaved(def), booking, houseJob, masterJob));
 
-    // Any saved current milestone not represented by a definition — keep it (don't lose data).
+    // Any saved current milestone not matched to a definition — keep it (don't lose data).
     const currentExtras = currentStored
-      .filter((item) => item.MilestoneMasterSid == null || !used.has(item.MilestoneMasterSid))
+      .filter((item) => !usedItems.has(item))
       .map((item) => this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob));
 
     // Transshipment source milestones lead the timeline (all already captured).
