@@ -10,6 +10,7 @@ import {
     ParseIntPipe,
     Patch,
     Post,
+    Query,
     UnauthorizedException,
     UsePipes,
     ValidationPipe,
@@ -319,6 +320,8 @@ export class ShipmentMilestoneController {
     @Delete('delete/:ShipmentMilestoneSid')
     async deleteShipmentMilestone(
         @Param('ShipmentMilestoneSid', ParseIntPipe) ShipmentMilestoneSid: number,
+        @Query('CompanyMasterSid', ParseIntPipe) CompanyMasterSid: number,
+        @Query('BranchMasterSid', ParseIntPipe) BranchMasterSid: number,
     ) {
         let response = new ResponseData();
         this.logger.log(
@@ -327,6 +330,8 @@ export class ShipmentMilestoneController {
         try {
             const res = await this.shipmentMilestoneService.deleteShipmentMilestone(
                 ShipmentMilestoneSid,
+                CompanyMasterSid,
+                BranchMasterSid,
             );
             this.logger.debug(`Deleted Shipment Milestone : ${JSON.stringify(res)}`);
             response.data = res;

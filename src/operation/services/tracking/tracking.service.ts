@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
+import { ShipmentMilestoneService } from 'src/operation/services/shipment-milestone/shipment-milestone.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -79,7 +80,10 @@ const AIR_EVENTS = [
 
 @Injectable()
 export class TrackingService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly shipmentMilestoneService: ShipmentMilestoneService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // Public entry points
@@ -896,16 +900,10 @@ export class TrackingService {
   }
 
   private async findMasterScreenMilestones(houseJobs: any[]) {
-    const houseShipmentNos = houseJobs
-      .flatMap((item) => this.houseMilestoneKeys(item));
-    const bookingNos = houseJobs
-      .map((item) => item?.bookingHeader?.BookingNo || item?.BookingNo)
-      .filter((value): value is string => !!value);
-
-    const houseMilestones = await this.findMilestonesByShipmentNos(houseShipmentNos, 'HOUSE');
-    const bookingMilestones = await this.findMilestonesByShipmentNos(bookingNos, 'BOOKING');
-
-    return [...houseMilestones, ...bookingMilestones].sort(this.sortMilestones);
+    const groups = await Promise.all(
+      houseJobs.map((houseJob) => this.findHouseJobScreenMilestones(houseJob, houseJob?.bookingHeader)),
+    );
+    return groups.flat().sort(this.sortMilestones);
   }
 
   private async findContainerScreenMilestones(reference: string, houseJobs: any[], containers: any[]) {
@@ -922,79 +920,135 @@ export class TrackingService {
   }
 
   private async findBookingScreenMilestones(booking: any) {
-    const houseJobs = booking?.BookingHeaderSid
-      ? await this.db.houseJob.findMany({
-          where: {
-            status: 'A',
-            BookingHeaderSid: booking.BookingHeaderSid,
-            ShipmentNo: { not: null },
-          },
-          select: { ShipmentNo: true },
-        })
-      : [];
-
-    const bookingMilestones = booking?.BookingNo
-      ? await this.findMilestonesByShipmentNos([booking.BookingNo], 'BOOKING')
-      : [];
-    const houseMilestones = await this.findMilestonesByShipmentNos(
-      houseJobs
-        .map((item) => item.ShipmentNo)
-        .filter((shipmentNo): shipmentNo is string => !!shipmentNo),
-      'HOUSE',
+    if (!booking?.BookingHeaderSid || !booking?.CompanyMasterSid || !booking?.BranchMasterSid) {
+      return [];
+    }
+    return this.findMilestonesByExactIdentity(
+      {
+        BookingHeaderSid: booking.BookingHeaderSid,
+        CompanyMasterSid: booking.CompanyMasterSid,
+        BranchMasterSid: booking.BranchMasterSid,
+      },
+      'BOOKING',
     );
-
-    return [...bookingMilestones, ...houseMilestones].sort(this.sortMilestones);
   }
 
   private async findHouseJobScreenMilestones(houseJob: any, booking: any) {
-    const houseShipmentNos = this.houseMilestoneKeys(houseJob);
-    const bookingNo = houseJob?.bookingHeader?.BookingNo || booking?.BookingNo;
+    if (!houseJob?.HouseJobSid || !houseJob?.CompanyMasterSid ||
+        !houseJob?.BranchMasterSid || !houseJob?.DepartmentMasterSid) {
+      return [];
+    }
 
-    const houseMilestones = houseShipmentNos.length
-      ? await this.findMilestonesByShipmentNos(houseShipmentNos, 'HOUSE')
-      : [];
-    const bookingMilestones =
-      houseJob?.BookingHeaderSid && bookingNo
-        ? await this.findMilestonesByShipmentNos([bookingNo], 'BOOKING')
-        : [];
-
-    return [...houseMilestones, ...bookingMilestones].sort(this.sortMilestones);
+    const flow = await this.shipmentMilestoneService.getJobFlow({
+      companyMasterSid: Number(houseJob.CompanyMasterSid),
+      branchMasterSid: Number(houseJob.BranchMasterSid),
+      bookingHeaderSid: houseJob.BookingHeaderSid ?? null,
+      houseJobSid: Number(houseJob.HouseJobSid),
+      departmentMasterSid: Number(houseJob.DepartmentMasterSid),
+    });
+    const previous = (flow.previousMilestones.items || []).map(item => ({
+      ...item,
+      source: 'PREVIOUS',
+    }));
+    const current = (flow.currentMilestones.items || []).map(item => ({
+      ...item,
+      source: houseJob.JobType === 'Import' ? 'IMPORT' : 'HOUSE',
+    }));
+    return [...previous, ...current].sort(this.sortMilestones);
   }
 
-  /**
-   * Milestone keys for a House Job. House / Service Job milestones are stored keyed by
-   * HBLNo (see house-job/service-job create), while legacy rows and Booking-origin
-   * (relinked) rows use ShipmentNo (= BookingNo). Both are returned so Tracking finds
-   * all of them; Booking-origin rows are also fetched separately by BookingNo.
-   */
-  private houseMilestoneKeys(houseJob: any): string[] {
-    return [houseJob?.HBLNo, houseJob?.ShipmentNo].filter((value): value is string => !!value);
-  }
-
-  private findMilestonesByShipmentNos(shipmentNos: string[], source: 'BOOKING' | 'HOUSE') {
-    const uniqueShipmentNos = [...new Set(shipmentNos.filter(Boolean))];
-    if (!uniqueShipmentNos.length) return Promise.resolve([] as any[]);
-
+  private findMilestonesByExactIdentity(
+    identity: {
+      CompanyMasterSid: number;
+      BranchMasterSid: number;
+      HouseJobSid?: number;
+      BookingHeaderSid?: number;
+    },
+    source: 'BOOKING' | 'HOUSE' | 'EXPORT' | 'IMPORT',
+  ) {
     return this.db.shipmentMilestone
       .findMany({
         where: {
           Status: 'A',
-          ShipmentNo: { in: uniqueShipmentNos },
+          deletedAt: null,
+          CompanyMasterSid: identity.CompanyMasterSid,
+          BranchMasterSid: identity.BranchMasterSid,
+          ...(identity.HouseJobSid != null
+            ? { HouseJobSid: identity.HouseJobSid }
+            : { BookingHeaderSid: identity.BookingHeaderSid }),
         },
         orderBy: [{ MilestoneDate: 'asc' }, { CreatedOn: 'asc' }],
-        select: { MilestoneName: true, MilestoneDate: true, Remarks: true, CreatedOn: true },
+        select: {
+          ShipmentMilestoneSid: true,
+          MilestoneName: true,
+          MilestoneDate: true,
+          Remarks: true,
+          CreatedOn: true,
+          CompanyMasterSid: true,
+          BranchMasterSid: true,
+          HouseJobSid: true,
+          BookingHeaderSid: true,
+        },
       })
       .then((items) => items.map((item) => ({ ...item, source })));
+  }
+
+  private async findTransferSourceHouse(
+    destinationHouseJobSid: number,
+  ): Promise<{
+    HouseJobSid: number;
+    CompanyMasterSid: number;
+    BranchMasterSid: number;
+  } | null> {
+    const transferMap = await this.db.auditLog.findFirst({
+      where: {
+        tableName: 'HouseJobTransfer',
+        recordId: String(destinationHouseJobSid),
+        operation: 'EXPORT_TO_IMPORT',
+      },
+      orderBy: { changedAt: 'desc' },
+      select: { changes: true },
+    });
+    const changes = transferMap?.changes as Record<string, unknown> | null;
+    const sourceHouseJobSid = Number(changes?.sourceHouseJobSid);
+    if (!Number.isInteger(sourceHouseJobSid) || sourceHouseJobSid <= 0) {
+      return null;
+    }
+
+    const sourceHouse = await this.db.houseJob.findFirst({
+      where: {
+        HouseJobSid: sourceHouseJobSid,
+        status: 'A',
+        deletedAt: null,
+      },
+      select: {
+        HouseJobSid: true,
+        CompanyMasterSid: true,
+        BranchMasterSid: true,
+      },
+    });
+    if (!sourceHouse || sourceHouse.BranchMasterSid == null) {
+      return null;
+    }
+    return {
+      HouseJobSid: sourceHouse.HouseJobSid,
+      CompanyMasterSid: sourceHouse.CompanyMasterSid,
+      BranchMasterSid: sourceHouse.BranchMasterSid,
+    };
   }
 
   private dedupeStoredMilestones(items: any[]): any[] {
     const seen = new Set<string>();
     return (items || []).filter((item) => {
-      const key = [
-        this.normalize(item?.MilestoneName),
-        new Date(item?.MilestoneDate || 0).getTime(),
-        this.normalize(item?.Remarks || ''),
-      ].join('|');
+      const key = item?.ShipmentMilestoneSid != null
+        ? `SID:${item.ShipmentMilestoneSid}`
+        : [
+            item?.CompanyMasterSid,
+            item?.BranchMasterSid,
+            item?.HouseJobSid,
+            this.normalize(item?.MilestoneName),
+            new Date(item?.MilestoneDate || 0).getTime(),
+          ].join('|');
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -1307,18 +1361,41 @@ export class TrackingService {
 
   private applyTimelineState(events: TrackingMilestone[], transportMode: string | null = null): TrackingMilestone[] {
     const template = this.milestoneEvents(transportMode);
-    const normalized = template.map((name, index) => {
-      const found = events.find((item) => this.normalize(item.eventName) === this.normalize(name));
-      return found ? { ...found, eventName: name, sequence: index + 1 } : this.event(name, null, null, 'system');
-    });
-    const latestCompleted = Math.max(
-      0,
-      ...normalized.map((item, index) => (item.eventDate ? index : -1)),
+    const canonicalNames = new Map(
+      template.map((name) => [this.normalize(name), name]),
     );
-    return normalized.map((item, index) => ({
+    const normalizedActual = events.map((item) => ({
+      ...item,
+      eventName: canonicalNames.get(this.normalize(item.eventName)) || item.eventName,
+    }));
+    const presentNames = new Set(
+      normalizedActual.map((item) => this.normalize(item.eventName)),
+    );
+    const missingTemplateEvents = template
+      .filter((name) => !presentNames.has(this.normalize(name)))
+      .map((name) => this.event(name, null, null, 'system'));
+    const datedEvents = normalizedActual
+      .filter((item) => item.eventDate)
+      .sort(
+        (left, right) =>
+          new Date(left.eventDate || 0).getTime() - new Date(right.eventDate || 0).getTime(),
+      );
+    const pendingEvents = [
+      ...normalizedActual.filter((item) => !item.eventDate),
+      ...missingTemplateEvents,
+    ];
+    const timeline = [...datedEvents, ...pendingEvents];
+    const latestCompleted = datedEvents.length - 1;
+
+    return timeline.map((item, index) => ({
       ...item,
       sequence: index + 1,
-      state: index < latestCompleted ? 'completed' : index === latestCompleted ? 'current' : 'pending',
+      state:
+        index < latestCompleted
+          ? 'completed'
+          : index === latestCompleted
+            ? 'current'
+            : 'pending',
     }));
   }
 
@@ -1908,6 +1985,8 @@ export class TrackingService {
   private bookingSelect(): any {
     return {
       BookingHeaderSid: true,
+      CompanyMasterSid: true,
+      BranchMasterSid: true,
       BookingNo: true,
       BookingDateTime: true,
       BookingStatus: true,
@@ -1948,6 +2027,9 @@ export class TrackingService {
   private houseJobSelect(includeBooking: boolean): any {
     return {
       HouseJobSid: true,
+      DepartmentMasterSid: true,
+      CompanyMasterSid: true,
+      BranchMasterSid: true,
       BookingHeaderSid: true,
       ShipmentNo: true,
       BookingNo: true,

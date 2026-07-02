@@ -160,6 +160,14 @@ export class ShipmentMilestoneCheckExistDTO {
     @IsNotEmpty({ message: 'MilestoneMasterSid is required' })
     @IsInt()
     MilestoneMasterSid: number;
+
+    @IsOptional()
+    @IsInt()
+    HouseJobSid?: number | null;
+
+    @IsOptional()
+    @IsInt()
+    BookingHeaderSid?: number | null;
 }
 
 export class ShipmentMilestoneSafeInsertDTO {
@@ -211,6 +219,10 @@ export class ShipmentMilestoneSafeInsertDTO {
     @IsOptional()
     @IsInt()
     BookingHeaderSid?: number | null;   // anchor booking-stage milestones (e.g. EXDO) on the booking
+
+    @IsOptional()
+    @IsInt()
+    HouseJobSid?: number | null;
 }
 
 export class ShipmentMilestoneInsertByMasterJobDTO {
@@ -245,4 +257,41 @@ export class ShipmentMilestoneInsertByMasterJobDTO {
     @IsString()
     @MaxLength(200)
     Remarks?: string | null;
+}
+
+export class ShipmentMilestoneJobFlowDTO {
+    @Type(() => Number)
+    @IsInt()
+    companyMasterSid: number;
+
+    @Type(() => Number)
+    @IsInt()
+    branchMasterSid: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    bookingHeaderSid?: number | null;
+
+    @Type(() => Number)
+    @IsInt()
+    houseJobSid: number;
+
+    @Type(() => Number)
+    @IsInt()
+    departmentMasterSid: number;
+}
+
+export class ShipmentMilestoneBookingFlowDTO {
+    @Type(() => Number)
+    @IsInt()
+    companyMasterSid: number;
+
+    @Type(() => Number)
+    @IsInt()
+    branchMasterSid: number;
+
+    @Type(() => Number)
+    @IsInt()
+    bookingHeaderSid: number;
 }

@@ -7281,6 +7281,24 @@ console.log('Created product:', createdProduct);
                     }
                 });
 
+                // Persistent one-to-one source/destination House mapping for the
+                // cross-company milestone flow. AuditLog already stores JSON links,
+                // so this needs no schema or table change and never relies on HBLNo.
+                await prisma.auditLog.create({
+                    data: {
+                        tableName: 'HouseJobTransfer',
+                        recordId: String(createdHouseJob.HouseJobSid),
+                        operation: 'EXPORT_TO_IMPORT',
+                        changedBy: createdBy,
+                        changes: {
+                            sourceHouseJobSid: sourceHouseJob.HouseJobSid,
+                            destinationHouseJobSid: createdHouseJob.HouseJobSid,
+                            sourceMasterJobSid: sourceMasterJob.MasterJobSid,
+                            destinationMasterJobSid: createdMasterJob.MasterJobSid,
+                        },
+                    },
+                });
+
                 const sourceHouseJobRates = await prisma.costRevenueCharges.findMany({
                     where: {
                         TransactionSid: sourceHouseJob.HouseJobSid,

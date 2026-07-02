@@ -1,3 +1,5 @@
+import { BadRequestException } from '@nestjs/common';
+
 /**
  * Common ShipmentMilestone helper — the single source of truth for CREATE, UPDATE,
  * conversion RE-LINK, and FETCH of shipment milestones, shared by every screen
@@ -92,23 +94,26 @@ export async function saveShipmentMilestones(
     ...(context.BookingHeaderSid != null ? { BookingHeaderSid: context.BookingHeaderSid } : {}),
   };
 
-  // 1) Existing ACTIVE rows for this shipment (same identity used by the fetch),
-  //    so a new row can be de-duplicated against what is already saved.
-  const orConditions: any[] = [];
-  if (context.HouseJobSid != null) orConditions.push({ HouseJobSid: context.HouseJobSid });
-  if (context.BookingHeaderSid != null) orConditions.push({ BookingHeaderSid: context.BookingHeaderSid });
-  if (context.ShipmentNo) orConditions.push({ ShipmentNo: context.ShipmentNo });
-
   let existingRows: any[] = [];
-  if (orConditions.length) {
-    const existingWhere: any = { Status: 'A', deletedAt: null, OR: orConditions };
-    if (context.CompanyMasterSid != null) existingWhere.CompanyMasterSid = context.CompanyMasterSid;
-    if (context.BranchMasterSid != null) existingWhere.BranchMasterSid = context.BranchMasterSid;
-    existingRows = await tx.shipmentMilestone.findMany({
-      where: existingWhere,
-      select: { ShipmentMilestoneSid: true, MilestoneMasterSid: true },
-    });
+  const existingWhere: any = { Status: 'A', deletedAt: null };
+  if (context.CompanyMasterSid != null) existingWhere.CompanyMasterSid = context.CompanyMasterSid;
+  if (context.BranchMasterSid != null) existingWhere.BranchMasterSid = context.BranchMasterSid;
+
+  // House identity is exact. BookingHeaderSid is deliberately matched as NULL for
+  // manual/cross-company houses; ShipmentNo/HBLNo is never part of this lookup.
+  if (context.HouseJobSid != null) {
+    existingWhere.HouseJobSid = context.HouseJobSid;
+    existingWhere.BookingHeaderSid = context.BookingHeaderSid ?? null;
+  } else if (context.BookingHeaderSid != null) {
+    existingWhere.BookingHeaderSid = context.BookingHeaderSid;
+  } else {
+    // Legacy callers with neither relational key retain the old ShipmentNo path.
+    existingWhere.ShipmentNo = context.ShipmentNo;
   }
+  existingRows = await tx.shipmentMilestone.findMany({
+    where: existingWhere,
+    select: { ShipmentMilestoneSid: true, MilestoneMasterSid: true },
+  });
 
   // 2) Resolve MilestoneMasterSid -> MilestoneCode for every master involved
   //    (incoming + existing), in one lookup.
@@ -176,8 +181,32 @@ export async function saveShipmentMilestones(
   for (const milestone of list) {
     const key = dedupKey(milestone.MilestoneMasterSid);
 
-    // Explicit existing row -> always update by its own PK.
+    // Explicit existing row -> update only when it belongs to this exact save
+    // context. Never trust a client-supplied PK across company/job boundaries.
     if (milestone.ShipmentMilestoneSid) {
+      const ownedRow = await tx.shipmentMilestone.findFirst({
+        where: {
+          ShipmentMilestoneSid: Number(milestone.ShipmentMilestoneSid),
+          ...(context.CompanyMasterSid != null
+            ? { CompanyMasterSid: context.CompanyMasterSid }
+            : {}),
+          ...(context.BranchMasterSid != null
+            ? { BranchMasterSid: context.BranchMasterSid }
+            : {}),
+          ...(context.HouseJobSid != null
+            ? { HouseJobSid: context.HouseJobSid }
+            : context.BookingHeaderSid != null
+              ? { BookingHeaderSid: context.BookingHeaderSid, HouseJobSid: null }
+              : { ShipmentNo: context.ShipmentNo }),
+          deletedAt: null,
+        },
+        select: { ShipmentMilestoneSid: true },
+      });
+      if (!ownedRow) {
+        throw new BadRequestException(
+          `Shipment milestone ${milestone.ShipmentMilestoneSid} does not belong to the supplied shipment context`,
+        );
+      }
       const updated = await updateBySid(milestone.ShipmentMilestoneSid, milestone);
       saved.push(updated);
       if (key) seenKey.set(key, milestone.ShipmentMilestoneSid);
@@ -307,19 +336,25 @@ export async function getShipmentMilestones(
   db: any,
   context: ShipmentMilestoneFetchContext,
 ): Promise<any[]> {
-  const orConditions: any[] = [];
-  if (context.HouseJobSid != null) orConditions.push({ HouseJobSid: context.HouseJobSid });
-  if (context.BookingHeaderSid != null) orConditions.push({ BookingHeaderSid: context.BookingHeaderSid });
-  if (context.ShipmentNo) orConditions.push({ ShipmentNo: context.ShipmentNo });
+  // Prefer immutable relational identities. ShipmentNo is only a compatibility
+  // fallback for legacy callers that cannot supply a House/Booking SID.
+  let identityWhere: any = null;
+  if (context.HouseJobSid != null) {
+    identityWhere = { HouseJobSid: context.HouseJobSid };
+  } else if (context.BookingHeaderSid != null) {
+    identityWhere = { BookingHeaderSid: context.BookingHeaderSid };
+  } else if (context.ShipmentNo) {
+    identityWhere = { ShipmentNo: context.ShipmentNo };
+  }
 
-  if (!orConditions.length) {
+  if (!identityWhere) {
     return [];
   }
 
   const where: any = {
     Status: 'A',
     deletedAt: null,
-    OR: orConditions,
+    ...identityWhere,
   };
   if (context.CompanyMasterSid != null) where.CompanyMasterSid = context.CompanyMasterSid;
   if (context.BranchMasterSid != null) where.BranchMasterSid = context.BranchMasterSid;
