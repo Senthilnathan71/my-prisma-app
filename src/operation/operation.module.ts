@@ -40,6 +40,7 @@ import { VehicleService } from './services/vehicle/vehicle.service';
 import { CustomsService } from './services/customs/customs.service';
 import { EDIManifestService } from './services/edi-manifest/edi-manifest.service';
 import { ShipmentMilestoneController } from './controllers/shipment-milestone/shipment-milestone.controller';
+import { MilestoneJobFlowController } from './controllers/shipment-milestone/milestone-job-flow.controller';
 import { ShipmentMilestoneService } from './services/shipment-milestone/shipment-milestone.service';
 import { SettingsModule } from 'src/settings/settings.module';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
@@ -134,6 +135,7 @@ import { MenuUserConfigService } from 'src/settings/services/menu-user-config/me
 		VehicleController,
 		CustomsController,
 		ShipmentMilestoneController,
+		MilestoneJobFlowController,
 		AgentMasterAirWaybillController,
 		ProRateController,
 		ShippingInstructionController,

@@ -3,19 +3,225 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { DatabaseService } from 'src/database/database.service';
 import { MilestoneMasterDTO } from 'src/masters/DTO/milestone.dto';
 import {
+    ShipmentMilestoneBookingFlowDTO,
     ShipmentMilestoneCheckExistDTO,
     ShipmentMilestoneCreateDTO,
     ShipmentMilestoneFetchDTO,
     ShipmentMilestoneFetchWithCodeDTO,
     ShipmentMilestoneInsertByMasterJobDTO,
+    ShipmentMilestoneJobFlowDTO,
     ShipmentMilestoneResponseDTO,
     ShipmentMilestoneSafeInsertDTO,
     ShipmentMilestoneUpdateDTO,
 } from 'src/operation/DTO/shipment-milestone.dto';
+import { getShipmentMilestones } from './shipment-milestone.helper';
 
 @Injectable()
 export class ShipmentMilestoneService {
     constructor(private _db: DatabaseService) { }
+
+    async getJobFlow(payload: ShipmentMilestoneJobFlowDTO) {
+        const currentHouse = await this._db.houseJob.findFirst({
+            where: {
+                HouseJobSid: payload.houseJobSid,
+                CompanyMasterSid: payload.companyMasterSid,
+                BranchMasterSid: payload.branchMasterSid,
+                BookingHeaderSid: payload.bookingHeaderSid ?? null,
+                DepartmentMasterSid: payload.departmentMasterSid,
+                status: 'A',
+                deletedAt: null,
+            },
+            include: {
+                bookingHeader: {
+                    select: { TranshipmentHouseSid: true },
+                },
+                departmentMaster: {
+                    select: { departmentName: true },
+                },
+            },
+        });
+
+        if (!currentHouse) {
+            throw new BadRequestException('House Job not found for the supplied job identity');
+        }
+
+        const currentItems = await this.findExactHouseMilestones(currentHouse);
+        let previousHouseJobSid = currentHouse.bookingHeader?.TranshipmentHouseSid ?? null;
+
+        if (!previousHouseJobSid) {
+            const transferMap = await this._db.auditLog.findFirst({
+                where: {
+                    tableName: 'HouseJobTransfer',
+                    recordId: String(currentHouse.HouseJobSid),
+                    operation: 'EXPORT_TO_IMPORT',
+                },
+                orderBy: { changedAt: 'desc' },
+                select: { changes: true },
+            });
+            const changes = transferMap?.changes as Record<string, unknown> | null;
+            const mappedSourceSid = Number(changes?.sourceHouseJobSid);
+            previousHouseJobSid = Number.isInteger(mappedSourceSid) && mappedSourceSid > 0
+                ? mappedSourceSid
+                : null;
+        }
+
+        const previousHouse = previousHouseJobSid
+            ? await this._db.houseJob.findFirst({
+                where: {
+                    HouseJobSid: previousHouseJobSid,
+                    status: 'A',
+                    deletedAt: null,
+                },
+                include: {
+                    departmentMaster: {
+                        select: { departmentName: true },
+                    },
+                },
+            })
+            : null;
+        const previousItems = previousHouse
+            ? await this.findExactHouseMilestones(previousHouse)
+            : [];
+
+        return {
+            previousMilestones: {
+                title: previousHouse
+                    ? `Previous ${previousHouse.departmentMaster?.departmentName || 'Job'} Milestones`
+                    : 'Previous Milestones',
+                readonly: true,
+                items: previousItems,
+            },
+            currentMilestones: {
+                title: `Current ${currentHouse.departmentMaster?.departmentName || 'Job'} Milestones`,
+                readonly: false,
+                items: currentItems,
+            },
+        };
+    }
+
+    /**
+     * Booking-screen milestone flow (before a House Job is generated).
+     *
+     * Current  = the booking's own milestones (BookingHeaderSid, HouseJobSid NULL) — editable.
+     * Previous = for a Transhipment Export booking, the source Import House's milestones,
+     *            resolved via BookingHeader.TranshipmentHouseSid — read-only.
+     *
+     * A non-transhipment booking has no TranshipmentHouseSid, so `previous` is empty and
+     * the screen behaves exactly as before (only its own milestones).
+     */
+    async getBookingFlow(payload: ShipmentMilestoneBookingFlowDTO) {
+        const booking = await this._db.bookingHeader.findFirst({
+            where: {
+                BookingHeaderSid: payload.bookingHeaderSid,
+                CompanyMasterSid: payload.companyMasterSid,
+                BranchMasterSid: payload.branchMasterSid,
+                status: 'A',
+                deletedAt: null,
+            },
+            include: {
+                departmentMaster: {
+                    select: { departmentName: true },
+                },
+            },
+        });
+
+        if (!booking) {
+            throw new BadRequestException('Booking not found for the supplied identity');
+        }
+
+        // Editable: the booking's own milestones, matched by BookingHeaderSid (same as the
+        // existing booking fetch), scoped by Company + Branch, ordered by master SortBy.
+        const currentItems = await getShipmentMilestones(this._db, {
+            BookingHeaderSid: booking.BookingHeaderSid,
+            CompanyMasterSid: payload.companyMasterSid,
+            BranchMasterSid: payload.branchMasterSid,
+        });
+
+        // Read-only: the Transhipment source Import House milestones, if this is an
+        // Export booking generated from an Import House.
+        const previousHouse = booking.TranshipmentHouseSid
+            ? await this._db.houseJob.findFirst({
+                where: {
+                    HouseJobSid: booking.TranshipmentHouseSid,
+                    status: 'A',
+                    deletedAt: null,
+                },
+                include: {
+                    departmentMaster: {
+                        select: { departmentName: true },
+                    },
+                },
+            })
+            : null;
+        const previousItems = previousHouse
+            ? await this.findExactHouseMilestones(previousHouse)
+            : [];
+
+        return {
+            previousMilestones: {
+                title: previousHouse
+                    ? `Previous ${previousHouse.departmentMaster?.departmentName || 'Job'} Milestones`
+                    : 'Previous Milestones',
+                readonly: true,
+                items: previousItems,
+            },
+            currentMilestones: {
+                title: `Current ${booking.departmentMaster?.departmentName || 'Job'} Milestones`,
+                readonly: false,
+                items: currentItems,
+            },
+        };
+    }
+
+    private async findExactHouseMilestones(house: {
+        HouseJobSid: number;
+        CompanyMasterSid: number;
+        BranchMasterSid: number | null;
+        BookingHeaderSid: number | null;
+        DepartmentMasterSid: number;
+    }) {
+        if (house.BranchMasterSid == null) {
+            throw new BadRequestException(`Branch is missing for HouseJobSid ${house.HouseJobSid}`);
+        }
+
+        const rows = await this._db.shipmentMilestone.findMany({
+            where: {
+                CompanyMasterSid: house.CompanyMasterSid,
+                BranchMasterSid: house.BranchMasterSid,
+                BookingHeaderSid: house.BookingHeaderSid,
+                HouseJobSid: house.HouseJobSid,
+                Status: 'A',
+                deletedAt: null,
+                houseJob: {
+                    is: {
+                        DepartmentMasterSid: house.DepartmentMasterSid,
+                    },
+                },
+            },
+        });
+        const masterSids = [...new Set(rows.map(row => row.MilestoneMasterSid))];
+        const masters = masterSids.length
+            ? await this._db.milestoneMaster.findMany({
+                where: { MilestoneMasterSid: { in: masterSids } },
+                select: { MilestoneMasterSid: true, SortBy: true },
+            })
+            : [];
+        const sortMap = new Map(masters.map(item => [
+            item.MilestoneMasterSid,
+            Number(item.SortBy),
+        ]));
+
+        return rows
+            .sort((left, right) => {
+                const leftSort = sortMap.get(left.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+                const rightSort = sortMap.get(right.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+                return leftSort - rightSort ||
+                    left.MilestoneDate.getTime() - right.MilestoneDate.getTime();
+            })
+            // Attach the configured SortBy so the frontend can order reliably by the row's
+            // own value (its master may not be in the department dropdown it uses for lookup).
+            .map(row => ({ ...row, SortBy: sortMap.get(row.MilestoneMasterSid) ?? null }));
+    }
 
     async getShipmentMilestoneByShipmentNo(
         payload: ShipmentMilestoneFetchDTO,
@@ -50,6 +256,7 @@ export class ShipmentMilestoneService {
     ): Promise<ShipmentMilestoneResponseDTO> {
         try {
             const tx = prisma || this._db;
+            await this.validateMilestoneOwnership(tx, payload);
 
             const newShipmentMilestone = await tx.shipmentMilestone.create({
                 data: payload,
@@ -68,6 +275,24 @@ export class ShipmentMilestoneService {
     ): Promise<ShipmentMilestoneResponseDTO> {
         try {
             const tx = prisma || this._db;
+            if (!payload.CompanyMasterSid || !payload.BranchMasterSid) {
+                throw new BadRequestException('CompanyMasterSid and BranchMasterSid are required for milestone update');
+            }
+            const existing = await tx.shipmentMilestone.findFirst({
+                where: {
+                    ShipmentMilestoneSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    deletedAt: null,
+                },
+            });
+            if (!existing) {
+                throw new BadRequestException('Shipment Milestone not found for the supplied company and branch');
+            }
+            await this.validateMilestoneOwnership(tx, {
+                ...existing,
+                ...payload,
+            });
 
             const shipmentMilestone = await tx.shipmentMilestone.update({
                 where: {
@@ -128,18 +353,26 @@ export class ShipmentMilestoneService {
                 BranchMasterSid,
                 ShipmentNo,
                 MilestoneMasterSid,
+                HouseJobSid,
+                BookingHeaderSid,
             } = payload;
 
             const tx = prisma || this._db;
 
-            // Check if already a milestone exist for the same Shipment No
+            const identityWhere = HouseJobSid != null
+                ? { HouseJobSid }
+                : BookingHeaderSid != null
+                    ? { BookingHeaderSid, HouseJobSid: null }
+                    : { ShipmentNo };
+
             const shipmentMilestone = await tx.shipmentMilestone.findFirst({
                 where: {
                     CompanyMasterSid: CompanyMasterSid,
                     BranchMasterSid: BranchMasterSid,
-                    ShipmentNo: ShipmentNo,
+                    ...identityWhere,
                     MilestoneMasterSid: MilestoneMasterSid,
                     Status: 'A',
+                    deletedAt: null,
                 },
             });
 
@@ -156,13 +389,18 @@ export class ShipmentMilestoneService {
 
     async deleteShipmentMilestone(
         ShipmentMilestoneSid: number,
+        CompanyMasterSid: number,
+        BranchMasterSid: number,
         prisma?: PrismaClient | Prisma.TransactionClient,
     ) {
         try {
             const tx = prisma || this._db;
-            const exist = await tx.shipmentMilestone.findUnique({
+            const exist = await tx.shipmentMilestone.findFirst({
                 where: {
                     ShipmentMilestoneSid: ShipmentMilestoneSid,
+                    CompanyMasterSid,
+                    BranchMasterSid,
+                    deletedAt: null,
                 },
             });
             if (!exist) {
@@ -209,7 +447,9 @@ export class ShipmentMilestoneService {
                 CompanyMasterSid: payload.CompanyMasterSid,
                 BranchMasterSid: payload.BranchMasterSid,
                 ShipmentNo: payload.ShipmentNo,
-                MilestoneMasterSid: milestone.MilestoneMasterSid
+                MilestoneMasterSid: milestone.MilestoneMasterSid,
+                HouseJobSid: payload.HouseJobSid,
+                BookingHeaderSid: payload.BookingHeaderSid,
             }, tx);
 
             if (alreadyExist) {
@@ -354,6 +594,62 @@ export class ShipmentMilestoneService {
             };
         } catch (error) {
             throw error;
+        }
+    }
+
+    private async validateMilestoneOwnership(
+        tx: PrismaClient | Prisma.TransactionClient,
+        payload: {
+            CompanyMasterSid: number;
+            BranchMasterSid: number;
+            MilestoneMasterSid: number;
+            HouseJobSid?: number | null;
+            BookingHeaderSid?: number | null;
+        },
+    ): Promise<void> {
+        const milestoneMaster = await tx.milestoneMaster.findFirst({
+            where: {
+                MilestoneMasterSid: payload.MilestoneMasterSid,
+                CompanyMasterSid: payload.CompanyMasterSid,
+                BranchMasterSid: payload.BranchMasterSid,
+                status: 'A',
+            },
+            select: { MilestoneMasterSid: true },
+        });
+        if (!milestoneMaster) {
+            throw new BadRequestException('Milestone master does not belong to the supplied company and branch');
+        }
+
+        if (payload.HouseJobSid != null) {
+            const houseJob = await tx.houseJob.findFirst({
+                where: {
+                    HouseJobSid: payload.HouseJobSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    status: 'A',
+                    deletedAt: null,
+                },
+                select: { HouseJobSid: true },
+            });
+            if (!houseJob) {
+                throw new BadRequestException('House Job does not belong to the supplied company and branch');
+            }
+        }
+
+        if (payload.BookingHeaderSid != null) {
+            const booking = await tx.bookingHeader.findFirst({
+                where: {
+                    BookingHeaderSid: payload.BookingHeaderSid,
+                    CompanyMasterSid: payload.CompanyMasterSid,
+                    BranchMasterSid: payload.BranchMasterSid,
+                    status: 'A',
+                    deletedAt: null,
+                },
+                select: { BookingHeaderSid: true },
+            });
+            if (!booking) {
+                throw new BadRequestException('Booking does not belong to the supplied company and branch');
+            }
         }
     }
 }

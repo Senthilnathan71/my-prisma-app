@@ -2381,6 +2381,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                     MilestoneName: true,
                     MilestoneCode: true,
                     AutoCapture: true,
+                    SortBy: true,
                     DepartmentMasterSid: true,
                     Remarks: true
                 }
@@ -2394,14 +2395,23 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
             // the service (not a Prisma where) so it is independent of the DepartmentMasterSid
             // column shape — array, JSON string, CSV, or a single value are all handled.
             const filterTokens = this.buildDepartmentFilterTokens(payload);
-            if (!filterTokens.length) {
-                return allMilestones;
-            }
-            return allMilestones.filter((milestone) =>
-                this.extractDepartmentTokens(milestone.DepartmentMasterSid).some((dept) =>
-                    filterTokens.includes(dept)
+            const filtered = filterTokens.length
+                ? allMilestones.filter((milestone) =>
+                    this.extractDepartmentTokens(milestone.DepartmentMasterSid).some((dept) =>
+                        filterTokens.includes(dept)
+                    )
                 )
-            );
+                : allMilestones;
+
+            // Order the dropdown by the configured SortBy. SortBy is stored as text, so sort
+            // NUMERICALLY (else "10" would sort before "5"); unset values go last.
+            return filtered.sort((a, b) => {
+                const sa = Number(a.SortBy);
+                const sb = Number(b.SortBy);
+                const na = Number.isFinite(sa) ? sa : Number.MAX_SAFE_INTEGER;
+                const nb = Number.isFinite(sb) ? sb : Number.MAX_SAFE_INTEGER;
+                return na - nb;
+            });
         } catch (error) {
             throw error;
         }

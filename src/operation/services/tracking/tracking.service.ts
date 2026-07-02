@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
+import { ShipmentMilestoneService } from 'src/operation/services/shipment-milestone/shipment-milestone.service';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -79,7 +80,10 @@ const AIR_EVENTS = [
 
 @Injectable()
 export class TrackingService {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly shipmentMilestoneService: ShipmentMilestoneService,
+  ) {}
 
   // ---------------------------------------------------------------------------
   // Public entry points
@@ -279,13 +283,47 @@ export class TrackingService {
   }
 
   private async resolveContainerSearch(reference: string, context: TrackingContext): Promise<ResolvedEntities> {
+    // A physical container can be reused across MULTIPLE House Jobs in DIFFERENT Master
+    // Jobs. Gather EVERY House Job whose product rows reference this container — by the
+    // ContainerNo string or via the linked Master Job container — so a shared container
+    // opens the same "pick a House Job" match modal as a shared HBL (not just the first).
+    const houseJobs = await this.db.houseJob.findMany({
+      where: {
+        status: 'A',
+        ...this.customerContextWhere(context),
+        Products: {
+          some: {
+            status: 'A',
+            OR: [
+              { ContainerNo: { equals: reference, mode: 'insensitive' } },
+              { masterJobContainer: { ContainerNumber: { equals: reference, mode: 'insensitive' } } },
+            ],
+          },
+        },
+      },
+      select: this.houseJobSelect(true),
+    });
+
+    if (houseJobs.length > 1) {
+      return { kind: 'multiple', matches: houseJobs.map((item) => this.toMatchRow(item)) };
+    }
+    if (houseJobs.length === 1) {
+      const houseJob = houseJobs[0];
+      return {
+        kind: 'single',
+        booking: houseJob.bookingHeader || null,
+        houseJob,
+        masterJob: houseJob.masterJob || null,
+        scope: 'HOUSE',
+      };
+    }
+
+    // No House Job references the container — fall back to a Master Job that carries it
+    // (declared on the master but not yet mapped to a house), shown at master level.
     const masterJob = await this.db.masterJob.findFirst({
       where: {
         Status: 'A',
         ...this.companyContextWhere(context),
-        ...(this.hasCustomerContext(context)
-          ? { houseJob: { some: { status: 'A', ...this.customerContextWhere(context) } } }
-          : {}),
         containers: {
           some: { Status: 'A', ContainerNumber: { equals: reference, mode: 'insensitive' } },
         },
@@ -293,32 +331,10 @@ export class TrackingService {
       select: this.masterJobSelect(true, context),
     });
     if (masterJob) {
-      return this.containerToResolution(masterJob, reference);
+      return { kind: 'single', booking: null, houseJob: null, masterJob, scope: 'CONTAINER' };
     }
 
-    const houseJob = await this.db.houseJob.findFirst({
-      where: {
-        status: 'A',
-        ...this.customerContextWhere(context),
-        Products: { some: { status: 'A', ContainerNo: { equals: reference, mode: 'insensitive' } } },
-      },
-      select: this.houseJobSelect(true),
-    });
-    if (!houseJob) return { kind: 'not_found' };
-
-    const master = houseJob.masterJob
-      ? await this.ensureMasterWithHouses(houseJob.masterJob, context)
-      : null;
-    if (master) {
-      return this.containerToResolution(master, reference);
-    }
-    return {
-      kind: 'single',
-      booking: houseJob.bookingHeader || null,
-      houseJob,
-      masterJob: null,
-      scope: 'HOUSE',
-    };
+    return { kind: 'not_found' };
   }
 
   /**
@@ -841,6 +857,16 @@ export class TrackingService {
     );
     const deduped = this.dedupeStoredMilestones(stored);
 
+    // Dynamic, department-based timeline: the job's configured milestone master list
+    // (SortBy order) overlaid with the saved milestones, so the timeline reflects the
+    // department's own milestones — not a hardcoded template. Transshipment source
+    // (Previous) milestones lead, then the current department's milestones. Falls back
+    // to the legacy static template only when the department has no configured milestones.
+    const dynamic = await this.buildDynamicMilestoneTimeline(deduped, scope, booking, houseJob, masterJob);
+    if (dynamic) {
+      return dynamic;
+    }
+
     const actual = deduped.length
       ? deduped.map((item, index) => ({
           eventName: item.MilestoneName,
@@ -855,6 +881,173 @@ export class TrackingService {
       : this.generateMilestones(booking, houseJob, masterJob, transportMode, cargoDates);
 
     return this.applyTimelineState(actual, transportMode);
+  }
+
+  /**
+   * Build the tracking timeline dynamically from the job's DEPARTMENT milestone master
+   * definitions (SortBy order), overlaid with the shipment's saved milestones. Returns
+   * null when the department has no configured milestones (caller falls back to the
+   * legacy static template). Only single-shipment scopes (HOUSE / BOOKING) are handled
+   * dynamically; MASTER / CONTAINER keep the template.
+   *
+   * State: milestones with a date are completed except the latest (highest SortBy) dated
+   * one which is 'current'; milestones without a date are 'pending'. Transshipment source
+   * ('PREVIOUS') milestones are shown first, then the current department's milestones.
+   */
+  private async buildDynamicMilestoneTimeline(
+    stored: any[],
+    scope: TrackingScope,
+    booking: any,
+    houseJob: any,
+    masterJob: any,
+  ): Promise<TrackingMilestone[] | null> {
+    if (scope !== 'HOUSE' && scope !== 'BOOKING') {
+      return null;
+    }
+    const entity = houseJob || booking;
+    if (!entity) {
+      return null;
+    }
+    const departmentName =
+      houseJob?.departmentMaster?.departmentName ||
+      booking?.departmentMaster?.departmentName ||
+      null;
+
+    const definitions = await this.getMilestoneDefinitionsForDepartment(
+      departmentName,
+      entity.CompanyMasterSid ?? null,
+      entity.BranchMasterSid ?? null,
+    );
+    if (!definitions.length) {
+      return null;
+    }
+
+    // Separate transshipment source (Previous) saved milestones from the current job's.
+    const sourceStored = stored.filter((item) => item.source === 'PREVIOUS');
+    const currentStored = stored.filter((item) => item.source !== 'PREVIOUS');
+
+    // Index the saved milestones by master Sid AND by normalized name, so a definition
+    // can be overlaid even when the saved row's MilestoneMasterSid differs from the
+    // department definition's (the same milestone captured under a different master
+    // record). Without the name fallback the saved row would not match and would be
+    // appended as a duplicate (and wrongly become "current").
+    const savedByMaster = new Map<number, any>();
+    const savedByName = new Map<string, any[]>();
+    for (const item of currentStored) {
+      if (item.MilestoneMasterSid != null && !savedByMaster.has(item.MilestoneMasterSid)) {
+        savedByMaster.set(item.MilestoneMasterSid, item);
+      }
+      const nameKey = this.normalize(item.MilestoneName);
+      if (nameKey) {
+        const list = savedByName.get(nameKey) || [];
+        list.push(item);
+        savedByName.set(nameKey, list);
+      }
+    }
+
+    // Track which saved rows have been consumed (by reference) so each is used once.
+    const usedItems = new Set<any>();
+    const takeSaved = (def: { MilestoneMasterSid: number; MilestoneName: string }) => {
+      const bySid = savedByMaster.get(def.MilestoneMasterSid);
+      if (bySid && !usedItems.has(bySid)) {
+        usedItems.add(bySid);
+        return bySid;
+      }
+      const byName = (savedByName.get(this.normalize(def.MilestoneName)) || []).find(
+        (item) => !usedItems.has(item),
+      );
+      if (byName) {
+        usedItems.add(byName);
+        return byName;
+      }
+      return undefined;
+    };
+
+    const currentEvents = [...definitions]
+      .sort((a, b) => a.SortBy - b.SortBy)
+      .map((def) => this.buildTimelineEvent(def.MilestoneName, takeSaved(def), booking, houseJob, masterJob));
+
+    // Any saved current milestone not matched to a definition — keep it (don't lose data).
+    const currentExtras = currentStored
+      .filter((item) => !usedItems.has(item))
+      .map((item) => this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob));
+
+    // Transshipment source milestones lead the timeline (all already captured).
+    const sourceEvents = sourceStored.map((item) =>
+      this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob),
+    );
+
+    return this.applyDynamicTimelineState([...sourceEvents, ...currentEvents, ...currentExtras]);
+  }
+
+  /** Fetch a department's configured milestones (active), with numeric SortBy. */
+  private async getMilestoneDefinitionsForDepartment(
+    departmentName: string | null,
+    companyMasterSid: number | null,
+    branchMasterSid: number | null,
+  ): Promise<{ MilestoneMasterSid: number; MilestoneName: string; SortBy: number }[]> {
+    if (!departmentName) {
+      return [];
+    }
+    const where: any = {
+      status: 'A',
+      DepartmentMasterSid: { has: departmentName },
+    };
+    if (companyMasterSid != null) {
+      where.CompanyMasterSid = companyMasterSid;
+    }
+    if (branchMasterSid != null) {
+      where.BranchMasterSid = branchMasterSid;
+    }
+    const masters = await this.db.milestoneMaster.findMany({
+      where,
+      select: { MilestoneMasterSid: true, MilestoneName: true, SortBy: true },
+    });
+    return masters.map((master) => ({
+      MilestoneMasterSid: master.MilestoneMasterSid,
+      MilestoneName: master.MilestoneName,
+      SortBy: Number(master.SortBy),
+    }));
+  }
+
+  private buildTimelineEvent(
+    eventName: string,
+    saved: any,
+    booking: any,
+    houseJob: any,
+    masterJob: any,
+  ): TrackingMilestone {
+    return {
+      eventName,
+      eventDate: saved?.MilestoneDate ?? null,
+      eventTime: saved?.MilestoneDate ? this.formatTime(saved.MilestoneDate) : null,
+      // Only captured milestones get a location — a pending milestone hasn't happened yet,
+      // so showing a projected port (e.g. "Arrival Notice Sent" -> POD) is misleading.
+      location: saved ? this.resolveLocation(eventName, booking, houseJob, masterJob) : null,
+      remarks: saved?.Remarks ?? null,
+      state: 'pending' as TrackingState,
+      source: saved?.source ?? 'system',
+      sequence: 0,
+    };
+  }
+
+  /** Completed for dated milestones (latest dated = current), pending for undated — keeping SortBy order. */
+  private applyDynamicTimelineState(timeline: TrackingMilestone[]): TrackingMilestone[] {
+    let lastDatedIndex = -1;
+    timeline.forEach((event, index) => {
+      if (event.eventDate) {
+        lastDatedIndex = index;
+      }
+    });
+    return timeline.map((event, index) => ({
+      ...event,
+      sequence: index + 1,
+      state: !event.eventDate
+        ? ('pending' as TrackingState)
+        : index < lastDatedIndex
+          ? ('completed' as TrackingState)
+          : ('current' as TrackingState),
+    }));
   }
 
   /** Milestone template differs by mode: Air uses flight events, Sea uses vessel/container events. */
@@ -896,16 +1089,10 @@ export class TrackingService {
   }
 
   private async findMasterScreenMilestones(houseJobs: any[]) {
-    const houseShipmentNos = houseJobs
-      .flatMap((item) => this.houseMilestoneKeys(item));
-    const bookingNos = houseJobs
-      .map((item) => item?.bookingHeader?.BookingNo || item?.BookingNo)
-      .filter((value): value is string => !!value);
-
-    const houseMilestones = await this.findMilestonesByShipmentNos(houseShipmentNos, 'HOUSE');
-    const bookingMilestones = await this.findMilestonesByShipmentNos(bookingNos, 'BOOKING');
-
-    return [...houseMilestones, ...bookingMilestones].sort(this.sortMilestones);
+    const groups = await Promise.all(
+      houseJobs.map((houseJob) => this.findHouseJobScreenMilestones(houseJob, houseJob?.bookingHeader)),
+    );
+    return groups.flat().sort(this.sortMilestones);
   }
 
   private async findContainerScreenMilestones(reference: string, houseJobs: any[], containers: any[]) {
@@ -922,79 +1109,157 @@ export class TrackingService {
   }
 
   private async findBookingScreenMilestones(booking: any) {
-    const houseJobs = booking?.BookingHeaderSid
-      ? await this.db.houseJob.findMany({
-          where: {
-            status: 'A',
-            BookingHeaderSid: booking.BookingHeaderSid,
-            ShipmentNo: { not: null },
-          },
-          select: { ShipmentNo: true },
-        })
-      : [];
-
-    const bookingMilestones = booking?.BookingNo
-      ? await this.findMilestonesByShipmentNos([booking.BookingNo], 'BOOKING')
-      : [];
-    const houseMilestones = await this.findMilestonesByShipmentNos(
-      houseJobs
-        .map((item) => item.ShipmentNo)
-        .filter((shipmentNo): shipmentNo is string => !!shipmentNo),
-      'HOUSE',
+    if (!booking?.BookingHeaderSid || !booking?.CompanyMasterSid || !booking?.BranchMasterSid) {
+      return [];
+    }
+    return this.findMilestonesByExactIdentity(
+      {
+        BookingHeaderSid: booking.BookingHeaderSid,
+        CompanyMasterSid: booking.CompanyMasterSid,
+        BranchMasterSid: booking.BranchMasterSid,
+      },
+      'BOOKING',
     );
-
-    return [...bookingMilestones, ...houseMilestones].sort(this.sortMilestones);
   }
 
   private async findHouseJobScreenMilestones(houseJob: any, booking: any) {
-    const houseShipmentNos = this.houseMilestoneKeys(houseJob);
-    const bookingNo = houseJob?.bookingHeader?.BookingNo || booking?.BookingNo;
+    if (!houseJob?.HouseJobSid || !houseJob?.CompanyMasterSid ||
+        !houseJob?.BranchMasterSid || !houseJob?.DepartmentMasterSid) {
+      return [];
+    }
 
-    const houseMilestones = houseShipmentNos.length
-      ? await this.findMilestonesByShipmentNos(houseShipmentNos, 'HOUSE')
+    const flow = await this.shipmentMilestoneService.getJobFlow({
+      companyMasterSid: Number(houseJob.CompanyMasterSid),
+      branchMasterSid: Number(houseJob.BranchMasterSid),
+      bookingHeaderSid: houseJob.BookingHeaderSid ?? null,
+      houseJobSid: Number(houseJob.HouseJobSid),
+      departmentMasterSid: Number(houseJob.DepartmentMasterSid),
+    });
+    const previous = (flow.previousMilestones.items || []).map(item => ({
+      ...item,
+      source: 'PREVIOUS',
+    }));
+    const current = (flow.currentMilestones.items || []).map(item => ({
+      ...item,
+      source: houseJob.JobType === 'Import' ? 'IMPORT' : 'HOUSE',
+    }));
+    return [...previous, ...current].sort(this.sortMilestones);
+  }
+
+  private async findMilestonesByExactIdentity(
+    identity: {
+      CompanyMasterSid: number;
+      BranchMasterSid: number;
+      HouseJobSid?: number;
+      BookingHeaderSid?: number;
+    },
+    source: 'BOOKING' | 'HOUSE' | 'EXPORT' | 'IMPORT',
+  ) {
+    const rows = await this.db.shipmentMilestone.findMany({
+      where: {
+        Status: 'A',
+        deletedAt: null,
+        CompanyMasterSid: identity.CompanyMasterSid,
+        BranchMasterSid: identity.BranchMasterSid,
+        ...(identity.HouseJobSid != null
+          ? { HouseJobSid: identity.HouseJobSid }
+          : { BookingHeaderSid: identity.BookingHeaderSid }),
+      },
+      select: {
+        ShipmentMilestoneSid: true,
+        MilestoneMasterSid: true,
+        MilestoneName: true,
+        MilestoneDate: true,
+        Remarks: true,
+        CreatedOn: true,
+        CompanyMasterSid: true,
+        BranchMasterSid: true,
+        HouseJobSid: true,
+        BookingHeaderSid: true,
+      },
+    });
+
+    // Order by the configured milestone master SortBy (numeric), MilestoneDate as tie-break,
+    // so the timeline follows the department's workflow order — consistent with the job-flow.
+    const masterSids = [...new Set(rows.map((row) => row.MilestoneMasterSid).filter((value) => value != null))];
+    const masters = masterSids.length
+      ? await this.db.milestoneMaster.findMany({
+          where: { MilestoneMasterSid: { in: masterSids } },
+          select: { MilestoneMasterSid: true, SortBy: true },
+        })
       : [];
-    const bookingMilestones =
-      houseJob?.BookingHeaderSid && bookingNo
-        ? await this.findMilestonesByShipmentNos([bookingNo], 'BOOKING')
-        : [];
+    const sortMap = new Map(masters.map((m) => [m.MilestoneMasterSid, Number(m.SortBy)]));
 
-    return [...houseMilestones, ...bookingMilestones].sort(this.sortMilestones);
-  }
-
-  /**
-   * Milestone keys for a House Job. House / Service Job milestones are stored keyed by
-   * HBLNo (see house-job/service-job create), while legacy rows and Booking-origin
-   * (relinked) rows use ShipmentNo (= BookingNo). Both are returned so Tracking finds
-   * all of them; Booking-origin rows are also fetched separately by BookingNo.
-   */
-  private houseMilestoneKeys(houseJob: any): string[] {
-    return [houseJob?.HBLNo, houseJob?.ShipmentNo].filter((value): value is string => !!value);
-  }
-
-  private findMilestonesByShipmentNos(shipmentNos: string[], source: 'BOOKING' | 'HOUSE') {
-    const uniqueShipmentNos = [...new Set(shipmentNos.filter(Boolean))];
-    if (!uniqueShipmentNos.length) return Promise.resolve([] as any[]);
-
-    return this.db.shipmentMilestone
-      .findMany({
-        where: {
-          Status: 'A',
-          ShipmentNo: { in: uniqueShipmentNos },
-        },
-        orderBy: [{ MilestoneDate: 'asc' }, { CreatedOn: 'asc' }],
-        select: { MilestoneName: true, MilestoneDate: true, Remarks: true, CreatedOn: true },
+    return rows
+      .sort((a, b) => {
+        const sa = sortMap.get(a.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+        const sb = sortMap.get(b.MilestoneMasterSid) ?? Number.MAX_SAFE_INTEGER;
+        if (sa !== sb) {
+          return sa - sb;
+        }
+        const da = a.MilestoneDate ? new Date(a.MilestoneDate).getTime() : 0;
+        const db = b.MilestoneDate ? new Date(b.MilestoneDate).getTime() : 0;
+        return da - db;
       })
-      .then((items) => items.map((item) => ({ ...item, source })));
+      .map((item) => ({ ...item, source }));
+  }
+
+  private async findTransferSourceHouse(
+    destinationHouseJobSid: number,
+  ): Promise<{
+    HouseJobSid: number;
+    CompanyMasterSid: number;
+    BranchMasterSid: number;
+  } | null> {
+    const transferMap = await this.db.auditLog.findFirst({
+      where: {
+        tableName: 'HouseJobTransfer',
+        recordId: String(destinationHouseJobSid),
+        operation: 'EXPORT_TO_IMPORT',
+      },
+      orderBy: { changedAt: 'desc' },
+      select: { changes: true },
+    });
+    const changes = transferMap?.changes as Record<string, unknown> | null;
+    const sourceHouseJobSid = Number(changes?.sourceHouseJobSid);
+    if (!Number.isInteger(sourceHouseJobSid) || sourceHouseJobSid <= 0) {
+      return null;
+    }
+
+    const sourceHouse = await this.db.houseJob.findFirst({
+      where: {
+        HouseJobSid: sourceHouseJobSid,
+        status: 'A',
+        deletedAt: null,
+      },
+      select: {
+        HouseJobSid: true,
+        CompanyMasterSid: true,
+        BranchMasterSid: true,
+      },
+    });
+    if (!sourceHouse || sourceHouse.BranchMasterSid == null) {
+      return null;
+    }
+    return {
+      HouseJobSid: sourceHouse.HouseJobSid,
+      CompanyMasterSid: sourceHouse.CompanyMasterSid,
+      BranchMasterSid: sourceHouse.BranchMasterSid,
+    };
   }
 
   private dedupeStoredMilestones(items: any[]): any[] {
     const seen = new Set<string>();
     return (items || []).filter((item) => {
-      const key = [
-        this.normalize(item?.MilestoneName),
-        new Date(item?.MilestoneDate || 0).getTime(),
-        this.normalize(item?.Remarks || ''),
-      ].join('|');
+      const key = item?.ShipmentMilestoneSid != null
+        ? `SID:${item.ShipmentMilestoneSid}`
+        : [
+            item?.CompanyMasterSid,
+            item?.BranchMasterSid,
+            item?.HouseJobSid,
+            this.normalize(item?.MilestoneName),
+            new Date(item?.MilestoneDate || 0).getTime(),
+          ].join('|');
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -1307,18 +1572,41 @@ export class TrackingService {
 
   private applyTimelineState(events: TrackingMilestone[], transportMode: string | null = null): TrackingMilestone[] {
     const template = this.milestoneEvents(transportMode);
-    const normalized = template.map((name, index) => {
-      const found = events.find((item) => this.normalize(item.eventName) === this.normalize(name));
-      return found ? { ...found, eventName: name, sequence: index + 1 } : this.event(name, null, null, 'system');
-    });
-    const latestCompleted = Math.max(
-      0,
-      ...normalized.map((item, index) => (item.eventDate ? index : -1)),
+    const canonicalNames = new Map(
+      template.map((name) => [this.normalize(name), name]),
     );
-    return normalized.map((item, index) => ({
+    const normalizedActual = events.map((item) => ({
+      ...item,
+      eventName: canonicalNames.get(this.normalize(item.eventName)) || item.eventName,
+    }));
+    const presentNames = new Set(
+      normalizedActual.map((item) => this.normalize(item.eventName)),
+    );
+    const missingTemplateEvents = template
+      .filter((name) => !presentNames.has(this.normalize(name)))
+      .map((name) => this.event(name, null, null, 'system'));
+    const datedEvents = normalizedActual
+      .filter((item) => item.eventDate)
+      .sort(
+        (left, right) =>
+          new Date(left.eventDate || 0).getTime() - new Date(right.eventDate || 0).getTime(),
+      );
+    const pendingEvents = [
+      ...normalizedActual.filter((item) => !item.eventDate),
+      ...missingTemplateEvents,
+    ];
+    const timeline = [...datedEvents, ...pendingEvents];
+    const latestCompleted = datedEvents.length - 1;
+
+    return timeline.map((item, index) => ({
       ...item,
       sequence: index + 1,
-      state: index < latestCompleted ? 'completed' : index === latestCompleted ? 'current' : 'pending',
+      state:
+        index < latestCompleted
+          ? 'completed'
+          : index === latestCompleted
+            ? 'current'
+            : 'pending',
     }));
   }
 
@@ -1908,6 +2196,8 @@ export class TrackingService {
   private bookingSelect(): any {
     return {
       BookingHeaderSid: true,
+      CompanyMasterSid: true,
+      BranchMasterSid: true,
       BookingNo: true,
       BookingDateTime: true,
       BookingStatus: true,
@@ -1948,6 +2238,9 @@ export class TrackingService {
   private houseJobSelect(includeBooking: boolean): any {
     return {
       HouseJobSid: true,
+      DepartmentMasterSid: true,
+      CompanyMasterSid: true,
+      BranchMasterSid: true,
       BookingHeaderSid: true,
       ShipmentNo: true,
       BookingNo: true,
