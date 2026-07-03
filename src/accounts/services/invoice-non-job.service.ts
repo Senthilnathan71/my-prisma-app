@@ -346,7 +346,7 @@ export class InvoiceNonJobService {
       BranchMasterSid: payload.BranchMasterSid,
       Sno: index + 1,
       ChargeMasterSid: null,
-      ChargeDescription: payload.Narration || '',
+      ChargeDescription: detail.ChargeDescription || detail.Narration || payload.Narration || '',
       LedgerMasterSid: detail.LedgerMasterSid ? Number(detail.LedgerMasterSid) : null,
       COAMasterSid: detail.COAMasterSid ? Number(detail.COAMasterSid) : null,
       HSSACMasterSid: detail.HSSACMasterSid ? Number(detail.HSSACMasterSid) : null,
@@ -369,7 +369,7 @@ export class InvoiceNonJobService {
       MasterJobSid: null,
       HouseJobSid: null,
       DepartmentMasterSid: null,
-      Narration: payload.Narration || '',
+      Narration: detail.Narration || detail.ChargeDescription || payload.Narration || '',
     };
   }
 
@@ -474,20 +474,25 @@ export class InvoiceNonJobService {
       Narration: narration,
       Remarks: narration,
       VoucherDetail: Array.isArray(payload?.VoucherDetail)
-        ? payload.VoucherDetail.map((detail: any) => ({
-            ...detail,
-            ChargeMasterSid: null,
-            ChargeUOMSid: null,
-            NumberOfUnit: 1,
-            MasterJobSid: null,
-            HouseJobSid: null,
-            DepartmentMasterSid: null,
-            BookingRateSid: null,
-            BookingRatesSid: null,
-            CostRevenueChargesSid: null,
-            Narration: narration,
-            ChargeDescription: narration,
-          }))
+        ? payload.VoucherDetail.map((detail: any) => {
+            // Keep the row's manual narration; fall back to the header narration only when blank.
+            const rowNarration =
+              String(detail?.Narration ?? detail?.ChargeDescription ?? '').trim() || narration;
+            return {
+              ...detail,
+              ChargeMasterSid: null,
+              ChargeUOMSid: null,
+              NumberOfUnit: 1,
+              MasterJobSid: null,
+              HouseJobSid: null,
+              DepartmentMasterSid: null,
+              BookingRateSid: null,
+              BookingRatesSid: null,
+              CostRevenueChargesSid: null,
+              Narration: rowNarration,
+              ChargeDescription: rowNarration,
+            };
+          })
         : [],
     };
   }
