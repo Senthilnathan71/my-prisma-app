@@ -913,10 +913,16 @@ export class TrackingService {
       booking?.departmentMaster?.departmentName ||
       null;
 
+    // Tracking is the customer-facing shipment view, so it ALWAYS shows only the
+    // customer-specific milestones (IsCustomerSpecific='Y'), department-wise & SortBy-ordered.
+    // (The internal all-milestone view is the House Job / Booking milestone tab.)
+    const customerOnly = true;
+
     const definitions = await this.getMilestoneDefinitionsForDepartment(
       departmentName,
       entity.CompanyMasterSid ?? null,
       entity.BranchMasterSid ?? null,
+      customerOnly,
     );
     if (!definitions.length) {
       return null;
@@ -968,14 +974,21 @@ export class TrackingService {
       .map((def) => this.buildTimelineEvent(def.MilestoneName, takeSaved(def), booking, houseJob, masterJob));
 
     // Any saved current milestone not matched to a definition — keep it (don't lose data).
-    const currentExtras = currentStored
-      .filter((item) => !usedItems.has(item))
-      .map((item) => this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob));
+    // In the customer view these are excluded: a captured milestone whose master is not a
+    // customer-specific definition must not leak to the customer.
+    const currentExtras = customerOnly
+      ? []
+      : currentStored
+          .filter((item) => !usedItems.has(item))
+          .map((item) => this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob));
 
-    // Transshipment source milestones lead the timeline (all already captured).
-    const sourceEvents = sourceStored.map((item) =>
-      this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob),
-    );
+    // Transshipment source milestones lead the timeline (all already captured). Hidden in
+    // the customer view (they belong to the source job's internal history).
+    const sourceEvents = customerOnly
+      ? []
+      : sourceStored.map((item) =>
+          this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob),
+        );
 
     return this.applyDynamicTimelineState([...sourceEvents, ...currentEvents, ...currentExtras]);
   }
@@ -985,6 +998,7 @@ export class TrackingService {
     departmentName: string | null,
     companyMasterSid: number | null,
     branchMasterSid: number | null,
+    customerOnly = false,
   ): Promise<{ MilestoneMasterSid: number; MilestoneName: string; SortBy: number }[]> {
     if (!departmentName) {
       return [];
@@ -998,6 +1012,10 @@ export class TrackingService {
     }
     if (branchMasterSid != null) {
       where.BranchMasterSid = branchMasterSid;
+    }
+    // Customer view: only milestones flagged customer-specific are visible to the customer.
+    if (customerOnly) {
+      where.IsCustomerSpecific = 'Y';
     }
     const masters = await this.db.milestoneMaster.findMany({
       where,
