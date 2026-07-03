@@ -990,7 +990,53 @@ export class TrackingService {
           this.buildTimelineEvent(item.MilestoneName, item, booking, houseJob, masterJob),
         );
 
-    return this.applyDynamicTimelineState([...sourceEvents, ...currentEvents, ...currentExtras]);
+    const timeline = this.applyDynamicTimelineState([...sourceEvents, ...currentEvents, ...currentExtras]);
+
+    // Company configuration TrackingMilestoneDisplayMode = 'Y' → compact view: hide the
+    // unused PENDING milestones that fall BEFORE the latest captured milestone (keeping
+    // SortBy order). 'N' / unset keeps the full list (default, current behaviour).
+    const compact = await this.isTrackingCompactMilestoneMode(entity.CompanyMasterSid ?? null);
+    return compact ? this.applyCompactMilestoneMode(timeline) : timeline;
+  }
+
+  /** Company config gate: TrackingMilestoneDisplayMode = 'Y'/'true' enables the compact view. */
+  private async isTrackingCompactMilestoneMode(companyMasterSid: number | null): Promise<boolean> {
+    if (companyMasterSid == null) {
+      return false;
+    }
+    const config = await this.db.companyConfiguration.findFirst({
+      where: {
+        CompanyMasterSid: companyMasterSid,
+        ConfigurationName: 'TrackingMilestoneDisplayMode',
+        Status: 'A',
+      },
+      select: { ConfigurationValue: true },
+    });
+    const value = String(config?.ConfigurationValue ?? '').trim().toLowerCase();
+    return value === 'y' || value === 'true' || value === '1';
+  }
+
+  /**
+   * Compact view: keep every milestone that has a tracking record (completed / current),
+   * and every milestone from the LATEST captured one onward (even pending). Hide only the
+   * pending milestones that sit before the latest captured milestone. SortBy order is kept.
+   */
+  private applyCompactMilestoneMode(timeline: TrackingMilestone[]): TrackingMilestone[] {
+    let lastTrackedIndex = -1;
+    timeline.forEach((event, index) => {
+      if (event.state === 'completed' || event.state === 'current') {
+        lastTrackedIndex = index;
+      }
+    });
+    if (lastTrackedIndex < 0) {
+      return timeline; // nothing captured yet — show the full configured list
+    }
+    return timeline
+      .filter(
+        (event, index) =>
+          event.state === 'completed' || event.state === 'current' || index >= lastTrackedIndex,
+      )
+      .map((event, index) => ({ ...event, sequence: index + 1 }));
   }
 
   /** Fetch a department's configured milestones (active), with numeric SortBy. */
