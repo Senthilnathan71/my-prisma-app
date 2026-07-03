@@ -1100,13 +1100,24 @@ export class ReverseVoucherService {
                 d => d.subledgerMaster?.SubledgerType === 'Customer' ||
                     d.LedgerMasterSid === voucher.PartyMasterSid
             );
+
+            // A plain Journal Voucher reversal has no customer/party line — fall back to the
+            // balanced debit total so the header still reflects the voucher value (debits == credits).
+            const debitLines = allCompleteDetails.filter(d => `${d.DrCr}`.charAt(0) === 'D');
+            const headerAmount = partyDetail
+                ? partyDetail.Amount
+                : debitLines.reduce((sum, d) => sum + Number(d.Amount ?? 0), 0);
+            const headerLocalAmount = partyDetail
+                ? partyDetail.LocalAmount
+                : debitLines.reduce((sum, d) => sum + Number(d.LocalAmount ?? 0), 0);
+
             const updatedVoucher = await tx.voucherHeader.update({
                 where: {
                     VoucherHeaderSid: voucher.VoucherHeaderSid
                 },
                 data: {
-                    Amount: partyDetail.Amount,
-                    LocalAmount: partyDetail.LocalAmount,
+                    Amount: headerAmount,
+                    LocalAmount: headerLocalAmount,
                     PostStatus: 'P',
                     PostDate: now,
                     UpdatedBy: payload.postedBy,
