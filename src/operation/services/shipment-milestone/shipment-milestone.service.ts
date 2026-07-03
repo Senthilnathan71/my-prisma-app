@@ -492,6 +492,7 @@ export class ShipmentMilestoneService {
                 },
                 select: {
                     HouseJobSid: true,
+                    BookingHeaderSid: true,
                     ShipmentNo: true,
                     JobType: true,
                     departmentMaster: {
@@ -555,7 +556,7 @@ export class ShipmentMilestoneService {
                     where: {
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
-                        ShipmentNo: shipmentNo,
+                        HouseJobSid: house.HouseJobSid,
                         MilestoneMasterSid: milestone.MilestoneMasterSid,
                         Status: 'A',
                     },
@@ -579,6 +580,7 @@ export class ShipmentMilestoneService {
                         AutoCaptured: 'Y',
                         Remarks: payload.Remarks || 'System auto inserted',
                         HouseJobSid: house.HouseJobSid,
+                        BookingHeaderSid: house.BookingHeaderSid ?? null,
                     },
                 });
                 insertedCount++;
@@ -611,7 +613,6 @@ export class ShipmentMilestoneService {
             where: {
                 MilestoneMasterSid: payload.MilestoneMasterSid,
                 CompanyMasterSid: payload.CompanyMasterSid,
-                BranchMasterSid: payload.BranchMasterSid,
                 status: 'A',
             },
             select: { MilestoneMasterSid: true },
