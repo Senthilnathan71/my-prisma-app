@@ -150,14 +150,19 @@ export class EmailService {
                 cc: data.cc,
                 subject: data.subject,
                 html: data.html,
-                attachments: [
+            };
+            // Attach only when a file was uploaded — the print "Send Mail" flow
+            // allows sending without an attachment (after the user confirms), so a
+            // missing file must not crash the send.
+            if (data.file) {
+                mailOptions.attachments = [
                     {
                         filename: data.file.originalname,
                         content: data.file.buffer,
                         contentType: data.file.mimetype,
                     }
-                ]
-            };
+                ];
+            }
             const info = await this.transporter.sendMail(mailOptions);
             this.logger.log(`sendEmail: ${JSON.stringify(info)}`);
             return true;
