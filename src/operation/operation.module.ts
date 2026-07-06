@@ -58,6 +58,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TrackingController } from './controllers/tracking/tracking.controller';
 import { TrackingService } from './services/tracking/tracking.service';
 import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
+import { MilestoneTrackerController } from './controllers/milestone-tracker/milestone-tracker.controller';
+import { MilestoneTrackerService } from './services/milestone-tracker/milestone-tracker.service';
 
 @Module({
 	imports: [
@@ -117,6 +119,7 @@ import { MenuUserConfigService } from 'src/settings/services/menu-user-config/me
 		AuditLogService,
 		TrackingService,
 		MenuUserConfigService,
+		MilestoneTrackerService,
 	],
 	controllers: [
 		BookingController,
@@ -140,7 +143,8 @@ import { MenuUserConfigService } from 'src/settings/services/menu-user-config/me
 		ProRateController,
 		ShippingInstructionController,
 		AuditLogController,
-		TrackingController
+		TrackingController,
+		MilestoneTrackerController
 	],
 	exports: [ProRateService, CreditRequestService]
 })
