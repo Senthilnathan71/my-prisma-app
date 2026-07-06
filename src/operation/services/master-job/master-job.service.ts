@@ -6232,7 +6232,7 @@ console.log('Created product:', createdProduct);
                         { HouseJobSid: { in: houseJobSids } },
                         ...(shipmentNos.length > 0 ? [{ ShipmentNo: { in: shipmentNos as string[] } }] : [])
                     ],
-                    MilestoneName: { contains: 'Cargo Arrival Notice', mode: 'insensitive' as const },
+                    MilestoneName: { contains: 'Arrival Notice Sent', mode: 'insensitive' as const },
                     Status: 'A'
                 }
             });
