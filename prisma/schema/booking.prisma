@@ -344,7 +344,7 @@ model BookingCro {
   NoteToYard           String?       @db.VarChar(200)
   NoteToShipper        String?       @db.VarChar(200)
   ContainerReleaseDate DateTime?     @db.Date
-  EmptySurveyDate       DateTime?     @db.Date
+  EmptySurveyDate      DateTime?     @db.Date
   BookingHeader        BookingHeader @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   BranchMaster         BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   CompanyMaster        CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -456,27 +456,29 @@ model VoyageMasterDetail {
 }
 
 model ShipmentMilestone {
-  ShipmentMilestoneSid Int            @id @default(autoincrement())
-  ShipmentNo           String         @db.VarChar(50)
+  ShipmentMilestoneSid Int             @id @default(autoincrement())
+  ShipmentNo           String          @db.VarChar(50)
   CompanyMasterSid     Int
   BranchMasterSid      Int
-  CreatedOn            DateTime       @default(now())
-  CreatedBy            String         @db.VarChar(100)
+  CreatedOn            DateTime        @default(now())
+  CreatedBy            String          @db.VarChar(100)
   UpdatedOn            DateTime?
-  UpdatedBy            String?        @db.VarChar(100)
-  Status               String?        @default("A") @db.Char(1)
+  UpdatedBy            String?         @db.VarChar(100)
+  Status               String?         @default("A") @db.Char(1)
   MilestoneMasterSid   Int
-  MilestoneName        String         @db.VarChar(50)
+  MilestoneName        String          @db.VarChar(50)
   MilestoneDate        DateTime
-  AutoCaptured         String         @db.Char(1)
-  Remarks              String?        @db.VarChar(200)
+  AutoCaptured         String          @db.Char(1)
+  Remarks              String?         @db.VarChar(200)
   deletedAt            DateTime?
   BookingHeaderSid     Int?
   HouseJobSid          Int?
-  branchMaster         BranchMaster   @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  companyMaster        CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  bookingHeader        BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
-  houseJob             HouseJob?      @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  IsMandatory          String          @default("N") @db.Char(1)
+  branchMaster         BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster        CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  bookingHeader        BookingHeader?  @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
+  houseJob             HouseJob?       @relation(fields: [HouseJobSid], references: [HouseJobSid])
+  milestoneMaster      MilestoneMaster @relation(fields: [MilestoneMasterSid], references: [MilestoneMasterSid])
 }
 
 model ShippingInstruction {

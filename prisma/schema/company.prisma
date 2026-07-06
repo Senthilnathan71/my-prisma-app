@@ -2079,9 +2079,10 @@ model MilestoneMaster {
   Remarks             String?             @db.VarChar(500)
   IsCustomerSpecific  String              @default("N") @db.Char(1)
   DepartmentMasterSid String[]
-  CustomerMilestone   CustomerMilestone[]
   branchMaster        BranchMaster?       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster       CompanyMaster?      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  CustomerMilestone   CustomerMilestone[]
+  ShipmentMilestone   ShipmentMilestone[]
 }
 
 model AuthorityMaster {
