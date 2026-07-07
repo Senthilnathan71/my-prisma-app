@@ -921,7 +921,6 @@ export class TrackingService {
     const definitions = await this.getMilestoneDefinitionsForDepartment(
       departmentName,
       entity.CompanyMasterSid ?? null,
-      entity.BranchMasterSid ?? null,
       customerOnly,
     );
     if (!definitions.length) {
@@ -1043,7 +1042,6 @@ export class TrackingService {
   private async getMilestoneDefinitionsForDepartment(
     departmentName: string | null,
     companyMasterSid: number | null,
-    branchMasterSid: number | null,
     customerOnly = false,
   ): Promise<{ MilestoneMasterSid: number; MilestoneName: string; SortBy: number }[]> {
     if (!departmentName) {
@@ -1056,9 +1054,8 @@ export class TrackingService {
     if (companyMasterSid != null) {
       where.CompanyMasterSid = companyMasterSid;
     }
-    if (branchMasterSid != null) {
-      where.BranchMasterSid = branchMasterSid;
-    }
+    // MilestoneMaster is company-level in the master/booking/job flows. Do not
+    // branch-filter here; many valid master rows have BranchMasterSid = null.
     // Customer view: only milestones flagged customer-specific are visible to the customer.
     if (customerOnly) {
       where.IsCustomerSpecific = 'Y';
@@ -1203,13 +1200,20 @@ export class TrackingService {
       ...item,
       source: 'PREVIOUS',
     }));
+    const currentSource = this.milestoneDepartmentSource(houseJob);
     const current = (flow.currentMilestones.items || []).map(item => ({
       ...item,
-      source: houseJob.JobType === 'Import' ? 'IMPORT' : 'HOUSE',
+      source: currentSource,
     }));
     return [...previous, ...current].sort(this.sortMilestones);
   }
 
+  private milestoneDepartmentSource(houseJob: any): 'EXPORT' | 'IMPORT' | 'HOUSE' {
+    const departmentFlow = String(houseJob?.departmentMaster?.ExportImport || houseJob?.JobType || '').toUpperCase();
+    if (departmentFlow.includes('IMPORT')) return 'IMPORT';
+    if (departmentFlow.includes('EXPORT')) return 'EXPORT';
+    return 'HOUSE';
+  }
   private async findMilestonesByExactIdentity(
     identity: {
       CompanyMasterSid: number;
@@ -2526,3 +2530,6 @@ export class TrackingService {
     return parsed.toISOString().slice(11, 16);
   }
 }
+
+
+
