@@ -3720,6 +3720,12 @@ export class OperationReportsService {
             where: { status: 'A' },
             include: {
               Cargo: true,
+              masterJob:{
+                where: { Status: 'A' },
+                include: {
+                  voyages: true,
+                },
+              }
             },
           },
         },
@@ -3962,6 +3968,12 @@ export class OperationReportsService {
                 HBLNo: hj.HBLNo,
                 MBLNo : hj?.MBLNo,
                 houseStatus: hj.HouseStatus,
+                deptName: getDepartmentName(hj.DepartmentMasterSid),
+                JobNo: hj?.masterJob?.MasterJobNumber,
+                ETA : hj?.masterJob?.voyages?.[0]?.ETA,
+                ETD : hj?.masterJob?.voyages?.[0]?.ETD,
+                ATA : hj?.masterJob?.voyages?.[0]?.ATA,
+                ATD : hj?.masterJob?.voyages?.[0]?.ATD,
                 jobType: hj.JobType,
                 customerName: customer.find(
                   (d) => d.CustomerMasterSid === hj.CustomerMasterSid,
