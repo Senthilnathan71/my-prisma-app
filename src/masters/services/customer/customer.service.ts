@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { LeadStatus, Prisma, UserTypeCode } from '@prisma/client';
-import { statusWhereClause } from 'src/common/helper';
+import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
@@ -163,7 +163,7 @@ export class CustomerService {
                                 data: {
                                     LoginName: login.LoginName,
                                     LoginEmail: login.LoginEmail,
-                                    LoginPassword: login.LoginPassword,
+                                    LoginPassword: await encodePassword(login.LoginPassword),
                                     status: login.status,
                                     createdBy: userEmail,
                                     CustomerMasterSid: customer.CustomerMasterSid,
@@ -623,6 +623,13 @@ export class CustomerService {
                 Departments: enrichDepartments(sales.DepartmentMasterSid)
             }));
 
+            // Never expose stored login passwords. Return a masked placeholder so the
+            // edit screen keeps the existing (hashed) password unless the user types a
+            // new one — same convention as userMaster's userPassword.
+            customerData.CustomerLogin = (customerData?.CustomerLogin || []).map((login: any) => ({
+                ...login,
+                LoginPassword: login.LoginPassword ? '*******' : ''
+            }));
 
             return customerData
         } catch (error) {
@@ -1202,7 +1209,11 @@ export class CustomerService {
                                     CustomerBranchSid: branchId,
                                     LoginName: login.LoginName,
                                     LoginEmail: login.LoginEmail,
-                                    LoginPassword: login.LoginPassword,
+                                    // Keep the existing password when the masked placeholder
+                                    // comes back unchanged; hash any newly typed password.
+                                    ...(login.LoginPassword && login.LoginPassword !== '*******'
+                                        ? { LoginPassword: await encodePassword(login.LoginPassword) }
+                                        : {}),
                                     status: login.status,
                                     updatedBy: userEmail,
                                     updatedOn: new Date()
@@ -1213,7 +1224,7 @@ export class CustomerService {
                                 data: {
                                     LoginName: login.LoginName,
                                     LoginEmail: login.LoginEmail,
-                                    LoginPassword: login.LoginPassword,
+                                    LoginPassword: await encodePassword(login.LoginPassword),
                                     status: login.status,
                                     createdBy: userEmail,
                                     CustomerMasterSid: customer.CustomerMasterSid,
