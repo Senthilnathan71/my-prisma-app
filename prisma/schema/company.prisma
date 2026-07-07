@@ -2477,6 +2477,7 @@ model COAMaster {
   LedgerLocation          Json?
   LedgerCategory          String?                @db.VarChar(10)
   InterBranchLocation     Int?
+  AllowedLedgerTypes      String[]               @default([])
   CompanyMaster           CompanyMaster          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   CurrencyMaster          CurrencyMaster?        @relation(fields: [LedgerCurrency], references: [CurrencyMasterSid])
   interBranchBranch       BranchMaster?          @relation("COA_InterBranchLocation", fields: [InterBranchLocation], references: [BranchMasterSid])
