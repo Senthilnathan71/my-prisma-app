@@ -30,16 +30,32 @@ export class MilestoneService {
 
     async createNewMilestone(payload: any) {
         try {
-            const createdMilestone = await this._db.milestoneMaster.create({
-                data: {
-                    ...payload,
-                },
-                include: {
-                    branchMaster: true,
-                    companyMaster: true
-                }
-            });
-            return createdMilestone;
+            // The entry screen sends CompanyMasterSids (array) so one milestone is
+            // created per selected company. Fall back to the legacy single
+            // CompanyMasterSid for backward compatibility.
+            const { CompanyMasterSids, CompanyMasterSid, ...rest } = payload;
+            const companyIds: number[] = Array.isArray(CompanyMasterSids) && CompanyMasterSids.length
+                ? [...new Set(CompanyMasterSids.map((id: any) => Number(id)).filter((id: number) => !!id))]
+                : (CompanyMasterSid != null ? [Number(CompanyMasterSid)] : []);
+
+            if (!companyIds.length) {
+                throw new BadRequestException('At least one company must be selected');
+            }
+
+            const createdMilestones = await this._db.$transaction(
+                companyIds.map((cid) =>
+                    this._db.milestoneMaster.create({
+                        data: { ...rest, CompanyMasterSid: cid },
+                        include: {
+                            branchMaster: true,
+                            companyMaster: true
+                        }
+                    })
+                )
+            );
+
+            // Preserve the previous single-object response for single-company creates.
+            return createdMilestones.length === 1 ? createdMilestones[0] : createdMilestones;
         } catch (error) {
             throw error;
         }
@@ -60,7 +76,20 @@ export class MilestoneService {
             if (!milestone) {
                 throw new UnauthorizedException(`Access denied.`);
             }
-            return milestone;
+            // A milestone can exist as separate rows across companies (linked by
+            // MilestoneCode). Return every company that already has it so the
+            // entry screen pre-selects all of them, not just the login company.
+            const siblings = await this._db.milestoneMaster.findMany({
+                where: {
+                    MilestoneCode: milestone.MilestoneCode,
+                    status: 'A'
+                },
+                select: { CompanyMasterSid: true }
+            });
+            const CompanyMasterSids = [
+                ...new Set(siblings.map((s) => s.CompanyMasterSid).filter((id): id is number => id != null))
+            ];
+            return { ...milestone, CompanyMasterSids };
         } catch (error) {
             throw error;
         }
@@ -76,17 +105,64 @@ export class MilestoneService {
             if (!exist) {
                 throw new BadRequestException(`Milestone with Id : ${MilestoneMasterSid} not exists`);
             }
-            const updatedMilestone = await this._db.milestoneMaster.update({
-                where: {
-                    MilestoneMasterSid: MilestoneMasterSid
-                },
-                data: payload,
-                include: {
-                    branchMaster: true,
-                    companyMaster: true
+            // Strip the fields that must not flow into the record's own update:
+            //  - CompanyMasterSids: the multi-company array, handled separately below
+            //  - CompanyMasterSid : never move the edited record to another company
+            //  - createdBy        : preserve the original creator on update
+            const { CompanyMasterSids, CompanyMasterSid, createdBy, ...cleanPayload } = payload;
+
+            return await this._db.$transaction(async (tx) => {
+                const updatedMilestone = await tx.milestoneMaster.update({
+                    where: {
+                        MilestoneMasterSid: MilestoneMasterSid
+                    },
+                    data: cleanPayload,
+                    include: {
+                        branchMaster: true,
+                        companyMaster: true
+                    }
+                });
+
+                // In edit mode the user can add more companies. Create the milestone
+                // in the newly-selected companies only — skip the record's own
+                // company, and skip any company that already has this milestone
+                // code, so existing companies are never duplicated.
+                const selectedIds: number[] = Array.isArray(CompanyMasterSids)
+                    ? [...new Set(CompanyMasterSids.map((id: any) => Number(id)).filter((id: number) => !!id))]
+                    : [];
+                const targetCompanyIds = selectedIds.filter((id) => id !== updatedMilestone.CompanyMasterSid);
+
+                for (const cid of targetCompanyIds) {
+                    const duplicate = await tx.milestoneMaster.findFirst({
+                        where: {
+                            CompanyMasterSid: cid,
+                            MilestoneCode: updatedMilestone.MilestoneCode,
+                            status: 'A'
+                        }
+                    });
+                    if (duplicate) continue;
+
+                    await tx.milestoneMaster.create({
+                        data: {
+                            MilestoneName: updatedMilestone.MilestoneName,
+                            MilestoneCode: updatedMilestone.MilestoneCode,
+                            ShipmentType: updatedMilestone.ShipmentType,
+                            SortBy: updatedMilestone.SortBy,
+                            AutoCapture: updatedMilestone.AutoCapture,
+                            AutomailRequire: updatedMilestone.AutomailRequire,
+                            Remarks: updatedMilestone.Remarks,
+                            DepartmentMasterSid: updatedMilestone.DepartmentMasterSid,
+                            IsCustomerSpecific: updatedMilestone.IsCustomerSpecific,
+                            status: 'A',
+                            CompanyMasterSid: cid,
+                            BranchMasterSid: null,
+                            createdBy: createdBy || payload.updatedBy || exist.createdBy || 'system'
+                        }
+                    });
                 }
+
+                return updatedMilestone;
             });
-            return updatedMilestone;
         } catch (error) {
             throw error;
         }

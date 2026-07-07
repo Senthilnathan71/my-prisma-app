@@ -24,7 +24,10 @@ export class MilestoneTrackerService {
                 house.bookingHeader?.ShipmentNo || house.ShipmentNo || '',
             BookingNo: house.BookingNo,
             HBLNo: house.HBLNo,
-            MBLNo: house.MBLNo,
+            // MBL No is carried on the Master Job the house is attached to, not
+            // the HouseJob itself — take it from there, falling back to the
+            // house's own MBLNo only when there is no master job.
+            MBLNo: house.masterJob?.MBLNo ?? house.MBLNo,
             MasterJobNumber: house.masterJob?.MasterJobNumber ?? null,
             BookingHeaderSid: house.BookingHeaderSid,
             JobType: house.JobType,
@@ -83,7 +86,7 @@ export class MilestoneTrackerService {
                 ETA: true,
                 DepartmentMasterSid: true,
                 departmentMaster: { select: { departmentName: true } },
-                masterJob: { select: { MasterJobNumber: true } },
+                masterJob: { select: { MasterJobNumber: true, MBLNo: true } },
                 bookingHeader: { select: { ShipmentNo: true } },
             },
             orderBy: { HouseJobSid: 'asc' },
@@ -137,7 +140,7 @@ export class MilestoneTrackerService {
                 ETA: true,
                 DepartmentMasterSid: true,
                 departmentMaster: { select: { departmentName: true } },
-                masterJob: { select: { MasterJobNumber: true } },
+                masterJob: { select: { MasterJobNumber: true, MBLNo: true } },
                 bookingHeader: { select: { ShipmentNo: true } },
             },
         });

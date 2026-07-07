@@ -7526,7 +7526,7 @@ console.log('Created product:', createdProduct);
     }),
     this._db.customerMaster.findMany({
       where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['customer'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
-      select: { CustomerMasterSid: true, CustomerName: true },
+      select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true },
       orderBy: { CustomerName: 'asc' },
     }),
     this._db.incoMaster.findMany({
@@ -7595,7 +7595,11 @@ console.log('Created product:', createdProduct);
   addRefSheet('_JobStatus', ['Job Generated', 'Open', 'Sailed', 'Closed']);
   addRefSheet('_ShipmentTerms', ['FCL/FCL', 'FCL/LCL', 'LCL/FCL', 'LCL/LCL', 'LTL', 'FTL', 'FTL HH']);
   addRefSheet('_CFS', cfsCustomers.map(c => c.CustomerName));
-  addRefSheet('_Customers', customers.map(c => c.CustomerName));
+  // _Customers carries the address in column B so the HouseJob sheet can
+  // VLOOKUP-autofill CustomerAddress when a customer is picked from the dropdown.
+  const custRefSheet = workbook.addWorksheet('_Customers');
+  customers.forEach(c => custRefSheet.addRow([c.CustomerName, c.CustomerAddress1 || '']));
+  custRefSheet.state = 'veryHidden';
   addRefSheet('_IncoTerms', incoTerms.map(i => i.IncoCode));
   addRefSheet('_UOM', ['M', 'CM', 'Inch']);
 
@@ -7794,7 +7798,10 @@ console.log('Created product:', createdProduct);
   hjSheet.addRow(hjHeaders);
   styleHeaderRow(hjSheet.getRow(1), hjMandatory);
 
-  [5, 7].forEach(colNo => {
+  // CustomerName (3) + CustomerAddress (4), ShipperName (5), ConsigneeName (7)
+  // and IncoTerms (13) are mandatory too — paint their headers red like the
+  // leading link columns.
+  [3, 4, 5, 7, 13].forEach(colNo => {
     const cell = hjSheet.getRow(1).getCell(colNo);
     cell.font  = { bold: true, color: { argb: 'FFCC0000' }, size: 10 };
     cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
@@ -7811,7 +7818,7 @@ console.log('Created product:', createdProduct);
     'MBL-2024-001',
     isAir ? 'HAWB-001' : 'HBL-001',
     customers[0]?.CustomerName || '',
-    '',
+    'Customer Address, City',
     'SHIPPER CO',
     '',
     'CONSIGNEE CO',
@@ -7836,6 +7843,17 @@ console.log('Created product:', createdProduct);
   applyDV(hjSheet, 'M', dvRef('_IncoTerms', incoCount),     hjDataStart);
   applyDV(hjSheet, 'N', dvRef('_Ports', portCount),         hjDataStart);
   applyDV(hjSheet, 'O', dvRef('_Ports', portCount),         hjDataStart);
+
+  // Auto-patch CustomerAddress (col D) from the selected customer (col C) by
+  // looking the name up in the hidden _Customers sheet. Users can still type
+  // over the result if the master address needs adjusting for this shipment.
+  if (customerCount > 0) {
+    for (let r = hjDataStart; r <= 5000; r++) {
+      hjSheet.getCell(`D${r}`).value = {
+        formula: `IFERROR(VLOOKUP(C${r},_Customers!$A$1:$B$${customerCount},2,FALSE),"")`,
+      };
+    }
+  }
 
   // ══════════════════════════════════════════════════════════════════════════
   // SHEET 5 — HouseJobCargo (simplified — weights auto-calculated from products)
@@ -8071,8 +8089,10 @@ console.log('Created product:', createdProduct);
     ['  • Gross Weight must be greater than Net Weight.'],
     [`  • ${mblLabel} must be unique per company.`],
     [`  • ${hblLabel} is required for each HouseJob row.`],
+    ['  • CustomerName, CustomerAddress and IncoTerms are required for each HouseJob.'],
     ['  • Shipper and Consignee are required for each HouseJob.'],
     ['  • CustomerName, DeliveryAgent, OriginAgent and IncoTerms must match existing master data.'],
+    ['  • Make sure the customers are available in the Organization master before uploading.'],
   ].filter(r => r !== null);
 
   instRows.forEach(r => inst.addRow(r));
@@ -8145,7 +8165,7 @@ async parseMasterJobExcel(
     }),
     this._db.customerMaster.findMany({
       where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['customer'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
-      select: { CustomerMasterSid: true, CustomerName: true },
+      select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true },
     }),
     this._db.incoMaster.findMany({
       where: { Status: 'A' },
@@ -8161,6 +8181,7 @@ async parseMasterJobExcel(
   const ctMap       = new Map(containerTypes.map(c => [c.ContainerName.trim().toLowerCase(), c.ContainerTypeMasterSid]));
   const cfsMap      = new Map(cfsCustomers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
   const customerMap = new Map(customers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
+  const customerAddrMap = new Map(customers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerAddress1 || '']));
   const incoMap     = new Map(
     incoTerms.map(i => [
       i.IncoCode.trim().toLowerCase(),
@@ -8358,7 +8379,13 @@ async parseMasterJobExcel(
       // M=12 incoTerms | N=13 poo | O=14 fpd
       const hblNo         = str(hRow[1]);
       const customerName  = str(hRow[2]);
-      const customerAddr  = str(hRow[3]);
+      // Auto-patch from the customer master when the sheet cell is blank — the
+      // template's VLOOKUP fills this, but this covers files where the cached
+      // formula result did not carry over.
+      let customerAddr    = str(hRow[3]);
+      if (!customerAddr && customerName) {
+        customerAddr = customerAddrMap.get(customerName.toLowerCase()) || '';
+      }
       const shipperName   = str(hRow[4]);
       const shipperAddr   = str(hRow[5]);
       const consigneeName = str(hRow[6]);
@@ -8372,11 +8399,13 @@ async parseMasterJobExcel(
       const hjFpdRaw      = str(hRow[14]);
 
       if (!hblNo)         hErrs.push(`${isAir ? 'HAWB' : 'HBL'} No is required`);
+      if (!customerName)  hErrs.push('CustomerName is required');
+      if (!customerAddr)  hErrs.push('CustomerAddress is required');
       if (!shipperName)   hErrs.push('ShipperName is required');
       if (!consigneeName) hErrs.push('ConsigneeName is required');
 
       const customerSid   = customerName   ? customerMap.get(customerName.toLowerCase())   : null;
-      if (customerName   && !customerSid)   hErrs.push(`Customer "${customerName}" not found`);
+      if (customerName   && !customerSid)   hErrs.push(`Customer "${customerName}" not found — add it in the Organization master`);
       const delivAgentSid = delivAgentName  ? agentMap.get(delivAgentName.toLowerCase())   : null;
       if (delivAgentName && !delivAgentSid)  hErrs.push(`DeliveryAgent "${delivAgentName}" not found`);
       const origAgentSid  = origAgentName   ? agentMap.get(origAgentName.toLowerCase())    : null;
@@ -8385,7 +8414,8 @@ async parseMasterJobExcel(
       const incoEntry        = incoTermsVal ? incoMap.get(incoTermsVal.toLowerCase()) : null;
       const incoSid          = incoEntry?.sid          ?? null;
       const incoFreightTerms = incoEntry?.freightTerms ?? '';
-      if (incoTermsVal && !incoSid) hErrs.push(`IncoTerms "${incoTermsVal}" not found`);
+      if (!incoTermsVal)            hErrs.push('IncoTerms is required');
+      else if (!incoSid)           hErrs.push(`IncoTerms "${incoTermsVal}" not found`);
 
       const hjPoo = resolvePort(hjPooRaw);
       const hjFpd = resolvePort(hjFpdRaw);
@@ -8786,6 +8816,9 @@ async saveMasterJobExcel(
             data: {
               MasterJobSid:        masterJob.MasterJobSid,
               HBLNo:               hblNo,
+              // No ShipmentNo comes from the Excel — fall back to the HBL number
+              // so every uploaded house job still carries a shipment reference.
+              ShipmentNo:          hj.ShipmentNo || hblNo,
               HBLDate:             hj.HBLDate ? new Date(hj.HBLDate) : jobDate,
               CompanyMasterSid:    companyMasterSid,
               BranchMasterSid:     branchMasterSid,
