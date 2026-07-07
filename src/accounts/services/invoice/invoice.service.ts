@@ -244,7 +244,7 @@ export class InvoiceService {
                 }
               },
               currencyMaster: true,
-              hSSACMaster: true,
+              hSSACMaster: { include: { taxGroup: true } },
             },
             orderBy: {
               Sno: 'asc'
