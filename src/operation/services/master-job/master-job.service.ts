@@ -4932,8 +4932,11 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
     const isLclExportBooking = String(bookingDepartment?.departmentType || '').toUpperCase() === 'SEA'
         && String(bookingDepartment?.FCLLCL || '').toUpperCase() === 'LCL'
         && String(bookingDepartment?.ExportImport || '').toUpperCase() === 'EXPORT';
+    // Mirror the product-level fallback below: a product with no Cargo Received Date
+    // still inherits the House Job's HBL Date, so the booking carries a received date
+    // whenever there is at least one product and an HBL Date is present.
     const hasCargoReceivedDate = Array.isArray(houseJob.Products)
-        && houseJob.Products.some((product: any) => !!product?.CargoRecDate);
+        && houseJob.Products.some((product: any) => !!(product?.CargoRecDate || houseJob.HBLDate));
     const bookingStatus = isLclExportBooking && hasCargoReceivedDate ? 'Cargo Received' : 'Booked';
 
     const bookingDate = moment().toDate();
@@ -5075,8 +5078,15 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
     // 3. Insert Products
     // ----------------------------------------
     const bookingProducts: any[] = [];
+    // When the House Job product has no Cargo Received Date (e.g. a manual Import
+    // House that was never physically received), fall back to the House Job's HBL
+    // Date so the Transhipment Export Booking still carries a Cargo Received Date.
+    const houseJobHblDate = houseJob.HBLDate ? new Date(houseJob.HBLDate) : null;
     if (houseJob.Products?.length) {
         for (const p of houseJob.Products) {
+            const resolvedCargoRecDate = p.CargoRecDate
+                ? new Date(p.CargoRecDate)
+                : houseJobHblDate;
             const sourceHouseCargoSid = Number(p.HouseJobCargoSid) || null;
             const bookingCargoSid = sourceHouseCargoSid
                 ? bookingCargoSidByHouseCargoSid.get(sourceHouseCargoSid) || null
@@ -5112,7 +5122,7 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
                     ActualQty: p.ActualQty,
                     ActualVolume: p.ActualVolume,
                     CFS: p.CFS,
-                    CargoRecDate: p.CargoRecDate,
+                    CargoRecDate: resolvedCargoRecDate,
                     RecdPack: p.CargoRecDate ? (p.RecdPack || p.ExternlQty || '') : p.RecdPack,
                     Volumetric: p.Volumetric,
                     createdBy
