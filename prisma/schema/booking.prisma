@@ -473,7 +473,6 @@ model ShipmentMilestone {
   deletedAt            DateTime?
   BookingHeaderSid     Int?
   HouseJobSid          Int?
-  IsMandatory          String          @default("N") @db.Char(1)
   branchMaster         BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster        CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   bookingHeader        BookingHeader?  @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])

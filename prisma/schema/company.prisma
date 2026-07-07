@@ -2078,6 +2078,7 @@ model MilestoneMaster {
   status              String?             @default("A") @db.Char(1)
   Remarks             String?             @db.VarChar(500)
   IsCustomerSpecific  String              @default("N") @db.Char(1)
+  IsMandatory         String              @default("N") @db.Char(1)
   DepartmentMasterSid String[]
   branchMaster        BranchMaster?       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster       CompanyMaster?      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -2161,6 +2162,7 @@ model VoucherTypeMaster {
   Type                      String?              @db.VarChar(100)
   IsAutoPosting             String?              @default("N") @db.Char(1)
   MenuMasterSid             Int?
+  AllowedLedgerTypes        String[]             @default([])
   BookingRatesCost          BookingRates[]       @relation("COST")
   BookingRatesRevenue       BookingRates[]       @relation("REVENUE")
   CostRevenueChargesCost    CostRevenueCharges[] @relation("COST")
@@ -3238,7 +3240,7 @@ model CustomerCreditRequest {
   PublishedDays            Int
   PublishedLimit           Int
   EffectiveFrom            DateTime          @db.Date
-  EffectiveTo              DateTime?          @db.Date
+  EffectiveTo              DateTime?         @db.Date
   ApprovalStatus           ApprovalStatus
   company                  CompanyMaster     @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch           CustomerBranch?   @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
