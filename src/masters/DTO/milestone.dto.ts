@@ -57,6 +57,20 @@ export class MilestoneMasterDTO {
     AutoCapture?: string | null;
 
     @IsOptional()
+    @IsString()
+    @IsIn(['Y', 'N'], {
+        message: 'IsCustomerSpecific must be Y or N',
+    })
+    IsCustomerSpecific?: string;
+
+    @IsOptional()
+    @IsString()
+    @IsIn(['Y', 'N'], {
+        message: 'IsMandatory must be Y or N',
+    })
+    IsMandatory?: string;
+
+    @IsOptional()
     @Type(() => Date)
     createdOn?: Date;
 
