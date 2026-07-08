@@ -254,6 +254,21 @@ export class AgentMasterAirWaybillService {
 
     try {
       const houseJob = await this.houseJobService.createHouseJob(housePayload);
+      const createdHouseJobSid = houseJob?.houseJob?.HouseJobSid;
+
+      if (createdHouseJobSid && !houseJob.houseJob.HBLNo) {
+        await this._db.houseJob.update({
+          where: { HouseJobSid: createdHouseJobSid },
+          data: {
+            HBLNo: String(createdHouseJobSid),
+            updatedBy: payload.createdBy || payload.updatedBy || 'system',
+            updatedOn: new Date(),
+          },
+        });
+
+        houseJob.houseJob.HBLNo = String(createdHouseJobSid);
+      }
+
       return { masterJob: transactionResult.masterJob, ...houseJob };
     } catch (error) {
       if (transactionResult.allocatedFromStock && transactionResult.assignedMBLNo) {

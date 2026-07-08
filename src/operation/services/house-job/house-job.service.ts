@@ -8,6 +8,7 @@ import { parseDateFromString, statusWhereClause, toNumber } from 'src/common/hel
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { Prisma } from '@prisma/client';
 import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
+import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 interface searchHouseJob {
     search: string,
     page: number,
@@ -35,6 +36,55 @@ export class HouseJobService {
 
     private isClosedJobStatus(status: string | null | undefined): boolean {
         return ['Closed', 'Job Closed', 'Job closed'].includes(status || '');
+    }
+
+    /**
+     * Detects whether any financial document has already been generated against a House Job.
+     * In this system an "invoice" is a VoucherHeader whose voucher-type DocumentTypeCode is 'INV'
+     * (there is no dedicated Invoice table). All other document types (vendor invoice, receipt,
+     * payment, credit note, JV...) are also VoucherHeader rows, and payment requests live in the
+     * PaymentRequest table. All three carry the HouseJobSid directly.
+     *
+     * Used to lock the House Job status: a House Job that already has an invoice / voucher /
+     * payment request must not be suspended (enforced on the backend so the UI cannot bypass it).
+     */
+    private async getHouseJobFinancialLinks(
+        HouseJobSid: number,
+    ): Promise<{ hasInvoice: boolean; hasVoucher: boolean; hasPaymentRequest: boolean }> {
+        const houseJobSid = Number(HouseJobSid);
+
+        if (!Number.isInteger(houseJobSid)) {
+            return { hasInvoice: false, hasVoucher: false, hasPaymentRequest: false };
+        }
+
+        const [invoiceCount, voucherCount, paymentRequestCount] = await Promise.all([
+            this._db.voucherHeader.count({
+                where: {
+                    HouseJobSid: houseJobSid,
+                    Status: 'A',
+                    voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.INVOICE },
+                },
+            }),
+            this._db.voucherHeader.count({
+                where: {
+                    HouseJobSid: houseJobSid,
+                    Status: 'A',
+                    voucherTypeMaster: { DocumentTypeCode: { not: DOC_TYPE_CODE.INVOICE } },
+                },
+            }),
+            this._db.paymentRequest.count({
+                where: {
+                    HouseJobSid: houseJobSid,
+                    Status: 'A',
+                },
+            }),
+        ]);
+
+        return {
+            hasInvoice: invoiceCount > 0,
+            hasVoucher: voucherCount > 0,
+            hasPaymentRequest: paymentRequestCount > 0,
+        };
     }
 
     private async resolveHouseStatusForMasterJob(MasterJobSid: number | null | undefined, requestedHouseStatus: string | null | undefined): Promise<string> {
@@ -1340,6 +1390,11 @@ export class HouseJobService {
             }
 
             const costRevenueCharges = await this.commonService.getAllCostRevenueCharges(costRevenuePayload);
+
+            // Invoice / voucher / payment-request lock flags. The frontend uses these to disable
+            // the Status field and block suspending a House Job that is already financially linked.
+            const financialLinks = await this.getHouseJobFinancialLinks(ourHouseJob.HouseJobSid);
+
             const transhipmentBooking = ourHouseJob.TranshipmentBookingSid
                 ? await this._db.bookingHeader.findUnique({
                     where: { BookingHeaderSid: ourHouseJob.TranshipmentBookingSid },
@@ -1356,6 +1411,9 @@ export class HouseJobService {
                     products: cargo.products || []
                 })) || [],
                 costRevenueCharges,
+                hasInvoice: financialLinks.hasInvoice,
+                hasVoucher: financialLinks.hasVoucher,
+                hasPaymentRequest: financialLinks.hasPaymentRequest,
 
             }
         } catch (error) {
@@ -1470,6 +1528,23 @@ export class HouseJobService {
             const isSuspending = String(payload.status ?? '').trim().charAt(0).toUpperCase() === 'S';
             const linkedBookingHeaderSid = payload.BookingHeaderSid ? Number(payload.BookingHeaderSid) : null;
 
+            // 🔒 A House Job that already has financial documents (invoice / voucher / payment
+            // request) generated against it must NOT be suspended. Enforced here on the backend
+            // so the rule holds even if the frontend guard is bypassed (direct API call).
+            if (isSuspending) {
+                const financialLinks = await this.getHouseJobFinancialLinks(HouseJobSid);
+                if (financialLinks.hasInvoice || financialLinks.hasVoucher || financialLinks.hasPaymentRequest) {
+                    const reason = financialLinks.hasInvoice
+                        ? 'an invoice'
+                        : financialLinks.hasVoucher
+                            ? 'a voucher'
+                            : 'a payment request';
+                    throw new BadRequestException(
+                        `This House Job cannot be suspended because ${reason} has already been generated for it.`
+                    );
+                }
+            }
+
             const updatedHouseJob = await this._db.$transaction(async (prisma) => {
 
                 const updatedHouseJob = await prisma.houseJob.update({
@@ -1564,31 +1639,38 @@ export class HouseJobService {
                     );
                 }
 
+                // 🔁 Suspend the linked Booking in the SAME transaction as the House Job status
+                // update. When a Booking generated this House Job and the House Job is now being
+                // suspended, the Booking is suspended too (record status 'S' + BookingStatus).
+                // Works even after the House Job was detached from its Master Job, because the
+                // Booking linkage (BookingHeaderSid) is preserved on detach. The House Job's own
+                // BookingHeaderSid is cleared above (it is @unique), so the reverse HouseJobSid /
+                // HBL / MBL linkage on the Booking is released here as well.
+                if (isSuspending && linkedBookingHeaderSid) {
+                    await prisma.bookingHeader.update({
+                        where: {
+                            BookingHeaderSid: linkedBookingHeaderSid
+                        },
+                        data: {
+                            HouseJobSid: null,
+                            HBLNo: null,
+                            MBLNo: null,
+                            BookingStatus: 'Suspended',
+                            status: 'S',
+                            updatedBy: payload.updatedBy
+                        }
+                    });
+                }
+
                 return {
                     ...updatedHouseJob,
                     houseJobCargo: cargoTree.houseJobCargo,
                     houseJobProduct: cargoTree.houseJobProduct,
                 };
             });
-            
-            // 🔁 Release Booking linkage when the House Job is suspended.
-            // This is the reverse of the sync below: it frees the Booking so it can
-            // generate a new House Job (and can itself be suspended afterwards).
-            if (isSuspending && linkedBookingHeaderSid) {
-                await this._db.bookingHeader.update({
-                    where: {
-                        BookingHeaderSid: linkedBookingHeaderSid
-                    },
-                    data: {
-                        HouseJobSid: null,
-                        HBLNo: null,
-                        MBLNo: null,
-                        updatedBy: payload.updatedBy
-                    }
-                });
-            }
+
             // 🔁 Sync HBL / MBL to BookingHeader (ONLY if BookingHeaderSid exists and not suspending)
-            else if (payload.BookingHeaderSid) {
+            if (!isSuspending && payload.BookingHeaderSid) {
 
                 const houseJob = await this._db.houseJob.findUnique({
                     where: { HouseJobSid },

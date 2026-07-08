@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { LeadStatus, Prisma, UserTypeCode } from '@prisma/client';
 import { encodePassword, statusWhereClause } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
@@ -159,10 +159,23 @@ export class CustomerService {
                     // Step 7: CustomerLogin
                     if (branch.customerBranchLogins && branch.customerBranchLogins.length > 0) {
                         for (const login of branch.customerBranchLogins) {
+                            const loginEmail = login.LoginEmail?.trim();
+
+                            // Reject duplicate login email (case-insensitive, ignoring deleted logins)
+                            const duplicateLogin = await tx.customerLogin.findFirst({
+                                where: {
+                                    LoginEmail: { equals: loginEmail, mode: 'insensitive' },
+                                    status: { not: 'D' }
+                                }
+                            });
+                            if (duplicateLogin) {
+                                throw new ConflictException(`A login with the email '${loginEmail}' already exists.`);
+                            }
+
                             const branchLogin = await tx.customerLogin.create({
                                 data: {
                                     LoginName: login.LoginName,
-                                    LoginEmail: login.LoginEmail,
+                                    LoginEmail: loginEmail,
                                     LoginPassword: await encodePassword(login.LoginPassword),
                                     status: login.status,
                                     createdBy: userEmail,
@@ -1202,13 +1215,26 @@ export class CustomerService {
                     }
 
                     for (const login of branch.customerBranchLogins) {
+                        const loginEmail = login.LoginEmail?.trim();
                         if (login.CustomerLoginSid) {
+                            // Reject duplicate email held by a different (non-deleted) login
+                            const duplicateLogin = await tx.customerLogin.findFirst({
+                                where: {
+                                    LoginEmail: { equals: loginEmail, mode: 'insensitive' },
+                                    status: { not: 'D' },
+                                    CustomerLoginSid: { not: login.CustomerLoginSid }
+                                }
+                            });
+                            if (duplicateLogin) {
+                                throw new ConflictException(`A login with the email '${loginEmail}' already exists.`);
+                            }
+
                             await tx.customerLogin.update({
                                 where: { CustomerLoginSid: login.CustomerLoginSid },
                                 data: {
                                     CustomerBranchSid: branchId,
                                     LoginName: login.LoginName,
-                                    LoginEmail: login.LoginEmail,
+                                    LoginEmail: loginEmail,
                                     // Keep the existing password when the masked placeholder
                                     // comes back unchanged; hash any newly typed password.
                                     ...(login.LoginPassword && login.LoginPassword !== '*******'
@@ -1220,10 +1246,21 @@ export class CustomerService {
                                 }
                             });
                         } else {
+                            // Reject duplicate email for a brand-new login
+                            const duplicateLogin = await tx.customerLogin.findFirst({
+                                where: {
+                                    LoginEmail: { equals: loginEmail, mode: 'insensitive' },
+                                    status: { not: 'D' }
+                                }
+                            });
+                            if (duplicateLogin) {
+                                throw new ConflictException(`A login with the email '${loginEmail}' already exists.`);
+                            }
+
                             await tx.customerLogin.create({
                                 data: {
                                     LoginName: login.LoginName,
-                                    LoginEmail: login.LoginEmail,
+                                    LoginEmail: loginEmail,
                                     LoginPassword: await encodePassword(login.LoginPassword),
                                     status: login.status,
                                     createdBy: userEmail,
@@ -1392,7 +1429,9 @@ export class CustomerService {
         });
     }
 
-    async softDelete(CustomerMasterSid: number) {
+    async softDelete(CustomerMasterSid: number, user?: any) {
+        const userEmail = user?.UserEmail || user?.email || user?.userEmail;
+
         const existingCustomer = await this._db.customerMaster.findUnique({
             where: { CustomerMasterSid: CustomerMasterSid }
         });
@@ -1406,20 +1445,24 @@ export class CustomerService {
         }
 
         const result = await this._db.$transaction(async (prisma) => {
+            // Delete = soft delete to 'D' (not 'S'), so the record is hidden from
+            // the list and its login emails are freed for reuse. No status:'A'
+            // filter here — an already-suspended customer must still be deletable.
             const deletedCustomer = await prisma.customerMaster.update({
                 where: {
-                    CustomerMasterSid: CustomerMasterSid,
-                    status: 'A'
+                    CustomerMasterSid: CustomerMasterSid
                 },
                 data: {
-                    status: 'S',
+                    status: 'D',
+                    updatedBy: userEmail,
+                    updatedOn: new Date()
                 }
             })
 
             const allCustomerBranches = await prisma.customerBranch.findMany({
                 where: {
                     CustomerMasterSid: CustomerMasterSid,
-                    status: 'A'
+                    status: { not: 'D' }
                 }
             })
 
@@ -1427,61 +1470,72 @@ export class CustomerService {
                 allCustomerBranches.map(async branch => {
                     const deletedCusBranch = await prisma.customerBranch.update({
                         where: {
-                            CustomerBranchSid: branch.CustomerBranchSid,
-                            status: 'A'
+                            CustomerBranchSid: branch.CustomerBranchSid
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusBranchContact = await prisma.cusBranchContact.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: deletedCusBranch.CustomerBranchSid,
-                            status: 'A'
+                            status: { not: 'D' }
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusBranchEmail = await prisma.customerBrEmail.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: branch.CustomerBranchSid,
-                            status: 'A'
+                            status: { not: 'D' }
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusBranchLogin = await prisma.customerLogin.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: branch.CustomerBranchSid,
-                            status: 'A'
+                            status: { not: 'D' }
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusSalesTeam = await prisma.customerSalesTeam.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: branch.CustomerBranchSid,
-                            status: 'A'
+                            status: { not: 'D' }
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusMilestone = await prisma.customerMilestone.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: branch.CustomerBranchSid,
-                            Status: 'A'
+                            Status: { not: 'D' }
                         },
                         data: {
-                            Status: 'S'
+                            Status: 'D',
+                            UpdatedBy: userEmail,
+                            UpdatedOn: new Date()
                         }
                     })
 

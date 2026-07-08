@@ -912,6 +912,15 @@ export class TrackingService {
       houseJob?.departmentMaster?.departmentName ||
       booking?.departmentMaster?.departmentName ||
       null;
+    const departmentSid = houseJob?.DepartmentMasterSid || booking?.DepartmentMasterSid || null;
+    const shipmentType =
+      houseJob?.JobType ||
+      booking?.JobType ||
+      houseJob?.ShipmentType ||
+      booking?.ShipmentType ||
+      houseJob?.MovementType ||
+      booking?.MovementType ||
+      null;
 
     // Tracking is the customer-facing shipment view, so it ALWAYS shows only the
     // customer-specific milestones (IsCustomerSpecific='Y'), department-wise & SortBy-ordered.
@@ -920,7 +929,9 @@ export class TrackingService {
 
     const definitions = await this.getMilestoneDefinitionsForDepartment(
       departmentName,
+      departmentSid,
       entity.CompanyMasterSid ?? null,
+      shipmentType,
       customerOnly,
     );
     if (!definitions.length) {
@@ -1041,34 +1052,94 @@ export class TrackingService {
   /** Fetch a department's configured milestones (active), with numeric SortBy. */
   private async getMilestoneDefinitionsForDepartment(
     departmentName: string | null,
+    departmentSid: number | string | null,
     companyMasterSid: number | null,
+    shipmentType: string | null,
     customerOnly = false,
   ): Promise<{ MilestoneMasterSid: number; MilestoneName: string; SortBy: number }[]> {
-    if (!departmentName) {
+    const departmentTokens = this.buildMilestoneDepartmentTokens(departmentName, departmentSid);
+    if (!departmentTokens.length) {
       return [];
     }
-    const where: any = {
-      status: 'A',
-      DepartmentMasterSid: { has: departmentName },
-    };
+
+    const where: any = { status: 'A' };
     if (companyMasterSid != null) {
       where.CompanyMasterSid = companyMasterSid;
     }
     // MilestoneMaster is company-level in the master/booking/job flows. Do not
     // branch-filter here; many valid master rows have BranchMasterSid = null.
-    // Customer view: only milestones flagged customer-specific are visible to the customer.
     if (customerOnly) {
       where.IsCustomerSpecific = 'Y';
     }
+
     const masters = await this.db.milestoneMaster.findMany({
       where,
-      select: { MilestoneMasterSid: true, MilestoneName: true, SortBy: true },
+      select: {
+        MilestoneMasterSid: true,
+        MilestoneName: true,
+        SortBy: true,
+        DepartmentMasterSid: true,
+        ShipmentType: true,
+      },
     });
-    return masters.map((master) => ({
-      MilestoneMasterSid: master.MilestoneMasterSid,
-      MilestoneName: master.MilestoneName,
-      SortBy: Number(master.SortBy),
-    }));
+    const normalizedShipmentType = this.normalizeMilestoneToken(shipmentType);
+
+    return masters
+      .filter((master) => {
+        const masterDepartments = this.extractMilestoneTokens(master.DepartmentMasterSid);
+        const departmentMatches = masterDepartments.some((token) => departmentTokens.includes(token));
+        if (!departmentMatches) {
+          return false;
+        }
+
+        if (!normalizedShipmentType) {
+          return true;
+        }
+
+        return this.normalizeMilestoneToken(master.ShipmentType) === normalizedShipmentType;
+      })
+      .map((master) => ({
+        MilestoneMasterSid: master.MilestoneMasterSid,
+        MilestoneName: master.MilestoneName,
+        SortBy: Number(master.SortBy),
+      }));
+  }
+
+  private buildMilestoneDepartmentTokens(departmentName: any, departmentSid: any): string[] {
+    return [...new Set([
+      ...this.extractMilestoneTokens(departmentName),
+      ...this.extractMilestoneTokens(departmentSid),
+    ])];
+  }
+
+  private extractMilestoneTokens(value: any): string[] {
+    if (value === null || value === undefined) return [];
+    let values: any[] = [];
+    if (Array.isArray(value)) {
+      values = value;
+    } else if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          values = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          values = trimmed.split(',');
+        }
+      } else {
+        values = trimmed.split(',');
+      }
+    } else {
+      values = [value];
+    }
+
+    return values
+      .map((item) => this.normalizeMilestoneToken(item))
+      .filter(Boolean);
+  }
+
+  private normalizeMilestoneToken(value: any): string {
+    return String(value ?? '').trim().toLowerCase();
   }
 
   private buildTimelineEvent(
@@ -2279,6 +2350,7 @@ export class TrackingService {
       FPD: true,
       MovementType: true,
       JobType: true,
+      ShipmentType: true,
       VesselName: true,
       VoyageNo: true,
       ETD: true,
@@ -2321,6 +2393,7 @@ export class TrackingService {
       FPD: true,
       MovementType: true,
       JobType: true,
+      ShipmentType: true,
       VesselName: true,
       VoyageNo: true,
       ETD: true,
@@ -2530,6 +2603,7 @@ export class TrackingService {
     return parsed.toISOString().slice(11, 16);
   }
 }
+
 
 
 
