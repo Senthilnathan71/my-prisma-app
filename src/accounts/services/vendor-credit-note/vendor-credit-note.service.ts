@@ -447,7 +447,7 @@ export class VendorCreditNoteService {
                                     chargeTaxMaster: true
                                 }
                             },
-                            hSSACMaster: true,
+                            hSSACMaster: { include: { taxGroup: true } },
                             currencyMaster: true
                         },
                         orderBy: {
