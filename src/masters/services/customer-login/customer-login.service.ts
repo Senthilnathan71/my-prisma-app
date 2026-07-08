@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 
@@ -9,9 +9,23 @@ export class CustomerLoginService {
 
     async createNewCustomerLogin(newData: any) {
         try {
+            const loginEmail = newData.LoginEmail?.trim();
+
+            // Reject duplicate login email (case-insensitive, ignoring deleted logins)
+            const duplicateLogin = await this._db.customerLogin.findFirst({
+                where: {
+                    LoginEmail: { equals: loginEmail, mode: 'insensitive' },
+                    status: { not: 'D' }
+                }
+            })
+            if (duplicateLogin) {
+                throw new ConflictException(`A login with the email '${loginEmail}' already exists.`);
+            }
+
             const createdCustomerLogin = await this._db.customerLogin.create({
                 data: {
                     ...newData,
+                    LoginEmail: loginEmail,
                 }
             })
             return createdCustomerLogin;
@@ -67,6 +81,23 @@ export class CustomerLoginService {
             if (!existing) {
                 throw new BadRequestException(`Customer Login with Id : ${CustomerLoginSid} not exists`);
             }
+
+            // If the email is being changed, reject a duplicate held by another (non-deleted) login
+            if (updateData.LoginEmail) {
+                const loginEmail = updateData.LoginEmail.trim();
+                const duplicateLogin = await this._db.customerLogin.findFirst({
+                    where: {
+                        LoginEmail: { equals: loginEmail, mode: 'insensitive' },
+                        status: { not: 'D' },
+                        CustomerLoginSid: { not: CustomerLoginSid }
+                    }
+                })
+                if (duplicateLogin) {
+                    throw new ConflictException(`A login with the email '${loginEmail}' already exists.`);
+                }
+                updateData.LoginEmail = loginEmail;
+            }
+
             const updatedData = await this._db.customerLogin.update({
                 where: {
                     CustomerLoginSid: CustomerLoginSid
