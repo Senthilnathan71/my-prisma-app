@@ -646,7 +646,29 @@ export class AccountsReportsService {
       params?.Drilldown === 'Y' ||
       params?.Drilldown === 'y' ||
       params?.Drilldown === 'true';
+      
+    const rawSalesman = params?.salesman;
+    const selectedSalesmen: Set<number> = new Set(
+      (Array.isArray(rawSalesman) ? rawSalesman : [rawSalesman])
+        .map((s) => Number(s))
+        .filter((n) => !Number.isNaN(n) && n > 0),
+    );
+    const hasSalesmanFilter = selectedSalesmen.size > 0;
+    let salesmanText = 'All Salesmen';
 
+    if (hasSalesmanFilter) {
+      const salesmen = await this._db.userMaster.findMany({
+        where: {
+          UserMasterSid: { in: [...selectedSalesmen] },
+          status: 'A',
+        },
+        select: {
+          userName: true,
+        },
+      });
+
+      salesmanText = salesmen.map((s) => s.userName).join(', ');
+    }
     const toDateObj = new Date(ToDate);
 
     // --- Ledger (for sign convention + display name) ---
@@ -949,6 +971,15 @@ export class AccountsReportsService {
       const salespersonId: number | null = rec?.Salesman ?? null;
       const salespersonName: string | null = rec?.salesManUser?.userName ?? null;
 
+      // Optional salesman filter: keep only lines attributed to a selected salesperson.
+      // Skipped before any accumulation so totals/buckets reflect just those salesmen.
+      if (
+        hasSalesmanFilter &&
+        (salespersonId == null || !selectedSalesmen.has(salespersonId))
+      ) {
+        continue;
+      }
+
       // grand totals across ALL lines (so they reconcile to the plain ageing report)
       grandTotalLocal += signedOSLocal;
       overallOnAccountLocal += onAccountLocal;
@@ -1229,6 +1260,7 @@ export class AccountsReportsService {
       asOfDate: ToDate,
       LedgerName: coa.LedgerName || '',
       params,
+      salesmanText,
       groupedBySalesman: true,
       branchInvolvedText,
       singleBranch: branchTokens.size <= 1, // drives Branch-column hide on the frontend
@@ -5325,6 +5357,7 @@ export class AccountsReportsService {
       header?.GSTType,
       header?.TaxType,
       detail?.InvoiceType,
+      detail?.TaxGroup,
     ]
       .map((value) => this.normaliseVatText(value))
       .join(' ');
@@ -5338,7 +5371,7 @@ export class AccountsReportsService {
     }
 
     if (
-      values.includes('EXEMPT') ||
+      values.includes('Exempt') ||
       values.includes('EXE')
     ) {
       return '5';
@@ -5540,6 +5573,7 @@ export class AccountsReportsService {
         },
         VoucherHeader: {
           select: {
+            VoucherHeaderSid : true,
             GSTType: true,
             InvoiceType: true,
             TaxType: true,
@@ -5553,6 +5587,15 @@ export class AccountsReportsService {
             customerBranch: {
               select: {
                 stateMaster: { select: { stateName: true } },
+              },
+            },
+          },
+        },
+        voucherDetail: {
+          select: {
+            hSSACMaster: {
+              select: {
+                taxGroup: { select: { TaxGroup: true } },
               },
             },
           },
@@ -5571,6 +5614,7 @@ export class AccountsReportsService {
         TaxType: tx.subledgerMaster?.TaxType,
         SubledgerName: tx.subledgerMaster?.SubledgerName,
       },
+      TaxGroup: tx.voucherDetail?.hSSACMaster?.taxGroup?.TaxGroup,
       VoucherHeader: tx.VoucherHeader,
     }));
 
