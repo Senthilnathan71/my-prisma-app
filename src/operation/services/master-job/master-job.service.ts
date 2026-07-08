@@ -1009,7 +1009,7 @@ export class MasterJobService {
                             bookingProduct: { where: { status: 'A' } },
                             bookingOthers: { where: { status: 'A' } },
                             bookingConnection: { where: { status: 'A' } },
-                            bookingRates: { where: { Status: 'A' } }
+                            bookingRates: { where: { Status: 'A' }, orderBy: { SerialNumber: 'asc' } }
                         },
                     });
                     const allCreatedHouseJobs: any[] = [];
@@ -2974,7 +2974,7 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                         bookingProduct: true,
                         bookingOthers: true,
                         bookingConnection: true,
-                        bookingRates: true,
+                        bookingRates: { orderBy: { SerialNumber: 'asc' } },
                     },
                 });
                 const shipmentByBookingId = new Map<number, any>(
@@ -4165,7 +4165,7 @@ if (houseJobsForBookingSync.length > 0) {
                     bookingProduct: { where: { status: 'A' } },
                     bookingOthers: { where: { status: 'A' } },
                     bookingConnection: { where: { status: 'A' } },
-                    bookingRates: { where: { Status: 'A' } }
+                    bookingRates: { where: { Status: 'A' }, orderBy: { SerialNumber: 'asc' } }
                 },
             });
 
