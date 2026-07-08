@@ -2376,11 +2376,8 @@ export class OperationReportsService {
         const exportJobNo = houseDepartment?.toLowerCase().includes('export')
           ? masterJob?.MasterJobNumber || ''
           : '';
-        const costRevenues = (houseRateMap.get(mj.HouseJobSid) || []).filter(
-          (cr) =>
-            cr.CostVoucherHeaderSid === null ||
-            cr.RevenueVoucherHeaderSid === null,
-        );
+        
+        const costRevenues = houseRateMap.get(mj.HouseJobSid) || [];
 
         return {
           MBL: mj.masterJob?.MBLNo,
