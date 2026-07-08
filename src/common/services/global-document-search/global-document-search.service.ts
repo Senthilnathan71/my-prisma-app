@@ -247,6 +247,7 @@ export class GlobalDocumentSearchService {
                 select: {
                     HouseJobSid: true,
                     HBLNo: true,
+                    JobType: true,
                     departmentMaster : {select : {departmentType : true}},
                     houseJobBOE: {
                         where: {
@@ -268,6 +269,7 @@ export class GlobalDocumentSearchService {
 
             return houseJobs.map((h) => {
                 const isSeaJob = h.departmentMaster?.departmentType.toUpperCase() === 'SEA'
+                const isAgentMasterAirWaybill = String(h.JobType || '').toLowerCase() === 'agent';
                 const searchLower = search.toLowerCase();
                 const matchedBoe = h.houseJobBOE?.[0];
                 const matchedDeclarationNo = matchedBoe?.DeclarationNo || '';
@@ -280,13 +282,16 @@ export class GlobalDocumentSearchService {
                     : (!matchesHBLNo && matchesBOENo ? matchedBOENo : (h.HBLNo || ''));
                 const displayType = !matchesHBLNo && (matchesDeclarationNo || matchesBOENo)
                     ? (matchesDeclarationNo ? 'Declaration No' : 'BOE No')
-                    : (isSeaJob ? 'HBL' : 'HAWB');
+                    : (isAgentMasterAirWaybill ? 'AMAWB HBL' : (isSeaJob ? 'HBL' : 'HAWB'));
+                const path = isAgentMasterAirWaybill
+                    ? `/operation/agent-master-air-waybill/entry/${h.HouseJobSid}`
+                    : (isSeaJob ? `/operation/house-job/entry/${h.HouseJobSid}` : `/operation/hawb-bill/entry/${h.HouseJobSid}`);
                 return {
                 id: h.HouseJobSid,
                 documentNumber,
                 documentType: 'HOUSE_JOB',
                 displayType,
-                path: isSeaJob ? `/operation/house-job/entry/${h.HouseJobSid}` : `/operation/hawb-bill/entry/${h.HouseJobSid}`,
+                path,
                 title: `${displayType}: ${documentNumber}`,
                 }
             });
