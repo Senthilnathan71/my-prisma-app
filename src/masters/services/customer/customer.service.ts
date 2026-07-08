@@ -1429,7 +1429,9 @@ export class CustomerService {
         });
     }
 
-    async softDelete(CustomerMasterSid: number) {
+    async softDelete(CustomerMasterSid: number, user?: any) {
+        const userEmail = user?.UserEmail || user?.email || user?.userEmail;
+
         const existingCustomer = await this._db.customerMaster.findUnique({
             where: { CustomerMasterSid: CustomerMasterSid }
         });
@@ -1443,20 +1445,24 @@ export class CustomerService {
         }
 
         const result = await this._db.$transaction(async (prisma) => {
+            // Delete = soft delete to 'D' (not 'S'), so the record is hidden from
+            // the list and its login emails are freed for reuse. No status:'A'
+            // filter here — an already-suspended customer must still be deletable.
             const deletedCustomer = await prisma.customerMaster.update({
                 where: {
-                    CustomerMasterSid: CustomerMasterSid,
-                    status: 'A'
+                    CustomerMasterSid: CustomerMasterSid
                 },
                 data: {
-                    status: 'S',
+                    status: 'D',
+                    updatedBy: userEmail,
+                    updatedOn: new Date()
                 }
             })
 
             const allCustomerBranches = await prisma.customerBranch.findMany({
                 where: {
                     CustomerMasterSid: CustomerMasterSid,
-                    status: 'A'
+                    status: { not: 'D' }
                 }
             })
 
@@ -1464,61 +1470,72 @@ export class CustomerService {
                 allCustomerBranches.map(async branch => {
                     const deletedCusBranch = await prisma.customerBranch.update({
                         where: {
-                            CustomerBranchSid: branch.CustomerBranchSid,
-                            status: 'A'
+                            CustomerBranchSid: branch.CustomerBranchSid
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusBranchContact = await prisma.cusBranchContact.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: deletedCusBranch.CustomerBranchSid,
-                            status: 'A'
+                            status: { not: 'D' }
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusBranchEmail = await prisma.customerBrEmail.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: branch.CustomerBranchSid,
-                            status: 'A'
+                            status: { not: 'D' }
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusBranchLogin = await prisma.customerLogin.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: branch.CustomerBranchSid,
-                            status: 'A'
+                            status: { not: 'D' }
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusSalesTeam = await prisma.customerSalesTeam.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: branch.CustomerBranchSid,
-                            status: 'A'
+                            status: { not: 'D' }
                         },
                         data: {
-                            status: 'S'
+                            status: 'D',
+                            updatedBy: userEmail,
+                            updatedOn: new Date()
                         }
                     })
 
                     const deleteCusMilestone = await prisma.customerMilestone.updateManyAndReturn({
                         where: {
                             CustomerBranchSid: branch.CustomerBranchSid,
-                            Status: 'A'
+                            Status: { not: 'D' }
                         },
                         data: {
-                            Status: 'S'
+                            Status: 'D',
+                            UpdatedBy: userEmail,
+                            UpdatedOn: new Date()
                         }
                     })
 

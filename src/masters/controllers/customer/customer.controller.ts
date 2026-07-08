@@ -259,8 +259,8 @@ async checkUnique(@Body() body: {
     })
     @HttpCode(HttpStatus.OK)
     @Delete('delete/:id')
-    async softDelete(@Param('id', ParseIntPipe) id: number) {
-        return this.customerService.softDelete(id);
+    async softDelete(@Param('id', ParseIntPipe) id: number, @UserData() user: any) {
+        return this.customerService.softDelete(id, user);
     }
 @ApiOperation({ summary: 'Search Customers by Name' })
 @ApiCreatedResponse({
