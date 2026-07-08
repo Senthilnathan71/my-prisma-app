@@ -504,6 +504,7 @@ export class QuotationService {
                     EnquirySid: payload.EnquirySid ? Number(payload.EnquirySid) : null,
                     FreightPPCC: payload.FreightPPCC,
                     CustomerAddress: payload.CustomerAddress,
+                    AgreedRate: payload.AgreedRate,
                     RateLock: payload.RateLock,
                     IsContract: payload.IsContract,
                     CustomerBranchSid: payload.CustomerBranchSid,

@@ -61,7 +61,13 @@ export class MilestoneTrackerService {
         if (Type === 'hbl') {
             where.HBLNo = { equals: ref, mode: 'insensitive' };
         } else if (Type === 'mbl') {
-            where.MBLNo = { equals: ref, mode: 'insensitive' };
+            // The MBL No is carried on the linked Master Job (see toHeader), and
+            // HouseJob.MBLNo is usually blank — so match either the master job's
+            // MBLNo or the house's own, otherwise MBL search finds nothing.
+            where.OR = [
+                { MBLNo: { equals: ref, mode: 'insensitive' } },
+                { masterJob: { MBLNo: { equals: ref, mode: 'insensitive' } } },
+            ];
         } else {
             where.masterJob = {
                 MasterJobNumber: { equals: ref, mode: 'insensitive' },

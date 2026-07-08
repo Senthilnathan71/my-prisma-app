@@ -30,32 +30,16 @@ export class MilestoneService {
 
     async createNewMilestone(payload: any) {
         try {
-            // The entry screen sends CompanyMasterSids (array) so one milestone is
-            // created per selected company. Fall back to the legacy single
-            // CompanyMasterSid for backward compatibility.
-            const { CompanyMasterSids, CompanyMasterSid, ...rest } = payload;
-            const companyIds: number[] = Array.isArray(CompanyMasterSids) && CompanyMasterSids.length
-                ? [...new Set(CompanyMasterSids.map((id: any) => Number(id)).filter((id: number) => !!id))]
-                : (CompanyMasterSid != null ? [Number(CompanyMasterSid)] : []);
-
-            if (!companyIds.length) {
-                throw new BadRequestException('At least one company must be selected');
-            }
-
-            const createdMilestones = await this._db.$transaction(
-                companyIds.map((cid) =>
-                    this._db.milestoneMaster.create({
-                        data: { ...rest, CompanyMasterSid: cid },
-                        include: {
-                            branchMaster: true,
-                            companyMaster: true
-                        }
-                    })
-                )
-            );
-
-            // Preserve the previous single-object response for single-company creates.
-            return createdMilestones.length === 1 ? createdMilestones[0] : createdMilestones;
+            const createdMilestone = await this._db.milestoneMaster.create({
+                data: {
+                    ...payload,
+                },
+                include: {
+                    branchMaster: true,
+                    companyMaster: true
+                }
+            });
+            return createdMilestone;
         } catch (error) {
             throw error;
         }
@@ -76,20 +60,7 @@ export class MilestoneService {
             if (!milestone) {
                 throw new UnauthorizedException(`Access denied.`);
             }
-            // A milestone can exist as separate rows across companies (linked by
-            // MilestoneCode). Return every company that already has it so the
-            // entry screen pre-selects all of them, not just the login company.
-            const siblings = await this._db.milestoneMaster.findMany({
-                where: {
-                    MilestoneCode: milestone.MilestoneCode,
-                    status: 'A'
-                },
-                select: { CompanyMasterSid: true }
-            });
-            const CompanyMasterSids = [
-                ...new Set(siblings.map((s) => s.CompanyMasterSid).filter((id): id is number => id != null))
-            ];
-            return { ...milestone, CompanyMasterSids };
+            return milestone;
         } catch (error) {
             throw error;
         }
@@ -105,64 +76,17 @@ export class MilestoneService {
             if (!exist) {
                 throw new BadRequestException(`Milestone with Id : ${MilestoneMasterSid} not exists`);
             }
-            // Strip the fields that must not flow into the record's own update:
-            //  - CompanyMasterSids: the multi-company array, handled separately below
-            //  - CompanyMasterSid : never move the edited record to another company
-            //  - createdBy        : preserve the original creator on update
-            const { CompanyMasterSids, CompanyMasterSid, createdBy, ...cleanPayload } = payload;
-
-            return await this._db.$transaction(async (tx) => {
-                const updatedMilestone = await tx.milestoneMaster.update({
-                    where: {
-                        MilestoneMasterSid: MilestoneMasterSid
-                    },
-                    data: cleanPayload,
-                    include: {
-                        branchMaster: true,
-                        companyMaster: true
-                    }
-                });
-
-                // In edit mode the user can add more companies. Create the milestone
-                // in the newly-selected companies only — skip the record's own
-                // company, and skip any company that already has this milestone
-                // code, so existing companies are never duplicated.
-                const selectedIds: number[] = Array.isArray(CompanyMasterSids)
-                    ? [...new Set(CompanyMasterSids.map((id: any) => Number(id)).filter((id: number) => !!id))]
-                    : [];
-                const targetCompanyIds = selectedIds.filter((id) => id !== updatedMilestone.CompanyMasterSid);
-
-                for (const cid of targetCompanyIds) {
-                    const duplicate = await tx.milestoneMaster.findFirst({
-                        where: {
-                            CompanyMasterSid: cid,
-                            MilestoneCode: updatedMilestone.MilestoneCode,
-                            status: 'A'
-                        }
-                    });
-                    if (duplicate) continue;
-
-                    await tx.milestoneMaster.create({
-                        data: {
-                            MilestoneName: updatedMilestone.MilestoneName,
-                            MilestoneCode: updatedMilestone.MilestoneCode,
-                            ShipmentType: updatedMilestone.ShipmentType,
-                            SortBy: updatedMilestone.SortBy,
-                            AutoCapture: updatedMilestone.AutoCapture,
-                            AutomailRequire: updatedMilestone.AutomailRequire,
-                            Remarks: updatedMilestone.Remarks,
-                            DepartmentMasterSid: updatedMilestone.DepartmentMasterSid,
-                            IsCustomerSpecific: updatedMilestone.IsCustomerSpecific,
-                            status: 'A',
-                            CompanyMasterSid: cid,
-                            BranchMasterSid: null,
-                            createdBy: createdBy || payload.updatedBy || exist.createdBy || 'system'
-                        }
-                    });
+            const updatedMilestone = await this._db.milestoneMaster.update({
+                where: {
+                    MilestoneMasterSid: MilestoneMasterSid
+                },
+                data: payload,
+                include: {
+                    branchMaster: true,
+                    companyMaster: true
                 }
-
-                return updatedMilestone;
             });
+            return updatedMilestone;
         } catch (error) {
             throw error;
         }
@@ -238,6 +162,157 @@ export class MilestoneService {
             totalCount,
         };
     }
+    // Returns milestones that exist in the source (login) company but are NOT
+    // yet present in the target company. Two milestones are treated as "the same"
+    // when they share a ShipmentType and either the MilestoneName or MilestoneCode
+    // matches (case-insensitive), so allocating never creates a duplicate.
+    async getAllocatableMilestones(sourceCompanyId: number, targetCompanyId: number) {
+        try {
+            if (!sourceCompanyId || !targetCompanyId) {
+                throw new BadRequestException('Source and target company are required');
+            }
+            if (sourceCompanyId === targetCompanyId) {
+                throw new BadRequestException('Source and target company must be different');
+            }
+
+            const [sourceMilestones, targetMilestones] = await Promise.all([
+                this._db.milestoneMaster.findMany({
+                    where: { status: 'A', CompanyMasterSid: sourceCompanyId },
+                    orderBy: { SortBy: 'asc' },
+                }),
+                this._db.milestoneMaster.findMany({
+                    where: { status: 'A', CompanyMasterSid: targetCompanyId },
+                    select: { MilestoneName: true, MilestoneCode: true, ShipmentType: true },
+                }),
+            ]);
+
+            const existing = new Set<string>();
+            for (const m of targetMilestones) {
+                const type = (m.ShipmentType ?? '').trim().toLowerCase();
+                existing.add(`name:${(m.MilestoneName ?? '').trim().toLowerCase()}|${type}`);
+                existing.add(`code:${(m.MilestoneCode ?? '').trim().toLowerCase()}|${type}`);
+            }
+
+            return sourceMilestones.filter((m) => {
+                const type = (m.ShipmentType ?? '').trim().toLowerCase();
+                const nameKey = `name:${(m.MilestoneName ?? '').trim().toLowerCase()}|${type}`;
+                const codeKey = `code:${(m.MilestoneCode ?? '').trim().toLowerCase()}|${type}`;
+                return !existing.has(nameKey) && !existing.has(codeKey);
+            });
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Copies the selected source milestones into the target company. The milestone
+    // SIDs are re-fetched from the DB (never trusting the client payload) and
+    // re-checked for duplicates so a stale modal can't create collisions.
+    // MilestoneMaster.DepartmentMasterSid is a string array of department *names*
+    // (the entry form's multi-select binds `bindValue="departmentName"`), not
+    // numeric SIDs, so the names are copied verbatim — they are already portable
+    // across companies.
+    async allocateMilestones(targetCompanyId: number, milestoneSids: number[], createdBy: string) {
+        try {
+            if (!targetCompanyId) {
+                throw new BadRequestException('Target company is required');
+            }
+            if (!Array.isArray(milestoneSids) || milestoneSids.length === 0) {
+                throw new BadRequestException('At least one milestone must be selected');
+            }
+
+            const sourceMilestones = await this._db.milestoneMaster.findMany({
+                where: { status: 'A', MilestoneMasterSid: { in: milestoneSids } },
+            });
+            if (sourceMilestones.length === 0) {
+                throw new BadRequestException('Selected milestones not found');
+            }
+
+            const targetMilestones = await this._db.milestoneMaster.findMany({
+                where: { status: 'A', CompanyMasterSid: targetCompanyId },
+                select: { MilestoneName: true, MilestoneCode: true, ShipmentType: true },
+            });
+            const existing = new Set<string>();
+            for (const m of targetMilestones) {
+                const type = (m.ShipmentType ?? '').trim().toLowerCase();
+                existing.add(`name:${(m.MilestoneName ?? '').trim().toLowerCase()}|${type}`);
+                existing.add(`code:${(m.MilestoneCode ?? '').trim().toLowerCase()}|${type}`);
+            }
+
+            const toCreate = sourceMilestones.filter((m) => {
+                const type = (m.ShipmentType ?? '').trim().toLowerCase();
+                const nameKey = `name:${(m.MilestoneName ?? '').trim().toLowerCase()}|${type}`;
+                const codeKey = `code:${(m.MilestoneCode ?? '').trim().toLowerCase()}|${type}`;
+                return !existing.has(nameKey) && !existing.has(codeKey);
+            });
+            if (toCreate.length === 0) {
+                throw new BadRequestException('Selected milestones already exist in the target company');
+            }
+
+            // DepartmentMasterSid holds department *names* (see method comment); copy
+            // them across verbatim, de-duplicating and dropping any blank entries.
+            const copyDepartments = (names: string[] | null | undefined): string[] => {
+                if (!Array.isArray(names)) return [];
+                return Array.from(new Set(names.filter((n) => typeof n === 'string' && n.trim())));
+            };
+
+            // A milestone's departments are stored by name, so every referenced
+            // department must already exist in the target company. If any doesn't,
+            // abort without creating anything and report the missing name(s).
+            const targetDepartments = await this._db.departmentMaster.findMany({
+                where: { Status: 'A', CompanyMasterSid: targetCompanyId },
+                select: { departmentName: true },
+            });
+            const targetDeptNames = new Set(
+                targetDepartments.map((d) => (d.departmentName ?? '').trim().toLowerCase()),
+            );
+            const missingDepartments = new Set<string>();
+            for (const m of toCreate) {
+                for (const name of copyDepartments(m.DepartmentMasterSid)) {
+                    if (!targetDeptNames.has(name.trim().toLowerCase())) {
+                        missingDepartments.add(name.trim());
+                    }
+                }
+            }
+            if (missingDepartments.size > 0) {
+                const names = Array.from(missingDepartments).join(', ');
+                throw new BadRequestException(
+                    `The following department(s) do not exist in the selected company: ${names}`,
+                );
+            }
+
+            const created = await this._db.$transaction(
+                toCreate.map((m) =>
+                    this._db.milestoneMaster.create({
+                        data: {
+                            CompanyMasterSid: targetCompanyId,
+                            BranchMasterSid: null,
+                            MilestoneName: m.MilestoneName,
+                            MilestoneCode: m.MilestoneCode,
+                            SortBy: m.SortBy,
+                            ShipmentType: m.ShipmentType,
+                            AutoCapture: m.AutoCapture ?? 'N',
+                            AutomailRequire: m.AutomailRequire ?? 'N',
+                            IsCustomerSpecific: m.IsCustomerSpecific ?? 'N',
+                            IsMandatory: m.IsMandatory ?? 'N',
+                            DepartmentMasterSid: copyDepartments(m.DepartmentMasterSid),
+                            Remarks: m.Remarks,
+                            status: 'A',
+                            createdBy: createdBy || 'system',
+                        },
+                    }),
+                ),
+            );
+
+            return {
+                createdCount: created.length,
+                skippedCount: sourceMilestones.length - created.length,
+                created,
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async getAuditLogs(tableName: string, recordId?: string) {
         try {
             const whereClause: any = { tableName };

@@ -12,50 +12,30 @@ export class AuditLogController {
         private logger: Logger,
     ) { }
 
-    // ---------------------------------------------------------------------
-// audit-log.controller.ts  -- replace the existing getAuditLogs handler
-// ---------------------------------------------------------------------
+    @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
+    @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
+    @HttpCode(HttpStatus.OK)
+    @Get('logs')
+    async getAuditLogs(
+        @Query('tableName') tableName: string,
+        @Query('recordId') recordId?: string,
+        @Query('screenName') screenName?: string
+    ) {
+        const resp = new ResponseData();
+        try {
+            if (!tableName) throw new Error('tableName query parameter is required');
 
-@ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
-@ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
-@HttpCode(HttpStatus.OK)
-@Get('logs')
-async getAuditLogs(
-  @Query('tableName') tableName: string,
-  @Query('recordId') recordId?: string,
-  @Query('screenName') screenName?: string,
-  @Query('page') page?: string,
-  @Query('pageSize') pageSize?: string,
-  @Query('rawSkip') rawSkip?: string,
-) {
-  const resp = new ResponseData();
-  try {
-    if (!tableName) throw new Error('tableName query parameter is required');
+            const logs = await this.auditLogService.getAuditLogs(tableName, recordId,screenName);
 
-    const parsedPage = page !== undefined && page !== '' ? Number(page) : 0;
-    const parsedPageSize = pageSize !== undefined && pageSize !== '' ? Number(pageSize) : 50;
-    const parsedRawSkip = rawSkip !== undefined && rawSkip !== '' ? Number(rawSkip) : 0;
-
-    const logs = await this.auditLogService.getAuditLogs(
-      tableName,
-      recordId,
-      screenName,
-      {
-        page: Number.isNaN(parsedPage) ? 0 : parsedPage,
-        pageSize: Number.isNaN(parsedPageSize) ? 50 : parsedPageSize,
-        rawSkip: Number.isNaN(parsedRawSkip) ? 0 : parsedRawSkip,
-      },
-    );
-
-    resp.data = logs;
-    resp.message = 'Audit logs fetched successfully';
-  } catch (error) {
-    this.logger.warn(`getAuditLogsError: ${error}`);
-    resp.status = false;
-    resp.message = error.message || 'Internal Server Error';
-  }
-  return resp;
-}
+            resp.data = logs
+            resp.message = 'Audit logs fetched successfully';
+        } catch (error) {
+            this.logger.warn(`getAuditLogsError: ${error}`);
+            resp.status = false;
+            resp.message = error.message || 'Internal Server Error';
+        }
+        return resp;
+    }
 
     @ApiOperation({ summary: 'Create AuditLog'})
       @ApiCreatedResponse({

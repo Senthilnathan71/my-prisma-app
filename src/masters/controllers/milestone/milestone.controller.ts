@@ -172,6 +172,57 @@ export class MilestoneController {
         }
         return resp;
     }
+    @ApiOperation({ summary: 'Get milestones present in source company but not in target company' })
+    @ApiCreatedResponse({
+        description: 'Milestones allocatable to the target company',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('allocatable')
+    async getAllocatableMilestones(@Body() body: { SourceCompanyMasterSid: number; TargetCompanyMasterSid: number }) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.milestoneService.getAllocatableMilestones(body.SourceCompanyMasterSid, body.TargetCompanyMasterSid);
+            resp.data = res;
+            resp.message = 'Allocatable milestones successfully fetched';
+        } catch (error) {
+            this.logger.warn(`Get Allocatable Milestones Error : ${JSON.stringify(error)}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
+    @ApiOperation({ summary: 'Allocate (copy) selected milestones into a target company' })
+    @ApiCreatedResponse({
+        description: 'Allocate milestones to another company',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Post('allocate')
+    async allocateMilestones(@Body() body: { TargetCompanyMasterSid: number; MilestoneMasterSids: number[]; createdBy: string }) {
+        let resp = new ResponseData();
+        try {
+            let res = await this.milestoneService.allocateMilestones(body.TargetCompanyMasterSid, body.MilestoneMasterSids, body.createdBy);
+            this.logger.log(`Milestones Allocated : ${JSON.stringify(res)}`);
+            resp.data = res;
+            resp.message = `${res.createdCount} milestone(s) successfully allocated`;
+        } catch (error) {
+            this.logger.warn(`Allocate Milestones Error : ${JSON.stringify(error)}`);
+            resp.status = false;
+            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                resp.message = error.message;
+            } else {
+                resp.message = 'Internal Server Error';
+            }
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get Audit Logs for a Table/Record' })
     @ApiCreatedResponse({ description: 'Fetch audit logs', type: ResponseData })
     @HttpCode(HttpStatus.OK)
