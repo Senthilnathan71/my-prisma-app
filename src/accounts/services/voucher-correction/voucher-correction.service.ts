@@ -203,6 +203,33 @@ export class VoucherCorrectionService {
 
 
 
+        // Sno may only be REARRANGED. Guard integrity: the submitted Sno values must be a
+        // permutation of the header's existing active detail Snos — nothing added, missing,
+        // or duplicated. (Sno has no unique constraint, so swaps persist safely in-place.)
+        const detailsWithSno = VoucherDetail.filter(
+          (d: any) => d?.VoucherDetailSid && d?.Sno !== undefined && d?.Sno !== null,
+        );
+        if (detailsWithSno.length) {
+          const existingDetails = await prisma.voucherDetail.findMany({
+            where: { VoucherHeaderSid, Status: 'A' },
+            select: { Sno: true },
+          });
+          const existingSnos = existingDetails
+            .map((d) => Number(d.Sno))
+            .sort((a, b) => a - b);
+          const submittedSnos = detailsWithSno
+            .map((d: any) => Number(d.Sno))
+            .sort((a, b) => a - b);
+          const isPermutation =
+            existingSnos.length === submittedSnos.length &&
+            existingSnos.every((s, i) => s === submittedSnos[i]);
+          if (!isPermutation) {
+            throw new BadRequestException(
+              'Serial numbers can only be rearranged — none may be added, removed, or duplicated.',
+            );
+          }
+        }
+
         const updatedDetails = await Promise.all(
           VoucherDetail.map(async (item: any) => {
 
@@ -211,6 +238,9 @@ export class VoucherCorrectionService {
             return prisma.voucherDetail.update({
               where: { VoucherDetailSid: item.VoucherDetailSid },
               data: {
+                ...(item.Sno !== undefined && item.Sno !== null
+                  ? { Sno: Number(item.Sno) }
+                  : {}),
                 ChargeDescription: item.ChargeDescription || null,
                 Narration: item.Narration || "",
                 Remarks: item.Remarks || "",
@@ -241,7 +271,8 @@ export class VoucherCorrectionService {
                   transaction.VoucherTransactionSid,
               },
               data: {
-                VoucherDate: voucherDateObj,
+                VoucherDate: voucherDateObj, 
+                Sno: matchingDetail.Sno,
                 ChargeDescription:
                   matchingDetail?.ChargeDescription || null,
                 Narration:

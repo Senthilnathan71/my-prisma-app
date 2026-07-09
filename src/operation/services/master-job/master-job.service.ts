@@ -8715,23 +8715,15 @@ async saveMasterJobExcel(
       ]);
 
       const jobDate = row.MasterJobDate ? new Date(row.MasterJobDate) : new Date();
-      let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
-        companyMasterSid, branchMasterSid, menuId, row.DepartmentMasterSid,
-        jobDate, polPort?.PortMasterSid, podPort?.PortMasterSid
-      );
-      if (!generatedMasterJobNumber) {
-        const { format } = require('date-fns');
-        const ds  = format(jobDate, 'yyyyMMdd');
-        const cnt = await this._db.masterJob.count({ where: { MasterJobNumber: { contains: ds } } });
-        generatedMasterJobNumber = `MASTER-${ds}-${String(cnt + 1).padStart(3, '0')}`;
-      }
 
       await this._db.$transaction(async (prisma) => {
         const houseJobMenuId = await this.resolveHouseJobMenuSid(dept?.departmentType);
 
         const masterJob = await prisma.masterJob.create({
           data: {
-            MasterJobNumber:         generatedMasterJobNumber,
+            // Left null until every insert for this row has succeeded — the number
+            // series is only consumed at the end of this transaction. See below.
+            MasterJobNumber:         null,
             MasterJobDate:           jobDate,
             CompanyMasterSid:        companyMasterSid,
             BranchMasterSid:         branchMasterSid,
@@ -8960,6 +8952,26 @@ async saveMasterJobExcel(
             });
           }
         }
+
+        // Consume the number series only once every insert above has succeeded.
+        // generateNextNumber commits its counter on its own connection, so taking
+        // the number before this point burns it whenever a row fails, leaving a
+        // permanent gap in the series.
+        let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
+          companyMasterSid, branchMasterSid, menuId, row.DepartmentMasterSid,
+          jobDate, polPort?.PortMasterSid, podPort?.PortMasterSid
+        );
+        if (!generatedMasterJobNumber) {
+          const { format } = require('date-fns');
+          const ds  = format(jobDate, 'yyyyMMdd');
+          const cnt = await prisma.masterJob.count({ where: { MasterJobNumber: { contains: ds } } });
+          generatedMasterJobNumber = `MASTER-${ds}-${String(cnt + 1).padStart(3, '0')}`;
+        }
+
+        await prisma.masterJob.update({
+          where: { MasterJobSid: masterJob.MasterJobSid },
+          data:  { MasterJobNumber: generatedMasterJobNumber },
+        });
       }, { timeout: 120000 });
 
       created++;
