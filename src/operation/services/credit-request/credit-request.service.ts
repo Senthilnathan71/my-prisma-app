@@ -161,9 +161,14 @@ export class CreditRequestService {
         const where: Prisma.CustomerMasterWhereInput = {
             status: 'A',
             CashCredit: 'Credit',
-            CustomerType: {
-                path: ['customer'], equals: 'isTrue'
-            },
+            AND: [
+                {
+                    OR: [
+                        { CustomerType: { path: ['customer'], equals: 'isTrue' } },
+                        { CustomerType: { path: ['vendor'], equals: 'isTrue' } },
+                    ],
+                },
+            ],
             CompanyMasterSid: activeCompanyId,
             ...(search
                 ? {

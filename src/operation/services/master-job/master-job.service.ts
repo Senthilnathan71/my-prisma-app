@@ -8145,7 +8145,7 @@ async parseMasterJobExcel(
   ] = await Promise.all([
     this._db.departmentMaster.findMany({
       where: { CompanyMasterSid: companyMasterSid, Status: 'A', departmentType: { in: deptTypeFilter } },
-      select: { DepartmentMasterSid: true, departmentName: true, ExportImport: true },
+      select: { DepartmentMasterSid: true, departmentName: true, ExportImport: true, FCLLCL: true },
     }),
     this._db.portMaster.findMany({ where: { status: 'A' }, select: { PortMasterSid: true, PortCode: true, PortName: true } }),
     this._db.customerMaster.findMany({
@@ -8165,7 +8165,16 @@ async parseMasterJobExcel(
     }),
     this._db.customerMaster.findMany({
       where: { CompanyMasterSid: companyMasterSid, status: 'A', CustomerType: { path: ['customer'], equals: 'isTrue' }, CustomerBranch: { some: {} } },
-      select: { CustomerMasterSid: true, CustomerName: true, CustomerAddress1: true },
+      select: {
+        CustomerMasterSid: true,
+        CustomerName: true,
+        CustomerAddress1: true,
+        CustomerBranch: {
+          where: { status: 'A' },
+          select: { CustomerBranchSid: true },
+          orderBy: { CustomerBranchSid: 'asc' },
+        },
+      },
     }),
     this._db.incoMaster.findMany({
       where: { Status: 'A' },
@@ -8182,6 +8191,14 @@ async parseMasterJobExcel(
   const cfsMap      = new Map(cfsCustomers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
   const customerMap = new Map(customers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerMasterSid]));
   const customerAddrMap = new Map(customers.map(c => [c.CustomerName.trim().toLowerCase(), c.CustomerAddress1 || '']));
+  // The sheet has no branch column, so a house job takes the customer's first
+  // active branch.
+  const customerBranchMap = new Map(
+    customers.map(c => [
+      c.CustomerName.trim().toLowerCase(),
+      c.CustomerBranch[0]?.CustomerBranchSid ?? null,
+    ])
+  );
   const incoMap     = new Map(
     incoTerms.map(i => [
       i.IncoCode.trim().toLowerCase(),
@@ -8288,7 +8305,12 @@ async parseMasterJobExcel(
     const mblNo         = str(row[1]);
     const masterJobDate = parseDate(row[2]);
     const mblDate       = parseDate(row[3]);
-    const freightPPCC   = str(row[4]) || 'Prepaid';
+    const freightPPCCRaw = str(row[4]);
+    // Blank means Prepaid; anything else is matched case-insensitively so the
+    // sheet can carry "prepaid"/"COLLECT" and still normalise to the DB values.
+    const freightPPCC = !freightPPCCRaw
+      ? 'Prepaid'
+      : ['Prepaid', 'Collect'].find(v => v.toLowerCase() === freightPPCCRaw.toLowerCase()) || freightPPCCRaw;
     const destAgentName = str(row[5]);
     const destAgentAddr = str(row[6]);
     const blReleaseType = str(row[7]) || 'Original';
@@ -8358,12 +8380,23 @@ async parseMasterJobExcel(
 
       if (cErrs.length) containerErrs.push({ containerNo, errors: cErrs });
       else containers.push({
-        ContainerType:   ctId,
-        ContainerNumber: containerNo,
-        LineSeal:        str(cRow[3]),
-        CustomsSeal:     str(cRow[4]),
+        ContainerType:     ctId,
+        ContainerTypeName: ctName,
+        ContainerNumber:   containerNo,
+        LineSeal:          str(cRow[3]),
+        CustomsSeal:       str(cRow[4]),
       });
     }
+
+    // On an FCL job every container declared on the master job must be the same
+    // one the house job's cargo and products refer to — the house side cannot
+    // name a container type or number that the MBL does not carry.
+    const isFCLDept =
+      String(dept?.FCLLCL || '').toUpperCase() === 'FCL' &&
+      ['export', 'import'].includes(String(dept?.ExportImport || '').toLowerCase());
+
+    const containerByNo   = new Map(containers.map(c => [c.ContainerNumber, c]));
+    const containerTypeIds = new Set(containers.map(c => c.ContainerType));
 
     // ── HouseJobs ────────────────────────────────────────────────────────────
     const houseJobs: any[] = [];
@@ -8406,6 +8439,7 @@ async parseMasterJobExcel(
 
       const customerSid   = customerName   ? customerMap.get(customerName.toLowerCase())   : null;
       if (customerName   && !customerSid)   hErrs.push(`Customer "${customerName}" not found — add it in the Organization master`);
+      const customerBranchSid = customerName ? customerBranchMap.get(customerName.toLowerCase()) : null;
       const delivAgentSid = delivAgentName  ? agentMap.get(delivAgentName.toLowerCase())   : null;
       if (delivAgentName && !delivAgentSid)  hErrs.push(`DeliveryAgent "${delivAgentName}" not found`);
       const origAgentSid  = origAgentName   ? agentMap.get(origAgentName.toLowerCase())    : null;
@@ -8466,6 +8500,15 @@ async parseMasterJobExcel(
         if (!isAir && !isLCL && ctName && !ctId)
           hErrs.push(`HouseJobCargo ${cargoIdx} ContainerType "${ctName}" not found`);
 
+        if (isFCLDept) {
+          if (!ctName)
+            hErrs.push(`HouseJobCargo ${cargoIdx}: ContainerType is required for an FCL job`);
+          else if (ctId && !containerTypeIds.has(ctId))
+            hErrs.push(
+              `HouseJobCargo ${cargoIdx}: ContainerType "${ctName}" does not match any ContainerType on the MasterJobContainers sheet`
+            );
+        }
+
         // ── Parse products for this cargo index ─────────────────────────────
         const cargoProducts: any[] = [];
 
@@ -8481,10 +8524,27 @@ async parseMasterJobExcel(
           const width       = Number(pRow[12]) || 0;
           const height      = Number(pRow[13]) || 0;
 
+          const prodContainerNo = isAir ? '' : str(pRow[20]).toUpperCase();
+
           if (!prodName)                   hErrs.push(`Cargo ${cargoIdx}: Commodity is required`);
           if (!qty)                        hErrs.push(`Cargo ${cargoIdx}: ExternalQty is required`);
           if (!grossWeight)                hErrs.push(`Cargo ${cargoIdx}: GrossWeight is required`);
           if (pkgTypeName && !pkgTypeCode) hErrs.push(`Cargo ${cargoIdx}: PackageType "${pkgTypeName}" not found`);
+
+          if (isFCLDept) {
+            const masterContainer = prodContainerNo ? containerByNo.get(prodContainerNo) : null;
+            if (!prodContainerNo) {
+              hErrs.push(`Cargo ${cargoIdx}: ContainerNo is required for an FCL job`);
+            } else if (!masterContainer) {
+              hErrs.push(
+                `Cargo ${cargoIdx}: ContainerNo "${prodContainerNo}" is not on the MasterJobContainers sheet`
+              );
+            } else if (ctId && masterContainer.ContainerType !== ctId) {
+              hErrs.push(
+                `Cargo ${cargoIdx}: ContainerNo "${prodContainerNo}" is a "${masterContainer.ContainerTypeName}" container but the cargo ContainerType is "${ctName}"`
+              );
+            }
+          }
 
           const spreadsheetVolumetric = Number(pRow[14]) || 0;
           const spreadsheetCBM        = Number(pRow[15]) || 0;
@@ -8515,7 +8575,7 @@ async parseMasterJobExcel(
             ReceivedQty:      str(pRow[17]),
             DamageQty:        str(pRow[18]),
             DamageRemarks:    str(pRow[19]),
-            ContainerNo:      isAir ? '' : str(pRow[20]),
+            ContainerNo:      prodContainerNo,
             IsHaz:            'N',
             ImcoClass:        '',
             UnNo:             '',
@@ -8546,7 +8606,7 @@ async parseMasterJobExcel(
         cargos.push({
           CargoType:            str(cRow[2]) || 'General',                  // col C — always index 2
           ContainerType:        (isAir || isLCL) ? null : (ctId || null),
-          NoofContainers:       Number(cRow[3 + ctColShift]) || 0,          // col E(sea) / D(air)
+          NoofContainers:       Number(cRow[3 + ctColShift]) || 1,          // col E(sea) / D(air), blank ⇒ 1
           CommodityDescription: str(cRow[4 + ctColShift])   || '',          // col F(sea) / E(air)
           MarksAndNumber:       str(cRow[5 + ctColShift])   || '',          // col G(sea) / F(air)
           // Aggregated from products
@@ -8577,6 +8637,7 @@ async parseMasterJobExcel(
           CustomerName:      customerName,
           CustomerAddress:   customerAddr,
           CustomerMasterSid: customerSid        || null,
+          CustomerBranchSid: customerBranchSid  || null,
           ShipperName:       shipperName,
           ShipperAddress:    shipperAddr,
           ConsigneeName:     consigneeName,
@@ -8804,6 +8865,18 @@ async saveMasterJobExcel(
         for (const hj of row.houseJobs || []) {
           const hblNo = hj.HBLNo || '';
 
+          // Parsed rows carry the branch, but a payload posted without one still
+          // has to land with a branch — resolve it from the customer master.
+          let customerBranchSid = hj.CustomerBranchSid || null;
+          if (!customerBranchSid && hj.CustomerMasterSid) {
+            const branch = await prisma.customerBranch.findFirst({
+              where: { CustomerMasterSid: hj.CustomerMasterSid, status: 'A' },
+              orderBy: { CustomerBranchSid: 'asc' },
+              select: { CustomerBranchSid: true },
+            });
+            customerBranchSid = branch?.CustomerBranchSid ?? null;
+          }
+
           const houseJob = await prisma.houseJob.create({
             data: {
               MasterJobSid:        masterJob.MasterJobSid,
@@ -8825,6 +8898,7 @@ async saveMasterJobExcel(
               CustomerName:        hj.CustomerName      || '',
               CustomerAddress:     hj.CustomerAddress   || '',
               CustomerMasterSid:   hj.CustomerMasterSid || null,
+              CustomerBranchSid:   customerBranchSid,
               ShipperName:         hj.ShipperName       || '',
               ShipperAddress:      hj.ShipperAddress    || '',
               ConsigneeName:       hj.ConsigneeName     || '',
@@ -8842,6 +8916,7 @@ async saveMasterJobExcel(
               ETA:                 null,
               FreightTerms:        hj.IncoFreightTerms  || '',
               MovementType:        '',
+              IsServiceJob:        'N',
               JobType:             row.ExportImport     || '',
               NominatedBy:         'Self',
               Coload:              'N',
@@ -8864,7 +8939,7 @@ async saveMasterJobExcel(
                 BranchMasterSid:      branchMasterSid,
                 CargoType:            cargo.CargoType            || 'General',
                 ContainerType:        cargo.ContainerType        || null,
-                NoofContainers:       cargo.NoofContainers       || 0,
+                NoofContainers:       cargo.NoofContainers       || 1,
                 GrossWeight:          cargo.GrossWeight          || 0,
                 NetWeight:            cargo.NetWeight            || 0,
                 Volume:               cargo.Volume               || 0,

@@ -8,7 +8,6 @@ import { parseDateFromString, statusWhereClause, toNumber } from 'src/common/hel
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { Prisma } from '@prisma/client';
 import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
-import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 interface searchHouseJob {
     search: string,
     page: number,
@@ -39,14 +38,20 @@ export class HouseJobService {
     }
 
     /**
-     * Detects whether any financial document has already been generated against a House Job.
-     * In this system an "invoice" is a VoucherHeader whose voucher-type DocumentTypeCode is 'INV'
-     * (there is no dedicated Invoice table). All other document types (vendor invoice, receipt,
-     * payment, credit note, JV...) are also VoucherHeader rows, and payment requests live in the
-     * PaymentRequest table. All three carry the HouseJobSid directly.
+     * Detects whether a House Job currently has a LIVE financial link — an active revenue invoice,
+     * an active cost voucher, or an active payment request — that should block it from being
+     * suspended.
      *
-     * Used to lock the House Job status: a House Job that already has an invoice / voucher /
-     * payment request must not be suspended (enforced on the backend so the UI cannot bypass it).
+     * The signal is the House Job's own charge rows (CostRevenueCharges, keyed by
+     * TransactionSid = HouseJobSid + MenuMasterSid), NOT the raw voucher documents:
+     *  - RevenueVoucherHeaderSid → set when a customer invoice is generated for the charge.
+     *  - CostVoucherHeaderSid    → set when a vendor invoice / payment voucher is generated.
+     *  - PaymentRequestSid       → set when a payment request is raised.
+     *
+     * This is the app's own "is it invoiced?" flag. It is deliberately RELEASABLE: when a credit
+     * note (or reversal) FULLY reverses the invoice, the system clears RevenueVoucherHeaderSid back
+     * to null (credit-note.service / reverse-voucher.service). So once every charge on the House
+     * Job is fully reversed/credit-noted, the lock is released and the job can be suspended again.
      */
     private async getHouseJobFinancialLinks(
         HouseJobSid: number,
@@ -57,26 +62,50 @@ export class HouseJobService {
             return { hasInvoice: false, hasVoucher: false, hasPaymentRequest: false };
         }
 
+        const houseJob = await this._db.houseJob.findUnique({
+            where: { HouseJobSid: houseJobSid },
+            select: {
+                CompanyMasterSid: true,
+                BranchMasterSid: true,
+                MenuMasterSid: true,
+                JobType: true,
+                departmentMaster: { select: { departmentType: true } },
+            },
+        });
+
+        if (!houseJob) {
+            return { hasInvoice: false, hasVoucher: false, hasPaymentRequest: false };
+        }
+
+        // Resolve the House Job menu the same way the charges were stamped so TransactionSid is
+        // scoped to the House Job module (a bare TransactionSid can collide with a Master Job /
+        // Booking Sid). Fall back to the menu stored on the House Job.
+        const menuId =
+            (await this.resolveHouseJobMenuSid(houseJob.departmentMaster?.departmentType, houseJob.JobType)) ||
+            houseJob.MenuMasterSid ||
+            undefined;
+
+        const baseWhere: Prisma.CostRevenueChargesWhereInput = {
+            TransactionSid: houseJobSid,
+            MenuMasterSid: menuId,
+            CompanyMasterSid: houseJob.CompanyMasterSid ?? undefined,
+            BranchMasterSid: houseJob.BranchMasterSid ?? undefined,
+            status: 'A',
+        };
+
         const [invoiceCount, voucherCount, paymentRequestCount] = await Promise.all([
-            this._db.voucherHeader.count({
-                where: {
-                    HouseJobSid: houseJobSid,
-                    Status: 'A',
-                    voucherTypeMaster: { DocumentTypeCode: DOC_TYPE_CODE.INVOICE },
-                },
+            // Invoiced: a charge still carries an active customer-invoice link. Cleared to null when
+            // the invoice is fully credit-noted / reversed → the House Job unlocks.
+            this._db.costRevenueCharges.count({
+                where: { ...baseWhere, RevenueVoucherHeaderSid: { not: null } },
             }),
-            this._db.voucherHeader.count({
-                where: {
-                    HouseJobSid: houseJobSid,
-                    Status: 'A',
-                    voucherTypeMaster: { DocumentTypeCode: { not: DOC_TYPE_CODE.INVOICE } },
-                },
+            // Vendor invoice / payment voucher on the cost side.
+            this._db.costRevenueCharges.count({
+                where: { ...baseWhere, CostVoucherHeaderSid: { not: null } },
             }),
-            this._db.paymentRequest.count({
-                where: {
-                    HouseJobSid: houseJobSid,
-                    Status: 'A',
-                },
+            // Payment request raised for a charge.
+            this._db.costRevenueCharges.count({
+                where: { ...baseWhere, PaymentRequestSid: { not: null } },
             }),
         ]);
 
