@@ -9,6 +9,7 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { TdsCalculationService } from '../tds-calculation/tds-calculation.service';
 import { InterBranchService } from '../inter-branch/inter-branch.service';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 @Injectable()
 export class PaymentService {
@@ -814,6 +815,10 @@ export class PaymentService {
                 };
             }, { timeout: 60000 });
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             throw error;
         }
     }
@@ -1951,6 +1956,10 @@ export class PaymentService {
                 return this.executePostPayment(payload, tx);
             }, { timeout: 60000 });
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             throw error;
         }
     }

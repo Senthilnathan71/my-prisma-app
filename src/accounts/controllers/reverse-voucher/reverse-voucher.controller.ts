@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 import { ReverseVoucherService } from 'src/accounts/services/reverse-voucher/reverse-voucher.service';
 class CompanyIdDto {
   CompanyMasterSid: number;
@@ -33,7 +34,9 @@ export class ReverseVoucherController {
               output.data = finalOutput;
               output.message = "Reverse Voucher created successfully";
             } catch (error) {
-              this.logger.warn('createReverseVoucher error', (error as any)?.stack || (error as any)?.message || error);
+              if (!(error instanceof DbTriggerValidationException)) {
+                this.logger.warn('createReverseVoucher error', (error as any)?.stack || (error as any)?.message || error);
+              }
               output.status = false;
               if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = (error as any).message || 'Bad request';
@@ -115,7 +118,9 @@ export class ReverseVoucherController {
                     output.data = finalOutput;
                     output.message = "Reverse Voucher updated successfully";
                   } catch (error) {
-                    this.logger.warn(`updateReverseVoucher error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+                    if (!(error instanceof DbTriggerValidationException)) {
+                      this.logger.warn(`updateReverseVoucher error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+                    }
                     output.status = false;
                     if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                       output.message = (error as any).message || 'Bad request';
@@ -252,7 +257,9 @@ async postReversalVoucher(
     resp.data = payment;
     resp.message = "Reversal voucher posted successfully";
   } catch (error) {
-    this.logger.error(`Failed to post reversal voucher: ${error.message}`, error.stack);
+    if (!(error instanceof DbTriggerValidationException)) {
+      this.logger.error(`Failed to post reversal voucher: ${error.message}`, error.stack);
+    }
     resp.status = false;
 
     if (error instanceof BadRequestException || error instanceof UnauthorizedException) {

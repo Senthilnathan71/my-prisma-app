@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { ResponseData } from 'src/common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 import { EmailService } from 'src/email/email.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CreditNoteService } from 'src/accounts/services/credit-note/credit-note.service';
@@ -37,7 +38,9 @@ export class CreditNoteController {
           output.message = "VoucherHeader created successfully";
         } catch (error) {
           // Log full error object (message + stack) for debugging
-          this.logger.warn('createCreditNote error', (error as any)?.stack || (error as any)?.message || error);
+          if (!(error instanceof DbTriggerValidationException)) {
+            this.logger.warn('createCreditNote error', (error as any)?.stack || (error as any)?.message || error);
+          }
           output.status = false;
           if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
             output.message = (error as any).message || 'Bad request';
@@ -174,7 +177,9 @@ export class CreditNoteController {
           output.data = finalOutput;
           output.message = "CreditNote updated successfully";
         } catch (error) {
-          this.logger.warn('updateVoucherHeader error', (error as any)?.stack || (error as any)?.message || error);
+          if (!(error instanceof DbTriggerValidationException)) {
+            this.logger.warn('updateVoucherHeader error', (error as any)?.stack || (error as any)?.message || error);
+          }
           output.status = false;
           if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
             output.message = (error as any).message || 'Bad request';

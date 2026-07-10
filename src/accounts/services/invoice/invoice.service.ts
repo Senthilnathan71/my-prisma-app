@@ -11,6 +11,7 @@ import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
 import { VoucherPeriodService } from 'src/accounts/services/voucher-period/voucher-period.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 export interface UninvoicedChargeForBooking {
   CompanyMasterSid: number;
@@ -628,6 +629,10 @@ export class InvoiceService {
         return voucherHeader;
       });
     } catch (error) {
+      const vmsg = extractVoucherValidationMessage(error);
+      if (vmsg) {
+        throw new DbTriggerValidationException(vmsg);
+      }
       this.logger.error(`createInvoice Error: ${error?.message}`, error?.stack);
       if (error instanceof BadRequestException) {
         throw error;
@@ -993,6 +998,10 @@ export class InvoiceService {
         return updatedVoucherHeader;
       });
     } catch (error) {
+      const vmsg = extractVoucherValidationMessage(error);
+      if (vmsg) {
+        throw new DbTriggerValidationException(vmsg);
+      }
       this.logger.error(`updateVoucherHeaderById Error: ${error?.message}`, error?.stack);
       if (error instanceof BadRequestException) {
         throw error;

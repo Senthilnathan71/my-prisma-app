@@ -9,6 +9,7 @@ import {
 } from '../../dto/voucher-posting.dto';
 import { ResponseData } from '../../../common/response-data';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 /**
  * Controller for voucher posting operations
@@ -170,7 +171,9 @@ export class VoucherPostingController {
 
       return resp;
     } catch (error) {
-      this.logger.error(`Error posting voucher: ${error.message}`, error.stack);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.error(`Error posting voucher: ${error.message}`, error.stack);
+      }
 
       resp.status = false;
       resp.message = error.message || 'Failed to post voucher';
@@ -222,7 +225,9 @@ export class VoucherPostingController {
 
       return resp;
     } catch (error) {
-      this.logger.error(`Error posting voucher ${voucherHeaderSid}: ${error.message}`, error.stack);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.error(`Error posting voucher ${voucherHeaderSid}: ${error.message}`, error.stack);
+      }
 
       resp.status = false;
       resp.message = error.message || 'Failed to post voucher';

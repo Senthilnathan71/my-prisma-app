@@ -8,6 +8,7 @@ import {
   interBranchStrategyFor,
   ResolvedBranchAllocation,
 } from './strategies/inter-branch.strategy';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 /** Shape the frontend posts to stage inter-branch allocations before the source voucher is posted. */
 export interface StageAllocationsPayload {
@@ -315,6 +316,7 @@ export class InterBranchService {
     },
     tx: Prisma.TransactionClient,
   ): Promise<void> {
+    try {
     const { source } = ctx;
     if (source?.MultiBranch !== 'Y') return;
 
@@ -485,6 +487,13 @@ export class InterBranchService {
       if (branchMatches.length) {
         await this.matchMirrorAgainstInvoices(jv2.VoucherHeaderSid, mirror.allotmentBranchSid, branchMatches, ctx, tx);
       }
+    }
+    } catch (error) {
+      const vmsg = extractVoucherValidationMessage(error);
+      if (vmsg) {
+        throw new DbTriggerValidationException(vmsg);
+      }
+      throw error;
     }
   }
 

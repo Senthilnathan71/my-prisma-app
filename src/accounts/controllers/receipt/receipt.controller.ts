@@ -30,6 +30,7 @@ import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { PrismaClientValidationError } from '@prisma/client/runtime/library';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 /**
  * Receipt Voucher Controller
@@ -88,7 +89,9 @@ export class ReceiptController {
         : 'New receipt is created successfully';
     } catch (error) {
       resp.status = false;
-      this.logger.warn(`Error creating receipt: ${JSON.stringify(error),error}`);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.warn(`Error creating receipt: ${JSON.stringify(error),error}`);
+      }
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = (error as any).message || 'Bad request';
       } else {
@@ -112,7 +115,9 @@ export class ReceiptController {
       resp.data = receipt;
       resp.message = "Receipt updated successfully";
     } catch (error) {
-      this.logger.warn(`Error updating receipt: ${JSON.stringify(error),error}`);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.warn(`Error updating receipt: ${JSON.stringify(error),error}`);
+      }
       resp.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = (error as any).message || 'Bad request';
@@ -144,7 +149,9 @@ export class ReceiptController {
       resp.message = 'Receipt posted successfully';
     } catch (error) {
       resp.status = false;
-      this.logger.warn(`Error posting receipt: ${JSON.stringify(error),error}`);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.warn(`Error posting receipt: ${JSON.stringify(error),error}`);
+      }
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = (error as any).message || 'Bad request';
       } else {

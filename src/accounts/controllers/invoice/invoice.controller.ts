@@ -5,6 +5,7 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { InvoiceService } from 'src/accounts/services/invoice/invoice.service';
 import { EmailService } from 'src/email/email.service';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 class CompanyIdDto {
   CompanyMasterSid: number;
@@ -56,7 +57,9 @@ export class InvoiceController {
       output.message = "Invoice created successfully";
     } catch (error) {
       // Log full error object (message + stack) for debugging
-      this.logger.warn('createInvoice error', (error as any)?.stack || (error as any)?.message || error);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.warn('createInvoice error', (error as any)?.stack || (error as any)?.message || error);
+      }
       output.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         output.message = (error as any).message || 'Bad request';
@@ -113,7 +116,9 @@ export class InvoiceController {
       output.data = finalOutput;
       output.message = "Invoice updated successfully";
     } catch (error) {
-      this.logger.warn('updateVoucherHeader error', (error as any)?.stack || (error as any)?.message || error);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.warn('updateVoucherHeader error', (error as any)?.stack || (error as any)?.message || error);
+      }
       output.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         output.message = (error as any).message || 'Bad request';

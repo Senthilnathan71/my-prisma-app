@@ -9,6 +9,7 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
 import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 interface InvoiceHeaderDTO {
     currencyMasterSid?: number;
@@ -1205,6 +1206,10 @@ export class VoucherService {
             },{timeout : 60000});
             return result;
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             throw error;
         }
     }

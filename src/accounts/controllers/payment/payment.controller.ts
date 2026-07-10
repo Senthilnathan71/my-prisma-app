@@ -32,6 +32,7 @@ import { PaymentService } from 'src/accounts/services/payment/payment.service';
 import { OutstandingInvoiceDto, SearchOutstandingDto } from 'src/accounts/dto/receipt.dto';
 import { ApiCreatedResponse, ApiOperation } from '@nestjs/swagger';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 /**
  * Payment Voucher Controller
@@ -76,7 +77,9 @@ export class PaymentController {
         ? 'New payment is created and posted successfully'
         : 'New payment is created successfully';
     } catch (error) {
-      this.logger.error(`Failed to create payment voucher: ${error.message}`, error.stack);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.error(`Failed to create payment voucher: ${error.message}`, error.stack);
+      }
       resp.status = false;
       if(error  instanceof BadRequestException || error instanceof UnauthorizedException){
         resp.message = error.message;
@@ -101,7 +104,9 @@ export class PaymentController {
       resp.data = receipt;
       resp.message = "Payment updated successfully";
     } catch (error) {
-      this.logger.warn(`Error updating Payment: ${JSON.stringify(error), error}`);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.warn(`Error updating Payment: ${JSON.stringify(error), error}`);
+      }
       resp.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = (error as any).message || 'Bad request';
@@ -134,7 +139,9 @@ export class PaymentController {
       resp.data = payment;
       resp.message = "Payment voucher posted successfully";
     } catch (error) {
-      this.logger.error(`Failed to post payment voucher: ${error.message}`, error.stack);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.error(`Failed to post payment voucher: ${error.message}`, error.stack);
+      }
       resp.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         resp.message = error.message;

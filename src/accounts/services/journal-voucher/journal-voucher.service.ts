@@ -12,6 +12,7 @@ import { statusWhereClause, toNumber, roundAmount } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
 import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 import * as ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
 
@@ -253,6 +254,10 @@ export class JournalVoucherService {
                 ? await runJournal(externalTx)
                 : await this._db.$transaction(runJournal, { timeout: 60000 });
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             this.logger.error(`Error creating journal voucher: ${error.message}`);
             if (error instanceof BadRequestException) {
                 throw error;
@@ -498,6 +503,10 @@ return {
 };
             });
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             this.logger.error(`Error updating journal voucher: ${error.message}`);
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;
@@ -693,8 +702,12 @@ return {
                     )
                 );
                 return result;
-    
+
             } catch (error) {
+                const vmsg = extractVoucherValidationMessage(error);
+                if (vmsg) {
+                    throw new DbTriggerValidationException(vmsg);
+                }
                 throw error;
             }
         }
@@ -973,6 +986,10 @@ return {
                     message: 'Voucher posted successfully'
                 };
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             this.logger.error(`Error posting journal voucher: ${error.message}`);
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;

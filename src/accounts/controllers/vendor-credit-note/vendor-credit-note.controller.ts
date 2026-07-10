@@ -3,6 +3,7 @@ import { ApiOperation, ApiCreatedResponse } from '@nestjs/swagger';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { VendorCreditNoteService } from 'src/accounts/services/vendor-credit-note/vendor-credit-note.service';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 import { ResponseData } from 'src/common/response-data';
 class CompanyIdDto {
   CompanyMasterSid: number;
@@ -33,7 +34,9 @@ export class VendorCreditNoteController {
           output.data = finalOutput;
           output.message = "Vendor CreditNote created successfully";
         } catch (error) {
-          this.logger.warn('createVendorCreditNote error', (error as any)?.stack || (error as any)?.message || error);
+          if (!(error instanceof DbTriggerValidationException)) {
+            this.logger.warn('createVendorCreditNote error', (error as any)?.stack || (error as any)?.message || error);
+          }
           output.status = false;
           if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
             output.message = (error as any).message || 'Bad request';
@@ -115,7 +118,9 @@ export class VendorCreditNoteController {
                 output.data = finalOutput;
                 output.message = "Vendor CreditNote updated successfully";
               } catch (error) {
-                this.logger.warn(`updateVendorCreditNote error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+                if (!(error instanceof DbTriggerValidationException)) {
+                  this.logger.warn(`updateVendorCreditNote error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+                }
                 output.status = false;
                 if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                   output.message = (error as any).message || 'Bad request';

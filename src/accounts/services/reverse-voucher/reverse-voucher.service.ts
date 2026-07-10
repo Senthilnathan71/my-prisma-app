@@ -6,6 +6,7 @@ import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { VoucherPeriodService } from 'src/accounts/services/voucher-period/voucher-period.service';
 import { statusWhereClause, toNumber } from 'src/common/helper';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 @Injectable()
 export class ReverseVoucherService {
@@ -870,6 +871,10 @@ export class ReverseVoucherService {
             return result;
 
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             throw error;
         }
     }
@@ -1179,6 +1184,10 @@ export class ReverseVoucherService {
             };
 
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             throw error;
         }
     }

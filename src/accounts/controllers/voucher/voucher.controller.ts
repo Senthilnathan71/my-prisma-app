@@ -4,6 +4,7 @@ import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 
 import { ResponseData } from "src/common/response-data";
 import { VoucherService } from "src/accounts/services/voucher/voucher.service";
 import { Auth } from "src/common/decorators/auth.decorator";
+import { extractVoucherValidationMessage, DbTriggerValidationException } from "src/common/db-validation-error.helper";
 
 @Auth()
 @Controller('voucher')
@@ -170,7 +171,9 @@ export class VoucherController {
             response.data = result;
             response.message = "Voucher created successfully";
         } catch (error) {
-            this.logger.warn(`createVoucher error: ${JSON.stringify(error), error}`);
+            if (!(error instanceof DbTriggerValidationException)) {
+                this.logger.warn(`createVoucher error: ${JSON.stringify(error), error}`);
+            }
             response.status = false;
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 response.message = error.message;
@@ -221,11 +224,17 @@ export class VoucherController {
             output.data = result;
             output.message = "Voucher posted successfully";
         } catch (error) {
-            this.logger.warn(`postVoucher error: ${JSON.stringify(error), error}`);
             output.status = false;
-            if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                // extractVoucherValidationMessage already logged one clean
+                // [DbTriggerValidation] line — don't also emit the noisy generic warn
+                output.message = vmsg;
+            } else if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+                this.logger.warn(`postVoucher error: ${JSON.stringify(error), error}`);
                 output.message = error.message;
             } else {
+                this.logger.warn(`postVoucher error: ${JSON.stringify(error), error}`);
                 output.message = error;
             }
         }

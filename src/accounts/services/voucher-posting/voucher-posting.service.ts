@@ -9,6 +9,7 @@ import {
   DraftVoucherResponseDto,
 } from '../../dto/voucher-posting.dto';
 import { Decimal } from '@prisma/client/runtime/library';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 /**
  * Service for handling voucher posting operations
@@ -596,6 +597,10 @@ export class VoucherPostingService {
 
       return result;
     } catch (error) {
+      const vmsg = extractVoucherValidationMessage(error);
+      if (vmsg) {
+        throw new DbTriggerValidationException(vmsg);
+      }
       this.logger.error(`Error posting voucher: ${error.message}`, error.stack);
 
       return {

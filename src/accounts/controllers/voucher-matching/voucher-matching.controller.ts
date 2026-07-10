@@ -5,6 +5,7 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { VoucherMatchingService } from 'src/accounts/services/voucher-matching/voucher-matching.service';
 import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStandaloneVoucherMatchingDto, FetchVoucherMatchingByIdDto, PostVoucherMatchingDto, FetchOutstandingVouchers, CancelVoucherMatchingDto, EnquireVoucherDto } from 'src/accounts/dto/voucher-matching.dto';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { extractVoucherValidationMessage } from 'src/common/db-validation-error.helper';
 
 @Auth()
 @Controller('voucher-matching')
@@ -260,12 +261,19 @@ export class VoucherMatchingController {
       resp.data = res;
       resp.message = 'Voucher matching posted successfully';
     } catch (error) {
-      this.logger.warn(`postVoucherMatching Error: ${error}`);
       resp.status = false;
-      if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
-        resp.message = error.message;
+      const vmsg = extractVoucherValidationMessage(error);
+      if (vmsg) {
+        // over-match rejected by the DB trigger — the extractor already logged one
+        // clean [DbTriggerValidation] line; surface the exact wording to the toastr
+        resp.message = vmsg;
       } else {
-        resp.message = 'Internal Server Error';
+        this.logger.warn(`postVoucherMatching Error: ${error}`);
+        if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
+          resp.message = error.message;
+        } else {
+          resp.message = 'Internal Server Error';
+        }
       }
     }
     return resp;

@@ -7,6 +7,7 @@ import { PullVoucherDTO, VoucherHeaderDto } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 @Injectable()
 export class VendorCreditNoteService {
@@ -394,6 +395,10 @@ export class VendorCreditNoteService {
                 };
             }, { timeout: 60000 });
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             this.logger.error(`Error creating vendor creditNote: ${error.message}`);
             if (error instanceof BadRequestException) {
                 throw error;
@@ -913,6 +918,10 @@ export class VendorCreditNoteService {
                 return await this.fetchVendorCreditNoteById(VoucherHeaderSid,payload.CompanyMasterSid,payload.BranchMasterSid, tx);
             });
         } catch (error) {
+            const vmsg = extractVoucherValidationMessage(error);
+            if (vmsg) {
+                throw new DbTriggerValidationException(vmsg);
+            }
             this.logger.error(`Error updating vendor creditNote: ${error.message}`);
             if (error instanceof NotFoundException || error instanceof BadRequestException) {
                 throw error;

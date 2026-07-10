@@ -21,6 +21,7 @@ import { ApiOperation, ApiCreatedResponse, ApiConsumes } from '@nestjs/swagger';
 import { ResponseData } from 'src/common/response-data';
 import { JournalVoucherService } from 'src/accounts/services/journal-voucher/journal-voucher.service';
 import { Auth } from 'src/common/decorators/auth.decorator';
+import { DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 
@@ -49,7 +50,9 @@ export class JournalVoucherController {
       output.data = finalOutput;
       output.message = "Journal Voucher created successfully";
     } catch (error) {
-      this.logger.warn('createJournalVoucher error', (error as any)?.stack || (error as any)?.message || error);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.warn('createJournalVoucher error', (error as any)?.stack || (error as any)?.message || error);
+      }
       output.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         output.message = (error as any).message || 'Bad request';
@@ -131,7 +134,9 @@ export class JournalVoucherController {
       output.data = finalOutput;
       output.message = "Journal Voucher updated successfully";
     } catch (error) {
-      this.logger.warn(`updateJournalVoucher error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.warn(`updateJournalVoucher error for ID ${VoucherHeaderSid}`, (error as any)?.stack || (error as any)?.message || error);
+      }
       output.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         output.message = (error as any).message || 'Bad request';
@@ -234,7 +239,9 @@ export class JournalVoucherController {
       output.data = finalOutput;
       output.message = "Journal Voucher posted successfully";
     } catch (error) {
-      this.logger.warn(`postVoucher error: ${JSON.stringify(error), error}`);
+      if (!(error instanceof DbTriggerValidationException)) {
+        this.logger.warn(`postVoucher error: ${JSON.stringify(error), error}`);
+      }
       output.status = false;
       if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
         output.message = (error as any).message || 'Bad request';

@@ -14,6 +14,7 @@ import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { InterBranchService } from '../inter-branch/inter-branch.service';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 /**
  * Receipt Voucher Service
@@ -636,6 +637,10 @@ export class ReceiptService {
         };
       }, { timeout: 60000 });
     } catch (error) {
+      const vmsg = extractVoucherValidationMessage(error);
+      if (vmsg) {
+        throw new DbTriggerValidationException(vmsg);
+      }
       throw error;
     }
   }
@@ -1450,6 +1455,10 @@ export class ReceiptService {
         return this.executePostReceipt(payload, tx);
       }, { timeout: 60000 });
     } catch (error) {
+      const vmsg = extractVoucherValidationMessage(error);
+      if (vmsg) {
+        throw new DbTriggerValidationException(vmsg);
+      }
       throw error;
     }
   }

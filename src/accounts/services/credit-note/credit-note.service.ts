@@ -8,6 +8,7 @@ import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, statusWhereClause, toNumber } from 'src/common/helper';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 @Injectable()
 export class CreditNoteService {
@@ -591,6 +592,10 @@ export class CreditNoteService {
         };
       }, { timeout: 60000 });
     } catch (error) {
+      const vmsg = extractVoucherValidationMessage(error);
+      if (vmsg) {
+        throw new DbTriggerValidationException(vmsg);
+      }
       this.logger.error(`createCreditNote Error: ${error?.message}`, error?.stack);
       if (error instanceof BadRequestException) {
         throw error;
@@ -956,6 +961,10 @@ export class CreditNoteService {
         return updatedVoucherHeader;
       });
     } catch (error) {
+      const vmsg = extractVoucherValidationMessage(error);
+      if (vmsg) {
+        throw new DbTriggerValidationException(vmsg);
+      }
       this.logger.error(`updateVoucherHeaderById Error: ${error?.message}`, error?.stack);
       if (error instanceof BadRequestException) {
         throw error;
