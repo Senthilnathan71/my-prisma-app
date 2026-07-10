@@ -1629,6 +1629,12 @@ export class QuotationService {
                             BookingNo: true
                         }
                     },
+                    EnquiryHeader: {
+                        select: {
+                            EnquiryHeaderSid: true,
+                            EnquiryNumber: true
+                        }
+                    },
                     quoteRoute: {
                         where: {
                             status: 'A'
