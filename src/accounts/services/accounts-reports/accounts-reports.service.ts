@@ -1718,7 +1718,7 @@ export class AccountsReportsService {
           else currencyWiseSummary[currency].bucket_121_above += signedOutstandingLocal;
 
         const customerBranchSid = vt.VoucherHeader?.CustomerBranchSid ?? null;
-        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}|${reportToDate.toISOString().slice(0, 10)}`;
+        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}|${reportToDate.toISOString().slice(0, 10)}|${vt.VoucherHeader?.CustomsDuty ?? 'N'}`;
 
         if (!dueDateCache.has(dueDateCacheKey)) {
           try {
@@ -1730,6 +1730,7 @@ export class AccountsReportsService {
                 CustomerBranchSid: customerBranchSid,
                 VoucherDate: voucherDate,
                 CurrentDate: reportToDate,
+                CustomsDuty: vt.VoucherHeader?.CustomsDuty,
               }),
             );
           } catch {
@@ -2325,6 +2326,7 @@ export class AccountsReportsService {
               CustomerBranchSid : true,
               DepartmentMasterSid: true,
               PostStatus: true,
+              CustomsDuty: true,
             },
           },
           masterJob: true,
@@ -2451,7 +2453,7 @@ export class AccountsReportsService {
           ) + 1;
 
         const customerBranchSid = vt.VoucherHeader?.CustomerBranchSid ?? null;
-        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}|${reportToDate.toISOString().slice(0, 10)}`;
+        const dueDateCacheKey = `${customerBranchSid ?? 'null'}|${voucherDate.toISOString().slice(0, 10)}|${reportToDate.toISOString().slice(0, 10)}|${vt.VoucherHeader?.CustomsDuty ?? 'N'}`;
 
         if (!dueDateCache.has(dueDateCacheKey)) {
           try {
@@ -2463,6 +2465,7 @@ export class AccountsReportsService {
                 CustomerBranchSid: customerBranchSid,
                 VoucherDate: voucherDate,
                 CurrentDate: reportToDate,
+                CustomsDuty: vt.VoucherHeader?.CustomsDuty,
               }),
             );
           } catch {

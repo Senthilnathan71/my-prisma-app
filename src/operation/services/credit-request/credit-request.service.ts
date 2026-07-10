@@ -856,8 +856,17 @@ export class CreditRequestService {
     VoucherDate: Date;
     current_date?: Date;
     CurrentDate?: Date;
+    CustomsDuty?: string | null;
   }): Promise<any> {
     const baseDate = new Date(payload.VoucherDate);
+
+    // Customs Duty invoice: due date IS the voucher date (paid at customs, no credit terms).
+    // Mirrors the CASH rule below; the flag is only ever 'Y' on customer invoices, so vendors
+    // (which reuse this same party-based method) are never affected.
+    if (payload.CustomsDuty === 'Y') {
+      return { creditDays: 0, dueDate: baseDate };
+    }
+
     const termsSelectionDate = new Date(
       (payload as any).current_date ||
         payload.CurrentDate ||
