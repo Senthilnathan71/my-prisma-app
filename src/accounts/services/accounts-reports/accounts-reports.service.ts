@@ -1447,6 +1447,7 @@ export class AccountsReportsService {
       const dueDateVoucherTypes = new Set<string>([
         DOC_TYPE_CODE.INVOICE,
         DOC_TYPE_CODE.INVOICE_NON_JOB,
+        DOC_TYPE_CODE.VENDOR_INVOICE
       ]);
 
       const branches =
