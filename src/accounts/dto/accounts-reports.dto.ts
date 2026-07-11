@@ -168,8 +168,7 @@ export class LedgerReportQueryDto {
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsInt()
-  Subledger?: number;
+  Subledger?: number | number[];
 
   @ApiProperty()
   @IsNotEmpty()

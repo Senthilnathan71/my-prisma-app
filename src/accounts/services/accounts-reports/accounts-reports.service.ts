@@ -2992,16 +2992,24 @@ export class AccountsReportsService {
     const {
       FromDate,
       ToDate,
-      Subledger: ledgerMasterSid,
+      Subledger,
       Ledger: coaMasterSid,
       Branch: branchId,
       companyId: CompanyMasterSid,
       VoucherType: voucherType,
     } = params;
 
+    // Subledger arrives as a single id (single-select) or an array of ids (multi-select for
+    // charge-type ledgers). Normalize to number[] and filter on all of them.
+    const subledgerSids = Array.isArray(Subledger)
+      ? Subledger.map(Number).filter((n) => !isNaN(n))
+      : Subledger != null && (Subledger as any) !== ''
+        ? [Number(Subledger)]
+        : [];
+
     try {
       this.logger.log(
-        `Getting ledger report: CompanySid=${CompanyMasterSid}, LedgerMasterSid=${ledgerMasterSid}`,
+        `Getting ledger report: CompanySid=${CompanyMasterSid}, SubledgerSids=[${subledgerSids.join(', ')}]`,
       );
 
       const branches =
@@ -3027,11 +3035,22 @@ export class AccountsReportsService {
         branchId && branchId.length > 0
           ? branches.map((b) => b.branchName).join(', ')
           : 'All Branches';
-      const subledger = ledgerMasterSid
-        ? await this._db.subledgerMaster.findUnique({
-            where: { SubledgerMasterSid: ledgerMasterSid },
-          })
-        : null;
+      // Header label: for charge-type subledgers include the department so same-named charges
+      // that exist per department are distinguishable (e.g. "Ocean Freight - Import").
+      let subledgerName = '';
+      if (subledgerSids.length) {
+        const subledgers = await this._db.subledgerMaster.findMany({
+          where: { SubledgerMasterSid: { in: subledgerSids } },
+          include: { departmentMaster: { select: { departmentName: true } } },
+        });
+        subledgerName = subledgers
+          .map((s) =>
+            s.SubledgerType === 'Charge' && s.departmentMaster?.departmentName
+              ? `${s.SubledgerName} - ${s.departmentMaster.departmentName}`
+              : s.SubledgerName,
+          )
+          .join(', ');
+      }
 
       const ledger = coaMasterSid
         ? await this._db.cOAMaster.findUnique({
@@ -3062,7 +3081,9 @@ export class AccountsReportsService {
           BranchMasterSid: { in: resolvedBranchIds },
           VoucherDate: { lt: FromDate },
           ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
-          ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
+          ...(subledgerSids.length > 0 && {
+            LedgerMasterSid: { in: subledgerSids },
+          }),
           ...(voucherType && {
             VoucherTypeMasterSid: Number(voucherType),
           }),
@@ -3104,7 +3125,9 @@ export class AccountsReportsService {
             { VoucherDate: { lte: ToDate } },
           ],
           ...(coaMasterSid && { COAMasterSid: coaMasterSid }),
-          ...(ledgerMasterSid && { LedgerMasterSid: ledgerMasterSid }),
+          ...(subledgerSids.length > 0 && {
+            LedgerMasterSid: { in: subledgerSids },
+          }),
           ...(voucherType && {
             VoucherTypeMasterSid: Number(voucherType),
           }),
@@ -3146,14 +3169,15 @@ export class AccountsReportsService {
 
       if (voucherTransactions.length === 0) {
         this.logger.log(
-          `No Ledger Report found for LedgerMasterSid ${ledgerMasterSid}`,
+          `No Ledger Report found for SubledgerSids [${subledgerSids.join(', ')}]`,
         );
         return {
           companyMasterSid: CompanyMasterSid,
           branchMasterSid: branchId,
-          ledgerMasterSid: ledgerMasterSid || null,
+          ledgerMasterSid: subledgerSids[0] ?? null,
+          subledgerMasterSids: subledgerSids,
           COAMasterSid: coaMasterSid || null,
-          subledgerName: subledger?.SubledgerName,
+          subledgerName: subledgerName,
           ledgerName: ledger?.LedgerName,
           ledgerType: ledger?.LedgerType,
           totalOutstandingCurrency: 0,
@@ -3287,8 +3311,9 @@ export class AccountsReportsService {
         companyMasterSid: CompanyMasterSid,
         branchMasterSid: branchId,
         branchInvolved,
-        ledgerMasterSid: ledgerMasterSid!,
-        subledgerName: subledger?.SubledgerName,
+        ledgerMasterSid: subledgerSids[0] ?? null,
+        subledgerMasterSids: subledgerSids,
+        subledgerName: subledgerName,
         ledgerName: ledger?.LedgerName,
         ledgerType: ledger?.LedgerType,
         totalOutstandingCurrency: roundAmount(totalOutstandingCurrency, 2),
@@ -3315,13 +3340,16 @@ export class AccountsReportsService {
     const {
       FromDate,
       ToDate,
-      Subledger: ledgerMasterSid,
+      Subledger,
       Ledger: coaMasterSid,
       Branch: branchId,
       companyId: CompanyMasterSid,
       VoucherType: voucherType,
       Currency: currency,
     } = params;
+
+    // The currency ledger report stays single-select; coerce a possible array to one id.
+    const ledgerMasterSid = Array.isArray(Subledger) ? Subledger[0] : Subledger;
 
     try {
       this.logger.log(
