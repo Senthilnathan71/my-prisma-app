@@ -321,7 +321,7 @@ export class CoaController {
     })
     @HttpCode(HttpStatus.OK)
     @Post('ledger-category')
-    async getCoaByLedgerCategory(@Body() body: { LedgerCategory: string ; CompanyMasterSid: number , filterNonJob ?: boolean , VoucherType ?: string }) {
+    async getCoaByLedgerCategory(@Body() body: { LedgerCategory: string; CompanyMasterSid: number; filterNonJob?: boolean; VoucherType?: string; BranchMasterSid?: number; VoucherHeaderSid?: number; CashOrBank?: string }) {
         let resp = new ResponseData();
         try {
             if(!body.VoucherType && !body.LedgerCategory){
@@ -330,7 +330,10 @@ export class CoaController {
             if(!body.CompanyMasterSid){
                 throw new BadRequestException('CompanyMasterSid is required');
             }
-            let res = await this.coaService.getCOAByLedgerCategory(body.LedgerCategory, body.CompanyMasterSid , body.filterNonJob , body.VoucherType);
+            let res = await this.coaService.getCOAByLedgerCategory(
+                body.LedgerCategory, body.CompanyMasterSid, body.filterNonJob, body.VoucherType,
+                { BranchMasterSid: body.BranchMasterSid, VoucherHeaderSid: body.VoucherHeaderSid, CashOrBank: body.CashOrBank },
+            );
 
             resp.data = res;
             resp.message = "Coa by LedgerCategory is successfully fetched";

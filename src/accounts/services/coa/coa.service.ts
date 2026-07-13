@@ -2,7 +2,7 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { statusWhereClause } from 'src/common/helper';
-import { getAllowedLedgerTypes } from 'src/common/config/voucher-type.config';
+import { getAllowedLedgerTypes, getMandatoryLedgerTypes, getRestrictedLedgerTypes } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import * as ExcelJS from 'exceljs';
@@ -106,9 +106,15 @@ export class CoaService {
      * 1. Receipt detail part
      * 
      */
-    async getCOAByLedgerCategory(ledgerCategory: string, CompanyMasterSid: number , filterNonJob ?: boolean, voucherType ?: string) {
+    async getCOAByLedgerCategory(
+        ledgerCategory: string,
+        CompanyMasterSid: number,
+        filterNonJob?: boolean,
+        voucherType?: string,
+        opts?: { BranchMasterSid?: number; VoucherHeaderSid?: number; CashOrBank?: string },
+    ) {
         try {
-            const allowedLedgerTypes = voucherType ? getAllowedLedgerTypes(voucherType) : [];
+            const allowedLedgerTypes = await this.resolveAllowedLedgerTypes(voucherType, CompanyMasterSid, opts);
             const allCoaWithSpecificLedgerCategory = await this._db.cOAMaster.findMany({
                 where: {
                     Status: 'A',
@@ -116,27 +122,100 @@ export class CoaService {
                     ...(allowedLedgerTypes.length > 0
                         ? { LedgerType: { in: allowedLedgerTypes } }
                         : { LedgerCategory: ledgerCategory }),
-                    ...(filterNonJob ? { JobNoRequire : 'N' } : {})
+                    ...(filterNonJob ? { JobNoRequire: 'N' } : {})
                 },
                 select: {
                     COAMasterSid: true,
                     LedgerName: true,
-                    SubledgerName : true,  // is subledgermapped?
-                    JobNoRequire : true,
+                    SubledgerName: true,   // is subledger mapped?
+                    JobNoRequire: true,
                     LedgerType: true,
                     LedgerCurrency: true,
                     SubGroupName: true,
                     HSNRequire: true,
                     Category: true,
                 },
-                orderBy: {
-                    LedgerName: 'asc'
-                }
+                orderBy: { LedgerName: 'asc' }
             });
             return allCoaWithSpecificLedgerCategory;
         } catch (error) {
             throw error;
         }
+    }
+
+    /**
+     * Resolve the ledger types to filter the dropdown by.
+     * - posted voucher  -> static VOUCHER_LEDGER_TYPE_MAP (stable superset; already-selected ledgers always render)
+     * - new / draft     -> VoucherTypeMaster.AllowedLedgerTypes (per company+branch), empty -> static fallback
+     * - always unioned with the mandatory floor (e.g. RPT must always offer Cash/Bank/Sy Dr)
+     * Single indexed lookup each; no extra HTTP round trip.
+     */
+    private async resolveAllowedLedgerTypes(
+        voucherType: string | undefined,
+        CompanyMasterSid: number,
+        opts?: { BranchMasterSid?: number; VoucherHeaderSid?: number; CashOrBank?: string },
+    ): Promise<string[]> {
+        if (!voucherType) return [];
+
+        // Resolve the doc type row (RPT/PMT: match VoucherTypeMaster.Type from CashOrBank, else 'Others',
+        // else any — mirrors the number-series lookup) so the mandatory floor + AllowedLedgerTypes are Type-correct.
+        const docType = await this.resolveDocTypeForLedger(voucherType, CompanyMasterSid, opts?.BranchMasterSid, opts?.CashOrBank);
+
+        let base: string[] | null = null;
+        if (opts?.VoucherHeaderSid) {
+            const header = await this._db.voucherHeader.findUnique({
+                where: { VoucherHeaderSid: opts.VoucherHeaderSid },
+                select: { PostStatus: true },
+            });
+            if (header?.PostStatus === 'P') base = getAllowedLedgerTypes(voucherType);
+        }
+        if (base === null) {
+            const db = docType?.AllowedLedgerTypes ?? [];
+            base = db.length > 0 ? db : getAllowedLedgerTypes(voucherType);
+        }
+        const withFloor = Array.from(new Set([...base, ...getMandatoryLedgerTypes(voucherType, docType?.Type ?? undefined)]));
+        const restricted = getRestrictedLedgerTypes(voucherType);
+        return restricted.length ? withFloor.filter(t => !restricted.includes(t)) : withFloor;
+    }
+
+    /** Resolve the VoucherTypeMaster row for ledger resolution — mirrors the number-series lookup:
+     *  a Cash/Bank voucher (CashOrBank 'C'/'B') matches Type=Cash/Bank, else falls back to Type='Others',
+     *  else any row for the code. Returns { Type, AllowedLedgerTypes } or null. */
+    private async resolveDocTypeForLedger(
+        voucherType: string,
+        CompanyMasterSid: number,
+        BranchMasterSid?: number,
+        cashOrBank?: string,
+    ): Promise<{ Type: string | null; AllowedLedgerTypes: string[] }> {
+        const rows = await this._db.voucherTypeMaster.findMany({
+            where: {
+                DocumentTypeCode: voucherType,
+                CompanyMasterSid,
+                status: 'A',
+                ...(BranchMasterSid ? { BranchMasterSid } : {}),
+            },
+            select: { Type: true, AllowedLedgerTypes: true },
+        });
+        if (!rows.length) return { Type: null, AllowedLedgerTypes: [] };
+
+        const cob = (cashOrBank || '').trim().toUpperCase();
+        const specificType = cob === 'C' ? 'Cash' : cob === 'B' ? 'Bank' : null;
+        const byType = (t: string) => rows.find((r) => (r.Type || '').trim().toLowerCase() === t.toLowerCase());
+        const specific = specificType ? byType(specificType) : undefined;
+        const others = byType('Others');
+
+        // Type drives the Type-aware mandatory floor (Cash/Bank) — take the most specific existing row
+        // (Cash/Bank → Others → any) so a Bank payment still gets the Bank floor.
+        const typeRow = specific ?? others ?? rows[0];
+
+        // AllowedLedgerTypes (the configurable charge/tax allow-set) is maintained per DocumentTypeCode —
+        // typically on the ONE 'Others' row, with the Cash/Bank rows left empty (they exist mainly for
+        // numbering). Resolve it INDEPENDENTLY of the floor's Type: first NON-EMPTY array in preference
+        // order specific → Others → any. Without this, a Bank/Cash voucher whose own row is empty ignores
+        // the config saved on 'Others' and wrongly falls back to the static charge set.
+        const configRow = [specific, others, ...rows].find((r) => (r?.AllowedLedgerTypes?.length ?? 0) > 0);
+
+        return { Type: typeRow?.Type ?? null, AllowedLedgerTypes: configRow?.AllowedLedgerTypes ?? [] };
     }
 
     async getCoaWithSubledger(CompanyMasterSid: number) {

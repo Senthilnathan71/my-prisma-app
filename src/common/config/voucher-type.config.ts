@@ -78,13 +78,63 @@ export const getTaxLedger = (voucherType: TaxVoucherType): TaxLedgerType | undef
 // ==============================
 // Ledger Types allowed per Voucher Type (for COA dropdown filtering)
 // ==============================
+// Full ledger-type vocabulary (mirrors COAMaster.LedgerType values / admin modeOfledgertype list)
+const ALL_LEDGER_TYPES = [
+  'Accrual','Asset','Bank','Cash','Cost','Depreciation','Expenses GST','Imprest',
+  'Income GST','Income Tax Payable','Income Tax Receivable','Input Tax','Liabilities',
+  'Other Cost','Other Revenue','Output Tax','Revenue','Sy Cr','Sy Dr',
+  'TDS Payable','TDS Receivable','Inter Branch','Cost and Revenue','Asset and Liability',
+];
+const REVENUE_SIDE = ['Revenue','Other Revenue','Income GST','Output Tax','TDS Receivable','Sy Dr','Cost and Revenue','Asset and Liability'];
+const COST_SIDE    = ['Other Cost','Cost','Expenses GST','Input Tax','TDS Payable','Imprest','Asset','Sy Cr','Cost and Revenue','Asset and Liability'];
+
+// Configurable ceiling per voucher type — also the *posted-mode* / fallback definition.
 export const VOUCHER_LEDGER_TYPE_MAP: Record<string, string[]> = {
-  PMT: ['Other Cost', 'Cost' ,'Expenses GST', 'Imprest', 'Income Tax Payable', 'TDS Payable','Input Tax', 'Sy Cr','Cash','Bank',"Asset", 'Cost and Revenue', 'Asset and Liability'],
-  RPT: ['Other Cost', 'Other Revenue', 'Income GST','TDS Receivable','Output Tax', 'Sy Dr','Cash','Bank', 'Cost and Revenue', 'Asset and Liability'],
+  // Cash / Bank / Sy Dr | Sy Cr are NOT here — they come from the Type-aware mandatory floor
+  // (getMandatoryLedgerTypes) so a Cash receipt never offers Bank, etc. These are the charge/tax types.
+  PMT: ['Other Cost','Cost','Expenses GST','Imprest','Income Tax Payable','TDS Payable','Input Tax','Asset','Cost and Revenue','Asset and Liability'],
+  RPT: ['Other Cost','Other Revenue','Income GST','TDS Receivable','Output Tax','Cost and Revenue','Asset and Liability'],
+  INV: REVENUE_SIDE, NIN: ALL_LEDGER_TYPES, CRN: ALL_LEDGER_TYPES,
+  VIN: ALL_LEDGER_TYPES, VRN: ALL_LEDGER_TYPES,
+  JV:  ALL_LEDGER_TYPES, RJV: ALL_LEDGER_TYPES,
+  VM:  ['Sy Dr','Sy Cr'],
 };
 
 export const getAllowedLedgerTypes = (voucherType: string): string[] => {
   return VOUCHER_LEDGER_TYPE_MAP[voucherType] ?? [];
+};
+
+// Mandatory ("floor") ledger types: always offered regardless of the configured AllowedLedgerTypes.
+// Only RPT/PMT/VM force a floor. RPT/PMT are Type-aware (VoucherTypeMaster.Type = Cash/Bank/Others):
+//   Cash → [Cash, Sy]   Bank → [Bank, Sy]   Others/unknown → [Cash, Bank, Sy]   (Sy = Sy Dr RPT / Sy Cr PMT)
+// Every other document type's BEFORE-posting set is the manually-maintained DB AllowedLedgerTypes;
+// POSTED vouchers fall back to the static VOUCHER_LEDGER_TYPE_MAP above.
+export const MANDATORY_LEDGER_TYPE_MAP: Record<string, string[]> = {
+  VM: ['Sy Dr','Sy Cr'],
+};
+
+const receiptPaymentMandatory = (type: string | undefined, sy: 'Sy Dr' | 'Sy Cr'): string[] => {
+  switch ((type || '').trim().toLowerCase()) {
+    case 'cash': return ['Cash', sy];
+    case 'bank': return ['Bank', sy];
+    default:     return ['Cash', 'Bank', sy]; // 'Others' / unresolved
+  }
+};
+
+export const getMandatoryLedgerTypes = (voucherType: string, type?: string): string[] => {
+  if (voucherType === 'RPT') return receiptPaymentMandatory(type, 'Sy Dr');
+  if (voucherType === 'PMT') return receiptPaymentMandatory(type, 'Sy Cr');
+  return MANDATORY_LEDGER_TYPE_MAP[voucherType] ?? [];
+};
+
+// Restricted ("blocklist") ledger types: never offered for a voucher type — subtracted from the
+// resolved dropdown set even if present in AllowedLedgerTypes or the static VOUCHER_LEDGER_TYPE_MAP.
+export const RESTRICTED_LEDGER_TYPE_MAP: Record<string, string[]> = {
+  NIN: ['Revenue', 'Cost'],   // non-job invoice — exclude the generic Revenue / Cost types
+};
+
+export const getRestrictedLedgerTypes = (voucherType: string): string[] => {
+  return RESTRICTED_LEDGER_TYPE_MAP[voucherType] ?? [];
 };
 
 /**
