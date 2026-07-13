@@ -250,7 +250,7 @@ model BranchMaster {
 model UserMaster {
   userCode                           String                       @db.Char(100)
   userName                           String                       @db.VarChar(100)
-  userEmail                          String                       @db.VarChar(50)
+  userEmail                          String                       @unique @db.VarChar(50)
   userPassword                       String                       @db.VarChar(100)
   isSalesperson                      String?                      @db.Char(1)
   contactNumber                      String?                      @db.VarChar(20)
@@ -1545,7 +1545,7 @@ model CustomerLogin {
   CustomerBranchSid Int
   CompanyMasterSid  Int?
   LoginName         String         @db.VarChar(50)
-  LoginEmail        String         @db.VarChar(50)
+  LoginEmail        String         @unique @db.VarChar(50)
   LoginPassword     String         @db.VarChar(100)
   createdOn         DateTime       @default(now()) @db.Timestamptz(6)
   updatedOn         DateTime?      @updatedAt @db.Timestamptz(6)
