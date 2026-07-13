@@ -112,10 +112,13 @@ export class EnquiryHeaderController {
     })
     @HttpCode(HttpStatus.OK)
     @Patch('header/:id')
-    async editEnquiry(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+    async editEnquiry(@Param('id', ParseIntPipe) id: number, @Body() body: any, @UserData() user: any) {
         this.logger.debug(`editEnquiry: Enquiry Header update payload- ${JSON.stringify(body), id}`)
         let output = new ResponseData
         try {
+            // The acting approver is the authenticated user, not the enquiry's salesman
+            // (body.UserMasterSid). Used server-side to validate approvals.
+            body.ApproverUserMasterSid = user?.UserMasterSid ?? body.ApproverUserMasterSid ?? null;
             let enquiry = await this.enquiryHeaderService.updateEnquiry(id, body);
             if (!enquiry) {
                 this.logger.log(`editEnquiry: Update Enquiry Header ${enquiry}`)

@@ -17,6 +17,49 @@ export class EnquiryHeaderService {
         private menuUserConfigService: MenuUserConfigService
     ) { }
 
+    /**
+     * Department-scoped authorizer lookup for a menu. Authority rules store department NAMES in an
+     * array (matched with `has`); when no rule covers the department there are no authorizers, so
+     * the document needs no approval. Returns both the count and the resolved department name so
+     * callers can reuse the name for the authorizer lookup.
+     */
+    private async resolveDepartmentAuthorizers(
+        companyMasterSid: number,
+        branchMasterSid: number,
+        menuMasterSid: number,
+        departmentMasterSid?: number | null,
+    ): Promise<{ count: number; departmentName: string | null }> {
+        let departmentName: string | null = null;
+        if (departmentMasterSid && Number.isFinite(Number(departmentMasterSid))) {
+            const dept = await this._db.departmentMaster.findFirst({
+                where: {
+                    DepartmentMasterSid: Number(departmentMasterSid),
+                    CompanyMasterSid: companyMasterSid,
+                    Status: 'A',
+                },
+                select: { departmentName: true },
+            });
+            departmentName = dept?.departmentName || null;
+        }
+
+        const count = await this._db.authorityDetail.count({
+            where: {
+                status: 'A',
+                CompanyMasterSid: companyMasterSid,
+                BranchMasterSid: branchMasterSid,
+                authorityMaster: {
+                    status: 'A',
+                    MenuMaster: menuMasterSid,
+                    CompanyMasterSid: companyMasterSid,
+                    BranchMasterSid: branchMasterSid,
+                    ...(departmentName ? { DepartmentMaster: { has: departmentName } } : {}),
+                },
+            },
+        });
+
+        return { count, departmentName };
+    }
+
     async createEnquiry(payload) {
         try {
             return await this._db.$transaction(async (prisma) => {
@@ -65,6 +108,17 @@ export class EnquiryHeaderService {
           MenuMasterSid,
         ));
 
+                // Server-authoritative approval state: a new enquiry cannot be pre-approved by the
+                // client. When its department has an active authority rule it starts Pending;
+                // otherwise there is nobody to approve, so it is Approved (normal flow).
+                const { count: authorizerCount } = await this.resolveDepartmentAuthorizers(
+                    payload.CompanyMasterSid,
+                    payload.BranchMasterSid,
+                    MenuMasterSid,
+                    DepartmentMasterSid,
+                );
+                const resolvedAuthorizerStatus = authorizerCount > 0 ? 'Pending' : 'Approved';
+
                 // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
                     LeadOrCustomer: payload.LeadOrCustomer,
@@ -95,7 +149,7 @@ export class EnquiryHeaderService {
                     ContactNumber:payload.ContactNumber,
                     EnquiryNumber: enquiryNumber,
                     EnquiryDate: payload.EnquiryDate,
-                    authorizerStatus: payload.authorizerStatus || "Pending"
+                    authorizerStatus: resolvedAuthorizerStatus
                 };
 
                 const enquiryHeader = await prisma.enquiryHeader.create({
@@ -265,21 +319,49 @@ export class EnquiryHeaderService {
             // Step 1: Update Enquiry Header
             const statusUpdate = payload.status === "A" ? "A" : "S";
 
+            const menuMasterSid = Number(payload.MenuMasterSid) || Number(payload.MenuMaster);
+            const departmentMasterSid = payload.DepartmentMasterSid ? Number(payload.DepartmentMasterSid) : null;
+
+            // Server-authoritative approval state (department-scoped) — the client cannot
+            // self-approve. If the department has no authority rule the enquiry is Approved;
+            // otherwise its stored status is preserved and only a legitimate Final-authorizer
+            // approval (or any rejection) recorded below is allowed to change it.
+            const { count: authorizerCount, departmentName } = await this.resolveDepartmentAuthorizers(
+                payload.CompanyMasterSid,
+                payload.BranchMasterSid,
+                menuMasterSid,
+                departmentMasterSid,
+            );
+            const existingEnquiry = await this._db.enquiryHeader.findUnique({
+                where: { EnquiryHeaderSid: enquiryHeaderSid },
+                select: { authorizerStatus: true },
+            });
+            let resolvedAuthorizerStatus: any =
+                authorizerCount === 0 ? 'Approved' : (existingEnquiry?.authorizerStatus ?? 'Pending');
+
             let authLogUpdate;
 
-            if (payload.approvalStatusChange && payload.authorizerStatus !== "Pending") {
+            if (authorizerCount > 0 && payload.approvalStatusChange && payload.authorizerStatus !== "Pending") {
 
-
+                // The approver is the current logged-in user (ApproverUserMasterSid), not the
+                // enquiry's salesman (payload.UserMasterSid, which can be null).
+                const approverUserMasterSid = Number(payload.ApproverUserMasterSid) || null;
+                if (!approverUserMasterSid) {
+                    throw new BadRequestException('Cannot record approval: the acting user could not be identified.');
+                }
 
                 const authorityDetail = await this._db.authorityDetail.findFirst({
                     where: {
                         CompanyMasterSid: payload.CompanyMasterSid,
                         BranchMasterSid: payload.BranchMasterSid,
-                        UserMasterSid: payload.UserMasterSid,
+                        UserMasterSid: approverUserMasterSid,
                         status: 'A',
                         authorityMaster: {
-                            MenuMaster: payload.MenuMaster,
+                            MenuMaster: menuMasterSid,
                             status: 'A',
+                            CompanyMasterSid: payload.CompanyMasterSid,
+                            BranchMasterSid: payload.BranchMasterSid,
+                            ...(departmentName ? { DepartmentMaster: { has: departmentName } } : {}),
                         },
                     },
                 });
@@ -305,15 +387,9 @@ export class EnquiryHeaderService {
                     },
                 });
 
+                // Only a Final authorizer's approval (or any rejection) flips the enquiry's status.
                 if (authorityDetail.FinalAuthority === 'Y' || payload.authorizerStatus === "Rejected") {
-
-                    await this._db.enquiryHeader.update({
-                        where: { EnquiryHeaderSid: enquiryHeaderSid },
-                        data: {
-                            authorizerStatus: payload.authorizerStatus,
-                            AuthorizerRemarks: payload.AuthorizerRemarks,
-                        },
-                    });
+                    resolvedAuthorizerStatus = payload.authorizerStatus;
                 }
             }
             const updatedEnquiryHeader = await this._db.enquiryHeader.update({
@@ -334,7 +410,8 @@ export class EnquiryHeaderService {
                     CustomerRef:payload.CustomerRef,
                     MenuMasterSid: Number(payload.MenuMasterSid),
                     UserMasterSid : payload.UserMasterSid,
-                    authorizerStatus : payload.authorizerStatus,
+                    authorizerStatus : resolvedAuthorizerStatus,
+                    AuthorizerRemarks: payload.AuthorizerRemarks,
                     status: statusUpdate,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date(),
