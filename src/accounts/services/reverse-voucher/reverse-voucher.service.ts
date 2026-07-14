@@ -640,17 +640,19 @@ export class ReverseVoucherService {
                         select: {
                             VoucherNumber: true,
                             voucherTypeMaster: {
-                                select: { DocumentTypeName: true }
+                                select: { DocumentTypeName: true, DocumentTypeCode: true }
                             }
                         }
                     });
+                    // A plain GL JV has no party — its reversal must not show a vendor name.
+                    const isJvReversal = reversalVoucher?.voucherTypeMaster?.DocumentTypeCode === DOC_TYPE_CODE.JOURNAL_VOUCHER;
                     return {
                         ...item,
                         reversalVoucherNumber: reversalVoucher?.VoucherNumber || "",
                         reversalVoucherType: reversalVoucher?.voucherTypeMaster?.DocumentTypeName || null,
                         LocalAmount: item.VoucherDetail?.reduce((sum, d) => sum + Number(d.LocalAmount || 0), 0) || 0,
                         // TDSAmount: item.VoucherTDS?.[0]?.TDSAmount || 0,
-                        VendorName: item.PartyName,
+                        VendorName: isJvReversal ? '' : item.PartyName,
                         BillNo: item.DocumentNumber,
                         BillDate: item.DocumentDate,
                         MBLNo: item.MasterNumber,
