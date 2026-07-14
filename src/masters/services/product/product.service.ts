@@ -39,6 +39,8 @@ export class ProductService {
 
     async createNewProduct(payload) {
         try {
+            await this.ensureProductNameIsUnique(payload.ProductName);
+
             const createdProduct = await this._db.productMaster.create({
                 data: {
                     ...payload,
@@ -47,6 +49,35 @@ export class ProductService {
             return createdProduct;
         } catch (error) {
             throw error;
+        }
+    }
+
+    // Product master is not company-scoped in practice — the entry form never sends a
+    // CompanyMasterSid, so rows land with it NULL. Matching on that column would only ever find
+    // other NULL-company rows and silently miss real duplicates, so the name is checked globally.
+    private async ensureProductNameIsUnique(
+        ProductName: string,
+        excludeProductMasterSId?: number,
+    ) {
+        if (!ProductName) {
+            return;
+        }
+
+        const duplicate = await this._db.productMaster.findFirst({
+            where: {
+                ProductName: {
+                    equals: ProductName.trim(),
+                    mode: 'insensitive',
+                },
+                status: 'A',
+                ...(excludeProductMasterSId
+                    ? { ProductMasterSId: { not: Number(excludeProductMasterSId) } }
+                    : {}),
+            }
+        });
+
+        if (duplicate) {
+            throw new BadRequestException('Product Name already exists');
         }
     }
 
@@ -76,6 +107,11 @@ export class ProductService {
             if (!exist) {
                 throw new BadRequestException(`Product with Id : ${ProductMasterSid} not exists`);
             }
+
+            if (payload.ProductName) {
+                await this.ensureProductNameIsUnique(payload.ProductName, ProductMasterSid);
+            }
+
             const updatedProduct = this._db.productMaster.update({
                 where: {
                     ProductMasterSId: ProductMasterSid
