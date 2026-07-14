@@ -916,6 +916,22 @@ export class ReceiptService {
 
         const updatedCreatedMatchings = await Promise.all(matchingOperations);
 
+        // Delete only the source staging rows the user genuinely removed (e.g. party changed →
+        // grid cleared and resubmitted for the new party). Owning-branch staging
+        // (AllotmentBranchSid != null) is managed by stageAllocations; posted matchings
+        // (VoucherMatchingHeaderSid set) are immutable and excluded.
+        const keptMatchingSids = updatedCreatedMatchings
+          .map((m: any) => Number(m?.MatchingDetailSid))
+          .filter((sid: number) => sid > 0);
+        await prisma.matchingDetail.deleteMany({
+          where: {
+            SourceVoucherHeaderSid: VoucherHeaderSid,
+            AllotmentBranchSid: null,
+            VoucherMatchingHeaderSid: null,
+            ...(keptMatchingSids.length > 0 ? { MatchingDetailSid: { notIn: keptMatchingSids } } : {}),
+          },
+        });
+
         return {
           voucherHeader: updatedHeader,
           details: updatedCreatedDetails,
