@@ -9,6 +9,7 @@ export const DOC_TYPE_CODE = {
   RECEIPT: 'RPT',
   PAYMENT: 'PMT',
   VENDOR_CREDIT_NOTE: 'VRN',
+  CREDIT_NOTE_NON_JOB: 'NCN',
   JOURNAL_VOUCHER: 'JV',
   INTER_BRANCH_JV: 'IJV',
   REVERSAL_JOURNAL_VOUCHER: 'RJV',
@@ -27,6 +28,7 @@ export const PARTY_VTYPE_DRCR_MAP = {
   "RPT": { DrCr: "C" },   // Party Credited (Customer pays)
   "PMT": { DrCr: "D" },   // Party Debited (We pay Vendor)
   "CRN": { DrCr: "C" },   // Party Credited (We owe them)
+  "NCN": { DrCr: "C" },   // Party Credited - Non Job Credit Note (mirrors CRN)
   "VRN": { DrCr: "D" },   // Party Debited (They owe us more)
   "JV":  { DrCr: "D" },   // Journal Voucher
 } as const;
@@ -52,6 +54,7 @@ export const TAX_VTYPE_DRCR_MAP = {
   "RPT": { DrCr: "C" , Tax_Type : null , Ledger : null },
   "PMT": { DrCr: "D" , Tax_Type : "Input" , Ledger : "Debtor" },
   "CRN": { DrCr: "D", Tax_Type : "Output" , Ledger : 'Creditor' },
+  "NCN": { DrCr: "D", Tax_Type : "Output" , Ledger : 'Creditor' }, // Non Job Credit Note (mirrors CRN)
   "VRN": { DrCr: "C", Tax_Type : "Input" , Ledger : 'Debtor' },
   "JV":  { DrCr: null, Tax_Type : null , Ledger : null }, // Handled by Ledger Type of that particular detail's ledger
 } as const;
@@ -95,6 +98,7 @@ export const VOUCHER_LEDGER_TYPE_MAP: Record<string, string[]> = {
   PMT: ['Other Cost','Cost','Expenses GST','Imprest','Income Tax Payable','TDS Payable','Input Tax','Asset','Cost and Revenue','Asset and Liability'],
   RPT: ['Other Cost','Other Revenue','Income GST','TDS Receivable','Output Tax','Cost and Revenue','Asset and Liability'],
   INV: REVENUE_SIDE, NIN: ALL_LEDGER_TYPES, CRN: ALL_LEDGER_TYPES,
+  NCN: ALL_LEDGER_TYPES,
   VIN: ALL_LEDGER_TYPES, VRN: ALL_LEDGER_TYPES,
   JV:  ALL_LEDGER_TYPES, RJV: ALL_LEDGER_TYPES,
   VM:  ['Sy Dr','Sy Cr'],
@@ -131,6 +135,7 @@ export const getMandatoryLedgerTypes = (voucherType: string, type?: string): str
 // resolved dropdown set even if present in AllowedLedgerTypes or the static VOUCHER_LEDGER_TYPE_MAP.
 export const RESTRICTED_LEDGER_TYPE_MAP: Record<string, string[]> = {
   NIN: ['Revenue', 'Cost'],   // non-job invoice — exclude the generic Revenue / Cost types
+  NCN: ['Revenue', 'Cost'],   // non-job credit note — same exclusion as NIN
 };
 
 export const getRestrictedLedgerTypes = (voucherType: string): string[] => {
@@ -151,7 +156,7 @@ export const checkIfExJvApplicable = (voucherType: string): boolean => {
 /**
  * Voucher Type those are reversals
  */
-const reversalVouchers: string[] = [DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE, DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER];
+const reversalVouchers: string[] = [DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.CREDIT_NOTE_NON_JOB, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE, DOC_TYPE_CODE.REVERSAL_JOURNAL_VOUCHER];
 export const checkIfReversalApplicable = (voucherType: string): boolean => {
   return reversalVouchers.includes(voucherType);
 };
@@ -163,7 +168,7 @@ export const checkIfReversalApplicable = (voucherType: string): boolean => {
  * The customer pays us back
  * We have a matching record for the invoice
  */
-const typeWithMatching: string[] = [DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE, DOC_TYPE_CODE.PAYMENT, DOC_TYPE_CODE.RECEIPT];
+const typeWithMatching: string[] = [DOC_TYPE_CODE.CREDIT_NOTE, DOC_TYPE_CODE.CREDIT_NOTE_NON_JOB, DOC_TYPE_CODE.VENDOR_CREDIT_NOTE, DOC_TYPE_CODE.PAYMENT, DOC_TYPE_CODE.RECEIPT];
 export const checkIfMatchingApplicable = (voucherType: string): boolean => {
   return typeWithMatching.includes(voucherType);
 };

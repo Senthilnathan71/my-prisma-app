@@ -32,6 +32,8 @@ import { InvoiceController } from './controllers/invoice/invoice.controller';
 import { InvoiceService } from './services/invoice/invoice.service';
 import { InvoiceNonJobController } from './controllers/invoice-non-job.controller';
 import { InvoiceNonJobService } from './services/invoice-non-job.service';
+import { CreditNoteNonJobController } from './controllers/credit-note-non-job/credit-note-non-job.controller';
+import { CreditNoteNonJobService } from './services/credit-note-non-job/credit-note-non-job.service';
 import { VoucherPeriodController } from './controllers/voucher-period/voucher-period.controller';
 import { VoucherPeriodService } from './services/voucher-period/voucher-period.service';
 import { EmailModule } from 'src/email/email.module';
@@ -69,6 +71,7 @@ import { InterBranchService } from './services/inter-branch/inter-branch.service
     controllers: [
         InvoiceController,
         InvoiceNonJobController,
+        CreditNoteNonJobController,
         CoaController,
         CreditNoteController,
         DocumentController,
@@ -99,6 +102,7 @@ import { InterBranchService } from './services/inter-branch/inter-branch.service
         GlobalConfigService,
         InvoiceService,
         InvoiceNonJobService,
+        CreditNoteNonJobService,
         CoaService,
         CreditNoteService,
         DocVendorInvoiceService,
