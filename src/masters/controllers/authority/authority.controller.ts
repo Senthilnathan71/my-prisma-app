@@ -63,6 +63,26 @@ export class AuthorityController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get menus whose authorization is menu-only (department not required)' })
+    @ApiCreatedResponse({
+        description: 'MenuMasterSid list of menu-only (voucher) menus',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('menu-only-menus')
+    async getMenuOnlyAuthorityMenus() {
+        let resp = new ResponseData();
+        try {
+            resp.data = await this.authorityService.getMenuOnlyAuthorityMenus();
+            resp.message = "Menu-only authority menus fetched successfully";
+        } catch (error) {
+            this.logger.warn(`Get Menu-Only Authority Menus Error : ${error}`);
+            resp.status = false;
+            resp.message = "Internal Server Error";
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get Authority by Id' })
     @ApiCreatedResponse({
         description: 'Get Authority by Id',

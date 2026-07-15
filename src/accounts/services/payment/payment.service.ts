@@ -9,6 +9,7 @@ import { CompanyConfigService } from 'src/masters/services/company/company-confi
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { TdsCalculationService } from '../tds-calculation/tds-calculation.service';
 import { InterBranchService } from '../inter-branch/inter-branch.service';
+import { VoucherAuthorizationService } from '../voucher-authorization/voucher-authorization.service';
 import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 
 @Injectable()
@@ -21,7 +22,8 @@ export class PaymentService {
         private readonly voucherService: VoucherService,
         private readonly companyConfigService : CompanyConfigService,
         private readonly tdsCalculation : TdsCalculationService,
-        private readonly interBranchService: InterBranchService
+        private readonly interBranchService: InterBranchService,
+        private readonly voucherAuthorizationService: VoucherAuthorizationService
     ) { }
 
     private ensureLocalDebitCreditBalance(
@@ -1244,22 +1246,6 @@ export class PaymentService {
 
                 const updatedCreatedMatchings = await Promise.all(matchingOperations);
 
-                // Delete only the source staging rows the user genuinely removed (e.g. party changed →
-                // grid cleared and resubmitted for the new party). Owning-branch staging
-                // (AllotmentBranchSid != null) is managed by stageAllocations; posted matchings
-                // (VoucherMatchingHeaderSid set) are immutable and excluded.
-                const keptMatchingSids = updatedCreatedMatchings
-                    .map((m: any) => Number(m?.MatchingDetailSid))
-                    .filter((sid: number) => sid > 0);
-                await prisma.matchingDetail.deleteMany({
-                    where: {
-                        SourceVoucherHeaderSid: VoucherHeaderSid,
-                        AllotmentBranchSid: null,
-                        VoucherMatchingHeaderSid: null,
-                        ...(keptMatchingSids.length > 0 ? { MatchingDetailSid: { notIn: keptMatchingSids } } : {}),
-                    },
-                });
-
                 // TDS upsert / removal (VoucherDetailSid stays null until post).
                 // Upsert whenever tdsDetail is present (including TDSAmount=0) so the
                 // cumulative TaxableAmount base remains complete.  Only remove when
@@ -1350,7 +1336,17 @@ export class PaymentService {
                 if (voucher.PostStatus === 'P') throw new BadRequestException('Voucher is already posted.');
                 if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
                 if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
-                
+
+                // Authorize-before-post (menu-scoped; auto-posting types are exempt).
+                await this.voucherAuthorizationService.ensureAuthorizedToPost({
+                    documentSid: voucher.VoucherHeaderSid,
+                    menuMasterSid: voucher.voucherTypeMaster.MenuMasterSid,
+                    isAutoPosting: voucher.voucherTypeMaster.IsAutoPosting,
+                    companyMasterSid: voucher.CompanyMasterSid,
+                    branchMasterSid: voucher.BranchMasterSid,
+                    documentLabel: 'payment'
+                });
+
                 // Check if any transaction is already matched
                 const validTransactions = voucher.SourceMatchingDetail.filter(d => toNumber(d.MatchingAmount) > 0 && toNumber(d.MatchingLocalAmount) > 0).map(d => d.VoucherTransactionSid);
                 const { isValid, matchedTransactions } = await this.checkIfTransactionMatched(validTransactions, tx);

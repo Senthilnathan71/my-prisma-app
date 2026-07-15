@@ -6,6 +6,7 @@ import { PostVoucherResponseDto, TaxSummaryDto, VoucherDetailDto } from 'src/acc
 import { checkIfExJvApplicable, checkIfMatchingApplicable, checkIfReversalApplicable, DOC_TYPE_CODE, DocTypeCode, getPartyDrCr, getTaxInputOutput, getTaxLedger, TaxLedgerType, TaxVoucherType } from 'src/common/config/voucher-type.config';
 import { DatabaseService } from 'src/database/database.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { VoucherAuthorizationService } from '../voucher-authorization/voucher-authorization.service';
 import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
@@ -73,6 +74,7 @@ export class VoucherService {
     constructor(
         private readonly _db: DatabaseService,
         private readonly companyConfigService: CompanyConfigService,
+        private readonly voucherAuthorizationService: VoucherAuthorizationService,
     ) {}
 
     // /**
@@ -1887,6 +1889,16 @@ export class VoucherService {
         if (voucher.PostStatus === 'P') throw new BadRequestException('Voucher is already posted.');
         if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
         if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
+
+        // Authorize-before-post (menu-scoped; auto-posting types are exempt).
+        await this.voucherAuthorizationService.ensureAuthorizedToPost({
+            documentSid: voucher.VoucherHeaderSid,
+            menuMasterSid: voucher.voucherTypeMaster.MenuMasterSid,
+            isAutoPosting: voucher.voucherTypeMaster.IsAutoPosting,
+            companyMasterSid: voucher.CompanyMasterSid,
+            branchMasterSid: voucher.BranchMasterSid,
+            documentLabel: 'voucher'
+        });
 
         const voucherType = voucher.voucherTypeMaster?.DocumentTypeCode;
 

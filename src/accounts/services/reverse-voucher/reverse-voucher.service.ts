@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
 import { VoucherService } from '../voucher/voucher.service';
+import { VoucherAuthorizationService } from '../voucher-authorization/voucher-authorization.service';
 import { Prisma } from '@prisma/client';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { PullVoucherDTO } from 'src/accounts/dto/voucher.dto';
@@ -15,6 +16,7 @@ export class ReverseVoucherService {
         private readonly _db: DatabaseService,
         private readonly voucherService: VoucherService,
         private voucherPeriodService: VoucherPeriodService,
+        private readonly voucherAuthorizationService: VoucherAuthorizationService,
     ) { }
 
     async createReverseVoucher(payload: any): Promise<any> {
@@ -924,6 +926,16 @@ export class ReverseVoucherService {
             if (voucher.PostStatus === 'P') throw new BadRequestException('Voucher is already posted.');
             if (!voucher.VoucherDetail?.length) throw new BadRequestException('No detail lines are found.');
             if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
+
+            // Authorize-before-post (menu-scoped; auto-posting types are exempt).
+            await this.voucherAuthorizationService.ensureAuthorizedToPost({
+                documentSid: voucher.VoucherHeaderSid,
+                menuMasterSid: voucher.voucherTypeMaster.MenuMasterSid,
+                isAutoPosting: voucher.voucherTypeMaster.IsAutoPosting,
+                companyMasterSid: voucher.CompanyMasterSid,
+                branchMasterSid: voucher.BranchMasterSid,
+                documentLabel: 'reverse voucher'
+            });
 
             const now = new Date();
 

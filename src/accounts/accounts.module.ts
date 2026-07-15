@@ -55,6 +55,7 @@ import { VoucherMatchingController } from './controllers/voucher-matching/vouche
 import { VoucherCorrectionController } from './controllers/voucher-correction/voucher-correction.controller';
 import { PaymentRequestController } from './controllers/payment-request/payment-request.controller';
 import { VoucherService } from './services/voucher/voucher.service';
+import { VoucherAuthorizationService } from './services/voucher-authorization/voucher-authorization.service';
 import { SettingsModule } from 'src/settings/settings.module';
 import { TdsCalculationService } from './services/tds-calculation/tds-calculation.service';
 import { InterBranchController } from './controllers/inter-branch/inter-branch.controller';
@@ -120,6 +121,7 @@ import { InterBranchService } from './services/inter-branch/inter-branch.service
         PdfmakeNodeService,
         Logger,
         VoucherService,
+        VoucherAuthorizationService,
         CompanyConfigService,
         VendorInvoiceService,
         VendorCreditNoteService,

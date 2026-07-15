@@ -10,6 +10,29 @@ import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 export class AuthorityService {
     constructor(private _db: DatabaseService, private globalConfigService: GlobalConfigService, private logger: Logger) { }
 
+    /**
+     * Menus whose authorization is MENU-ONLY (department not required when configuring the rule).
+     *
+     * These are exactly the accounts voucher menus, derived from VoucherTypeMaster.MenuMasterSid —
+     * the same link the posting gate uses to resolve a voucher's menu. Deriving it from data avoids
+     * a hardcoded menu-name list that would silently break when a menu is renamed or added.
+     * Every other menu (Booking, Enquiry, House Job, ...) stays department-based.
+     */
+    async getMenuOnlyAuthorityMenus(): Promise<number[]> {
+        const voucherTypeMenus = await this._db.voucherTypeMaster.findMany({
+            where: {
+                status: 'A',
+                MenuMasterSid: { not: null }
+            },
+            select: { MenuMasterSid: true },
+            distinct: ['MenuMasterSid']
+        });
+
+        return voucherTypeMenus
+            .map(row => row.MenuMasterSid)
+            .filter((sid): sid is number => typeof sid === 'number');
+    }
+
     async getAllAuthorities() {
         try {
             const allAuthorities = await this._db.authorityMaster.findMany({
@@ -601,7 +624,17 @@ export class AuthorityService {
             MenuMaster: payload.MenuMasterSid,
             CompanyMasterSid: payload.CompanyMasterSid,
             BranchMasterSid: payload.BranchMasterSid,
-            ...(authorityDepartmentName ? { DepartmentMaster: { has: authorityDepartmentName } } : {})
+            // Department is OPTIONAL on an authority rule: a menu-only rule (no departments)
+            // applies to every department of that menu; a rule that lists departments applies
+            // only to those. Menu is the mandatory key.
+            ...(authorityDepartmentName
+                ? {
+                    OR: [
+                        { DepartmentMaster: { isEmpty: true } },
+                        { DepartmentMaster: { has: authorityDepartmentName } }
+                    ]
+                }
+                : {})
         };
 
         // 1. Find if user is an active authorizer
@@ -782,7 +815,15 @@ export class AuthorityService {
             ...scopeWhere,
             MenuMaster: menuMasterSid,
             status: 'A',
-            ...(authorityDepartmentName ? { DepartmentMaster: { has: authorityDepartmentName } } : {})
+            // Department is OPTIONAL (see isUserAuthorizer): a menu-only rule matches any department.
+            ...(authorityDepartmentName
+                ? {
+                    OR: [
+                        { DepartmentMaster: { isEmpty: true } },
+                        { DepartmentMaster: { has: authorityDepartmentName } }
+                    ]
+                }
+                : {})
         };
 
         // 1. Fetch authority users for the given menu

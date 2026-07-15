@@ -8,6 +8,7 @@ import { SearchPostedVouchersDto, CreateStandaloneVoucherMatchingDto, UpdateStan
 import { DOC_TYPE_CODE, getPartyDrCr } from 'src/common/config/voucher-type.config';
 import { OutstandingService } from 'src/accounts/services/outstanding/outstanding.service';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { VoucherAuthorizationService } from 'src/accounts/services/voucher-authorization/voucher-authorization.service';
 
 @Injectable()
 export class VoucherMatchingService {
@@ -16,7 +17,8 @@ export class VoucherMatchingService {
         private logger: Logger,
         private voucherService: VoucherService,
         private outstandingService: OutstandingService,
-        private companyConfigService : CompanyConfigService
+        private companyConfigService : CompanyConfigService,
+        private voucherAuthorizationService: VoucherAuthorizationService
     ) { }
 
     async searchVoucherMatching(params: filterDto) {
@@ -903,6 +905,28 @@ export class VoucherMatchingService {
         if (voucherMatchingHeader.PostStatus === 'P') {
             throw new BadRequestException('Voucher Matching is already posted.');
         }
+
+        // Authorize-before-post (menu-scoped; auto-posting types are exempt).
+        // VoucherMatchingHeader carries no VoucherTypeMasterSid, so resolve its voucher type the
+        // same way create() does — by DocumentTypeCode — to reach MenuMasterSid / IsAutoPosting.
+        const matchingVoucherType = await tx.voucherTypeMaster.findFirst({
+            where: {
+                DocumentTypeCode: DOC_TYPE_CODE.VOUCHER_MATCHING,
+                CompanyMasterSid: CompanyMasterSid,
+                BranchMasterSid: BranchMasterSid,
+                status: 'A',
+            },
+            select: { MenuMasterSid: true, IsAutoPosting: true },
+        });
+        await this.voucherAuthorizationService.ensureAuthorizedToPost({
+            documentSid: voucherMatchingHeader.VoucherMatchingHeaderSid,
+            menuMasterSid: matchingVoucherType?.MenuMasterSid,
+            isAutoPosting: matchingVoucherType?.IsAutoPosting,
+            companyMasterSid: CompanyMasterSid,
+            branchMasterSid: BranchMasterSid,
+            documentLabel: 'voucher matching'
+        });
+
         const { MatchingDetail, ...matchingHeader } = voucherMatchingHeader;
 
         if (MatchingDetail.length === 0) {

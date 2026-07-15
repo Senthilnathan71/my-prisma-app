@@ -12,6 +12,7 @@ import { statusWhereClause, toNumber, roundAmount } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { Prisma } from '@prisma/client';
 import { VoucherService } from 'src/accounts/services/voucher/voucher.service';
+import { VoucherAuthorizationService } from 'src/accounts/services/voucher-authorization/voucher-authorization.service';
 import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
 import * as ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
@@ -22,7 +23,8 @@ export class JournalVoucherService {
 
     constructor(
         private readonly _db: DatabaseService,
-        private readonly voucherService: VoucherService
+        private readonly voucherService: VoucherService,
+        private readonly voucherAuthorizationService: VoucherAuthorizationService
     ) {}
 
     /**
@@ -757,6 +759,16 @@ return {
                 if (voucher.PostStatus === 'P') throw new BadRequestException('Journal Voucher is already posted.');
                 if (!voucher.VoucherDetail || voucher.VoucherDetail.length === 0) throw new BadRequestException('No detail lines are found.');
                 if (!voucher.voucherTypeMaster) throw new BadRequestException('Voucher type is not found.');
+
+                // Authorize-before-post (menu-scoped; auto-posting types are exempt).
+                await this.voucherAuthorizationService.ensureAuthorizedToPost({
+                    documentSid: voucher.VoucherHeaderSid,
+                    menuMasterSid: voucher.voucherTypeMaster.MenuMasterSid,
+                    isAutoPosting: voucher.voucherTypeMaster.IsAutoPosting,
+                    companyMasterSid: voucher.CompanyMasterSid,
+                    branchMasterSid: voucher.BranchMasterSid,
+                    documentLabel: 'journal voucher'
+                });
 
                 const voucherType  = voucher.voucherTypeMaster?.DocumentTypeCode;
 
