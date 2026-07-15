@@ -27,6 +27,7 @@ model CompanyMaster {
   StateMasterSid             Int?
   Pan                        String?                      @db.VarChar(20)
   config                     Json?
+  CompanyGroup               String?                      @db.VarChar(100)
   ActivityResourceAllocation ActivityResourceAllocation[]
   ResourceConfiguration      ResourceConfiguration[]
   AttachDocumentGroup        AttachDocumentGroup[]
@@ -272,6 +273,7 @@ model UserMaster {
   userTypeId                         Int?
   AttemptDateTime                    DateTime?                    @db.Timestamptz(6)
   department                         String[]                     @db.VarChar(500)
+  SalesCompany                       Int[]                        @default([])
   bookingActivityResourceAllocation  ActivityResourceAllocation[] @relation("BOOKUSER")
   enquiryActivityResourceAllocation  ActivityResourceAllocation[] @relation("ENQUSER")
   houseActivityResourceAllocation    ActivityResourceAllocation[] @relation("HOUSEUSER")
