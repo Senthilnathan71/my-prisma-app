@@ -8081,7 +8081,7 @@ export class OperationReportsService {
           POL : ports.find((p)=>p.PortCode === booking.POL)?.PortName,
           POO : ports.find((p)=>p.PortCode === booking.POO)?.PortName,
           FDC : ports.find((p)=>p.PortCode === booking.FPD)?.PortName,
-          originAgent : booking?.bookingOthers?.[0]?.OriginAgent || '',
+          originAgent : booking?.bookingOthers?.[0]?.OriginAgent || booking?.houseJob?.AgentName || '',
           HBLNo:booking?.houseJob?.HBLNo || '',
         }));
 
