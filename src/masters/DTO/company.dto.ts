@@ -19,6 +19,11 @@ export class CompanyMasterDto {
     @Length(1, 10, { message: 'Company code must be max 10 characters' })
     companyCode: string;
 
+    @IsOptional()
+    @IsString({ message: 'Company group must be a string' })
+    @Length(0, 100, { message: 'Company group cannot exceed 100 characters' })
+    CompanyGroup?: string;
+
     @IsString({ message: 'createdBy must be a string' })
     @IsNotEmpty({ message: 'createdBy is required' })
     @Length(1, 100, { message: 'createdBy cannot exceed 100 characters' })

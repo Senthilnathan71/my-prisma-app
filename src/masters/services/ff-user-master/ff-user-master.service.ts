@@ -52,7 +52,8 @@ export class FfUserMasterService {
                 CountryMasterSid: payload.CountryMasterSid,
                 status: payload.status,
                 userTypeId: payload.userTypeId,
-                isLoginUser : payload.isLoginUser
+                isLoginUser : payload.isLoginUser,
+                SalesCompany: payload.SalesCompany ?? [],
             };
 
             return await this._db.$transaction(async (prisma) => {
@@ -230,14 +231,23 @@ export class FfUserMasterService {
 
     async fetchFfUserById(UserMasterSid: number,CompanyMasterSid: number) {
         try {
-            const ourFfUser = await this._db.userMaster.findUnique({
+            const ourFfUser = await this._db.userMaster.findFirst({
                 where: {
                     UserMasterSid: UserMasterSid,
-                    userCompanyMaster:{
-                        some: {
-                            CompanyMasterSid: CompanyMasterSid
+                    // Allow access if the user has company access (login-user flow)
+                    // OR is a salesman assigned to this company via SalesCompany.
+                    OR: [
+                        {
+                            userCompanyMaster: {
+                                some: {
+                                    CompanyMasterSid: CompanyMasterSid
+                                }
+                            }
+                        },
+                        {
+                            SalesCompany: { has: CompanyMasterSid }
                         }
-                    }
+                    ]
                 },
                 omit: {
                     userPassword: true
@@ -717,24 +727,39 @@ export class FfUserMasterService {
         const { search = '', page = 1, pageSize = 15, activeCompanyId } = params;
         const skip = (page - 1) * pageSize;
 
-        const where: Prisma.UserMasterWhereInput = {
-            status: statusWhereClause,
-            userCompanyMaster: {
-                some: {
-                    CompanyMasterSid: activeCompanyId,
-                    status: statusWhereClause
+        // A user belongs to the active company's list if EITHER:
+        //  - they have company access for the active company (login-user flow, unchanged), OR
+        //  - they are a salesman whose SalesCompany includes the active company
+        //    (covers non-login salesmen that have no userCompanyMaster rows).
+        const companyScopeOr: Prisma.UserMasterWhereInput[] = [
+            {
+                userCompanyMaster: {
+                    some: {
+                        CompanyMasterSid: activeCompanyId,
+                        status: statusWhereClause
+                    }
                 }
             },
-            ...(search
-                ? {
-                    OR: [
-                        { userName: { contains: search, mode: 'insensitive' } },
-                        { userEmail: { contains: search, mode: 'insensitive' } },
-                        { isSalesperson: { contains: search, mode: 'insensitive' } },
-                    ],
-                }
-                : {}
-            ),
+            {
+                SalesCompany: { has: activeCompanyId }
+            }
+        ];
+
+        const where: Prisma.UserMasterWhereInput = {
+            status: statusWhereClause,
+            AND: [
+                { OR: companyScopeOr },
+                ...(search
+                    ? [{
+                        OR: [
+                            { userName: { contains: search, mode: 'insensitive' } },
+                            { userEmail: { contains: search, mode: 'insensitive' } },
+                            { isSalesperson: { contains: search, mode: 'insensitive' } },
+                        ],
+                    } as Prisma.UserMasterWhereInput]
+                    : []
+                ),
+            ],
         };
 
         const [items, totalCount] = await this._db.$transaction([
@@ -748,8 +773,33 @@ export class FfUserMasterService {
             this._db.userMaster.count({ where }),
         ]);
 
+        // Resolve SalesCompany ids -> company names so the list can display them.
+        // Only salesperson-ticked users have SalesCompany populated; others stay blank.
+        const salesCompanyIds = [
+            ...new Set(items.flatMap((user) => user.SalesCompany || [])),
+        ];
+
+        const companyNameMap = new Map<number, string>();
+        if (salesCompanyIds.length > 0) {
+            const companies = await this._db.companyMaster.findMany({
+                where: { CompanyMasterSid: { in: salesCompanyIds } },
+                select: { CompanyMasterSid: true, companyName: true },
+            });
+            companies.forEach((company) =>
+                companyNameMap.set(company.CompanyMasterSid, company.companyName),
+            );
+        }
+
+        const itemsWithSalesCompany = items.map((user) => ({
+            ...user,
+            salesCompany: (user.SalesCompany || [])
+                .map((id) => companyNameMap.get(id))
+                .filter(Boolean)
+                .join(', '),
+        }));
+
         return {
-            items,
+            items: itemsWithSalesCompany,
             totalCount,
         };
     }
@@ -974,6 +1024,7 @@ export class FfUserMasterService {
                 where: {
                     status: 'A',
                     isSalesperson: '1',
+                    SalesCompany: { has: CompanyMasterSid },
                     userCompanyMaster: {
                         some: {
                             CompanyMasterSid: CompanyMasterSid,
