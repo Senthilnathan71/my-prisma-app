@@ -79,6 +79,7 @@ export class CompanyService {
                 const companyPayload = {
                     companyName: newData.companyName,
                     companyCode: newData.companyCode,
+                    CompanyGroup: newData.CompanyGroup ?? null,
                     CountryMasterSid: newData.CountryMasterSid,
                     CurrencyMasterSid: newData.CurrencyMasterSid,
                     addressLine1: newData.addressLine1,
@@ -406,6 +407,7 @@ export class CompanyService {
             const companyPayload = {
                 companyName: updateData.companyName,
                 companyCode: updateData.companyCode,
+                CompanyGroup: updateData.CompanyGroup ?? null,
                 CountryMasterSid: updateData.CountryMasterSid,
                 CurrencyMasterSid: updateData.CurrencyMasterSid,
                 addressLine1: updateData.addressLine1,

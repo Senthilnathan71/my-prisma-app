@@ -105,6 +105,11 @@ export class CreateUserMasterDto {
     AttemptDateTime?: string | null;
 
     @IsOptional()
+    @IsArray({ message: 'SalesCompany must be an array of numbers' })
+    @IsInt({ each: true, message: 'Each SalesCompany must be a number' })
+    SalesCompany?: number[];
+
+    @IsOptional()
     @ValidateNested({ each: true })
     @Type(() => UserCompanyMasterDto)
     userCompanyMaster: UserCompanyMasterDto[];
@@ -199,6 +204,11 @@ export class UpdateUserMasterDto extends PartialType(CreateUserMasterDto) {
     @IsOptional()
     @IsDateString({}, { message: 'AttemptDateTime must be a valid date string' })
     AttemptDateTime?: string | null;
+
+    @IsOptional()
+    @IsArray({ message: 'SalesCompany must be an array of numbers' })
+    @IsInt({ each: true, message: 'Each SalesCompany must be a number' })
+    SalesCompany?: number[];
 }
 
 export class UserCompanyMasterDto {

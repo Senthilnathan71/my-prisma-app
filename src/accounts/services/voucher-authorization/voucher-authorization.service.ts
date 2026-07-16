@@ -89,7 +89,7 @@ export class VoucherAuthorizationService {
       (log) => log.AuthorityDetail?.FinalAuthority === 'Y' && log.ApprovalStatus === 'Approved',
     );
     if (!finalApproved) {
-      throw new BadRequestException(`This ${label} must be authorized before it can be posted.`);
+      throw new BadRequestException(`This ${label} must be authorized before post.`);
     }
   }
 }
