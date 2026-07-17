@@ -166,6 +166,7 @@ model BookingProduct {
   RecdPack           String?        @db.VarChar(100)
   Volumetric         Decimal?       @db.Decimal(10, 3)
   BookingCargoSid    Int?
+  IsStackable        String?        @default("N") @db.Char(1)
   bookingHeader      BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   uomMaster          UOMMaster?     @relation(fields: [UomMasterSid], references: [UOMMasterSid])
   bookingCargo       BookingCargo?  @relation(fields: [BookingCargoSid], references: [BookingCargoSid])

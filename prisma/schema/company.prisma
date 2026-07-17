@@ -909,6 +909,7 @@ model EnquiryCargo {
   height           Int?
   length           Int?
   width            Int?
+  IsStackable      String?          @default("N") @db.Char(1)
   branchMaster     BranchMaster?    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster    CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   enquiryHeader    EnquiryHeader    @relation(fields: [EnquiryHeaderSid], references: [EnquiryHeaderSid])
@@ -1289,6 +1290,7 @@ model QuoteProduct {
   ImcoClass        Int?
   PkgGroup         Int?
   Remarks          String?       @db.VarChar(200)
+  IsStackable      String?       @default("N") @db.Char(1)
   branchMaster     BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster    CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   quoteCargo       QuoteCargo    @relation(fields: [QuoteCargoSid], references: [QuoteCargoSid])
@@ -3065,6 +3067,7 @@ model HouseJobProduct {
   ReceivedQty           Decimal?            @db.Decimal(5, 0)
   MasterJobContainerSid Int?
   HouseJobCargoSid      Int?
+  IsStackable           String?             @default("N") @db.Char(1)
   HouseJob              HouseJob            @relation(fields: [HouseJobSid], references: [HouseJobSid])
   masterJobContainer    MasterJobContainer? @relation(fields: [MasterJobContainerSid], references: [MasterJobContainerSid])
   uomMaster             UOMMaster?          @relation(fields: [UomMasterSid], references: [UOMMasterSid])
