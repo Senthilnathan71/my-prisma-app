@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException, Unauthorize
 import { ApprovalStatus, LeadStatus, Prisma } from '@prisma/client';
 import { contains } from 'class-validator';
 import * as moment from 'moment-timezone';
-import { parseDateFromString, statusWhereClause } from 'src/common/helper';
+import { parseDateFromString, statusWhereClause, toYesNoFlag } from 'src/common/helper';
 import { DatabaseService } from 'src/database/database.service';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
@@ -199,6 +199,7 @@ export class EnquiryHeaderService {
                         length: Number(cargo.length),
                         width: Number(cargo.width),
                         height: Number(cargo.height),
+                        IsStackable: toYesNoFlag(cargo.IsStackable),
                         createdBy: payload.createdBy
                     }))
                 );
@@ -484,6 +485,7 @@ export class EnquiryHeaderService {
                                     length: Number(cargoItem.length),
                                     width: Number(cargoItem.width),
                                     height: Number(cargoItem.height),
+                                    IsStackable: toYesNoFlag(cargoItem.IsStackable),
                                     updatedBy: payload.updatedBy,
                                     updatedOn: new Date(),
                                 }
@@ -508,6 +510,7 @@ export class EnquiryHeaderService {
                                     length: Number(cargoItem.length),
                                     width: Number(cargoItem.width),
                                     height: Number(cargoItem.height),
+                                    IsStackable: toYesNoFlag(cargoItem.IsStackable),
                                     EnquiryHeaderSid: enquiryHeaderSid,
                                     EnquiryRouteSid: routeData.EnquiryRouteSid, // Link to the correct route
                                     createdBy: payload.updatedBy,

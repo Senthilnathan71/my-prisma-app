@@ -7,7 +7,7 @@ import { GlobalConfigService } from 'src/common/config/master-config.service';
 import { OperationCommonService, RateDTO } from '../operation-common/operation-common.service';
 import { saveShipmentMilestones, getShipmentMilestones } from '../shipment-milestone/shipment-milestone.helper';
 import { CurrencyExchangeService } from 'src/masters/services/currency-exchange/currency-exchange.service';
-import { statusWhereClause } from 'src/common/helper';
+import { statusWhereClause, toYesNoFlag } from 'src/common/helper';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { DuplicateCheckDTO } from 'src/operation/DTO/booking.dto';
 import * as ExcelJS from 'exceljs';
@@ -126,6 +126,7 @@ export class BookingService {
             NetWeight: Number(product?.NetWeight) || 0,
             Volume: Number(product?.Volume) || 0,
             IsHaz: product?.IsHaz || 'N',
+            IsStackable: toYesNoFlag(product?.IsStackable),
             ImcoClass: product?.ImcoClass === null || product?.ImcoClass === undefined || product?.ImcoClass === '' ? null : String(product.ImcoClass),
             UnNo: String(product?.UnNo ?? '') || '',
             PkgGroup: product?.PkgGroup || '',
@@ -175,6 +176,7 @@ export class BookingService {
             NetWeight: Number(product?.NetWeight) || 0,
             Volume: Number(product?.Volume) || 0,
             IsHaz: product?.IsHaz || 'N',
+            IsStackable: toYesNoFlag(product?.IsStackable),
             ImcoClass: product?.ImcoClass === null || product?.ImcoClass === undefined || product?.ImcoClass === '' ? null : String(product.ImcoClass),
             UnNo: String(product?.UnNo ?? '') || '',
             PkgGroup: product?.PkgGroup || '',
@@ -4322,6 +4324,7 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                                     Width: product.Width || null,
                                     Height: product.Height || null,
                                     IsHaz: product.IsHaz || 'N',
+                                    IsStackable: toYesNoFlag(product.IsStackable),
                                     ImcoClass: product.ImcoClass || null,
                                     UnNo: String(product.UnNo ?? ''),
                                     PkgGroup: product.PkgGroup || '',

@@ -731,24 +731,31 @@ export class FfUserMasterService {
         //  - they have company access for the active company (login-user flow, unchanged), OR
         //  - they are a salesman whose SalesCompany includes the active company
         //    (covers non-login salesmen that have no userCompanyMaster rows).
-        const companyScopeOr: Prisma.UserMasterWhereInput[] = [
-            {
-                userCompanyMaster: {
-                    some: {
-                        CompanyMasterSid: activeCompanyId,
-                        status: statusWhereClause
+        // Only scope when a company is actually supplied: `has` cannot take undefined,
+        // and an absent company previously meant "unscoped".
+        const activeCompanySid = Number(activeCompanyId);
+        const companyScopeFilter: Prisma.UserMasterWhereInput[] = Number.isFinite(activeCompanySid)
+            ? [{
+                OR: [
+                    {
+                        userCompanyMaster: {
+                            some: {
+                                CompanyMasterSid: activeCompanySid,
+                                status: statusWhereClause
+                            }
+                        }
+                    },
+                    {
+                        SalesCompany: { has: activeCompanySid }
                     }
-                }
-            },
-            {
-                SalesCompany: { has: activeCompanyId }
-            }
-        ];
+                ],
+            }]
+            : [];
 
         const where: Prisma.UserMasterWhereInput = {
             status: statusWhereClause,
             AND: [
-                { OR: companyScopeOr },
+                ...companyScopeFilter,
                 ...(search
                     ? [{
                         OR: [
@@ -1025,13 +1032,13 @@ export class FfUserMasterService {
                     status: 'A',
                     isSalesperson: '1',
                     SalesCompany: { has: CompanyMasterSid },
-                    userCompanyMaster: {
-                        some: {
-                            CompanyMasterSid: CompanyMasterSid,
-                            GiveAccess: 'Y',
-                            status: 'A'
-                        }
-                    }
+                    // userCompanyMaster: {
+                    //     some: {
+                    //         CompanyMasterSid: CompanyMasterSid,
+                    //         GiveAccess: 'Y',
+                    //         status: 'A'
+                    //     }
+                    // }
                 },
                 omit: {
                     userPassword: true

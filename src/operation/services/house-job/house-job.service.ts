@@ -4,7 +4,7 @@ import { OperationCommonService } from '../operation-common/operation-common.ser
 import { saveShipmentMilestones, relinkBookingMilestonesToHouseJob } from '../shipment-milestone/shipment-milestone.helper';
 import { MenuService } from 'src/settings/services/menu/menu.service';
 import * as moment from 'moment-timezone';
-import { parseDateFromString, statusWhereClause, toNumber } from 'src/common/helper';
+import { parseDateFromString, statusWhereClause, toNumber, toYesNoFlag } from 'src/common/helper';
 import { NumberSeriesService } from 'src/settings/services/number-series/number-series.service';
 import { Prisma } from '@prisma/client';
 import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
@@ -406,6 +406,7 @@ export class HouseJobService {
             HSCode: product?.HSCode || '',
             ImcoClass: product?.ImcoClass || '',
             IsHaz: product?.IsHaz || 'N',
+            IsStackable: toYesNoFlag(product?.IsStackable),
             Length: product?.Length || 0,
             PkgGroup: product?.PkgGroup || '',
             UnNo: product?.UnNo || '',

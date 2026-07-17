@@ -163,6 +163,22 @@ export function isCreditCustomer(cashCredit?: string | null): boolean {
 }
 
 /**
+ * Normalize a checkbox-style flag to the Char(1) 'Y'/'N' the DB stores.
+ *
+ * Callers send these inconsistently: the quotation UI posts a raw boolean, booking/house-job
+ * post 'Y'/'N' already, and bulk uploads post 'Yes'/'No'. A plain `value ? 'Y' : 'N'` is wrong
+ * for the string forms — 'N' is a truthy string and would flip to 'Y'. Anything unrecognised
+ * (null/undefined/'') is 'N', matching the column default.
+ */
+export function toYesNoFlag(value: any): 'Y' | 'N' {
+  if (value === true || value === 1) return 'Y';
+  const normalized = String(value ?? '').trim().toUpperCase();
+  return normalized === 'Y' || normalized === 'YES' || normalized === '1' || normalized === 'TRUE'
+    ? 'Y'
+    : 'N';
+}
+
+/**
  * Normalize any date (or now) to UTC midnight (date-only). Mirrors the trick in
  * currency-exchange.getExchangeRate so effective-dated lookups against `@db.Date`
  * columns don't slip a day across timezones.

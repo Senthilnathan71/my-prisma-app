@@ -6,7 +6,7 @@ import { SearchListDto } from "src/masters/DTO/search-list.dto";
 import { filterDto } from "src/masters/DTO/search-vessel.dto";
 import { GlobalConfigService } from "src/common/config/master-config.service";
 import { contains } from "class-validator";
-import { statusWhereClause, toCamelCase, toNumber } from "src/common/helper";
+import { statusWhereClause, toCamelCase, toNumber, toYesNoFlag } from "src/common/helper";
 import { NumberSeriesService } from "src/settings/services/number-series/number-series.service";
 import { MenuUserConfigService } from "src/settings/services/menu-user-config/menu-user-config.service";
 
@@ -297,10 +297,11 @@ export class QuotationService {
                                 Height: Number(product.Height) || 0,
                                 ChargeableWeight: Number(product.ChargeableWeight) || 0,
                                 IsHaz: product.IsHaz ? "Y" : "N",
+                                IsStackable: toYesNoFlag(product.IsStackable),
                                 ImcoClass: product.ImcoClass || null,
                                 PkgGroup: Number(product.PkgGroup) || null,
                                 Remarks: product.Remarks,
-                                Volumetric: Number(product.Volumetric ?? product.volumetric) || 0 
+                                Volumetric: Number(product.Volumetric ?? product.volumetric) || 0
                             }))
                         });
                         finalCargo.push({
@@ -1097,6 +1098,7 @@ export class QuotationService {
                         Height: Number(payload.Height) || 0,
                         ChargeableWeight: Number(payload.ChargeableWeight) || 0,
                         IsHaz: payload.IsHaz ? "Y" : "N",
+                        IsStackable: toYesNoFlag(payload.IsStackable),
                         ImcoClass: payload.ImcoClass,
                         PkgGroup: Number(payload.PkgGroup) || null,
                         Remarks: payload.Remarks,
@@ -1128,6 +1130,7 @@ export class QuotationService {
                         Height: Number(payload.Height) || 0,
                         ChargeableWeight: Number(payload.ChargeableWeight) || 0,
                         IsHaz: payload.IsHaz ? "Y" : "N",
+                        IsStackable: toYesNoFlag(payload.IsStackable),
                         ImcoClass: payload.ImcoClass || null,
                         PkgGroup: Number(payload.PkgGroup) || null,
                         Remarks: payload.Remarks,
@@ -1361,6 +1364,8 @@ export class QuotationService {
                             ProductUnit: cargoItem.PackageTypeId || null,
                             ChargeableWeight: cargoItem.ChargeableWeight || 0,
                             IsHaz: cargoItem.IsHaz === 'Y' || cargoItem.IsHaz === true,
+                            // Carry the enquiry cargo's stackable flag onto the quotation product line.
+                            IsStackable: cargoItem.IsStackable === 'Y' || cargoItem.IsStackable === true,
                             ImcoClass: cargoItem.ImcoClass || null,
                             UnNo: cargoItem.UnNo || '',
                             PkgGroup: cargoItem.PkgGroup || '',
@@ -2084,6 +2089,7 @@ export class QuotationService {
                     NetWeight: toNumber(product.NetWeight),
                     Volume: toNumber(product.Volume),
                     IsHaz: product.IsHaz,
+                    IsStackable: product.IsStackable,
                     ImcoClass: product.ImcoClass,
                     UnNo: null,
                     PkgGroup: product.PkgGroup,
