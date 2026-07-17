@@ -267,7 +267,7 @@ export class EnquiryHeaderService {
                 include: {
                     enquiryRoute: {
                         include: {
-                            enquiryCargo: true
+                            enquiryCargo: { orderBy: { EnquiryCargoSid: 'asc' } }
                         }
                     }
                 },
@@ -296,10 +296,13 @@ export class EnquiryHeaderService {
                             status: 'A'
                         },
                         include: {
-                            enquiryCargo: { where: {
-                                status: 'A'
-                            }},
-                           
+                            enquiryCargo: {
+                                where: { status: 'A' },
+                                // Without this the rows come back in no guaranteed order, so a
+                                // multi-cargo enquiry would reshuffle on every reopen.
+                                orderBy: { EnquiryCargoSid: 'asc' }
+                            },
+
                         }
                     },
                     enquiryOther: true
@@ -949,7 +952,7 @@ export class EnquiryHeaderService {
                 include: {
                     enquiryRoute: {
                         include: {
-                            enquiryCargo: true,
+                            enquiryCargo: { orderBy: { EnquiryCargoSid: 'asc' } },
                         }
                     },
                     enquiryOther: true
