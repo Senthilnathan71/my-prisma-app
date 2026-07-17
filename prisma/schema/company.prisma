@@ -1619,6 +1619,8 @@ model CustomerMilestone {
   ContactInfo          String          @db.VarChar(100)
   EffectiveFrom        DateTime?       @default(dbgenerated("CURRENT_DATE")) @db.Date
   CustomerBranchSid    Int?
+  MobileNo             String?         @db.VarChar(15)
+  Email                String?         @db.VarChar(200)
   customerBranch       CustomerBranch? @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   customerMaster       CustomerMaster  @relation(fields: [CustomerMasterSid], references: [CustomerMasterSid])
   mileStoneMaster      MilestoneMaster @relation(fields: [MilestoneMasterSid], references: [MilestoneMasterSid])
