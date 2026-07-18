@@ -9,6 +9,7 @@ import { contains } from "class-validator";
 import { statusWhereClause, toCamelCase, toNumber, toYesNoFlag } from "src/common/helper";
 import { NumberSeriesService } from "src/settings/services/number-series/number-series.service";
 import { MenuUserConfigService } from "src/settings/services/menu-user-config/menu-user-config.service";
+import { validateQuotationPayloadLengths } from "./quotation-field-limits";
 
 interface authLogDTO {
     CompanyMasterSid : number,
@@ -33,6 +34,11 @@ export class QuotationService {
     ) { }
 
     async createQuotation(payload) {
+        // Reject over-length text with a clear, field-named message BEFORE the transaction, so it
+        // surfaces as a BadRequestException (controller returns error.message) instead of a generic
+        // "Internal Server Error" from a Postgres truncation. Kept outside the try so it is not
+        // re-wrapped into the "Transaction failed" Error below.
+        validateQuotationPayloadLengths(payload);
         try {
             const DepartmentMasterSid = Number(payload.DepartmentMasterSid);
             
@@ -394,9 +400,13 @@ export class QuotationService {
                     BranchMasterSid: BranchMasterSid
                 },
                 include: {
+                    // Order every nested collection ASCENDING by its own primary key so the form
+                    // patches rows back in the exact order they were entered. (createdOn is unsafe
+                    // here: rows written in one Promise.all/createMany share a timestamp, so it does
+                    // not give a stable order.) Products use their explicit Sno sequence.
                     quoteRoute : {
                         where : { status : statusWhereClause},
-                        orderBy: { createdOn: 'desc' },
+                        orderBy: { QuoteRouteSid: 'asc' },
                         include : {
                             bookingHeader: {
                                 select: {
@@ -405,25 +415,25 @@ export class QuotationService {
                                 },
                             },
                             // route - carrier - charge
-                            quoteCarrier : { where : 
+                            quoteCarrier : { where :
                                 { status : statusWhereClause},
-                                 orderBy: { createdOn: 'desc' },
+                                 orderBy: { QuoteCarrierSid: 'asc' },
                                 include : {
-                                    quoteCharge : { where : 
+                                    quoteCharge : { where :
                                         { status : statusWhereClause},
-                                         orderBy: { createdOn: 'desc' },
+                                         orderBy: { QuoteChargeSid: 'asc' },
                                     }
                                 }
                             },
 
                             // route - cargo - product
-                            quoteCargo : { where : 
+                            quoteCargo : { where :
                                 { Status : statusWhereClause},
-                                 orderBy: { CreatedOn: 'desc' },
+                                 orderBy: { QuoteCargoSid: 'asc' },
                                 include : {
-                                    quoteProduct : { where : 
+                                    quoteProduct : { where :
                                         { Status : statusWhereClause},
-                                         orderBy: { CreatedOn: 'desc' },
+                                         orderBy: { Sno: 'asc' },
                                     }
                                 }
                             },
@@ -441,6 +451,9 @@ export class QuotationService {
     }
 
     async updateQuote(QuoteHeaderSid: number, payload) {
+        // Same field-length guard as create: reject over-length text up front with a field-named
+        // BadRequestException instead of a raw Postgres truncation error.
+        validateQuotationPayloadLengths(payload);
         try {
             // Approval Based Payload
             const authPayload = payload.authDetails || {};
@@ -2144,25 +2157,31 @@ export class QuotationService {
                     QuoteHeaderSid: quoteId
                 },
                 include: {
+                    // Same ascending order as findOne so both fetch paths return rows in entry order.
                     quoteRoute : {
                         where : { status : statusWhereClause},
+                        orderBy: { QuoteRouteSid: 'asc' },
                         include : {
                             // route - carrier - charge
-                            quoteCarrier : { where : 
+                            quoteCarrier : { where :
                                 { status : statusWhereClause},
+                                orderBy: { QuoteCarrierSid: 'asc' },
                                 include : {
-                                    quoteCharge : { where : 
-                                        { status : statusWhereClause}
+                                    quoteCharge : { where :
+                                        { status : statusWhereClause},
+                                        orderBy: { QuoteChargeSid: 'asc' },
                                     }
                                 }
                             },
 
                             // route - cargo - product
-                            quoteCargo : { where : 
+                            quoteCargo : { where :
                                 { Status : statusWhereClause},
+                                orderBy: { QuoteCargoSid: 'asc' },
                                 include : {
-                                    quoteProduct : { where : 
-                                        { Status : statusWhereClause}
+                                    quoteProduct : { where :
+                                        { Status : statusWhereClause},
+                                        orderBy: { Sno: 'asc' },
                                     }
                                 }
                             },

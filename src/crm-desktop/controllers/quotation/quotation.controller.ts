@@ -168,7 +168,9 @@ export class QuotationController {
             if (error instanceof BadRequestException || error instanceof UnauthorizedException) {
                 output.message = error.message;
             } else {
-                output.message = error;
+                // Never return the raw error object here: it serialises to "{}" over the wire and the
+                // UI shows a blank toast. Fall back to its message string.
+                output.message = error?.message || "Internal Server Error";
             }
         }
         return output
