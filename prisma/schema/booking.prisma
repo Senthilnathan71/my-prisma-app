@@ -1,6 +1,6 @@
 model BookingHeader {
   BookingHeaderSid           Int                          @id @default(autoincrement()) @map("BookingHeaderSid")
-  BookingNo                  String                       @db.VarChar(50)
+  BookingNo                  String?                      @db.VarChar(50)
   BookingDateTime            DateTime?                    @db.Date
   CompanyMasterSid           Int
   BranchMasterSid            Int?
