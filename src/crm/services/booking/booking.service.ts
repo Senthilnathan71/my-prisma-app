@@ -33,13 +33,14 @@ export class BookingService {
         MenuMasterSid = bookingMenu?.MenuMasterSid;
       }
 
-      // Generate booking number using NumberSeriesService
-      let bookingNo: string | null = null;
-      if (MenuMasterSid) {
-        try {
+      return await this.db.$transaction(async (prisma) => {
+        // Generate booking number INSIDE this transaction — the counter rolls
+        // back with a failed save, so no sequence number is burned.
+        let bookingNo: string | null = null;
+        if (MenuMasterSid) {
           const [polPortCrm, podPortCrm] = await Promise.all([
-            payload.from ? this.db.portMaster.findFirst({ where: { PortCode: payload.from }, select: { PortMasterSid: true } }) : null,
-            payload.to ? this.db.portMaster.findFirst({ where: { PortCode: payload.to }, select: { PortMasterSid: true } }) : null,
+            payload.from ? prisma.portMaster.findFirst({ where: { PortCode: payload.from }, select: { PortMasterSid: true } }) : null,
+            payload.to ? prisma.portMaster.findFirst({ where: { PortCode: payload.to }, select: { PortMasterSid: true } }) : null,
           ]);
           bookingNo = await this.numberSeriesService.generateNextNumber(
             CompanyMasterSid,
@@ -49,13 +50,10 @@ export class BookingService {
             undefined,
             polPortCrm?.PortMasterSid,
             podPortCrm?.PortMasterSid,
+            prisma,
           );
-        } catch (err) {
-          throw err;
         }
-      }
 
-      return await this.db.$transaction(async (prisma) => {
         // Step 1: Create Booking Header
         const bookingHeaderPayload: any = {
           DepartmentMasterSid: DepartmentMasterSid,

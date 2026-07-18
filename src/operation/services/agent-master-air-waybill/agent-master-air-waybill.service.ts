@@ -165,25 +165,28 @@ export class AgentMasterAirWaybillService {
       payload.POL ? this._db.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
       payload.POD ? this._db.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
     ]);
-    let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
-      payload.CompanyMasterSid,
-      payload.BranchMasterSid,
-      masterMenuId,
-      payload.DepartmentMasterSid,
-      resolvedJobDate,
-      polPortAMW?.PortMasterSid,
-      podPortAMW?.PortMasterSid,
-    );
-
-    if (!generatedMasterJobNumber) {
-      const dateString = moment().format('YYYYMMDD');
-      const count = await this._db.masterJob.count({
-        where: { MasterJobNumber: { contains: dateString } },
-      });
-      generatedMasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-    }
-
     const transactionResult = await this._db.$transaction(async (prisma) => {
+      // Consume the number series INSIDE this transaction: the counter rolls
+      // back with a failed save, so no sequence number is burned.
+      let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
+        payload.CompanyMasterSid,
+        payload.BranchMasterSid,
+        masterMenuId,
+        payload.DepartmentMasterSid,
+        resolvedJobDate,
+        polPortAMW?.PortMasterSid,
+        podPortAMW?.PortMasterSid,
+        prisma,
+      );
+
+      if (!generatedMasterJobNumber) {
+        const dateString = moment().format('YYYYMMDD');
+        const count = await prisma.masterJob.count({
+          where: { MasterJobNumber: { contains: dateString } },
+        });
+        generatedMasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+      }
+
       const isAirExport =
         String(department.departmentType ?? '').toUpperCase() === 'AIR' &&
         String(department.ExportImport ?? '').toUpperCase() === 'EXPORT';

@@ -86,23 +86,23 @@ export class QuotationService {
                 MenuMasterSid = quotationMenu?.MenuMasterSid;
             }
 
-            // Generate quote number using NumberSeriesService
-            let quoteNumber: string | null = null;
-            if (MenuMasterSid) {
-                try {
+            return await this._db.$transaction(async (prisma) => {
+                // Generate quote number INSIDE this transaction — the counter
+                // rolls back with a failed save, so no sequence number is burned.
+                let quoteNumber: string | null = null;
+                if (MenuMasterSid) {
                     quoteNumber = await this.numberSeriesService.generateNextNumber(
                         CompanyMasterSid,
                         BranchMasterSid,
                         MenuMasterSid,
                         DepartmentMasterSid ?? undefined,
                         (payload.quoteDate || payload.QuoteDate) ? new Date(payload.quoteDate || payload.QuoteDate) : undefined,
+                        undefined,
+                        undefined,
+                        prisma,
                     );
-                } catch (err) {
-                    throw err;
                 }
-            }
 
-            return await this._db.$transaction(async (prisma) => {
                 // Step 1: Create Quote Header
                 const quoteDate = (payload.quoteDate || payload.QuoteDate) ? new Date(payload.quoteDate || payload.QuoteDate) : new Date();
                 const quoteHeaderPayload: any = {

@@ -436,27 +436,29 @@ export class MasterJobService {
                 payload.POL ? this._db.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
                 payload.POD ? this._db.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
             ]);
-            let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
-                payload.CompanyMasterSid,
-                payload.BranchMasterSid,
-                menuId,
-                payload.DepartmentMasterSid,
-                resolvedJobDate,
-                polPortMJ?.PortMasterSid,
-                podPortMJ?.PortMasterSid,
-            );
-            console.log("generatedMasterJobNumber", generatedMasterJobNumber);
-
-            if (!generatedMasterJobNumber) {
-                const dateString = moment().format('YYYYMMDD');
-                const count = await this._db.masterJob.count({
-                    where: { MasterJobNumber: { contains: dateString } }
-                });
-                generatedMasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-            }
-
             let assignedMBLNo = payload.MBLNo || "";
             const newMasterJob = await this._db.$transaction(async (prisma) => {
+                // Consume the number series inside this transaction: the counter
+                // rolls back with a failed save, so no sequence number is burned.
+                let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
+                    payload.CompanyMasterSid,
+                    payload.BranchMasterSid,
+                    menuId,
+                    payload.DepartmentMasterSid,
+                    resolvedJobDate,
+                    polPortMJ?.PortMasterSid,
+                    podPortMJ?.PortMasterSid,
+                    prisma,
+                );
+
+                if (!generatedMasterJobNumber) {
+                    const dateString = moment().format('YYYYMMDD');
+                    const count = await prisma.masterJob.count({
+                        where: { MasterJobNumber: { contains: dateString } }
+                    });
+                    generatedMasterJobNumber = `MASTER-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                }
+
                 let departmentType = department.departmentType;
                 let departmentExportImport = department?.ExportImport ?? null;
                 // if (departmentType === 'Air') {
@@ -1078,6 +1080,7 @@ export class MasterJobService {
                                     resolvedJobDate,
                                     polPortBH?.PortMasterSid,
                                     podPortBH?.PortMasterSid,
+                                    prisma,
                                 )
                             } else {
                                 HBLNo = "";
@@ -3015,13 +3018,20 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                     if (String(bookingHeader.JobType || '').toLowerCase() === 'transhipment') {
                         // allow same HBLNo from booking
                         HBLNo = String(bookingHeader.HBLNo || '').trim();
-                    } else {
-                        if (departmentExportImport === 'Export') {
-                            // Resolve POL/POD port Sids from booking header for number series
-                            const [polPortBH2, podPortBH2] = await Promise.all([
-                                bookingHeader.POL ? this._db.portMaster.findFirst({ where: { PortCode: bookingHeader.POL }, select: { PortMasterSid: true } }) : null,
-                                bookingHeader.POD ? this._db.portMaster.findFirst({ where: { PortCode: bookingHeader.POD }, select: { PortMasterSid: true } }) : null,
-                            ]);
+                    }
+
+                    // Resolve POL/POD port Sids from booking header for number series
+                    const [polPortBH2, podPortBH2] = await Promise.all([
+                        bookingHeader.POL ? this._db.portMaster.findFirst({ where: { PortCode: bookingHeader.POL }, select: { PortMasterSid: true } }) : null,
+                        bookingHeader.POD ? this._db.portMaster.findFirst({ where: { PortCode: bookingHeader.POD }, select: { PortMasterSid: true } }) : null,
+                    ]);
+
+                    // Step 1: Create main house job — the HBL number is consumed inside
+                    // the same transaction as the create, so a failed create rolls the
+                    // counter back instead of burning the number.
+                    let houseJob = await this._db.$transaction(async (prisma) => {
+                        if (String(bookingHeader.JobType || '').toLowerCase() !== 'transhipment'
+                            && departmentExportImport === 'Export') {
                             HBLNo = await this.numberSeriesService.generateNextNumber(
                                 payload.CompanyMasterSid,
                                 payload.BranchMasterSid,
@@ -3030,14 +3040,10 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 bookingHeader.BookingDateTime ? new Date(bookingHeader.BookingDateTime) : undefined,
                                 polPortBH2?.PortMasterSid,
                                 podPortBH2?.PortMasterSid,
+                                prisma,
                             )
-                        } else {
-                            HBLNo = "";
                         }
-                    }
-
-                    // Step 1: Create main house job
-                    let houseJob = await this._db.houseJob.create({
+                        return prisma.houseJob.create({
                         data: {
                             MasterJobSid: updatedMasterJob.MasterJobSid,
                             HBLDate:  updatedMasterJob.MasterJobDate,
@@ -3103,8 +3109,9 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                             ShipmentNo: bookingHeader.ShipmentNo || '',
                             OriginAgent: bookingOthers?.[0].OriginAgent || '',
                         },
+                        });
                     }).catch(err => {
-                        console.error('HouseJobCargo createMany error:', err);
+                        console.error('HouseJob create error:', err);
                     });
 
                     if (!houseJob) continue;
@@ -4953,6 +4960,7 @@ private async createSingleBooking(tx : PrismaClient | Prisma.TransactionClient, 
         bookingDate,
         polPortBkn2?.PortMasterSid,
         podPortBkn2?.PortMasterSid,
+        tx,
     );
     let destinationAgentAddress = '';
     if (houseJob.DestinationAgent) {
@@ -7012,6 +7020,7 @@ console.log('Created product:', createdProduct);
                 sourceJobDate,
                 polPortSrc?.PortMasterSid,
                 podPortSrc?.PortMasterSid,
+                prisma,
             );
 
             if (!generatedMasterJobNumber) {
@@ -7203,6 +7212,7 @@ console.log('Created product:', createdProduct);
                     shipmentDate,
                     polPortHJSrc?.PortMasterSid,
                     podPortHJSrc?.PortMasterSid,
+                    prisma,
                 );
 
                 if (!generatedShipmentNo) {
@@ -9028,13 +9038,12 @@ async saveMasterJobExcel(
           }
         }
 
-        // Consume the number series only once every insert above has succeeded.
-        // generateNextNumber commits its counter on its own connection, so taking
-        // the number before this point burns it whenever a row fails, leaving a
-        // permanent gap in the series.
+        // Consume the number series only once every insert above has succeeded,
+        // and on THIS transaction (prisma passed) — the counter rolls back with
+        // a failed row, so no sequence number is ever burned.
         let generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
           companyMasterSid, branchMasterSid, menuId, row.DepartmentMasterSid,
-          jobDate, polPort?.PortMasterSid, podPort?.PortMasterSid
+          jobDate, polPort?.PortMasterSid, podPort?.PortMasterSid, prisma
         );
         if (!generatedMasterJobNumber) {
           const { format } = require('date-fns');

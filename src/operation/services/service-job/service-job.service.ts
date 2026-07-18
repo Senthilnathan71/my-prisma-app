@@ -134,70 +134,11 @@ export class ServiceJobService {
             mainPayload.POL ? this._db.portMaster.findFirst({ where: { PortCode: mainPayload.POL }, select: { PortMasterSid: true } }) : null,
             mainPayload.POD ? this._db.portMaster.findFirst({ where: { PortCode: mainPayload.POD }, select: { PortMasterSid: true } }) : null,
         ]);
-        let generatedMasterJobNumber: string | null = null;
-        try {
-            generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
-                mainPayload.CompanyMasterSid,
-                mainPayload.BranchMasterSid,
-                masterJobMenuId,
-                mainPayload.DepartmentMasterSid,
-                documentDate,
-                polPortSJ?.PortMasterSid,
-                podPortSJ?.PortMasterSid,
-            );
-        } catch (err) {
-            this.logger.error(`[ServiceJob] MasterJob number generation failed: ${err.message}`);
-        }
-
-        // Fallback to legacy if config-based generation failed
-        if (!generatedMasterJobNumber) {
-            const dateString = moment().format('YYYYMMDD');
-            const masterCount = await this._db.masterJob.count({
-                where: { MasterJobNumber: { contains: dateString } }
-            });
-            generatedMasterJobNumber = `MASTER-${dateString}-${(masterCount + 1).toString().padStart(3, '0')}`;
-        }
-
-        // Payload MBLNo overrides generated number
-        const finalMBLNo =
-            payload.MBLNo && payload.MBLNo.trim() !== ''
-                ? payload.MBLNo
-                : generatedMasterJobNumber;
-
-        // 3. Generate House Job HBL number via NumberSeriesService
+        // 3. Resolve House Job menu id (numbers themselves are generated inside
+        // the save transaction below, so a failed save never burns a number)
         const houseJobMenuId = await this.menuService.getMenuSidByName(
             department.departmentType?.toUpperCase() === 'AIR' ? "House Air Waybill" : "House Job"
         );
-
-        let generatedHBLNo: string | null = null;
-        try {
-            generatedHBLNo = await this.numberSeriesService.generateNextNumber(
-                mainPayload.CompanyMasterSid,
-                mainPayload.BranchMasterSid,
-                houseJobMenuId,
-                mainPayload.DepartmentMasterSid,
-                documentDate,
-                polPortSJ?.PortMasterSid,
-                podPortSJ?.PortMasterSid,
-            );
-        } catch (err) {
-            this.logger.error(`[ServiceJob] HBL number generation failed: ${err.message}`);
-        }
-
-        // Fallback to legacy if config-based generation failed
-        if (!generatedHBLNo) {
-            const dateString = moment().format('YYYYMMDD');
-            const houseCount = await this._db.houseJob.count({
-                where: { HBLNo: { contains: dateString } }
-            });
-            generatedHBLNo = `HOUSE-${dateString}-${(houseCount + 1).toString().padStart(3, '0')}`;
-        }
-
-        // Payload HBLNo overrides generated number
-        const finalHBLNo =
-            payload.HBLNo && payload.HBLNo.trim() !== ''
-                ? payload.HBLNo
-                : generatedHBLNo;
 
         // 4. Service Job ShipmentNo — open text from payload or legacy fallback
         let serviceJobRefNo: string;
@@ -220,6 +161,71 @@ export class ServiceJobService {
         return this._db.$transaction(async (prisma) => {
             const etdDate = payload.ETD ? new Date(payload.ETD) : null;
             const etaDate = payload.ETA ? new Date(payload.ETA) : null;
+
+            // Generate Master Job number INSIDE this transaction — the counter
+            // rolls back with a failed save, so no sequence number is burned.
+            let generatedMasterJobNumber: string | null = null;
+            try {
+                generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
+                    mainPayload.CompanyMasterSid,
+                    mainPayload.BranchMasterSid,
+                    masterJobMenuId,
+                    mainPayload.DepartmentMasterSid,
+                    documentDate,
+                    polPortSJ?.PortMasterSid,
+                    podPortSJ?.PortMasterSid,
+                    prisma,
+                );
+            } catch (err) {
+                this.logger.error(`[ServiceJob] MasterJob number generation failed: ${err.message}`);
+            }
+
+            // Fallback to legacy if config-based generation failed
+            if (!generatedMasterJobNumber) {
+                const dateString = moment().format('YYYYMMDD');
+                const masterCount = await prisma.masterJob.count({
+                    where: { MasterJobNumber: { contains: dateString } }
+                });
+                generatedMasterJobNumber = `MASTER-${dateString}-${(masterCount + 1).toString().padStart(3, '0')}`;
+            }
+
+            // Payload MBLNo overrides generated number
+            const finalMBLNo =
+                payload.MBLNo && payload.MBLNo.trim() !== ''
+                    ? payload.MBLNo
+                    : generatedMasterJobNumber;
+
+            // Generate House Job HBL number (same transaction, same guarantee)
+            let generatedHBLNo: string | null = null;
+            try {
+                generatedHBLNo = await this.numberSeriesService.generateNextNumber(
+                    mainPayload.CompanyMasterSid,
+                    mainPayload.BranchMasterSid,
+                    houseJobMenuId,
+                    mainPayload.DepartmentMasterSid,
+                    documentDate,
+                    polPortSJ?.PortMasterSid,
+                    podPortSJ?.PortMasterSid,
+                    prisma,
+                );
+            } catch (err) {
+                this.logger.error(`[ServiceJob] HBL number generation failed: ${err.message}`);
+            }
+
+            // Fallback to legacy if config-based generation failed
+            if (!generatedHBLNo) {
+                const dateString = moment().format('YYYYMMDD');
+                const houseCount = await prisma.houseJob.count({
+                    where: { HBLNo: { contains: dateString } }
+                });
+                generatedHBLNo = `HOUSE-${dateString}-${(houseCount + 1).toString().padStart(3, '0')}`;
+            }
+
+            // Payload HBLNo overrides generated number
+            const finalHBLNo =
+                payload.HBLNo && payload.HBLNo.trim() !== ''
+                    ? payload.HBLNo
+                    : generatedHBLNo;
 
             // Create the MasterJob
             const masterJob = await prisma.masterJob.create({

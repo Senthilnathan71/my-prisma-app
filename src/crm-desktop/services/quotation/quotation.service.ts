@@ -57,22 +57,6 @@ export class QuotationService {
                 MenuMasterSid = enquiryMenu?.MenuMasterSid;
             }
 
-            // Generate quotation number using NumberSeriesService
-            let quotationNumber: string | null = null;
-            if (MenuMasterSid) {
-                try {
-                    quotationNumber = await this.numberSeriesService.generateNextNumber(
-                        payload.CompanyMasterSid,
-                        payload.BranchMasterSid,
-                        MenuMasterSid,
-                        DepartmentMasterSid,
-                        payload.QuoteDate ? new Date(payload.QuoteDate) : undefined,
-                    );
-                } catch (err) {
-                    throw err;
-                }
-            }
-
             const resourcePerson =
         (await this.menuUserConfigService.getConfiguredUser(
           payload.CompanyMasterSid,
@@ -107,7 +91,7 @@ export class QuotationService {
                 RateLock: payload.RateLock,
                 IsContract: payload.IsContract,
                 MenuMasterSid: Number(payload.MenuMasterSid),
-                QuoteNumber: quotationNumber,
+                QuoteNumber: null, // generated inside the create transaction below
                 createdBy: payload.createdBy,
                 InternalApprovedBy: payload.InternalApprovedBy || null,
                 InternalApprovedOn: payload.InternalApprovedBy ? new Date() : null,
@@ -117,7 +101,24 @@ export class QuotationService {
 
             };
 
-            const quoteHeader = await this._db.quoteHeader.create({ data: quoteHeaderPayload });
+            // Generate the quote number INSIDE the same transaction as the header
+            // create — a failed create rolls the counter back, so no sequence
+            // number is burned.
+            const quoteHeader = await this._db.$transaction(async (prisma) => {
+                if (MenuMasterSid) {
+                    quoteHeaderPayload.QuoteNumber = await this.numberSeriesService.generateNextNumber(
+                        payload.CompanyMasterSid,
+                        payload.BranchMasterSid,
+                        MenuMasterSid,
+                        DepartmentMasterSid,
+                        payload.QuoteDate ? new Date(payload.QuoteDate) : undefined,
+                        undefined,
+                        undefined,
+                        prisma,
+                    );
+                }
+                return prisma.quoteHeader.create({ data: quoteHeaderPayload });
+            });
 
             // Step 2: Create Quote Routes
             const quoteRoutes = await Promise.all(

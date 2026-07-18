@@ -148,7 +148,11 @@ export class NumberSeriesService {
 
   /**
    * Generate next document number - MAIN METHOD
-   * Uses database transaction with serializable isolation for concurrency safety
+   *
+   * Pass `tx` (the caller's open Prisma transaction client) to make the counter
+   * increment commit/roll back WITH the document being saved — a failed save
+   * then never burns a sequence number. Without `tx`, the increment runs in its
+   * own serializable transaction (legacy behaviour, e.g. booking).
    */
   async generateNextNumber(
     CompanyMasterSid: number,
@@ -158,11 +162,11 @@ export class NumberSeriesService {
     documentDate?: Date,
     POLSid?: number,
     PODSid?: number,
+    tx?: Prisma.TransactionClient,
   ): Promise<string> {
-    this.logger.log(`[NumberSeries] generateNextNumber called with: Company=${CompanyMasterSid}, Branch=${BranchMasterSid}, Menu=${MenuMasterSid}, Dept=${DepartmentMasterSid}`);
+    this.logger.log(`[NumberSeries] generateNextNumber called with: Company=${CompanyMasterSid}, Branch=${BranchMasterSid}, Menu=${MenuMasterSid}, Dept=${DepartmentMasterSid}, InCallerTx=${!!tx}`);
 
-    return await this._db.$transaction(
-      async (prisma) => {
+    const core = async (prisma: Prisma.TransactionClient) => {
         // 1. Get configuration for this menu
         this.logger.log(`[NumberSeries] Looking for config with Company=${CompanyMasterSid}, Branch=${BranchMasterSid}, Menu=${MenuMasterSid}`);
 
@@ -220,56 +224,39 @@ export class NumberSeriesService {
         const { polSid, podSid, polCode, podCode } =
           await this.resolvePortSegment(prisma, config, POLSid, PODSid);
 
-        // 4. Get or create counter with row-level locking
-        let counter = await prisma.numberSeriesCounter.findFirst({
-          where: {
-            NumberSeriesConfigSid: config.NumberSeriesConfigSid,
-            DepartmentMasterSid: deptSid,
-            YearMasterSid: yearMasterSid,
-            Month: month,
-            POLSid: polSid,
-            PODSid: podSid,
-          },
-        });
-
-        let nextNumber: number;
+        // 4. Bump the counter atomically — one UPDATE that row-locks ONLY this
+        // counter row; the lock is held until the surrounding transaction ends,
+        // so concurrent savers on the same series queue instead of clashing.
         const startingNumber = config.StartingNumber || 1;
+        const counterKey = {
+          NumberSeriesConfigSid: config.NumberSeriesConfigSid,
+          DepartmentMasterSid: deptSid ?? null,
+          YearMasterSid: yearMasterSid ?? null,
+          Month: month ?? null,
+          POLSid: polSid ?? null,
+          PODSid: podSid ?? null,
+        };
+        let nextNumber = await this.bumpCounter(prisma, counterKey, startingNumber);
 
-        if (!counter) {
-          // Create new counter starting at configured StartingNumber
-          counter = await prisma.numberSeriesCounter.create({
-            data: {
-              NumberSeriesConfigSid: config.NumberSeriesConfigSid,
-              CompanyMasterSid,
-              BranchMasterSid,
-              MenuMasterSid,
-              DepartmentMasterSid: deptSid,
-              YearMasterSid: yearMasterSid,
-              Month: month,
-              POLSid: polSid,
-              PODSid: podSid,
-              LastNumber: startingNumber,
-            },
-          });
-          nextNumber = startingNumber;
-        } else {
-          // Check if StartingNumber was updated to be greater than current LastNumber
-          // This handles the case where user updates an existing config with a new StartingNumber
-          if (startingNumber > counter.LastNumber) {
-            // StartingNumber was increased, use it as the next number
+        if (nextNumber === null) {
+          // First generation for this counter key. The unique index cannot
+          // block concurrent creates when key columns are NULL (Postgres
+          // treats NULLs as distinct), so serialize the create per config via
+          // a transaction-scoped advisory lock, then re-check under the lock.
+          await prisma.$queryRaw`SELECT pg_advisory_xact_lock(${NumberSeriesService.COUNTER_LOCK_NS}::int, ${config.NumberSeriesConfigSid}::int)`;
+          nextNumber = await this.bumpCounter(prisma, counterKey, startingNumber);
+          if (nextNumber === null) {
+            await prisma.numberSeriesCounter.create({
+              data: {
+                ...counterKey,
+                CompanyMasterSid,
+                BranchMasterSid,
+                MenuMasterSid,
+                LastNumber: startingNumber,
+              },
+            });
             nextNumber = startingNumber;
-            this.logger.log(`[NumberSeries] StartingNumber (${startingNumber}) > LastNumber (${counter.LastNumber}), jumping to StartingNumber`);
-          } else {
-            // Normal increment
-            nextNumber = counter.LastNumber + 1;
           }
-
-          await prisma.numberSeriesCounter.update({
-            where: {
-              NumberSeriesCounterSid: counter.NumberSeriesCounterSid,
-            },
-            data: { LastNumber: nextNumber },
-          });
         }
 
         // 5. Build the formatted number
@@ -292,11 +279,51 @@ export class NumberSeriesService {
         }
 
         return formatted;
-      },
-      {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      },
-    );
+    };
+
+    if (tx) {
+      // Caller-owned atomicity: the counter bump rides the caller's
+      // transaction and rolls back with it — no burned numbers.
+      return await core(tx);
+    }
+
+    return await this._db.$transaction(core, {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+  }
+
+  /** Advisory-lock namespace for number-series counter creation (arbitrary, app-unique). */
+  private static readonly COUNTER_LOCK_NS = 748291;
+
+  /**
+   * Atomically increment a counter and return the new value, or null when no
+   * counter row exists yet for this key. GREATEST keeps the existing
+   * "jump to a raised StartingNumber" rule.
+   */
+  private async bumpCounter(
+    prisma: Prisma.TransactionClient,
+    key: {
+      NumberSeriesConfigSid: number;
+      DepartmentMasterSid: number | null;
+      YearMasterSid: number | null;
+      Month: number | null;
+      POLSid: number | null;
+      PODSid: number | null;
+    },
+    startingNumber: number,
+  ): Promise<number | null> {
+    const rows = await prisma.$queryRaw<{ LastNumber: number }[]>`
+      UPDATE "NumberSeriesCounter"
+         SET "LastNumber" = GREATEST("LastNumber" + 1, ${startingNumber}::int),
+             "UpdatedOn"  = NOW()
+       WHERE "NumberSeriesConfigSid" = ${key.NumberSeriesConfigSid}
+         AND "DepartmentMasterSid" IS NOT DISTINCT FROM ${key.DepartmentMasterSid}::int
+         AND "YearMasterSid"       IS NOT DISTINCT FROM ${key.YearMasterSid}::int
+         AND "Month"               IS NOT DISTINCT FROM ${key.Month}::int
+         AND "POLSid"              IS NOT DISTINCT FROM ${key.POLSid}::int
+         AND "PODSid"              IS NOT DISTINCT FROM ${key.PODSid}::int
+       RETURNING "LastNumber"`;
+    return rows.length > 0 ? Number(rows[0].LastNumber) : null;
   }
 
   /**

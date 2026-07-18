@@ -95,6 +95,9 @@ export class EnquiryHeaderService {
                         MenuMasterSid,
                         DepartmentMasterSid,
                         payload.EnquiryDate ? new Date(payload.EnquiryDate) : undefined,
+                        undefined,
+                        undefined,
+                        prisma,
                     );
                 } catch (err) {
                     throw err;

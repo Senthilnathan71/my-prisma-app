@@ -36,23 +36,23 @@ export class EnquiryHeaderService {
                 MenuMasterSid = enquiryMenu?.MenuMasterSid;
             }
 
-            // Generate enquiry number using NumberSeriesService
-            let enquiryNumber: string | null = null;
-            if (MenuMasterSid) {
-                try {
+            return await this._db.$transaction(async (prisma) => {
+                // Generate enquiry number INSIDE this transaction — the counter
+                // rolls back with a failed save, so no sequence number is burned.
+                let enquiryNumber: string | null = null;
+                if (MenuMasterSid) {
                     enquiryNumber = await this.numberSeriesService.generateNextNumber(
                         CompanyMasterSid,
                         BranchMasterSid,
                         MenuMasterSid,
                         DepartmentMasterSid,
                         undefined,
+                        undefined,
+                        undefined,
+                        prisma,
                     );
-                } catch (err) {
-                    throw err;
                 }
-            }
 
-            return await this._db.$transaction(async (prisma) => {
                 // Step 1: Create Enquiry Header
                 const enquiryHeaderPayload: any = {
                     CustomerName: payload.CustomerName,

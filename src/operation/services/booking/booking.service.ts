@@ -269,66 +269,6 @@ export class BookingService {
             this.logger.log(`[NumberSeries] Final numberSeriesMenuId: ${numberSeriesMenuId}`);
 
 
-            // Generate booking number using NumberSeriesService
-            let BookingNo: string | null = null;
-            if (numberSeriesMenuId && payload.CompanyMasterSid && payload.BranchMasterSid) {
-                this.logger.log(`[NumberSeries] Calling generateNextNumber with MenuMasterSid: ${numberSeriesMenuId}`);
-                // Resolve POL/POD port Sids for number series counter key
-                const [polPortBkn, podPortBkn] = await Promise.all([
-                    payload.POL ? this._db.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
-                    payload.POD ? this._db.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
-                ]);
-                try {
-                    BookingNo = await this.numberSeriesService.generateNextNumber(
-                        payload.CompanyMasterSid,
-                        payload.BranchMasterSid,
-                        numberSeriesMenuId,
-                        payload.DepartmentMasterSid ?? undefined,
-                        resolvedJobDate,
-                        polPortBkn?.PortMasterSid,
-                        podPortBkn?.PortMasterSid,
-                    );
-                    this.logger.log(`[NumberSeries] Generated BookingNo: ${BookingNo}, Length: ${BookingNo?.length}`);
-                } catch (err) {
-                    this.logger.error(`[NumberSeries] Error generating number: ${err.message}`);
-                }
-            } else {
-                this.logger.warn(`[NumberSeries] Skipping generation - Missing: menuId=${numberSeriesMenuId}, company=${payload.CompanyMasterSid}, branch=${payload.BranchMasterSid}`);
-            }
-
-            // Fallback to legacy format if NumberSeriesService didn't generate
-            if (!BookingNo) {
-                this.logger.log(`[NumberSeries] Using legacy fallback format`);
-                const dateString = moment().format('YYYYMMDD');
-                const count = await this._db.bookingHeader.count({
-                    where: { BookingNo: { contains: dateString } }
-                });
-                BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
-            }
-
-            // Truncate if too long (BookingNo column is VarChar(50))
-            if (BookingNo && BookingNo.length > 50) {
-                this.logger.warn(`BookingNo truncated from ${BookingNo.length} chars: ${BookingNo}`);
-                BookingNo = BookingNo.substring(0, 50);
-            } // Log the data object being inserted to find the too-long column
-            const bookingData = {
-                CompanyMasterSid: payload.CompanyMasterSid,
-                BranchMasterSid: payload.BranchMasterSid,
-                MenuMasterSid: payload.MenuMasterSid,
-                BookingNo: BookingNo,
-                JobType: payload.JobType,
-                VoyageNo: payload.VoyageNo,
-                MovementType: payload.MovementType,
-                ShipmentType: payload.ShipmentType,
-                IncoTerms: payload.IncoTerms,
-                CustomerName: payload.CustomerName,
-                ShipperName: payload.ShipperName,
-                ConsigneeName: payload.ConsigneeName,
-            };
-            this.logger.log(`[BookingData] Insert payload: ${JSON.stringify(bookingData)}`);
-            this.logger.log(`[BookingData] Field lengths - JobType: ${payload.JobType?.length}, VoyageNo:
-${payload.VoyageNo?.length}, MovementType: ${payload.MovementType?.length}, ShipmentType:
-${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
  const resourcePerson =
         (await this.menuUserConfigService.getConfiguredUser(
           payload.CompanyMasterSid,
@@ -336,6 +276,52 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
           payload.MenuMasterSid,
         ));
             const bookingHeader = await this._db.$transaction(async (prisma) => {
+                // Generate booking number INSIDE this transaction, BEFORE the
+                // header insert (ShipmentNo mirrors it and the BKGCONF milestone
+                // trigger reads ShipmentNo at INSERT). The counter rolls back
+                // with a failed save, so no sequence number is burned.
+                let BookingNo: string | null = null;
+                if (numberSeriesMenuId && payload.CompanyMasterSid && payload.BranchMasterSid) {
+                    this.logger.log(`[NumberSeries] Calling generateNextNumber with MenuMasterSid: ${numberSeriesMenuId}`);
+                    // Resolve POL/POD port Sids for number series counter key
+                    const [polPortBkn, podPortBkn] = await Promise.all([
+                        payload.POL ? prisma.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
+                        payload.POD ? prisma.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
+                    ]);
+                    try {
+                        BookingNo = await this.numberSeriesService.generateNextNumber(
+                            payload.CompanyMasterSid,
+                            payload.BranchMasterSid,
+                            numberSeriesMenuId,
+                            payload.DepartmentMasterSid ?? undefined,
+                            resolvedJobDate,
+                            polPortBkn?.PortMasterSid,
+                            podPortBkn?.PortMasterSid,
+                            prisma,
+                        );
+                        this.logger.log(`[NumberSeries] Generated BookingNo: ${BookingNo}, Length: ${BookingNo?.length}`);
+                    } catch (err) {
+                        this.logger.error(`[NumberSeries] Error generating number: ${err.message}`);
+                    }
+                } else {
+                    this.logger.warn(`[NumberSeries] Skipping generation - Missing: menuId=${numberSeriesMenuId}, company=${payload.CompanyMasterSid}, branch=${payload.BranchMasterSid}`);
+                }
+
+                // Fallback to legacy format if NumberSeriesService didn't generate
+                if (!BookingNo) {
+                    this.logger.log(`[NumberSeries] Using legacy fallback format`);
+                    const dateString = moment().format('YYYYMMDD');
+                    const count = await prisma.bookingHeader.count({
+                        where: { BookingNo: { contains: dateString } }
+                    });
+                    BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                }
+
+                // Truncate if too long (BookingNo column is VarChar(50))
+                if (BookingNo && BookingNo.length > 50) {
+                    this.logger.warn(`BookingNo truncated from ${BookingNo.length} chars: ${BookingNo}`);
+                    BookingNo = BookingNo.substring(0, 50);
+                }
                 /**
                     |--------------------------------------------------
                     |   Step 2 : Create Booking Header
@@ -4209,30 +4195,33 @@ ${payload.ShipmentType?.length}, IncoTerms: ${payload.IncoTerms?.length}`);
                         : null,
                 ]);
 
-                let BookingNo = await this.numberSeriesService.generateNextNumber(
-                    companyMasterSid,
-                    branchMasterSid,
-                    resolvedMenuId,
-                    row.DepartmentMasterSid ?? undefined,
-                    bookingDate,
-                    polPort?.PortMasterSid,
-                    podPort?.PortMasterSid,
-                );
-
-                if (!BookingNo) {
-                    const { format } = require('date-fns');
-                    const ds = format(bookingDate, 'yyyyMMdd');
-                    const cnt = await this._db.bookingHeader.count({
-                        where: { BookingNo: { contains: ds } },
-                    });
-                    BookingNo = `booking-${ds}-${String(cnt + 1).padStart(3, '0')}`;
-                }
-
-                if (BookingNo && BookingNo.length > 50) {
-                    BookingNo = BookingNo.substring(0, 50);
-                }
-
                 await this._db.$transaction(async (prisma: any) => {
+                    // Consume the number series INSIDE this transaction — the
+                    // counter rolls back with a failed row, so no number is burned.
+                    let BookingNo = await this.numberSeriesService.generateNextNumber(
+                        companyMasterSid,
+                        branchMasterSid,
+                        resolvedMenuId,
+                        row.DepartmentMasterSid ?? undefined,
+                        bookingDate,
+                        polPort?.PortMasterSid,
+                        podPort?.PortMasterSid,
+                        prisma,
+                    );
+
+                    if (!BookingNo) {
+                        const { format } = require('date-fns');
+                        const ds = format(bookingDate, 'yyyyMMdd');
+                        const cnt = await prisma.bookingHeader.count({
+                            where: { BookingNo: { contains: ds } },
+                        });
+                        BookingNo = `booking-${ds}-${String(cnt + 1).padStart(3, '0')}`;
+                    }
+
+                    if (BookingNo && BookingNo.length > 50) {
+                        BookingNo = BookingNo.substring(0, 50);
+                    }
+
                     // ── 1. BookingHeader ───────────────────────────────────────────────
                     const bookingHeader = await prisma.bookingHeader.create({
                         data: {

@@ -746,6 +746,9 @@ export class HouseJobService {
 
             const departmentExportImport = department?.ExportImport ?? null;
 
+            // Create the House Job in one transaction; the HBL number is generated
+            // INSIDE it so a failed save rolls the counter back (no burned numbers).
+            const createdHouseJob = await this._db.$transaction(async (prisma) => {
             // Generate HBL number using NumberSeriesService (for Export only)
             let HBLNo: string | null = null;
             if (isAgentMasterAirWaybill) {
@@ -759,8 +762,8 @@ export class HouseJobService {
                 if (numberSeriesMenuId) {
                     // Resolve POL/POD port Sids for number series counter key
                     const [polPortHJ, podPortHJ] = await Promise.all([
-                        payload.POL ? this._db.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
-                        payload.POD ? this._db.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
+                        payload.POL ? prisma.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
+                        payload.POD ? prisma.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
                     ]);
                     HBLNo = await this.numberSeriesService.generateNextNumber(
                         payload.CompanyMasterSid,
@@ -770,13 +773,14 @@ export class HouseJobService {
                         resolvedJobDate,
                         polPortHJ?.PortMasterSid,
                         podPortHJ?.PortMasterSid,
+                        prisma,
                     );
                 }
 
                 // fallback generator
                 if (!HBLNo) {
                     const dateString = moment().format('YYYYMMDD');
-                    const hblBaseCount = await this._db.houseJob.count({
+                    const hblBaseCount = await prisma.houseJob.count({
                         where: { HBLNo: { contains: dateString } },
                     });
 
@@ -830,9 +834,6 @@ export class HouseJobService {
                     );
                 }
             }
-
-            const createdHouseJob = await this._db.$transaction(async (prisma) => {
-
 
                 // Create main House Job record
                 const houseJob = await prisma.houseJob.create({
