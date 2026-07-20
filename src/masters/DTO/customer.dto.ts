@@ -333,6 +333,16 @@ export class CustomerMilestoneDto {
     @MaxLength(100)
     ContactInfo: string;
 
+    @IsEmail()
+    @IsOptional()
+    @MaxLength(200)
+    Email?: string;
+
+    @IsString()
+    @IsOptional()
+    @MaxLength(15)
+    MobileNo?: string;
+
     @IsDate()
     @Type(() => Date)
     @IsOptional()
