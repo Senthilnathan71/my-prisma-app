@@ -24,6 +24,16 @@ interface authLogDTO {
     AuthorityDetailSid : number,
     AuthorisedDate : Date,
 }
+
+const toNullableNumber = (value: any): number | null => {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : null;
+};
+
 @Injectable()
 export class QuotationService {
     constructor(
@@ -305,7 +315,7 @@ export class QuotationService {
                                 ChargeableWeight: Number(product.ChargeableWeight) || 0,
                                 IsHaz: product.IsHaz ? "Y" : "N",
                                 IsStackable: toYesNoFlag(product.IsStackable),
-                                ImcoClass: product.ImcoClass || null,
+                                ImcoClass: toNullableNumber(product.ImcoClass),
                                 PkgGroup: Number(product.PkgGroup) || null,
                                 Remarks: product.Remarks,
                                 Volumetric: Number(product.Volumetric ?? product.volumetric) || 0
@@ -1113,7 +1123,7 @@ export class QuotationService {
                         ChargeableWeight: Number(payload.ChargeableWeight) || 0,
                         IsHaz: payload.IsHaz ? "Y" : "N",
                         IsStackable: toYesNoFlag(payload.IsStackable),
-                        ImcoClass: payload.ImcoClass,
+                        ImcoClass: toNullableNumber(payload.ImcoClass),
                         PkgGroup: Number(payload.PkgGroup) || null,
                         Remarks: payload.Remarks,
                         Volumetric: Number(payload.Volumetric ?? payload.volumetric) || 0, 
@@ -1145,7 +1155,7 @@ export class QuotationService {
                         ChargeableWeight: Number(payload.ChargeableWeight) || 0,
                         IsHaz: payload.IsHaz ? "Y" : "N",
                         IsStackable: toYesNoFlag(payload.IsStackable),
-                        ImcoClass: payload.ImcoClass || null,
+                        ImcoClass: toNullableNumber(payload.ImcoClass),
                         PkgGroup: Number(payload.PkgGroup) || null,
                         Remarks: payload.Remarks,
                         Volumetric: Number(payload.Volumetric ?? payload.volumetric) || 0, 
