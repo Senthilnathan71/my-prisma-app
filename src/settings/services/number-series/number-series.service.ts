@@ -151,8 +151,9 @@ export class NumberSeriesService {
    *
    * Pass `tx` (the caller's open Prisma transaction client) to make the counter
    * increment commit/roll back WITH the document being saved — a failed save
-   * then never burns a sequence number. Without `tx`, the increment runs in its
-   * own serializable transaction (legacy behaviour, e.g. booking).
+   * then never burns a sequence number. Without `tx` (only the standalone
+   * POST /number-series/generate endpoint), the increment runs in its own
+   * short transaction.
    */
   async generateNextNumber(
     CompanyMasterSid: number,
@@ -289,9 +290,12 @@ export class NumberSeriesService {
       return await core(tx);
     }
 
-    return await this._db.$transaction(core, {
-      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-    });
+    // Default READ COMMITTED on purpose — correctness comes from the atomic
+    // row-locked UPDATE + advisory lock, not the isolation level. Under
+    // Serializable a lock-waiter aborts with a serialization error (P2034)
+    // instead of re-reading, and the miss-path re-check cannot see a counter
+    // row committed after its snapshot (→ duplicate counter rows/numbers).
+    return await this._db.$transaction(core);
   }
 
   /** Advisory-lock namespace for number-series counter creation (arbitrary, app-unique). */
@@ -325,7 +329,13 @@ export class NumberSeriesService {
          AND "POLSid"              IS NOT DISTINCT FROM ${key.POLSid}::int
          AND "PODSid"              IS NOT DISTINCT FROM ${key.PODSid}::int
        RETURNING "LastNumber"`;
-    return rows.length > 0 ? Number(rows[0].LastNumber) : null;
+    // MAX, not rows[0]: the old racing code could have left duplicate counter
+    // rows for one key (NULL key columns bypass the unique index). The UPDATE
+    // bumps every match; returning the highest keeps issued numbers monotonic
+    // so a lower duplicate value is never reissued.
+    return rows.length > 0
+      ? Math.max(...rows.map((r) => Number(r.LastNumber)))
+      : null;
   }
 
   /**
