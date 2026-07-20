@@ -288,33 +288,25 @@ export class BookingService {
                         payload.POL ? prisma.portMaster.findFirst({ where: { PortCode: payload.POL }, select: { PortMasterSid: true } }) : null,
                         payload.POD ? prisma.portMaster.findFirst({ where: { PortCode: payload.POD }, select: { PortMasterSid: true } }) : null,
                     ]);
-                    try {
-                        BookingNo = await this.numberSeriesService.generateNextNumber(
-                            payload.CompanyMasterSid,
-                            payload.BranchMasterSid,
-                            numberSeriesMenuId,
-                            payload.DepartmentMasterSid ?? undefined,
-                            resolvedJobDate,
-                            polPortBkn?.PortMasterSid,
-                            podPortBkn?.PortMasterSid,
-                            prisma,
-                        );
-                        this.logger.log(`[NumberSeries] Generated BookingNo: ${BookingNo}, Length: ${BookingNo?.length}`);
-                    } catch (err) {
-                        this.logger.error(`[NumberSeries] Error generating number: ${err.message}`);
-                    }
+                    BookingNo = await this.numberSeriesService.generateNextNumber(
+                        payload.CompanyMasterSid,
+                        payload.BranchMasterSid,
+                        numberSeriesMenuId,
+                        payload.DepartmentMasterSid ?? undefined,
+                        resolvedJobDate,
+                        polPortBkn?.PortMasterSid,
+                        podPortBkn?.PortMasterSid,
+                        prisma,
+                    );
+                    this.logger.log(`[NumberSeries] Generated BookingNo: ${BookingNo}, Length: ${BookingNo?.length}`);
                 } else {
                     this.logger.warn(`[NumberSeries] Skipping generation - Missing: menuId=${numberSeriesMenuId}, company=${payload.CompanyMasterSid}, branch=${payload.BranchMasterSid}`);
                 }
 
-                // Fallback to legacy format if NumberSeriesService didn't generate
+                // No legacy fallback: a missing/incomplete number series configuration
+                // must surface to the user, not silently produce a booking-YYYYMMDD-NNN number.
                 if (!BookingNo) {
-                    this.logger.log(`[NumberSeries] Using legacy fallback format`);
-                    const dateString = moment().format('YYYYMMDD');
-                    const count = await prisma.bookingHeader.count({
-                        where: { BookingNo: { contains: dateString } }
-                    });
-                    BookingNo = `booking-${dateString}-${(count + 1).toString().padStart(3, '0')}`;
+                    throw new BadRequestException('No configuration found for this menu.\nPlease configure it in the Operation Document Number settings.');
                 }
 
                 // Truncate if too long (BookingNo column is VarChar(50))

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from 'src/database/database.service';
+import { assertNoDuplicateCustomerMilestones } from './customer-milestone.helper';
 
 @Injectable()
 export class CustomerMilestoneService {
@@ -23,6 +24,8 @@ export class CustomerMilestoneService {
     async saveCustomerMilestone(customerMilestones :any[]) {
         try {
             return await this._db.$transaction(async (prisma)=>{
+                await assertNoDuplicateCustomerMilestones(prisma, customerMilestones);
+
                 let finalMilestones :any[] = [];
                 for(const milestone of customerMilestones) {
                     let updatedMilestone;
@@ -37,6 +40,8 @@ export class CustomerMilestoneService {
                                 MilestoneMasterSid : milestone.MilestoneMasterSid,
                                 UpdateType : milestone.UpdateType,
                                 ContactInfo : milestone.ContactInfo,
+                                Email : milestone.Email ?? null,
+                                MobileNo : milestone.MobileNo ?? null,
                                 EffectiveFrom : milestone.EffectiveFrom,
                                 Status : milestone.Status,
                                 UpdatedBy : milestone.updatedBy,
@@ -51,6 +56,8 @@ export class CustomerMilestoneService {
                                 MilestoneMasterSid : milestone.MilestoneMasterSid,
                                 UpdateType : milestone.UpdateType,
                                 ContactInfo : milestone.ContactInfo,
+                                Email : milestone.Email ?? null,
+                                MobileNo : milestone.MobileNo ?? null,
                                 EffectiveFrom : milestone.EffectiveFrom,
                                 Status : milestone.Status,
                                 CreatedBy : milestone.createdBy,

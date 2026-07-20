@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, HttpException,Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ApprovalStatus, LeadStatus, Prisma } from "@prisma/client";
 import { DatabaseService } from "src/database/database.service";
 import * as moment from 'moment-timezone';
@@ -367,6 +367,9 @@ export class QuotationService {
                 }
             };
         } catch (error) {
+            if (error instanceof HttpException) {
+                    throw error;
+            }
             throw new Error(`Transaction failed: ${error.stack}`);
         }
     }

@@ -5,6 +5,7 @@ import { DatabaseService } from 'src/database/database.service';
 import { SearchListDto } from 'src/masters/DTO/search-list.dto';
 import { filterDto } from 'src/masters/DTO/search-vessel.dto';
 import { CreateUpdateCustomerDto, BulkCreateUpdateCustomerDto } from 'src/masters/DTO/customer.dto';
+import { assertNoDuplicateCustomerMilestones } from '../customer-milestone/customer-milestone.helper';
 import * as ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
 
@@ -213,12 +214,19 @@ export class CustomerService {
 
                     // Step 9: CustomerMilestone
                     if (branch.customerMilestones && branch.customerMilestones.length > 0) {
+                        await assertNoDuplicateCustomerMilestones(tx, branch.customerMilestones, {
+                            CustomerMasterSid: customer.CustomerMasterSid,
+                            CustomerBranchSid: branchId
+                        });
+
                         for (const milestone of branch.customerMilestones) {
                             const customerMilestone = await tx.customerMilestone.create({
                                 data: {
                                     MilestoneMasterSid: milestone.MilestoneMasterSid,
                                     UpdateType: milestone.UpdateType,
                                     ContactInfo: milestone.ContactInfo,
+                                    Email: milestone.Email ?? null,
+                                    MobileNo: milestone.MobileNo ?? null,
                                     EffectiveFrom: milestone.EffectiveFrom,
                                     Status: milestone.Status,
                                     CreatedBy: userEmail,
@@ -604,6 +612,8 @@ export class CustomerService {
                             MilestoneMasterSid: true,
                             UpdateType: true,
                             ContactInfo: true,
+                            Email: true,
+                            MobileNo: true,
                             EffectiveFrom: true,
                             Status: true
                         }
@@ -1362,6 +1372,11 @@ export class CustomerService {
                         });
                     }
 
+                    await assertNoDuplicateCustomerMilestones(tx, branch.customerMilestones, {
+                        CustomerMasterSid: customer.CustomerMasterSid,
+                        CustomerBranchSid: branchId
+                    });
+
                     for (const milestone of branch.customerMilestones) {
                         if (milestone.CustomerMilestoneSid) {
                             await tx.customerMilestone.update({
@@ -1370,6 +1385,8 @@ export class CustomerService {
                                     MilestoneMasterSid: milestone.MilestoneMasterSid,
                                     UpdateType: milestone.UpdateType,
                                     ContactInfo: milestone.ContactInfo,
+                                    Email: milestone.Email ?? null,
+                                    MobileNo: milestone.MobileNo ?? null,
                                     EffectiveFrom: milestone.EffectiveFrom,
                                     Status: milestone.Status,
                                     UpdatedBy: userEmail,
@@ -1382,6 +1399,8 @@ export class CustomerService {
                                     MilestoneMasterSid: milestone.MilestoneMasterSid,
                                     UpdateType: milestone.UpdateType,
                                     ContactInfo: milestone.ContactInfo,
+                                    Email: milestone.Email ?? null,
+                                    MobileNo: milestone.MobileNo ?? null,
                                     EffectiveFrom: milestone.EffectiveFrom,
                                     Status: milestone.Status,
                                     CreatedBy: userEmail,

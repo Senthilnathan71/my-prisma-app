@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { ApprovalStatus, LeadStatus, Prisma } from '@prisma/client';
 import { contains } from 'class-validator';
 import * as moment from 'moment-timezone';
@@ -254,6 +254,9 @@ export class EnquiryHeaderService {
                 };
             });
         } catch (error) {
+            if (error instanceof HttpException) {
+                    throw error;
+            }
             throw new Error(`Transaction failed: ${error.stack}`);
         }
     }

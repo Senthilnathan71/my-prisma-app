@@ -164,30 +164,20 @@ export class ServiceJobService {
 
             // Generate Master Job number INSIDE this transaction — the counter
             // rolls back with a failed save, so no sequence number is burned.
-            let generatedMasterJobNumber: string | null = null;
-            try {
-                generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
-                    mainPayload.CompanyMasterSid,
-                    mainPayload.BranchMasterSid,
-                    masterJobMenuId,
-                    mainPayload.DepartmentMasterSid,
-                    documentDate,
-                    polPortSJ?.PortMasterSid,
-                    podPortSJ?.PortMasterSid,
-                    prisma,
-                );
-            } catch (err) {
-                this.logger.error(`[ServiceJob] MasterJob number generation failed: ${err.message}`);
-            }
-
-            // Fallback to legacy if config-based generation failed
-            if (!generatedMasterJobNumber) {
-                const dateString = moment().format('YYYYMMDD');
-                const masterCount = await prisma.masterJob.count({
-                    where: { MasterJobNumber: { contains: dateString } }
-                });
-                generatedMasterJobNumber = `MASTER-${dateString}-${(masterCount + 1).toString().padStart(3, '0')}`;
-            }
+            // A missing number series configuration is a setup error the user must fix, not
+            // something to paper over: swallowing it here silently persisted legacy
+            // `MASTER-<date>-<n>` numbers that bypass the configured format. Let the
+            // BadRequestException propagate so the message names the setting to configure.
+            const generatedMasterJobNumber = await this.numberSeriesService.generateNextNumber(
+                mainPayload.CompanyMasterSid,
+                mainPayload.BranchMasterSid,
+                masterJobMenuId,
+                mainPayload.DepartmentMasterSid,
+                documentDate,
+                polPortSJ?.PortMasterSid,
+                podPortSJ?.PortMasterSid,
+                prisma,
+            );
 
             // Payload MBLNo overrides generated number
             const finalMBLNo =
@@ -196,30 +186,18 @@ export class ServiceJobService {
                     : generatedMasterJobNumber;
 
             // Generate House Job HBL number (same transaction, same guarantee)
-            let generatedHBLNo: string | null = null;
-            try {
-                generatedHBLNo = await this.numberSeriesService.generateNextNumber(
-                    mainPayload.CompanyMasterSid,
-                    mainPayload.BranchMasterSid,
-                    houseJobMenuId,
-                    mainPayload.DepartmentMasterSid,
-                    documentDate,
-                    polPortSJ?.PortMasterSid,
-                    podPortSJ?.PortMasterSid,
-                    prisma,
-                );
-            } catch (err) {
-                this.logger.error(`[ServiceJob] HBL number generation failed: ${err.message}`);
-            }
-
-            // Fallback to legacy if config-based generation failed
-            if (!generatedHBLNo) {
-                const dateString = moment().format('YYYYMMDD');
-                const houseCount = await prisma.houseJob.count({
-                    where: { HBLNo: { contains: dateString } }
-                });
-                generatedHBLNo = `HOUSE-${dateString}-${(houseCount + 1).toString().padStart(3, '0')}`;
-            }
+            // Same as the master job number above — surface a missing configuration rather
+            // than falling back to a legacy `HOUSE-<date>-<n>` number.
+            const generatedHBLNo = await this.numberSeriesService.generateNextNumber(
+                mainPayload.CompanyMasterSid,
+                mainPayload.BranchMasterSid,
+                houseJobMenuId,
+                mainPayload.DepartmentMasterSid,
+                documentDate,
+                polPortSJ?.PortMasterSid,
+                podPortSJ?.PortMasterSid,
+                prisma,
+            );
 
             // Payload HBLNo overrides generated number
             const finalHBLNo =
