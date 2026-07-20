@@ -243,7 +243,9 @@ export class NumberSeriesService {
           // block concurrent creates when key columns are NULL (Postgres
           // treats NULLs as distinct), so serialize the create per config via
           // a transaction-scoped advisory lock, then re-check under the lock.
-          await prisma.$queryRaw`SELECT pg_advisory_xact_lock(${NumberSeriesService.COUNTER_LOCK_NS}::int, ${config.NumberSeriesConfigSid}::int)`;
+          // ::text cast — the function returns Postgres `void`, which Prisma's
+          // $queryRaw cannot deserialize ("Failed to deserialize column of type 'void'").
+          await prisma.$queryRaw`SELECT pg_advisory_xact_lock(${NumberSeriesService.COUNTER_LOCK_NS}::int, ${config.NumberSeriesConfigSid}::int)::text`;
           nextNumber = await this.bumpCounter(prisma, counterKey, startingNumber);
           if (nextNumber === null) {
             await prisma.numberSeriesCounter.create({
