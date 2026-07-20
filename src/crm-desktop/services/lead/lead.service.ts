@@ -53,6 +53,145 @@ async getAllCustomer(user,CompanyMasterSid:number) {
         }
     }
 
+    private readonly leadStatusValues = new Set([
+        'Discovery',
+        'Qualify',
+        'MeetingScheduled',
+        'MeetingCompleted',
+        'EnquiryGenerated',
+        'QuotationCreated',
+        'QuotationConfirmed',
+        'ContractSigned',
+        'DealWon',
+        'DealLost',
+        'CustomerCreated'
+    ]);
+
+    private normalizeLeadPayload(payload: any, isUpdate = false) {
+        if (payload.city && typeof payload.city === 'object') {
+            payload.CityMasterSid = payload.city.CityMasterSid;
+            delete payload.city;
+        }
+
+        const hasField = (field: string) => Object.prototype.hasOwnProperty.call(payload, field);
+        const cleanString = (field: string) => {
+            if (!hasField(field) || payload[field] === undefined || payload[field] === null) return;
+            payload[field] = String(payload[field]).trim();
+            if (payload[field] === '') payload[field] = null;
+        };
+
+        [
+            'createdBy', 'updatedBy', 'status', 'preCustomerAddress1', 'preCustomerAddress2',
+            'contactPerson', 'phone', 'preCustomerType', 'leadReferredBy', 'preCustomerName',
+            'leadFrom', 'email', 'Industry', 'LanguagePreferrence', 'Notes', 'POBOX',
+            'PreferredContactMode', 'PurchaseTimeline', 'ServiceOfInterest',
+            'SpecificRequirements', 'leadStatus', 'isQualify'
+        ].forEach(cleanString);
+
+        ['CompanySize', 'AnnualRevenue'].forEach((field) => {
+            if (!hasField(field)) return;
+            if (payload[field] === undefined || payload[field] === null || payload[field] === '') {
+                payload[field] = null;
+                return;
+            }
+            const value = Number(payload[field]);
+            if (!Number.isInteger(value)) {
+                throw new BadRequestException(`${field} must be a valid whole number`);
+            }
+            payload[field] = value;
+        });
+
+        const requiredFields: Array<[string, string]> = [
+            ['preCustomerName', 'Customer Name is required'],
+            ['leadReferredBy', 'Lead Source is required'],
+            ['leadFrom', 'Lead By is required'],
+            ['preCustomerAddress1', 'Address1 is required'],
+            ['CountryMasterSid', 'Country is required'],
+            ['StateMasterSid', 'State is required'],
+            ['CityMasterSid', 'City is required'],
+            ['CompanyMasterSid', 'Company is required'],
+            ['contactPerson', 'Contact Person is required'],
+            ['email', 'E-mail is required'],
+            ['phone', 'Phone is required'],
+            ['status', 'Status is required']
+        ];
+
+        if (!isUpdate) {
+            requiredFields.push(['createdBy', 'Created By is required']);
+        }
+
+        for (const [field, message] of requiredFields) {
+            if ((!isUpdate || hasField(field)) && (payload[field] === undefined || payload[field] === null || payload[field] === '')) {
+                throw new BadRequestException(message);
+            }
+        }
+
+        const maxLengths: Array<[string, number, string]> = [
+            ['createdBy', 100, 'Created By'],
+            ['updatedBy', 100, 'Updated By'],
+            ['preCustomerName', 100, 'Customer Name'],
+            ['leadReferredBy', 20, 'Lead Source'],
+            ['leadFrom', 20, 'Lead By'],
+            ['preCustomerType', 10, 'Customer Type'],
+            ['preCustomerAddress1', 300, 'Address1'],
+            ['preCustomerAddress2', 300, 'Address2'],
+            ['POBOX', 100, 'P.O Box'],
+            ['contactPerson', 50, 'Contact Person'],
+            ['email', 100, 'E-mail'],
+            ['phone', 50, 'Phone'],
+            ['PreferredContactMode', 100, 'Preferred Contact Mode'],
+            ['LanguagePreferrence', 100, 'Language Preference'],
+            ['ServiceOfInterest', 100, 'Service of Interest'],
+            ['PurchaseTimeline', 100, 'Purchase Timeline'],
+            ['SpecificRequirements', 100, 'Specific Requirement'],
+            ['Industry', 100, 'Industry'],
+            ['Notes', 100, 'Notes'],
+            ['status', 1, 'Status'],
+            ['isQualify', 1, 'Qualify Lead']
+        ];
+
+        for (const [field, limit, label] of maxLengths) {
+            const value = payload[field];
+            if (hasField(field) && value !== undefined && value !== null && String(value).length > Number(limit)) {
+                throw new BadRequestException(`${label} must be ${limit} characters or less`);
+            }
+        }
+
+        if (hasField('status') && !['A', 'S'].includes(payload.status)) {
+            throw new BadRequestException('Status must be Active or Suspended');
+        }
+
+        if (hasField('isQualify') && !['Y', 'N'].includes(payload.isQualify || 'N')) {
+            throw new BadRequestException('Qualify Lead must be Yes or No');
+        }
+
+        if (!isUpdate && !hasField('isQualify')) {
+            payload.isQualify = 'N';
+        }
+
+        if (!isUpdate && !hasField('leadStatus')) {
+            payload.leadStatus = payload.isQualify === 'Y' ? 'Qualify' : 'Discovery';
+        }
+
+        if (hasField('leadStatus') && !this.leadStatusValues.has(payload.leadStatus)) {
+            throw new BadRequestException('Lead Status is invalid');
+        }
+
+        if (hasField('email')) {
+            const emailValue = String(payload.email);
+            if (emailValue.toUpperCase() !== 'NA') {
+                const emails = emailValue.split(',').map(email => email.trim()).filter(Boolean);
+                const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+                if (emails.length === 0 || emails.some(email => !emailRegex.test(email))) {
+                    throw new BadRequestException('E-mail must be valid. Example: user@example.com or NA');
+                }
+            }
+        }
+
+        if (hasField('phone') && !/^\+?[0-9]{6,20}$/.test(String(payload.phone))) {
+            throw new BadRequestException('Phone must contain 6 to 20 digits including country code');
+        }
+    }
     // async createNewLead(payload) {
     //     try {
     //         if (payload.city && typeof payload.city === 'object') {
@@ -88,7 +227,7 @@ async getAllCustomer(user,CompanyMasterSid:number) {
     //                 createdBy: payload.createdBy,
     //                 isQualify: payload.isQualify,
     //                 leadStatus: payload.leadStatus,
-    //                 // ✅ Fix: connect required relations
+    //                 // Connect required relations
     //                 companyMaster: { connect: { CompanyMasterSid: payload.CompanyMasterSid } },
     //                 branchMaster: payload.BranchMasterSid ? { connect: { BranchMasterSid: payload.BranchMasterSid } } : undefined,
     //                 countryMaster: payload.CountryMasterSid ? { connect: { CountryMasterSid: payload.CountryMasterSid } } : undefined,
@@ -104,20 +243,7 @@ async getAllCustomer(user,CompanyMasterSid:number) {
     // }
     async createNewLead(payload: any) {
     try {
-        // Step 1: Normalize payload (keep your existing logic)
-        if (payload.city && typeof payload.city === 'object') {
-            payload.CityMasterSid = payload.city.CityMasterSid;
-            delete payload.city;
-        }
-
-        // Step 2: Validate required fields
-        if (!payload.CityMasterSid) {
-            throw new BadRequestException('CityMasterSid is required');
-        }
-
-        if (!payload.CompanyMasterSid) {
-            throw new BadRequestException('CompanyMasterSid is required');
-        }
+        this.normalizeLeadPayload(payload);
 
         // Step 3: Check for duplicate lead
         // Define duplicate criteria based on your business logic
@@ -138,7 +264,7 @@ async getAllCustomer(user,CompanyMasterSid:number) {
         // Also check within the same company context
         duplicateConditions.CompanyMasterSid = payload.CompanyMasterSid;
 
-        // Only run duplicate check if we have at least one criteria
+        // Only run duplicate check when a lead name is provided
         if (duplicateConditions.OR.length > 0) {
             const existingLead = await this._db.preCustomerMaster.findFirst({
                 where: duplicateConditions
@@ -181,7 +307,7 @@ async getAllCustomer(user,CompanyMasterSid:number) {
                 isQualify: payload.isQualify,
                 leadStatus: payload.leadStatus,
                 
-                // ✅ Connect required relations
+                // Connect required relations
                 companyMaster: { connect: { CompanyMasterSid: payload.CompanyMasterSid } },
                 branchMaster: payload.BranchMasterSid ? { 
                     connect: { BranchMasterSid: payload.BranchMasterSid } 
@@ -200,7 +326,7 @@ async getAllCustomer(user,CompanyMasterSid:number) {
     } catch (error) {
         this.logger.error(`Error creating lead: ${error.message}`, error.stack);
         
-        // If it's already a BadRequestException (like from duplicate check), rethrow it
+        // Preserve field validation and duplicate messages
         if (error instanceof BadRequestException) {
             throw error;
         }
@@ -268,7 +394,7 @@ async getAllCustomer(user,CompanyMasterSid:number) {
 
     async updateLeadById(PreCustomerMasterSid: number, payload: any) {
     try {
-        // 1️⃣ Check existing lead
+        // Check existing lead
         const exist = await this._db.preCustomerMaster.findUnique({
             where: { PreCustomerMasterSid }
         });
@@ -279,28 +405,16 @@ async getAllCustomer(user,CompanyMasterSid:number) {
             );
         }
 
-        // 2️⃣ Normalize city payload
-        if (payload.city && typeof payload.city === 'object') {
-            payload.CityMasterSid = payload.city.CityMasterSid;
-            delete payload.city;
-        }
+        this.normalizeLeadPayload(payload, true);
 
-        if (!payload.CityMasterSid) {
-            throw new BadRequestException('CityMasterSid is required');
-        }
-
-        if (!payload.CompanyMasterSid) {
-            throw new BadRequestException('CompanyMasterSid is required');
-        }
-
-        // 3️⃣ DUPLICATE CHECK (exclude current record)
+        // Duplicate check excluding current record
         if (payload.preCustomerName?.trim()) {
             const duplicateLead = await this._db.preCustomerMaster.findFirst({
                 where: {
                     PreCustomerMasterSid: {
-                        not: PreCustomerMasterSid, // 🔑 exclude current lead
+                        not: PreCustomerMasterSid, // exclude current lead
                     },
-                    CompanyMasterSid: payload.CompanyMasterSid,
+                    CompanyMasterSid: payload.CompanyMasterSid || exist.CompanyMasterSid,
                     preCustomerName: {
                         equals: payload.preCustomerName.trim(),
                         mode: 'insensitive',
@@ -316,36 +430,51 @@ async getAllCustomer(user,CompanyMasterSid:number) {
             }
         }
 
-        // 4️⃣ Update lead
+        const allowedUpdateFields = [
+            'preCustomerName',
+            'leadReferredBy',
+            'leadFrom',
+            'preCustomerType',
+            'preCustomerAddress1',
+            'preCustomerAddress2',
+            'POBOX',
+            'contactPerson',
+            'email',
+            'phone',
+            'PreferredContactMode',
+            'LanguagePreferrence',
+            'ServiceOfInterest',
+            'PurchaseTimeline',
+            'SpecificRequirements',
+            'Industry',
+            'CompanySize',
+            'AnnualRevenue',
+            'Notes',
+            'status',
+            'updatedBy',
+            'isQualify',
+            'leadStatus',
+            'CityMasterSid',
+            'StateMasterSid',
+            'CountryMasterSid',
+            'BranchMasterSid'
+        ];
+
+        const updateData = allowedUpdateFields.reduce((data, field) => {
+            if (Object.prototype.hasOwnProperty.call(payload, field)) {
+                data[field] = payload[field];
+            }
+            return data;
+        }, {} as any);
+
+        if (Object.keys(updateData).length === 0) {
+            throw new BadRequestException('No changes to update');
+        }
+
+        // Update lead
         const updatedLead = await this._db.preCustomerMaster.update({
             where: { PreCustomerMasterSid },
-            data: {
-                preCustomerName: payload.preCustomerName,
-                leadReferredBy: payload.leadReferredBy,
-                leadFrom: payload.leadFrom,
-                preCustomerType: payload.preCustomerType,
-                preCustomerAddress1: payload.preCustomerAddress1,
-                preCustomerAddress2: payload.preCustomerAddress2,
-                POBOX: payload.POBOX,
-                contactPerson: payload.contactPerson,
-                email: payload.email,
-                phone: payload.phone,
-                PreferredContactMode: payload.PreferredContactMode,
-                LanguagePreferrence: payload.LanguagePreferrence,
-                ServiceOfInterest: payload.ServiceOfInterest,
-                PurchaseTimeline: payload.PurchaseTimeline,
-                SpecificRequirements: payload.SpecificRequirements,
-                Industry: payload.Industry,
-                CompanySize: payload.CompanySize,
-                AnnualRevenue: payload.AnnualRevenue,
-                Notes: payload.Notes,
-                isQualify: payload.isQualify,
-                leadStatus: payload.leadStatus,
-                CityMasterSid: payload.CityMasterSid,
-                StateMasterSid: payload.StateMasterSid,
-                CountryMasterSid: payload.CountryMasterSid,
-                BranchMasterSid: payload.BranchMasterSid,
-            },
+            data: updateData,
         });
 
         this.logger.log(`Lead updated: ${PreCustomerMasterSid}`);
@@ -372,7 +501,6 @@ async getAllCustomer(user,CompanyMasterSid:number) {
         );
     }
 }
-
 
 
     async deleteLead(PreCustomerMasterSid: number) {
