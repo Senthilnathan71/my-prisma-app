@@ -86,17 +86,17 @@ const ALL_LEDGER_TYPES = [
   'Accrual','Asset','Bank','Cash','Cost','Depreciation','Expenses GST','Imprest',
   'Income GST','Income Tax Payable','Income Tax Receivable','Input Tax','Liabilities',
   'Other Cost','Other Revenue','Output Tax','Revenue','Sy Cr','Sy Dr',
-  'TDS Payable','TDS Receivable','Inter Branch','Other Cost and Revenue','Asset and Liability',
+  'TDS Payable','TDS Receivable','Inter Branch','Other Cost & Revenue','Asset and Liability',
 ];
-const REVENUE_SIDE = ['Revenue','Other Revenue','Income GST','Output Tax','TDS Receivable','Sy Dr','Other Cost and Revenue','Asset and Liability'];
-const COST_SIDE    = ['Other Cost','Cost','Expenses GST','Input Tax','TDS Payable','Imprest','Asset','Sy Cr','Other Cost and Revenue','Asset and Liability'];
+const REVENUE_SIDE = ['Revenue','Other Revenue','Income GST','Output Tax','TDS Receivable','Sy Dr','Other Cost & Revenue','Asset and Liability'];
+const COST_SIDE    = ['Other Cost','Cost','Expenses GST','Input Tax','TDS Payable','Imprest','Asset','Sy Cr','Other Cost & Revenue','Asset and Liability'];
 
 // Configurable ceiling per voucher type — also the *posted-mode* / fallback definition.
 export const VOUCHER_LEDGER_TYPE_MAP: Record<string, string[]> = {
   // Cash / Bank / Sy Dr | Sy Cr are NOT here — they come from the Type-aware mandatory floor
   // (getMandatoryLedgerTypes) so a Cash receipt never offers Bank, etc. These are the charge/tax types.
-  PMT: ['Other Cost','Cost','Expenses GST','Imprest','Income Tax Payable','TDS Payable','Input Tax','Asset','Other Cost and Revenue','Asset and Liability'],
-  RPT: ['Other Cost','Other Revenue','Income GST','TDS Receivable','Output Tax','Other Cost and Revenue','Asset and Liability'],
+  PMT: ['Other Cost','Cost','Expenses GST','Imprest','Income Tax Payable','TDS Payable','Input Tax','Asset','Other Cost & Revenue','Asset and Liability'],
+  RPT: ['Other Cost','Other Revenue','Income GST','TDS Receivable','Output Tax','Other Cost & Revenue','Asset and Liability'],
   INV: REVENUE_SIDE, NIN: ALL_LEDGER_TYPES, CRN: ALL_LEDGER_TYPES,
   NCN: ALL_LEDGER_TYPES,
   VIN: ALL_LEDGER_TYPES, VRN: ALL_LEDGER_TYPES,
