@@ -2074,19 +2074,36 @@ export class ServiceJobService {
         return text;
     }
 
+    /**
+     * All dates are built at UTC midnight so they survive storage in the date-only (@db.Date)
+     * columns unchanged, whatever timezone the server runs in.
+     *
+     * Both moment(...).toDate() and new Date('25-06-2026') produce LOCAL midnight. On a server
+     * ahead of UTC (e.g. Dubai, UTC+4) that instant is still the previous day in UTC, and
+     * @db.Date keeps the UTC calendar date — so an uploaded 25-06 was saved as 24-06. Manual
+     * entry never had this because CustomDateAdapter already builds dates at UTC midnight; this
+     * makes the Excel path match it. A cell that arrives as a real Date is rebuilt the same way
+     * from its own Y/M/D, since SheetJS can hand back a value carrying a timezone offset too.
+     */
     private parseServiceJobExcelDate(value: any): Date | null {
         if (!value) return null;
-        if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+            return new Date(Date.UTC(value.getFullYear(), value.getMonth(), value.getDate()));
+        }
 
         const raw = String(value).trim();
         const formats = ['DD-MM-YYYY', 'DD/MM/YYYY', 'YYYY-MM-DD', 'MM/DD/YYYY', 'M/D/YY', 'M/D/YYYY'];
         for (const format of formats) {
             const parsed = moment(raw, format, true);
-            if (parsed.isValid()) return parsed.toDate();
+            if (parsed.isValid()) {
+                return new Date(Date.UTC(parsed.year(), parsed.month(), parsed.date()));
+            }
         }
 
         const parsedDate = new Date(raw);
-        return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
+        if (Number.isNaN(parsedDate.getTime())) return null;
+        return new Date(Date.UTC(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate()));
     }
 
     private resolveServiceJobChargeQuantity(
