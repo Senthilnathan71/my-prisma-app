@@ -126,6 +126,29 @@ export class MasterJobService {
         }
     }
 
+    /**
+     * Job-date fallback by shipment direction: an Export job is dated by its departure (ETD),
+     * an Import job by its arrival (ETA). Used only when no explicit job date and no booking
+     * date are available, so an upload with a blank Job Date no longer silently becomes today.
+     * ExportImport is compared case-insensitively because call sites across the codebase
+     * store it inconsistently.
+     */
+    private resolveDirectionJobDate(
+        exportImport: string | null | undefined,
+        etd: Date | string | null | undefined,
+        eta: Date | string | null | undefined,
+    ): Date | null {
+        const direction = String(exportImport || '').trim().toUpperCase();
+        const candidate = direction === 'EXPORT' ? etd : direction === 'IMPORT' ? eta : null;
+
+        if (!candidate) {
+            return null;
+        }
+
+        const parsed = new Date(candidate);
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
     private async resolveHouseJobMenuSid(
         departmentType: string | null | undefined,
         jobType?: string | null,
@@ -407,9 +430,18 @@ export class MasterJobService {
 
             const menuId = await this.menuMasterService.getMenuSidByName(department.departmentType?.toUpperCase() === 'AIR' ? "Master Air Waybill" : "Master Job");
             // ================= RESOLVE JOB DATE FIRST =================
-            let resolvedJobDate: Date = payload.MasterJobDate
-                ? new Date(payload.MasterJobDate)
-                : new Date();
+            // Precedence, highest first:
+            //   1. An explicit date from the client. The user was shown a prompt (previous-month
+            //      booking, or a Load Plan with no ETD) and picked this date, so it must win.
+            //      This used to be overwritten by the booking date, which silently discarded
+            //      the user's choice.
+            //   2. The first booking's BookingDateTime.
+            //   3. Direction fallback: ETD for Export, ETA for Import.
+            //   4. Today.
+            // The resolved date also selects the number-series period, so it decides which
+            // month's counter is consumed — not just the displayed date.
+            const clientJobDate = payload.MasterJobDate ? new Date(payload.MasterJobDate) : null;
+            let resolvedJobDate: Date = clientJobDate ?? new Date();
             let firstBookingDetails: { BookingDateTime: Date | null; POO: string | null; FPD: string | null } | null = null;
 
             if (payload?.shipmentList?.length) {
@@ -420,12 +452,26 @@ export class MasterJobService {
                 if (bookingIds.length > 0) {
                     firstBookingDetails = await this._db.bookingHeader.findFirst({
                         where: { BookingHeaderSid: { in: bookingIds } },
+                        // Deterministic pick: without an order the "first" booking of a
+                        // multi-booking consol was whatever the database happened to return.
+                        orderBy: { BookingHeaderSid: 'asc' },
                         select: { BookingDateTime: true, POO: true, FPD: true }
-                    }); 
+                    });
 
-                    if (firstBookingDetails?.BookingDateTime) {
+                    if (!clientJobDate && firstBookingDetails?.BookingDateTime) {
                         resolvedJobDate = new Date(firstBookingDetails.BookingDateTime);
                     }
+                }
+            }
+
+            if (!clientJobDate && !firstBookingDetails?.BookingDateTime) {
+                const directionDate = this.resolveDirectionJobDate(
+                    department?.ExportImport,
+                    payload.ETD,
+                    payload.ETA,
+                );
+                if (directionDate) {
+                    resolvedJobDate = directionDate;
                 }
             }
             // ==========================================================
@@ -1039,24 +1085,27 @@ export class MasterJobService {
                             bookingHeader.JobType,
                         );
                          // ================= RESOLVE JOB DATE FIRST =================
-            let resolvedJobDate: Date = payload.HBLDate
-                ? new Date(payload.HBLDate)
-                : new Date();
+            // Same precedence as the master job above: explicit client date, then this
+            // house's own booking date, then direction fallback, then today.
+            // This used to re-query the whole shipmentList and take an arbitrary booking's
+            // date, so on a multi-booking consol every house was stamped with the same
+            // HBLDate regardless of its own booking. bookingHeader is the house being
+            // created here, so use it directly.
+            const clientHblDate = payload.HBLDate ? new Date(payload.HBLDate) : null;
+            let resolvedJobDate: Date = clientHblDate ?? new Date();
 
-            if (payload?.shipmentList?.length) {
-                const bookingIds = payload.shipmentList
-                    .map(s => s.BookingHeaderSid)
-                    .filter(Boolean);
+            if (!clientHblDate && bookingHeader?.BookingDateTime) {
+                resolvedJobDate = new Date(bookingHeader.BookingDateTime);
+            }
 
-                if (bookingIds.length > 0) {
-                    const firstBooking = await this._db.bookingHeader.findFirst({
-                        where: { BookingHeaderSid: { in: bookingIds } },
-                        select: { BookingDateTime: true }
-                    });
-
-                    if (firstBooking?.BookingDateTime) {
-                        resolvedJobDate = new Date(firstBooking.BookingDateTime);
-                    }
+            if (!clientHblDate && !bookingHeader?.BookingDateTime) {
+                const directionDate = this.resolveDirectionJobDate(
+                    departmentExportImport,
+                    bookingHeader?.ETD ?? payload.ETD,
+                    bookingHeader?.ETA ?? payload.ETA,
+                );
+                if (directionDate) {
+                    resolvedJobDate = directionDate;
                 }
             }
 
@@ -1148,7 +1197,14 @@ export class MasterJobService {
                                 GeneralNote: bookingHeader.GeneralNote || '',
                                 HBLNo: HBLNo,
                                 InternalNote: bookingHeader.InternalNote || '',
-                                MBLDate: bookingHeader.MBLDate || null,
+                                // A house belongs to this master, so it carries the master's
+                                // MBL date — the same resolved job date used for MasterJobDate
+                                // and HBLDate. It used to copy the booking's own MBLDate, so a
+                                // consol left every house on its booking's date (or null) even
+                                // though the master was dated correctly. The update path at
+                                // :3098 already forces HBLDate = MasterJobDate, so this makes
+                                // create consistent with update.
+                                MBLDate: resolvedJobDate,
                                 MBLNo: bookingHeader.MBLNo || '',
                                 NominatedBy: bookingHeader.NominatedBy || '',
                                 Nominated: bookingHeader.Nominated || '',
@@ -1530,6 +1586,11 @@ export class MasterJobService {
                                 MasterJobSid: createdMasterJob.MasterJobSid,
                                 MBLNo: createdMasterJob.MBLNo,
                                 MBLDate: createdMasterJob.MBLDate,
+                                // Attaching an existing house to this master must re-stamp its
+                                // HBLDate with the chosen job date too. Without this, a house
+                                // generated on an earlier day kept that old HBLDate while the
+                                // master carried the newly selected date — the two disagreed.
+                                HBLDate: createdMasterJob.MasterJobDate,
                                 updatedBy : payload.createdBy,
                                 updatedOn : new Date(),
                                 HouseStatus : 'Job Generated',
@@ -1564,6 +1625,10 @@ export class MasterJobService {
                         VesselName: voyagePayload.VesselName,
                         ETA: voyagePayload.ETA ? new Date(voyagePayload.ETA) : null,
                         ETD: voyagePayload.ETD ? new Date(voyagePayload.ETD) : null,
+                        // Single guarantee that EVERY house under this master — created fresh
+                        // or re-attached — carries the master's job date as its HBLDate. Mirrors
+                        // the Attach-Booking path (updateMasterJob), which already does this.
+                        HBLDate: createdMasterJob.MasterJobDate,
                         updatedBy: payload.createdBy,
                         updatedOn: new Date(),
                     }
@@ -3522,7 +3587,10 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                 }
                 
             })
-            // 🔁 Sync MasterJob MBLNo / MBLDate to all related BookingHeaders
+            // 🔁 Sync MasterJob MBLNo / MBLDate and POL / POD to all related BookingHeaders.
+            // POL / POD follow the house job (already set to the master's POL / POD in Block A above),
+            // so the booking stays consistent with its house job. POO / FPD are intentionally left
+            // untouched — each booking keeps its own place-of-receipt / final-place-of-delivery.
 const houseJobsForBookingSync = await this._db.houseJob.findMany({
     where: {
         MasterJobSid: updatedMasterJob.MasterJobSid,
@@ -3530,7 +3598,9 @@ const houseJobsForBookingSync = await this._db.houseJob.findMany({
         BookingHeaderSid: { not: null }
     },
     select: {
-        BookingHeaderSid: true
+        BookingHeaderSid: true,
+        POL: true,
+        POD: true
     }
 });
 
@@ -3544,6 +3614,8 @@ if (houseJobsForBookingSync.length > 0) {
                 data: {
                     ...(updatedMasterJob.MBLNo && { MBLNo: updatedMasterJob.MBLNo }),
                     ...(updatedMasterJob.MBLDate && { MBLDate: updatedMasterJob.MBLDate }),
+                    POL: hj.POL,
+                    POD: hj.POD,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date()
                 }
