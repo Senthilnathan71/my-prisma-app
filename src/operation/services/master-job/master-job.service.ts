@@ -3587,7 +3587,10 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                 }
                 
             })
-            // 🔁 Sync MasterJob MBLNo / MBLDate to all related BookingHeaders
+            // 🔁 Sync MasterJob MBLNo / MBLDate and POL / POD to all related BookingHeaders.
+            // POL / POD follow the house job (already set to the master's POL / POD in Block A above),
+            // so the booking stays consistent with its house job. POO / FPD are intentionally left
+            // untouched — each booking keeps its own place-of-receipt / final-place-of-delivery.
 const houseJobsForBookingSync = await this._db.houseJob.findMany({
     where: {
         MasterJobSid: updatedMasterJob.MasterJobSid,
@@ -3595,7 +3598,9 @@ const houseJobsForBookingSync = await this._db.houseJob.findMany({
         BookingHeaderSid: { not: null }
     },
     select: {
-        BookingHeaderSid: true
+        BookingHeaderSid: true,
+        POL: true,
+        POD: true
     }
 });
 
@@ -3609,6 +3614,8 @@ if (houseJobsForBookingSync.length > 0) {
                 data: {
                     ...(updatedMasterJob.MBLNo && { MBLNo: updatedMasterJob.MBLNo }),
                     ...(updatedMasterJob.MBLDate && { MBLDate: updatedMasterJob.MBLDate }),
+                    POL: hj.POL,
+                    POD: hj.POD,
                     updatedBy: payload.updatedBy,
                     updatedOn: new Date()
                 }
