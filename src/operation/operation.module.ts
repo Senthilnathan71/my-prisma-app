@@ -60,6 +60,8 @@ import { TrackingService } from './services/tracking/tracking.service';
 import { MenuUserConfigService } from 'src/settings/services/menu-user-config/menu-user-config.service';
 import { MilestoneTrackerController } from './controllers/milestone-tracker/milestone-tracker.controller';
 import { MilestoneTrackerService } from './services/milestone-tracker/milestone-tracker.service';
+import { JobCorrectionController } from './controllers/job-correction/job-correction.controller';
+import { JobCorrectionService } from './services/job-correction/job-correction.service';
 
 @Module({
 	imports: [
@@ -120,6 +122,7 @@ import { MilestoneTrackerService } from './services/milestone-tracker/milestone-
 		TrackingService,
 		MenuUserConfigService,
 		MilestoneTrackerService,
+		JobCorrectionService,
 	],
 	controllers: [
 		BookingController,
@@ -144,7 +147,8 @@ import { MilestoneTrackerService } from './services/milestone-tracker/milestone-
 		ShippingInstructionController,
 		AuditLogController,
 		TrackingController,
-		MilestoneTrackerController
+		MilestoneTrackerController,
+		JobCorrectionController
 	],
 	exports: [ProRateService, CreditRequestService]
 })
