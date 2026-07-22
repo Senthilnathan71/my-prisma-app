@@ -4956,6 +4956,7 @@ export class OperationReportsService {
           portOfdischarge: mj.POD,
           portOfDestination: mj.FPD,
           weight: mj.GrossWeight,
+          cbm:mj?.Volume,
           chargebaleWt: mj.ChargeableWeight,
         };
       });
@@ -7145,6 +7146,7 @@ export class OperationReportsService {
           PODName: portMap.get(m.POD) || '',
           grossWt: m.GrossWeight,
           netWt: m.NetWeight,
+          chargeableWt: m.ChargeableWeight,
           vol: m.Volume,
           revenueLocalAmt: revenue,
           costLocalAmt: cost,
@@ -7173,6 +7175,10 @@ export class OperationReportsService {
           (sum, c) => sum + toNumber(c.NetWeight),
           0,
         );
+        const chargeableWt = h.Cargo.reduce(
+          (sum, c) => sum + toNumber(c.ChargeableWeight),
+          0,
+        );
         const vol = h.Cargo.reduce((sum, c) => sum + toNumber(c.Volume), 0);
         return {
           screen:
@@ -7189,6 +7195,7 @@ export class OperationReportsService {
           grossWt: grossweight,
           netWt: netwt,
           vol: vol,
+          chargeableWt: chargeableWt,
           revenueLocalAmt: revenue,
           costLocalAmt: cost,
           profit: revenue - cost,
