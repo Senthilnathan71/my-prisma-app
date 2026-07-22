@@ -12,6 +12,7 @@ import { VoucherPeriodService } from 'src/accounts/services/voucher-period/vouch
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
 import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
+import { assertChargesNotConverted } from 'src/accounts/services/voucher/charge-conversion-guard';
 
 export interface UninvoicedChargeForBooking {
   CompanyMasterSid: number;
@@ -426,6 +427,9 @@ export class InvoiceService {
           throw new BadRequestException('Invoice voucher type not configured for this company/branch. Please configure VoucherTypeMaster.');
         }
 
+        // Block charges already converted into a Revenue voucher (duplicate-tab / double-click guard)
+        await assertChargesNotConverted(prisma, payload.VoucherDetail || [], 'Revenue');
+
         // Generate Voucher Number using config-based approach
         const VoucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
           voucherTypeMaster,
@@ -581,8 +585,8 @@ export class InvoiceService {
           if (payload.PostStatus !== 'P') {
             for (const detail of payload.VoucherDetail) {
               if (detail.CostRevenueChargesSid) {
-                await prisma.costRevenueCharges.update({
-                  where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid) },
+                const stamped = await prisma.costRevenueCharges.updateMany({
+                  where: { CostRevenueChargesSid: Number(detail.CostRevenueChargesSid), RevenueVoucherHeaderSid: null },
                   data: {
                     RevenueVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
                     RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
@@ -590,10 +594,15 @@ export class InvoiceService {
                     updatedBy: payload.CreatedBy,
                   },
                 });
+                if (stamped.count === 0) {
+                  // Concurrent request converted this charge after our pre-check
+                  await assertChargesNotConverted(prisma, [detail], 'Revenue');
+                  throw new BadRequestException('Charge was modified by another user. Please refresh and try again.');
+                }
               }
               if (detail.BookingRateSid) {
-                await prisma.bookingRates.update({
-                  where: { BookingRatesSid: Number(detail.BookingRateSid) },
+                const stamped = await prisma.bookingRates.updateMany({
+                  where: { BookingRatesSid: Number(detail.BookingRateSid), RevenueVoucherHeaderSid: null },
                   data: {
                     RevenueVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
                     RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
@@ -601,6 +610,11 @@ export class InvoiceService {
                     UpdatedBy: payload.CreatedBy,
                   },
                 });
+                if (stamped.count === 0) {
+                  // Concurrent request converted this charge after our pre-check
+                  await assertChargesNotConverted(prisma, [detail], 'Revenue');
+                  throw new BadRequestException('Charge was modified by another user. Please refresh and try again.');
+                }
               }
             }
           }
