@@ -423,12 +423,44 @@ export class ShipmentMilestoneService {
         }
     }
 
+    /**
+     * Serializes concurrent auto-capture inserts for one milestone identity. The insert flows
+     * below are check-then-insert (two statements), so two simultaneous requests — a
+     * double-click on a print/download button — both pass the existence check and both insert
+     * unless they queue here. Transaction-scoped: released automatically at COMMIT/ROLLBACK,
+     * and the waiter's re-check then sees the winner's committed row (READ COMMITTED).
+     * `::text` cast because pg_advisory_xact_lock returns void, which Prisma cannot deserialize.
+     */
+    private async acquireMilestoneInsertLock(
+        tx: PrismaClient | Prisma.TransactionClient,
+        key: string,
+    ): Promise<void> {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 748293))::text`;
+    }
+
     async safeInsertShipmentMilestone(
         payload: ShipmentMilestoneSafeInsertDTO,
         prisma?: PrismaClient | Prisma.TransactionClient,
     ) {
+        // No caller transaction (the controller path) → open a short one so the advisory lock
+        // lives until the insert commits; a caller-supplied tx keeps its own scope.
+        if (!prisma) {
+            return this._db.$transaction((tx) =>
+                this.safeInsertShipmentMilestone(payload, tx),
+            );
+        }
         try {
-            const tx = prisma || this._db;
+            const tx = prisma;
+
+            await this.acquireMilestoneInsertLock(tx, [
+                'safe-insert',
+                payload.CompanyMasterSid,
+                payload.BranchMasterSid,
+                payload.HouseJobSid ?? '',
+                payload.BookingHeaderSid ?? '',
+                payload.ShipmentNo,
+                payload.MilestoneCode,
+            ].join('|'));
 
             // Check if already a milestone exist for the same Shipment No
             const milestone = await this.getMilestoneByCode({
@@ -480,8 +512,23 @@ export class ShipmentMilestoneService {
         payload: ShipmentMilestoneInsertByMasterJobDTO,
         prisma?: PrismaClient | Prisma.TransactionClient,
     ) {
+        // Same double-click protection as safeInsertShipmentMilestone: the per-house
+        // check-then-insert loop must not run concurrently for the same master + code.
+        if (!prisma) {
+            return this._db.$transaction((tx) =>
+                this.insertMilestoneByMasterJob(payload, tx),
+            );
+        }
         try {
-            const tx = prisma || this._db;
+            const tx = prisma;
+
+            await this.acquireMilestoneInsertLock(tx, [
+                'master-job',
+                payload.CompanyMasterSid,
+                payload.BranchMasterSid,
+                payload.MasterJobSid,
+                payload.MilestoneCode,
+            ].join('|'));
 
             const houseJobs = await tx.houseJob.findMany({
                 where: {
