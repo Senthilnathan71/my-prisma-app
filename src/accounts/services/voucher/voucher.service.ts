@@ -11,6 +11,7 @@ import * as moment from 'moment-timezone';
 import { CheckAutoPostingDto, CreateVoucherPayload, DeleteVoucherPayload } from 'src/accounts/dto/voucher.dto';
 import { roundAmount, toNumber } from 'src/common/helper';
 import { extractVoucherValidationMessage, DbTriggerValidationException } from 'src/common/db-validation-error.helper';
+import { assertChargesNotConverted } from './charge-conversion-guard';
 
 interface InvoiceHeaderDTO {
     currencyMasterSid?: number;
@@ -988,7 +989,14 @@ export class VoucherService {
                 if(!voucherTypeMaster){
                     throw new BadRequestException(`Voucher Type "${payload.VoucherType === 'INV' ? 'Invoice' : 'Vendor Invoice'}" not configured for this company/branch. Please configure it in VoucherTypeMaster.`);
                 }
-                
+
+                // Block charges already converted into a voucher on this side (duplicate-tab / double-click guard)
+                await assertChargesNotConverted(
+                    prisma,
+                    payload.VoucherDetail || [],
+                    payload.VoucherType === DOC_TYPE_CODE.INVOICE ? 'Revenue' : 'Cost'
+                );
+
                 if(voucherTypeMaster.IsAutoPosting === 'Y'){
                     let missingFields : string[] = [];
                     if(payload.VoucherType === 'VIN'){
@@ -1133,19 +1141,18 @@ export class VoucherService {
                         }
                         if (rateMap.size > 0) {
                             for (const sid of rateMap.keys()) {
-                                if (isInvoice) {
-                                    await prisma.bookingRates.update({
-                                        where: { BookingRatesSid: sid },
+                                const stamped = isInvoice
+                                    ? await prisma.bookingRates.updateMany({
+                                        where: { BookingRatesSid: sid, RevenueVoucherHeaderSid: null },
                                         data: {
                                             RevenueVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
                                             RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
                                             UpdatedBy: updatedBy,
                                             UpdatedOn: new Date(),
                                         },
-                                    });
-                                } else {
-                                    await prisma.bookingRates.update({
-                                        where: { BookingRatesSid: sid },
+                                    })
+                                    : await prisma.bookingRates.updateMany({
+                                        where: { BookingRatesSid: sid, CostVoucherHeaderSid: null },
                                         data: {
                                             CostVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
                                             CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
@@ -1153,6 +1160,10 @@ export class VoucherService {
                                             UpdatedOn: new Date(),
                                         },
                                     });
+                                if (stamped.count === 0) {
+                                    // Concurrent request converted this charge after our pre-check
+                                    await assertChargesNotConverted(prisma, [{ BookingRatesSid: sid }], isInvoice ? 'Revenue' : 'Cost');
+                                    throw new BadRequestException('Charge was modified by another user. Please refresh and try again.');
                                 }
                             }
                         }
@@ -1163,24 +1174,27 @@ export class VoucherService {
                         }
                         if (rateMap.size > 0) {
                             for (const sid of rateMap.keys()) {
-                                if (isInvoice) {
-                                    await prisma.costRevenueCharges.update({
-                                        where: { CostRevenueChargesSid: sid },
+                                const stamped = isInvoice
+                                    ? await prisma.costRevenueCharges.updateMany({
+                                        where: { CostRevenueChargesSid: sid, RevenueVoucherHeaderSid: null },
                                         data: {
                                             RevenueVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
                                             RevenueVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
                                             updatedBy,
                                         },
-                                    });
-                                } else {
-                                    await prisma.costRevenueCharges.update({
-                                        where: { CostRevenueChargesSid: sid },
+                                    })
+                                    : await prisma.costRevenueCharges.updateMany({
+                                        where: { CostRevenueChargesSid: sid, CostVoucherHeaderSid: null },
                                         data: {
                                             CostVoucherHeaderSid: createdVoucherHeader.VoucherHeaderSid,
                                             CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
                                             updatedBy,
                                         },
                                     });
+                                if (stamped.count === 0) {
+                                    // Concurrent request converted this charge after our pre-check
+                                    await assertChargesNotConverted(prisma, [{ CostRevenueChargesSid: sid }], isInvoice ? 'Revenue' : 'Cost');
+                                    throw new BadRequestException('Charge was modified by another user. Please refresh and try again.');
                                 }
                             }
                         }

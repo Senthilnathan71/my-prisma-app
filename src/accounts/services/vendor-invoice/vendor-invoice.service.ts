@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { MenuService } from 'src/settings/services/menu/menu.service';
 import { DOC_TYPE_CODE } from 'src/common/config/voucher-type.config';
 import { CompanyConfigService } from 'src/masters/services/company/company-config.service';
+import { assertChargesNotConverted } from '../voucher/charge-conversion-guard';
 
 @Injectable()
 export class VendorInvoiceService {
@@ -58,6 +59,9 @@ export class VendorInvoiceService {
                         'Vendor Invoice voucher type not configured. Please configure "Vendor Invoice" in VoucherTypeMaster.'
                     );
                 }
+
+                // Block charges already converted into a Cost voucher (duplicate-tab / double-click guard)
+                await assertChargesNotConverted(tx, payload.VoucherDetail || [], 'Cost');
 
                 // Generate voucher number using config-based approach
                 const VoucherNumber = await this.voucherService.generateVoucherNumberFromConfig(
@@ -174,8 +178,8 @@ export class VendorInvoiceService {
                 // Link VoucherHeader to CostRevenueCharges / BookingRates (new detail created — skip when posting)
                 if (payload.PostStatus !== 'P') {
                     for (const sid of costRevenueRateMap.keys()) {
-                        await tx.costRevenueCharges.update({
-                            where: { CostRevenueChargesSid: sid },
+                        const stamped = await tx.costRevenueCharges.updateMany({
+                            where: { CostRevenueChargesSid: sid, CostVoucherHeaderSid: null },
                             data: {
                                 CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
                                 CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
@@ -183,10 +187,15 @@ export class VendorInvoiceService {
                                 updatedBy: payload.CreatedBy || 'System',
                             },
                         });
+                        if (stamped.count === 0) {
+                            // Concurrent request converted this charge after our pre-check
+                            await assertChargesNotConverted(tx, [{ CostRevenueChargesSid: sid }], 'Cost');
+                            throw new BadRequestException('Charge was modified by another user. Please refresh and try again.');
+                        }
                     }
                     for (const sid of bookingRateMap.keys()) {
-                        await tx.bookingRates.update({
-                            where: { BookingRatesSid: sid },
+                        const stamped = await tx.bookingRates.updateMany({
+                            where: { BookingRatesSid: sid, CostVoucherHeaderSid: null },
                             data: {
                                 CostVoucherHeaderSid: voucherHeader.VoucherHeaderSid,
                                 CostVoucherTypeMasterSid: voucherTypeMaster.VoucherTypeMasterSid,
@@ -194,6 +203,11 @@ export class VendorInvoiceService {
                                 UpdatedBy: payload.CreatedBy || 'System',
                             },
                         });
+                        if (stamped.count === 0) {
+                            // Concurrent request converted this charge after our pre-check
+                            await assertChargesNotConverted(tx, [{ BookingRatesSid: sid }], 'Cost');
+                            throw new BadRequestException('Charge was modified by another user. Please refresh and try again.');
+                        }
                     }
                 }
 
