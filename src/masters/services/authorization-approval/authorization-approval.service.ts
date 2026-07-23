@@ -7,6 +7,7 @@ import {
   ApprovalDocSource,
   resolveApprovalDocSource,
   getVoucherDocSource,
+  resolveMenuRoute,
 } from 'src/common/config/approval-document.registry';
 import { PendingApprovalDto } from 'src/masters/DTO/pending-approval.dto';
 import {
@@ -218,6 +219,10 @@ export class AuthorizationApprovalService {
       };
       if (branchMasterSid) where[src.branchField] = branchMasterSid;
       if (departmentFilter) where[src.departmentField] = departmentFilter;
+      // Only list documents that actually belong to this authority rule's menu, so a
+      // document filed under another menu (e.g. an Air-Waybill House Job) is not shown
+      // here and always resolves to real approvers in the details view.
+      if (src.menuMasterField) where[src.menuMasterField] = ctx.menuMasterSid;
 
       if (src.pendingMode === 'statusField' && src.statusField) {
         // Pending = NOT finalized. Includes NULL (fresh doc, no log yet) and
@@ -271,17 +276,15 @@ export class AuthorizationApprovalService {
 
       const docSids = docs.map((d) => d[src.primaryKey]);
 
-      // Determine which docs to hide: already acted by me, and (logOnly) finalized.
+      // Determine which docs to hide. This runs for EVERY mode (including the header
+      // docs) because AuthorityLog is the source of truth: a document can be fully
+      // approved in AuthorityLog while its own authorizerStatus column is still stale
+      // (e.g. approved via the older authority-log modal / a "final authorizer directly
+      // approved" path that never flipped the column). We hide a document when it is
+      // finalized (final authority approved, or any rejection) OR already acted on by me.
       const actedSet = new Set<number>();
       const finalizedSet = new Set<number>();
-
-      if (src.pendingMode === 'statusField') {
-        const acted = await this._db.authorityLog.findMany({
-          where: { AuthorityDetailSid: ctx.authorityDetailSid, DocumentSid: { in: docSids } },
-          select: { DocumentSid: true },
-        });
-        acted.forEach((a) => actedSet.add(a.DocumentSid));
-      } else {
+      {
         const detail = ctx.authorityMasterSid ? masterDetail.get(ctx.authorityMasterSid) : undefined;
         const menuDetailSids = detail?.detailSids || [ctx.authorityDetailSid];
         const finalSids = detail?.finalSids || new Set<number>();
@@ -330,7 +333,11 @@ export class AuthorizationApprovalService {
             : ctx.authorityLevel,
           CurrentStatus: (src.statusField ? doc[src.statusField] : null) || 'Pending',
           AuthorityDetailSid: ctx.authorityDetailSid,
-          authorizeLink: src.linkPattern.replace('{id}', String(docSid)),
+          // Route resolved by MENU name (several menus share one table but open
+          // different screens); falls back to the source's default link pattern.
+          authorizeLink:
+            resolveMenuRoute(ctx.menuName, docSid) ||
+            (src.linkPattern ? src.linkPattern.replace('{id}', String(docSid)) : ''),
         });
       }
     }
@@ -374,11 +381,13 @@ export class AuthorizationApprovalService {
       );
     }
 
-    // 5. Oldest first (longest waiting on top), then paginate.
+    // 5. Newest first (descending by submitted date), then paginate.
     result.sort((a, b) => {
       const da = a.SubmittedDate ? new Date(a.SubmittedDate).getTime() : 0;
       const db = b.SubmittedDate ? new Date(b.SubmittedDate).getTime() : 0;
-      return da - db;
+      if (db !== da) return db - da;
+      // Tie-breaker: newest document first for a stable, fully-descending order.
+      return (b.DocumentSid || 0) - (a.DocumentSid || 0);
     });
 
     const totalCount = result.length;

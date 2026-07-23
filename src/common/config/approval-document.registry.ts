@@ -40,6 +40,12 @@ export interface ApprovalDocSource {
   submittedByField: string;
   submittedDateField: string;
   linkPattern: string;
+  /**
+   * Column on the document that stores its own menu. When set, the scan matches it to
+   * the authority rule's menu so a document is only listed under the menu it truly
+   * belongs to (e.g. an Air-Waybill House Job is not shown under the House Job menu).
+   */
+  menuMasterField?: string;
   /** logOnly: restrict VoucherHeader rows to the menu via VoucherTypeMaster.MenuMasterSid. */
   voucherTypeMenuScope?: boolean;
   /** logOnly: only rows with this posting status are candidates (e.g. PostStatus='U'). */
@@ -69,6 +75,7 @@ const SOURCES: RegisteredSource[] = [
     departmentField: 'DepartmentMasterSid',
     submittedByField: 'createdBy',
     submittedDateField: 'QuoteDate',
+    menuMasterField: 'MenuMasterSid',
     linkPattern: '/crm/quotation/entry/{id}',
   },
   {
@@ -87,6 +94,7 @@ const SOURCES: RegisteredSource[] = [
     departmentField: 'DepartmentMasterSid',
     submittedByField: 'createdBy',
     submittedDateField: 'EnquiryDate',
+    menuMasterField: 'MenuMasterSid',
     linkPattern: '/crm/enquiry/entry/{id}',
   },
   {
@@ -105,10 +113,17 @@ const SOURCES: RegisteredSource[] = [
     departmentField: 'DepartmentMasterSid',
     submittedByField: 'createdBy',
     submittedDateField: 'BookingDateTime',
+    menuMasterField: 'MenuMasterSid',
     linkPattern: '/operation/booking/entry/{id}',
   },
   {
-    menuKeys: ['house job', 'housejob'],
+    // houseJob table also backs Service Job (IsServiceJob='Y') and House Air Waybill —
+    // each is a distinct MENU on the same table, separated by the MenuMasterSid filter.
+    menuKeys: [
+      'house job', 'housejob',
+      'service job', 'servicejob',
+      'house air waybill', 'house airway bill', 'hawb',
+    ],
     modelKeys: ['housejob'],
     model: 'houseJob',
     primaryKey: 'HouseJobSid',
@@ -122,12 +137,19 @@ const SOURCES: RegisteredSource[] = [
     branchField: 'BranchMasterSid',
     departmentField: 'DepartmentMasterSid',
     submittedByField: 'createdBy',
-    submittedDateField: 'createdOn',
+    submittedDateField: 'HBLDate',
+    menuMasterField: 'MenuMasterSid',
     linkPattern: '/operation/house-job/entry/{id}',
   },
   {
-    // Master Job — no status column, PascalCase audit columns, no customer.
-    menuKeys: ['master job', 'masterjob'],
+    // masterJob table also backs Master Air Waybill and Agent Master Air Waybill —
+    // distinct MENUs on the same table, separated by the MenuMasterSid filter.
+    // No status column, PascalCase audit columns, no customer.
+    menuKeys: [
+      'master job', 'masterjob',
+      'master air waybill', 'master airway bill', 'mawb',
+      'agent master air waybill', 'agent master airway bill', 'amawb',
+    ],
     modelKeys: ['masterjob'],
     model: 'masterJob',
     primaryKey: 'MasterJobSid',
@@ -139,6 +161,7 @@ const SOURCES: RegisteredSource[] = [
     departmentField: 'DepartmentMasterSid',
     submittedByField: 'CreatedBy',
     submittedDateField: 'MasterJobDate',
+    menuMasterField: 'MenuMasterSid',
     linkPattern: '/operation/master-job/entry/{id}',
   },
   {
@@ -202,4 +225,40 @@ export function resolveApprovalDocSource(
 /** The shared VoucherHeader source, assigned to any voucher-type menu. */
 export function getVoucherDocSource(): ApprovalDocSource | undefined {
   return byModel.get('voucherheader');
+}
+
+/**
+ * Navigation routes keyed by MENU name. Kept separate from the document model
+ * because several menus share one table but open different screens (e.g. House Job,
+ * Service Job and House Air Waybill all live in `houseJob` but have distinct routes;
+ * every voucher menu lives in `voucherHeader` but opens its own screen).
+ */
+const MENU_ROUTE_MAP: Record<string, string> = {
+  // CRM / Operation documents
+  quotation: '/crm/quotation/entry/{id}',
+  enquiry: '/crm/enquiry/entry/{id}',
+  booking: '/operation/booking/entry/{id}',
+  'house job': '/operation/house-job/entry/{id}',
+  'service job': '/operation/service-job/entry/{id}',
+  'house air waybill': '/operation/hawb-bill/entry/{id}',
+  'master job': '/operation/master-job/entry/{id}',
+  'master air waybill': '/operation/mawbill/entry/{id}',
+  'agent master air waybill': '/operation/agent-master-air-waybill/entry/{id}',
+  // Voucher documents (all VoucherHeader, different screens per type)
+  invoice: '/operation/invoice/entry/{id}',
+  'credit note': '/operation/credit-note/entry/{id}',
+  'vendor invoice': '/operation/vendor-invoice/entry/{id}',
+  'vendor credit note': '/operation/vendor-credit-note/entry/{id}',
+  'journal voucher': '/accounts/journal-voucher/entry/{id}',
+  'reverse voucher': '/accounts/reverse-voucher/entry/{id}',
+  payment: '/accounts/payment/entry/{id}',
+  receipt: '/accounts/receipt/entry/{id}',
+  'invoice non job': '/accounts/invoice-non-job/entry/{id}',
+  'credit note non job': '/accounts/credit-note-non-job/entry/{id}',
+};
+
+/** Build the "open document" route for a menu, or '' when no route is known. */
+export function resolveMenuRoute(menuName: string | null | undefined, docSid: number | string): string {
+  const pattern = MENU_ROUTE_MAP[norm(menuName)];
+  return pattern ? pattern.replace('{id}', String(docSid)) : '';
 }
