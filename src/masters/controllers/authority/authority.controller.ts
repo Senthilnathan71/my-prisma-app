@@ -83,6 +83,26 @@ export class AuthorityController {
         return resp;
     }
 
+    @ApiOperation({ summary: 'Get menus allowed to be configured for authorization' })
+    @ApiCreatedResponse({
+        description: 'CRM/Accounts/Operation menus excluding auto-post and auto-approval menus',
+        type: ResponseData
+    })
+    @HttpCode(HttpStatus.OK)
+    @Get('authorizable-menus')
+    async getAuthorizableMenus(@Query('CompanyMasterSid') CompanyMasterSid: string) {
+        let resp = new ResponseData();
+        try {
+            resp.data = await this.authorityService.getAuthorizableMenus(Number(CompanyMasterSid));
+            resp.message = "Authorizable menus fetched successfully";
+        } catch (error) {
+            this.logger.warn(`Get Authorizable Menus Error : ${error}`);
+            resp.status = false;
+            resp.message = "Internal Server Error";
+        }
+        return resp;
+    }
+
     @ApiOperation({ summary: 'Get Authority by Id' })
     @ApiCreatedResponse({
         description: 'Get Authority by Id',
