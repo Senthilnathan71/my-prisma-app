@@ -33,6 +33,79 @@ export class AuthorityService {
             .filter((sid): sid is number => typeof sid === 'number');
     }
 
+    /**
+     * Menus that are ALLOWED to be configured for authorization on the Authority screen.
+     * Rules:
+     *  - Only CRM / Accounts / Operation module menus are authorizable.
+     *  - A menu whose Document Type (VoucherType) has Auto Post = 'Y' is EXCLUDED
+     *    (auto-posting documents never wait for manual authorization).
+     *  - A menu with Auto Approval config = 'Y' is EXCLUDED (it auto-approves), and if
+     *    the company-wide AUTO_APPROVAL flag is 'Y' every menu is excluded.
+     */
+    async getAuthorizableMenus(companyMasterSid: number) {
+        const allowedModules = ['CRM', 'Account', 'Accounts', 'Operation', 'Operations'];
+        const truthy = (v?: string | null) => ['y', 'yes', 'true', '1'].includes(String(v || '').trim().toLowerCase());
+
+        // Classify every voucher menu by its document types. A voucher menu is only
+        // "auto-post" (and therefore excluded) when EVERY one of its types is auto-post;
+        // if it has at least one Manual type it still needs authorization (e.g. Journal
+        // Voucher has a Manual "JV" type alongside the system auto-posting type).
+        const voucherTypes = await this._db.voucherTypeMaster.findMany({
+            where: { status: 'A', MenuMasterSid: { not: null } },
+            select: { MenuMasterSid: true, IsAutoPosting: true },
+        });
+        const voucherMenuSids = new Set<number>();
+        const autoPostMenuSids = new Set<number>();
+        const manualMenuSids = new Set<number>();
+        for (const vt of voucherTypes) {
+            if (vt.MenuMasterSid == null) continue;
+            voucherMenuSids.add(vt.MenuMasterSid);
+            if (truthy(vt.IsAutoPosting)) autoPostMenuSids.add(vt.MenuMasterSid);
+            else manualMenuSids.add(vt.MenuMasterSid);
+        }
+        // Excluded only when purely auto-post (no manual type on the menu).
+        const pureAutoPostMenuSids = new Set(
+            [...autoPostMenuSids].filter((sid) => !manualMenuSids.has(sid)),
+        );
+
+        // Auto-approval config -> excluded (per-menu, and a company-wide flag).
+        const configs = await this._db.companyConfiguration.findMany({
+            where: {
+                CompanyMasterSid: companyMasterSid,
+                Status: 'A',
+                ConfigurationName: { startsWith: 'AUTO_APPROVAL' },
+            },
+            select: { ConfigurationName: true, ConfigurationValue: true },
+        });
+        const globalAutoApproval = configs.some(
+            (c) => c.ConfigurationName === 'AUTO_APPROVAL' && truthy(c.ConfigurationValue),
+        );
+        const autoApprovalMenuSids = new Set<number>();
+        for (const c of configs) {
+            const m = c.ConfigurationName.match(/^AUTO_APPROVAL_MENU_(\d+)$/);
+            if (m && truthy(c.ConfigurationValue)) autoApprovalMenuSids.add(Number(m[1]));
+        }
+
+        // Authorizable = CRM/Accounts/Operation menus OR any voucher menu (voucher menus
+        // are inconsistently categorised by module, so include them explicitly).
+        const menus = await this._db.menuMaster.findMany({
+            where: {
+                status: 'A',
+                OR: [
+                    { ModuleName: { in: allowedModules } },
+                    { MenuMasterSid: { in: Array.from(voucherMenuSids) } },
+                ],
+            },
+            select: { MenuMasterSid: true, MenuName: true, MenuCode: true, ModuleName: true },
+            orderBy: [{ ModuleName: 'asc' }, { MenuName: 'asc' }],
+        });
+
+        if (globalAutoApproval) return [];
+        return menus.filter(
+            (m) => !pureAutoPostMenuSids.has(m.MenuMasterSid) && !autoApprovalMenuSids.has(m.MenuMasterSid),
+        );
+    }
+
     async getAllAuthorities() {
         try {
             const allAuthorities = await this._db.authorityMaster.findMany({
@@ -145,7 +218,8 @@ export class AuthorityService {
                         where: {
                             status: 'A'
                         },
-
+                        // Show approver rows in level order so the last row is the final authority.
+                        orderBy: { AuthorityLevel: 'asc' }
                     }
                 }
             });

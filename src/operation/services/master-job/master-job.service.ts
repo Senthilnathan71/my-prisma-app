@@ -2687,12 +2687,35 @@ private getWeightInFromUnitSid(weightUnitSid: number): string {
                                 UpdatedBy : payload.updatedBy,
                                 UpdatedOn : new Date()
                             }
+                            // Capture the previous container number so we can detect a rename and
+                            // keep the denormalized copy on linked House Job products in sync.
+                            const existingContainer = await prisma.masterJobContainer.findUnique({
+                                where: { MasterJobContainerSid: Number(item.MasterJobContainerSid) },
+                                select: { ContainerNumber: true }
+                            });
                             updatedContainer = await prisma.masterJobContainer.update({
                                 where: {
                                     MasterJobContainerSid: item.MasterJobContainerSid
                                 },
                                 data: containerPayload
                             })
+                            // House Job products store a denormalized ContainerNo snapshot taken when
+                            // the product was saved; the Master Job update above only touches
+                            // MasterJobContainer, so on a rename that copy would go stale. Propagate
+                            // the new number to every Active product still linked to this container.
+                            if ((existingContainer?.ContainerNumber ?? null) !== (item.ContainerNumber ?? null)) {
+                                await prisma.houseJobProduct.updateMany({
+                                    where: {
+                                        MasterJobContainerSid: Number(item.MasterJobContainerSid),
+                                        status: 'A'
+                                    },
+                                    data: {
+                                        ContainerNo: item.ContainerNumber ?? null,
+                                        updatedBy: payload.updatedBy,
+                                        updatedOn: new Date()
+                                    }
+                                });
+                            }
                         } else {
                             // create - For new containers, use payload.MasterJobSid
                             const containerPayload = {

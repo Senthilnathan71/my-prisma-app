@@ -90,6 +90,8 @@ import { AuthorityController } from './controllers/authority/authority.controlle
 import { AuthorityService } from './services/authority/authority.service';
 import { AuthorityDetailService } from './services/authority-detail/authority-detail.service';
 import { AuthorityDetailController } from './controllers/authority-detail/authority-detail.controller';
+import { AuthorizationApprovalController } from './controllers/authorization-approval/authorization-approval.controller';
+import { AuthorizationApprovalService } from './services/authorization-approval/authorization-approval.service';
 import { UserTypeController } from './controllers/user-type/user-type.controller';
 import { UserTypeService } from './services/user-type/user-type.service';
 import { DocumentTypeController } from './controllers/document-type/document-type.controller';
@@ -184,6 +186,7 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
     MilestoneService,
     AuthorityService,
     AuthorityDetailService,
+    AuthorizationApprovalService,
     UserTypeService,
     DocumentTypeService,
     HawbStockService,
@@ -255,6 +258,7 @@ import { PreCustomerEventMasterService } from './services/pre-customer-event-mas
     MilestoneController,
     AuthorityController,
     AuthorityDetailController,
+    AuthorizationApprovalController,
     UserTypeController,
     DocumentTypeController,
     HawbStockController,
