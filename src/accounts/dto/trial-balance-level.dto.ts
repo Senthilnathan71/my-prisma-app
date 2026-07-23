@@ -61,6 +61,15 @@ export class TrialBalanceLevelQueryDto {
   @Type(() => Boolean)
   SubTotal?: boolean;
 
+  @ApiProperty({
+    required: false,
+    enum: ['Ledger', 'Subledger', 'Category', 'Group', 'Subgroup'],
+    description: 'Report level - controls row aggregation',
+  })
+  @IsOptional()
+  @IsString()
+  Level?: string;
+
   @ApiProperty()
   @IsOptional()
   @IsBoolean()
@@ -211,6 +220,7 @@ export class TrialBalanceLevelResponseDto {
     CategoryWise?:boolean;
     GroupWise?:boolean;
     SubgroupWise?:boolean;
+    Level?:string;
     GroupNameResolved?:string;
     SubGroupNameResolved?:string;
   };

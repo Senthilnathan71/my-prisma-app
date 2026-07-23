@@ -38,10 +38,11 @@ export class TrialBalanceLevelService {
     const showSubtotals = query.showSubtotals ?? true;
     const YearMasterSid = query.YearMasterSid ? Number(query.YearMasterSid) : undefined;
     const SubTotal =  query.SubTotal
-    const Subledger = query.Subledger ?? false;
-    const CategoryWise = query.CategoryWise ?? false;
-    const GroupWise = query.GroupWise ?? false;
-    const SubgroupWise = query.SubgroupWise ?? false;
+    const Level = query.Level ?? 'Ledger';
+    const Subledger = Level === 'Subledger';
+    const CategoryWise = Level === 'Category';
+    const GroupWise = Level === 'Group';
+    const SubgroupWise = Level === 'Subgroup';
     // Validate dates
     this.validateDates(fromDate, toDate);
 
@@ -215,7 +216,8 @@ export class TrialBalanceLevelService {
         Subledger,
         CategoryWise,
         GroupWise,
-        SubgroupWise
+        SubgroupWise,
+        Level
       },
       items: sortedItems,
       subtotals,
