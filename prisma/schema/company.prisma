@@ -1414,38 +1414,41 @@ model EnquiryProduct {
 }
 
 model UOMMaster {
-  UOMMasterSid         Int                    @id @default(autoincrement()) @map("UOMMasterSid")
-  UOMCode              String                 @unique @db.VarChar(3)
-  UOMName              String                 @unique @db.VarChar(20)
-  UOMType              String?                @db.VarChar(10)
-  EdiCode              String?                @db.Char(3)
-  DimensionReq         String                 @db.Char(1)
-  WeightReq            String                 @db.Char(1)
-  VolumeReq            String                 @db.Char(1)
-  ShipmentType         String                 @db.VarChar(5)
-  CostPerUnitPrice     Decimal?               @db.Decimal(10, 5)
-  SlabFrom             Decimal?               @db.Decimal(4, 0)
-  SlabTo               Decimal?               @db.Decimal(4, 0)
-  createdOn            DateTime               @default(now()) @db.Timestamptz(6)
-  updatedOn            DateTime?              @updatedAt @db.Timestamptz(6)
-  deletedAt            DateTime?
-  createdBy            String                 @db.VarChar(100)
-  updatedBy            String?                @db.VarChar(100)
-  status               String                 @default("A") @db.Char(1)
-  Remarks              String?                @db.VarChar(300)
-  bookingProduct       BookingProduct[]
-  CostBookingRate      BookingRates[]         @relation("COST")
-  RevenueBookingRate   BookingRates[]         @relation("REVENUE")
-  commodityMaster      CommodityMaster[]
-  CostCharges          CostRevenueCharges[]   @relation("COST")
-  RevenueCharges       CostRevenueCharges[]   @relation("REVENUE")
-  houseJobProduct      HouseJobProduct[]
-  masterJobContainer   MasterJobContainer[]
-  paymentRequestDetail PaymentRequestDetail[]
-  quoteCargo           QuoteCargo[]
-  quoteCharge          QuoteCharge[]
-  StdTariffDetail      StdTariffDetail[]
-  tariffDetail         TariffDetail[]
+  UOMMasterSid           Int                    @id @default(autoincrement()) @map("UOMMasterSid")
+  UOMCode                String                 @unique @db.VarChar(3)
+  UOMName                String                 @unique @db.VarChar(20)
+  UOMType                String?                @db.VarChar(10)
+  EdiCode                String?                @db.Char(3)
+  DimensionReq           String                 @db.Char(1)
+  WeightReq              String                 @db.Char(1)
+  VolumeReq              String                 @db.Char(1)
+  ShipmentType           String                 @db.VarChar(5)
+  CostPerUnitPrice       Decimal?               @db.Decimal(10, 5)
+  SlabFrom               Decimal?               @db.Decimal(4, 0)
+  SlabTo                 Decimal?               @db.Decimal(4, 0)
+  createdOn              DateTime               @default(now()) @db.Timestamptz(6)
+  updatedOn              DateTime?              @updatedAt @db.Timestamptz(6)
+  deletedAt              DateTime?
+  createdBy              String                 @db.VarChar(100)
+  updatedBy              String?                @db.VarChar(100)
+  status                 String                 @default("A") @db.Char(1)
+  Remarks                String?                @db.VarChar(300)
+  ContainerTypeReq       String?                @default("N") @db.Char(1)
+  ContainerTypeMasterSid Int?
+  bookingProduct         BookingProduct[]
+  containerType          ContainerTypeMaster?   @relation(fields: [ContainerTypeMasterSid], references: [ContainerTypeMasterSid])
+  CostBookingRate        BookingRates[]         @relation("COST")
+  RevenueBookingRate     BookingRates[]         @relation("REVENUE")
+  commodityMaster        CommodityMaster[]
+  CostCharges            CostRevenueCharges[]   @relation("COST")
+  RevenueCharges         CostRevenueCharges[]   @relation("REVENUE")
+  houseJobProduct        HouseJobProduct[]
+  masterJobContainer     MasterJobContainer[]
+  paymentRequestDetail   PaymentRequestDetail[]
+  quoteCargo             QuoteCargo[]
+  quoteCharge            QuoteCharge[]
+  StdTariffDetail        StdTariffDetail[]
+  tariffDetail           TariffDetail[]
 
   @@index([status])
 }
@@ -1712,6 +1715,7 @@ model ContainerTypeMaster {
   MasterJobContainer     MasterJobContainer[]
   quoteRoute             QuoteRoute[]
   tariffDetails          TariffDetail[]
+  uomMaster              UOMMaster[]
 }
 
 model ZoneMaster {
