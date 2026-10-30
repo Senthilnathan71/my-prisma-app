@@ -3,7 +3,10 @@ SELECT
   bh."BookingHeaderSid",
   vh."VoucherHeaderSid",
   vh."VoucherNumber",
-  date_trunc('D' :: text, vh."VoucherDate") AS "VoucherDate",
+  date_trunc(
+    'D' :: text,
+    (vh."VoucherDate") :: timestamp WITH time zone
+  ) AS "VoucherDate",
   bh."HBLNo",
   vt."DocumentTypeCode",
   vh."CurrencyCode",

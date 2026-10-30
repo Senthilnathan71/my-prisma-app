@@ -3,7 +3,10 @@ SELECT
   mj."MasterJobSid",
   vh."VoucherHeaderSid",
   vh."VoucherNumber",
-  date_trunc('D' :: text, vh."VoucherDate") AS "VoucherDate",
+  date_trunc(
+    'D' :: text,
+    (vh."VoucherDate") :: timestamp WITH time zone
+  ) AS "VoucherDate",
   mj."MBLNo",
   vt."DocumentTypeCode",
   vh."CurrencyCode",

@@ -13,6 +13,7 @@ import { Auth } from 'src/common/decorators/auth.decorator';
 import { PublicAccessTokenService, PublicAccessTokenError, PUBLIC_TOKEN_PURPOSES } from 'src/common/public-access-token/public-access-token.service';
 import { TokenCleanupService } from './token-cleanup.service';
 import { AUTH_COOKIE_NAME, getAuthCookieClearOptions, getAuthCookieOptions } from './auth-cookie';
+import { UserSessionService } from './user-session.service';
 
 @Controller('auth')
 @ApiTags('Auth')
@@ -29,6 +30,7 @@ export class AuthController {
         private logger: Logger,
         private publicAccessTokenService: PublicAccessTokenService,
         private tokenCleanupService: TokenCleanupService,
+        private readonly userSessionService: UserSessionService,
     ) { }
 
     private getRateLimitKey(prefix: string, identifier: string, req: any): string {
@@ -145,26 +147,11 @@ export class AuthController {
             this.failedLoginAttempts.delete(user.UserMasterSid);
             await this.authService.updateAttemptDateTime(user.UserMasterSid, null);
 
-            // Session restriction: check if user is already logged in elsewhere
-            const existingSession = await this.authService.getActiveSession(user.UserMasterSid);
+            const isLoginScreen = String(loginData.screenId || 'login').trim().toLowerCase() === 'login';
 
-            if (existingSession && !loginData.forceLogin && loginData.projectType !== 'crm') {
-                const staleThreshold = 3 * 60 * 60 * 1000; // 3 hours
-                const isStale = (Date.now() - existingSession.lastActivity.getTime()) > staleThreshold;
-
-                if (!isStale) {
-                    output.status = false;
-                    output.message = 'SESSION_ACTIVE_ELSEWHERE';
-                    output.data = {
-                        activeSessionInfo: {
-                            ipAddress: existingSession.ipAddress,
-                            location: existingSession.location,
-                            loginTime: existingSession.createdOn
-                        }
-                    };
-                    return output;
-                }
-            }
+            // Allow multiple active sessions across browsers/devices.
+            // A user can log in from more than one browser, and each device
+            // keeps its own session token and heartbeat.
 
             // Create session token and embed in JWT
             const ipAddress = getClientIp(req);
@@ -175,6 +162,14 @@ export class AuthController {
                 userAgent,
                 loginData.location
             );
+
+            const screenId = isLoginScreen ? 'login' : (loginData.screenId || 'default');
+            await this.userSessionService.registerScreenSession({
+                userId: user.UserMasterSid,
+                screenId,
+                sessionKey: sessionToken,
+                tokenHash: this.userSessionService.hashToken(sessionToken),
+            });
 
             // Successful login — populate ResponseData
             const token = await this.jwtService.sign(
@@ -194,7 +189,7 @@ export class AuthController {
             await this.authService.userHistory(user, loginData, req);
 
             return output; // HTTP 200
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Login error for email: ${loginData.email || 'unknown'} - ${error.message}`);
 
             // Rethrow NestJS exceptions to return proper HTTP status codes
@@ -244,7 +239,7 @@ export class AuthController {
             output.message = 'If the email is registered, a password reset link will be sent.';
             this.logger.log(`forgotPassword: reset email sent to ${email}`);
 
-        } catch (error) {
+        } catch (error: any) {
             this.logger.warn(`forgotPassword failed: Internal Server Error`);
             output.status = false;
             output.message = error.message || 'Internal Server Error';
@@ -276,7 +271,7 @@ export class AuthController {
                 email: tokenRow.SentToEmail,
                 expiresAt: tokenRow.ExpiresAt,
             };
-        } catch (error) {
+        } catch (error: any) {
             output.status = false;
             if (error instanceof PublicAccessTokenError) {
                 output.message = error.code;
@@ -311,7 +306,7 @@ export class AuthController {
 
             output.status = true;
             output.message = 'Password updated successfully';
-        } catch (error) {
+        } catch (error: any) {
             this.logger.warn(`resetPassword failed: ${error}`);
             output.status = false;
             if (error instanceof PublicAccessTokenError) {
@@ -358,7 +353,7 @@ export class AuthController {
             await this.authService.touchSession(user.UserMasterSid);
             output.status = true;
             output.message = 'SESSION_VALID';
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Session heartbeat error: ${error.message}`);
             output.status = false;
             output.message = 'SESSION_CHECK_FAILED';
@@ -381,7 +376,7 @@ export class AuthController {
             res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieClearOptions());
             output.status = true;
             output.message = 'Logged out successfully';
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Logout error: ${error.message}`);
             output.status = false;
             output.message = 'Logout failed';
@@ -400,7 +395,7 @@ export class AuthController {
             output.status = true;
             output.message = `Cleaned up ${count} token(s)`;
             output.data = { deletedCount: count };
-        } catch (error) {
+        } catch (error: any) {
             this.logger.error(`Manual token cleanup failed: ${error.message}`);
             output.status = false;
             output.message = 'Token cleanup failed';

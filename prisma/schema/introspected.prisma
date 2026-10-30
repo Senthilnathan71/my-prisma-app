@@ -29,7 +29,7 @@ view vMasterJobIndexPage {
   departmentType   String?   @db.VarChar(10)
   MasterJobNumber  String?   @db.VarChar(100)
   MasterJobDate    DateTime? @db.Date
-  MBLNo            String?   @db.VarChar(20)
+  MBLNo            String?   @db.VarChar(50)
   MBLDate          DateTime? @db.Date
   POL              String?   @db.VarChar(100)
   POD              String?   @db.VarChar(100)
@@ -43,8 +43,8 @@ view vBookingARAP {
   CompanyMasterSid Int?
   BookingHeaderSid Int       @unique
   VoucherHeaderSid Int?
-  VoucherNumber    String?   @db.VarChar(20)
-  VoucherDate      DateTime? @db.Timestamp(6)
+  VoucherNumber    String?   @db.VarChar(50)
+  VoucherDate      DateTime? @db.Timestamptz(6)
   HBLNo            String?   @db.VarChar(200)
   DocumentTypeCode String?   @db.VarChar(5)
   CurrencyCode     String?   @db.Char(3)
@@ -57,8 +57,8 @@ view vHouseARAP {
   CompanyMasterSid Int?
   HouseJobSid      Int       @unique
   VoucherHeaderSid Int?
-  VoucherNumber    String?   @db.VarChar(20)
-  VoucherDate      DateTime? @db.Timestamp(6)
+  VoucherNumber    String?   @db.VarChar(50)
+  VoucherDate      DateTime? @db.Timestamptz(6)
   HBLNo            String?   @db.VarChar(200)
   DocumentTypeCode String?   @db.VarChar(5)
   CurrencyCode     String?   @db.Char(3)
@@ -71,9 +71,9 @@ view vMasterARAP {
   CompanyMasterSid Int?
   MasterJobSid     Int       @unique
   VoucherHeaderSid Int?
-  VoucherNumber    String?   @db.VarChar(20)
-  VoucherDate      DateTime? @db.Timestamp(6)
-  MBLNo            String?   @db.VarChar(20)
+  VoucherNumber    String?   @db.VarChar(50)
+  VoucherDate      DateTime? @db.Timestamptz(6)
+  MBLNo            String?   @db.VarChar(50)
   DocumentTypeCode String?   @db.VarChar(5)
   CurrencyCode     String?   @db.Char(3)
   Amount           Decimal?  @db.Decimal

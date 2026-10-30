@@ -46,6 +46,7 @@
     "class-validator": "^0.14.1",
     "cookie-parser": "^1.4.7",
     "crm-api": "file:",
+    "dotenv": "^17.4.2",
     "exceljs": "^4.4.0",
     "form-data": "^4.0.5",
     "jsonwebtoken": "^9.0.2",
@@ -118,5 +119,18 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "allowScripts": {
+    "@nestjs/core@11.0.7": true,
+    "@prisma/client@6.4.1": true,
+    "@prisma/engines@6.4.1": true,
+    "@scarf/scarf@1.4.0": true,
+    "@swc/core@1.10.12": true,
+    "bcrypt@5.1.1": true,
+    "canvas@3.2.0": true,
+    "esbuild@0.25.0": true,
+    "prisma@6.4.1": true,
+    "sharp@0.34.3": true,
+    "tesseract.js@6.0.1": true
   }
 }

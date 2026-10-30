@@ -17,6 +17,11 @@ export class LoginRequest{
     @IsNotEmpty()
     projectType:string
 
+    @ApiProperty({ type: String, default: 'default', required: false })
+    @IsOptional()
+    @IsString()
+    screenId?: string;
+
     @ApiProperty({type: String, default: ''})
     @IsString()
     location?: string;

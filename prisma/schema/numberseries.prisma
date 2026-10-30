@@ -1,47 +1,35 @@
-// Number Series Configuration for flexible document sequence numbering
-// Supports Company/Branch/Department flags, Month/Year flags, separators, and reset options
-
 model NumberSeriesConfig {
-  NumberSeriesConfigSid Int @id @default(autoincrement())
-  CompanyMasterSid      Int
-  BranchMasterSid       Int
-  MenuMasterSid         Int // Links to MenuMaster (Enquiry, Quotation, Booking, MasterJob, HouseJob)
+  NumberSeriesConfigSid  Int                   @id @default(autoincrement())
+  CompanyMasterSid       Int
+  BranchMasterSid        Int
+  MenuMasterSid          Int
+  CompanyFlagRequired    String                @default("N") @db.Char(1)
+  CompanyPrefix          String?               @db.VarChar(10)
+  BranchFlagRequired     String                @default("N") @db.Char(1)
+  BranchPrefix           String?               @db.VarChar(10)
+  DepartmentCodeRequired String                @default("N") @db.Char(1)
+  MonthFlagRequired      String                @default("N") @db.Char(1)
+  YearFlagRequired       String                @default("N") @db.Char(1)
+  Separator              String                @default("/") @db.VarChar(5)
+  NumberLength           Int                   @default(5)
+  ResetOption            String                @default("None") @db.VarChar(10)
+  DepartmentWiseCounter  String                @default("N") @db.Char(1)
+  CreatedOn              DateTime              @default(now()) @db.Timestamptz(6)
+  CreatedBy              String                @db.VarChar(100)
+  UpdatedOn              DateTime?             @updatedAt @db.Timestamptz(6)
+  UpdatedBy              String?               @db.VarChar(100)
+  Status                 String                @default("A") @db.Char(1)
+  StartingNumber         Int                   @default(1)
+  POLPODFlagRequired     String                @default("N") @db.Char(1)
+  POLPODPortWiseCounter  String                @default("N") @db.Char(1)
+  OperationCode          String?               @db.VarChar(10)
+  OperationFlagRequired  String                @default("N") @db.Char(1)
+  POLPODMode             String                @default("BOTH") @db.VarChar(5)
+  branchMaster           BranchMaster          @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster          CompanyMaster         @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  menuMaster             MenuMaster            @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  numberSeriesCounters   NumberSeriesCounter[]
 
-  // Format Components - each can be enabled/disabled
-  CompanyFlagRequired    String  @default("N") @db.Char(1) // Y/N - Include company prefix
-  CompanyPrefix          String? @db.VarChar(10) // e.g., "BE"
-  BranchFlagRequired     String  @default("N") @db.Char(1) // Y/N - Include branch prefix
-  BranchPrefix           String? @db.VarChar(10) // e.g., "DU"
-  OperationFlagRequired  String  @default("N") @db.Char(1) // Y/N - Include operation code (shown after branch)
-  OperationCode          String? @db.VarChar(10) // e.g., "BKG", "QTN", "MJB" - editable, prefilled from MenuCode
-  POLPODFlagRequired     String  @default("N") @db.Char(1) // Y/N - master on/off for POL/POD port codes
-  POLPODMode             String  @default("BOTH") @db.VarChar(5) // POL | POD | BOTH (only used when POLPODFlagRequired='Y')
-  DepartmentCodeRequired String  @default("N") @db.Char(1) // Y/N - Include dept code from DepartmentMaster
-  MonthFlagRequired      String  @default("N") @db.Char(1) // Y/N - Include month (MM format)
-  YearFlagRequired       String  @default("N") @db.Char(1) // Y/N - Include YearCode from YearMaster
-
-  // Format Settings
-  Separator             String @default("/") @db.VarChar(5) // Separator between components: "/", "-", ""
-  NumberLength          Int    @default(5) // Padding length for sequence (e.g., 5 = 00001)
-  ResetOption           String @default("None") @db.VarChar(10) // None, Monthly, Yearly (financial year)
-  POLPODPortWiseCounter String @default("N") @db.Char(1)
-  DepartmentWiseCounter String @default("N") @db.Char(1) // Y = separate counter per dept, N = shared
-  StartingNumber        Int    @default(1) // Starting sequence number (e.g., 1, 100, 1000)
-
-  // Audit Fields
-  CreatedOn DateTime  @default(now()) @db.Timestamptz(6)
-  CreatedBy String    @db.VarChar(100)
-  UpdatedOn DateTime? @updatedAt @db.Timestamptz(6)
-  UpdatedBy String?   @db.VarChar(100)
-  Status    String    @default("A") @db.Char(1) // A = Active, D = Deleted
-
-  // Relations
-  companyMaster        CompanyMaster         @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  branchMaster         BranchMaster          @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  menuMaster           MenuMaster            @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-  numberSeriesCounters NumberSeriesCounter[]
-
-  // Unique constraint: one config per company/branch/menu combination
   @@unique([CompanyMasterSid, BranchMasterSid, MenuMasterSid])
   @@index([CompanyMasterSid])
   @@index([BranchMasterSid])
@@ -49,37 +37,28 @@ model NumberSeriesConfig {
 }
 
 model NumberSeriesCounter {
-  NumberSeriesCounterSid Int @id @default(autoincrement())
+  NumberSeriesCounterSid Int                @id @default(autoincrement())
   NumberSeriesConfigSid  Int
   CompanyMasterSid       Int
   BranchMasterSid        Int
   MenuMasterSid          Int
+  DepartmentMasterSid    Int?
+  YearMasterSid          Int?
+  Month                  Int?
+  LastNumber             Int                @default(0)
+  CreatedOn              DateTime           @default(now()) @db.Timestamptz(6)
+  UpdatedOn              DateTime?          @updatedAt @db.Timestamptz(6)
+  PODSid                 Int?
+  POLSid                 Int?
+  branchMaster           BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
+  companyMaster          CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  departmentMaster       DepartmentMaster?  @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
+  menuMaster             MenuMaster         @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  numberSeriesConfig     NumberSeriesConfig @relation(fields: [NumberSeriesConfigSid], references: [NumberSeriesConfigSid])
+  portMasterPOD          PortMaster?        @relation("POD", fields: [PODSid], references: [PortMasterSid])
+  portMasterPOL          PortMaster?        @relation("POL", fields: [POLSid], references: [PortMasterSid])
+  yearMaster             YearMaster?        @relation(fields: [YearMasterSid], references: [YearMasterSid])
 
-  // Counter Key Components - determines which counter to use
-  POLSid              Int? // NULL if not POL-wise, specific POL ID otherwise
-  PODSid              Int? // NULL if not POD-wise, specific POD ID otherwise
-  DepartmentMasterSid Int? // NULL if not department-wise, specific dept ID otherwise
-  YearMasterSid       Int? // For yearly reset (financial year based), NULL if no reset
-  Month               Int? // For monthly reset only (1-12), NULL if not monthly reset
-
-  // Current Counter Value
-  LastNumber Int @default(0)
-
-  // Audit Fields
-  CreatedOn DateTime  @default(now()) @db.Timestamptz(6)
-  UpdatedOn DateTime? @updatedAt @db.Timestamptz(6)
-
-  // Relations
-  numberSeriesConfig NumberSeriesConfig @relation(fields: [NumberSeriesConfigSid], references: [NumberSeriesConfigSid])
-  companyMaster      CompanyMaster      @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  branchMaster       BranchMaster       @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  menuMaster         MenuMaster         @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-  departmentMaster   DepartmentMaster?  @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-  portMasterPOL      PortMaster?        @relation("POL", fields: [POLSid], references: [PortMasterSid])
-  portMasterPOD      PortMaster?        @relation("POD", fields: [PODSid], references: [PortMasterSid])
-  yearMaster         YearMaster?        @relation(fields: [YearMasterSid], references: [YearMasterSid])
-
-  // Unique constraint: one counter per config/dept/year/month combination
   @@unique([NumberSeriesConfigSid, DepartmentMasterSid, YearMasterSid, Month, POLSid, PODSid])
   @@index([CompanyMasterSid, BranchMasterSid, MenuMasterSid])
   @@index([NumberSeriesConfigSid])

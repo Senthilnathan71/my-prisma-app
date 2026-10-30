@@ -21,7 +21,6 @@ model BookingHeader {
   VoyageNo                   String?                      @db.VarChar(10)
   ETD                        DateTime?
   ETA                        DateTime?
-  PortCutoffDate             DateTime?                    @db.Date
   IncoTerms                  String?                      @db.VarChar(10)
   BLLocation                 Int?
   ShipperName                String?                      @db.VarChar(100)
@@ -69,6 +68,7 @@ model BookingHeader {
   JobType                    String?                      @db.VarChar(12)
   TranshipmentHouseSid       Int?
   HouseJobSid                Int?
+  PortCutoffDate             DateTime?                    @db.Date
   ActivityResourceAllocation ActivityResourceAllocation[]
   bookingCargo               BookingCargo[]
   bookingConnection          BookingConnection[]
@@ -77,17 +77,17 @@ model BookingHeader {
   companyMaster              CompanyMaster                @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   customerBranch             CustomerBranch?              @relation(fields: [CustomerBranchSid], references: [CustomerBranchSid])
   departmentMaster           DepartmentMaster             @relation(fields: [DepartmentMasterSid], references: [DepartmentMasterSid])
-  houseJob                   HouseJob?
   menuMaster                 MenuMaster?                  @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   portMaster                 PortMaster?                  @relation(fields: [TsPortSid], references: [PortMasterSid])
   voyageMasterHeader         VoyageMasterHeader?          @relation(fields: [VoyageMasterSid], references: [VoyageMasterHeaderSid])
   bookingOthers              BookingOthers[]
   bookingProduct             BookingProduct[]
   bookingRates               BookingRates[]
-  shipmentMilestone          ShipmentMilestone[]
+  houseJob                   HouseJob?
   paymentRequest             PaymentRequest[]
   quotationHeader            QuoteHeader?
   quotationRoute             QuoteRoute?
+  shipmentMilestone          ShipmentMilestone[]
   VoucherHeader              VoucherHeader[]
   VoucherOthers              VoucherOthers[]
 
@@ -106,7 +106,6 @@ model BookingCargo {
   NetWeight        Decimal?             @db.Decimal(10, 3)
   Volume           Decimal?             @db.Decimal(10, 3)
   ChargeableWeight Decimal?             @db.Decimal(10, 3)
-  Volumetric       Decimal?             @db.Decimal(10, 3)
   Qty              Decimal?             @db.Decimal(5, 0)
   ShipmentTerms    String?              @db.VarChar(10)
   createdOn        DateTime             @default(now()) @db.Timestamptz(6)
@@ -123,6 +122,7 @@ model BookingCargo {
   ModeOfTransport  String?              @db.VarChar(100)
   PackageType      Int?
   ContainerType    Int?
+  Volumetric       Decimal?             @db.Decimal(10, 3)
   bookingHeader    BookingHeader        @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   branchMaster     BranchMaster?        @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster    CompanyMaster        @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
@@ -167,9 +167,9 @@ model BookingProduct {
   Volumetric         Decimal?       @db.Decimal(10, 3)
   BookingCargoSid    Int?
   IsStackable        String?        @default("N") @db.Char(1)
+  bookingCargo       BookingCargo?  @relation(fields: [BookingCargoSid], references: [BookingCargoSid])
   bookingHeader      BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   uomMaster          UOMMaster?     @relation(fields: [UomMasterSid], references: [UOMMasterSid])
-  bookingCargo       BookingCargo?  @relation(fields: [BookingCargoSid], references: [BookingCargoSid])
 }
 
 model BookingConnection {
@@ -227,8 +227,6 @@ model BookingOthers {
   BookingHeaderSid    Int?
   Forwarder           String?        @db.VarChar(200)
   ForwarderAddress    String?        @db.VarChar(200)
-  OriginAgent         String?        @db.VarChar(200)
-  OriginAgentAddress  String?        @db.VarChar(300)
   HBLNo               String?        @db.VarChar(200)
   BacktoBack          String?        @db.VarChar(200)
   Depo                String?        @db.VarChar(200)
@@ -244,6 +242,8 @@ model BookingOthers {
   NotifyAddress2      String?        @db.VarChar(200)
   CarrierBookingDate  DateTime?      @db.Date
   CarrierBookingRef   String?        @db.VarChar(20)
+  OriginAgent         String?        @db.VarChar(200)
+  OriginAgentAddress  String?        @db.VarChar(300)
   ResourcePerson      Int?
   bookingHeader       BookingHeader? @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   resourceUser        UserMaster?    @relation(fields: [ResourcePerson], references: [UserMasterSid])
@@ -294,19 +294,19 @@ model BookingRates {
   RevenueVoucherHeaderSid     Int?
   RevenueVoucherTypeMasterSid Int?
   NoOfUnit                    Decimal?               @db.Decimal(15, 3)
-  PartyCOAMasterSid           Int?
-  VendorCOAMasterSid          Int?
-  PartySubledgerMasterSid     Int?
-  VendorSubledgerMasterSid    Int?
   ChargeCOAMasterSid          Int?
   ChargeSubledgerMasterSid    Int?
+  PartyCOAMasterSid           Int?
+  PartySubledgerMasterSid     Int?
+  VendorCOAMasterSid          Int?
+  VendorSubledgerMasterSid    Int?
   PaymentRequestSid           Int?
   customerMasterAG            CustomerMaster?        @relation("Agent", fields: [AgentMasterSid], references: [CustomerMasterSid])
   BookingHeader               BookingHeader          @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   BranchMaster                BranchMaster           @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  companyMaster               CompanyMaster          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   chargeCOAMaster             COAMaster?             @relation("ChargeLedger", fields: [ChargeCOAMasterSid], references: [COAMasterSid])
   chargeSubledgerMaster       SubledgerMaster?       @relation("ChargeSubledger", fields: [ChargeSubledgerMasterSid], references: [SubledgerMasterSid])
+  companyMaster               CompanyMaster          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   costChargeUOMMaster         UOMMaster?             @relation("COST", fields: [CostChargeUomSid], references: [UOMMasterSid])
   costVoucherHeader           VoucherHeader?         @relation("COST", fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
   costVoucherTypeMaster       VoucherTypeMaster?     @relation("COST", fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
@@ -314,11 +314,11 @@ model BookingRates {
   customerMasterBP            CustomerMaster?        @relation("BillingParty", fields: [CustomerMasterSid], references: [CustomerMasterSid])
   partyCOAMaster              COAMaster?             @relation("PartyLedger", fields: [PartyCOAMasterSid], references: [COAMasterSid])
   partySubledgerMaster        SubledgerMaster?       @relation("PartySubledger", fields: [PartySubledgerMasterSid], references: [SubledgerMasterSid])
+  PaymentRequest              PaymentRequest?        @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
   quoteCharge                 QuoteCharge?           @relation(fields: [QuoteChargeSid], references: [QuoteChargeSid])
   revenueChargeUOMMaster      UOMMaster?             @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
   revenueVoucherHeader        VoucherHeader?         @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
   revenueVoucherTypeMaster    VoucherTypeMaster?     @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
-  PaymentRequest              PaymentRequest?        @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
   tariffDetail                TariffDetail?          @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
   vendorCOAMaster             COAMaster?             @relation("VendorLedger", fields: [VendorCOAMasterSid], references: [COAMasterSid])
   vendorSubledgerMaster       SubledgerMaster?       @relation("VendorSubledger", fields: [VendorSubledgerMasterSid], references: [SubledgerMasterSid])
@@ -472,11 +472,11 @@ model ShipmentMilestone {
   AutoCaptured         String          @db.Char(1)
   Remarks              String?         @db.VarChar(200)
   deletedAt            DateTime?
-  BookingHeaderSid     Int?
   HouseJobSid          Int?
+  BookingHeaderSid     Int?
+  bookingHeader        BookingHeader?  @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   branchMaster         BranchMaster    @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
   companyMaster        CompanyMaster   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  bookingHeader        BookingHeader?  @relation(fields: [BookingHeaderSid], references: [BookingHeaderSid])
   houseJob             HouseJob?       @relation(fields: [HouseJobSid], references: [HouseJobSid])
   milestoneMaster      MilestoneMaster @relation(fields: [MilestoneMasterSid], references: [MilestoneMasterSid])
 }
@@ -551,7 +551,7 @@ model ResourceConfiguration {
   MenuMasterSid            Int?
   TransactionSid           Int?
   branchMaster             BranchMaster  @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  menuMaster               MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   companyMaster            CompanyMaster @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  menuMaster               MenuMaster?   @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   userMaster               UserMaster?   @relation(fields: [UserMasterSid], references: [UserMasterSid])
 }
