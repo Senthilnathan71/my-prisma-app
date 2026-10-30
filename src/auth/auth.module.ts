@@ -2,6 +2,8 @@ import { UserService } from './../masters/services/user.service';
 import { Logger, Module } from '@nestjs/common';
 import { AuthController } from './auth/auth.controller';
 import { AuthService } from './auth/auth.service';
+import { UserSessionService } from './auth/user-session.service';
+import { WriteSessionGuard } from './auth/write-session.guard';
 import { MastersModule } from 'src/masters/masters.module';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
@@ -36,6 +38,17 @@ import { SchedulerService } from 'src/common/services/scheduler/scheduler.servic
     EmailModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, UserService, JwtStrategy, Logger, SessionCleanupService, TokenCleanupService, SchedulerService]
+  providers: [
+    AuthService,
+    UserService,
+    JwtStrategy,
+    Logger,
+    SessionCleanupService,
+    TokenCleanupService,
+    SchedulerService,
+    UserSessionService,
+    WriteSessionGuard,
+  ],
+  exports: [UserSessionService, WriteSessionGuard],
 })
 export class AuthModule { }

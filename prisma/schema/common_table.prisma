@@ -44,18 +44,18 @@ model CostRevenueCharges {
   RevenueVoucherHeaderSid     Int?
   RevenueVoucherTypeMasterSid Int?
   BookingRateSid              Int?
-  PartyCOAMasterSid           Int?
-  VendorCOAMasterSid          Int?
-  PartySubledgerMasterSid     Int?
-  VendorSubledgerMasterSid    Int?
   ChargeCOAMasterSid          Int?
   ChargeSubledgerMasterSid    Int?
+  PartyCOAMasterSid           Int?
+  PartySubledgerMasterSid     Int?
+  VendorCOAMasterSid          Int?
+  VendorSubledgerMasterSid    Int?
   PaymentRequestSid           Int?
   TariffDetailSid             Int?
   bookingRates                BookingRates?          @relation(fields: [BookingRateSid], references: [BookingRatesSid])
   branchMaster                BranchMaster           @relation(fields: [BranchMasterSid], references: [BranchMasterSid])
-  chargeMaster                ChargeMaster?          @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
   chargeCOAMaster             COAMaster?             @relation("ChargeLedger", fields: [ChargeCOAMasterSid], references: [COAMasterSid])
+  chargeMaster                ChargeMaster?          @relation(fields: [ChargeMasterSid], references: [ChargeMasterSid])
   chargeSubledgerMaster       SubledgerMaster?       @relation("ChargeSubledger", fields: [ChargeSubledgerMasterSid], references: [SubledgerMasterSid])
   companyMaster               CompanyMaster          @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   costCustomerBranch          CustomerBranch?        @relation("COST", fields: [CostAgentBranchSid], references: [CustomerBranchSid])
@@ -65,20 +65,20 @@ model CostRevenueCharges {
   costVoucherHeader           VoucherHeader?         @relation("COST", fields: [CostVoucherHeaderSid], references: [VoucherHeaderSid])
   costVoucherTypeMaster       VoucherTypeMaster?     @relation("COST", fields: [CostVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
   menuMaster                  MenuMaster             @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-  paymentRequest              PaymentRequest?        @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
   partyCOAMaster              COAMaster?             @relation("PartyLedger", fields: [PartyCOAMasterSid], references: [COAMasterSid])
   partySubledgerMaster        SubledgerMaster?       @relation("PartySubledger", fields: [PartySubledgerMasterSid], references: [SubledgerMasterSid])
-  tariffDetail                TariffDetail?          @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
+  paymentRequest              PaymentRequest?        @relation(fields: [PaymentRequestSid], references: [PaymentRequestSid])
   revenueChargeUOMMaster      UOMMaster              @relation("REVENUE", fields: [RevenueChargeUomSid], references: [UOMMasterSid])
   revenueCurrencyMaster       CurrencyMaster?        @relation("REVENUE", fields: [RevenueCurrencyMasterSid], references: [CurrencyMasterSid])
   revenueCustomerBranch       CustomerBranch?        @relation("REVENUE", fields: [RevenueCustomerBranchSid], references: [CustomerBranchSid])
   revenueCustomerMaster       CustomerMaster?        @relation("REVENUE", fields: [RevenueCustomerMasterSid], references: [CustomerMasterSid])
   revenueVoucherHeader        VoucherHeader?         @relation("REVENUE", fields: [RevenueVoucherHeaderSid], references: [VoucherHeaderSid])
   revenueVoucherTypeMaster    VoucherTypeMaster?     @relation("REVENUE", fields: [RevenueVoucherTypeMasterSid], references: [VoucherTypeMasterSid])
+  tariffDetail                TariffDetail?          @relation(fields: [TariffDetailSid], references: [TariffDetailSid])
   vendorCOAMaster             COAMaster?             @relation("VendorLedger", fields: [VendorCOAMasterSid], references: [COAMasterSid])
   vendorSubledgerMaster       SubledgerMaster?       @relation("VendorSubledger", fields: [VendorSubledgerMasterSid], references: [SubledgerMasterSid])
-  voucherDetail               VoucherDetail[]
   paymentRequestDetail        PaymentRequestDetail[]
+  voucherDetail               VoucherDetail[]
 
   @@index([TransactionSid, MenuMasterSid, CompanyMasterSid, BranchMasterSid, status], map: "idx_crc_txn_menu_company_branch_status")
 }

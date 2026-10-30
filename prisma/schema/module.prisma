@@ -64,20 +64,20 @@ model MenuMaster {
   menuConfig              MenuConfig[]
   moduleMaster            ModuleMaster                 @relation(fields: [ModuleMasterSid], references: [ModuleMasterSid])
   menuPermission          MenuPermission[]
+  numberSeriesConfig      NumberSeriesConfig[]
+  numberSeriesCounter     NumberSeriesCounter[]
+  PrintMaster             PrintMaster[]
+  publicAccessToken       PublicAccessToken[]
   quoteHeader             QuoteHeader[]
   refDocument             RefDocument[]
   ReportMaster            ReportMaster[]
   ResourceConfiguration   ResourceConfiguration[]
   RoleMenuDetail          RoleMenuDetail[]
   roleMenuMaster          RoleMenuMaster[]
-  terms                   TermsAndConditionsMaster[]
   TandCTransaction        TandCTransaction[]
+  terms                   TermsAndConditionsMaster[]
   userRoleMaster          UserRoleMaster[]
   voucherTypeMaster       VoucherTypeMaster[]
-  numberSeriesConfig      NumberSeriesConfig[]
-  numberSeriesCounter     NumberSeriesCounter[]
-  PrintMaster             PrintMaster[]
-  publicAccessToken       PublicAccessToken[]
 }
 
 model MenuPermission {
@@ -161,9 +161,9 @@ model RoleMenuHeader {
   status            String?          @default("A") @db.Char(1)
   Remarks           String           @db.VarChar(100)
   RoleMenuDetail    RoleMenuDetail[]
-  RoleMenuPrint     RoleMenuPrint[]
   companyMaster     CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   roleMaster        RoleMaster       @relation(fields: [RoleMasterSid], references: [RoleMasterSid])
+  RoleMenuPrint     RoleMenuPrint[]
 }
 
 model RoleMenuDetail {
@@ -176,13 +176,13 @@ model RoleMenuDetail {
   ViewRole          String?          @default("N") @db.Char(1)
   UpdateRole        String?          @default("N") @db.Char(1)
   DeleteRole        String?          @default("N") @db.Char(1)
-  PostRole          String?          @default("N") @db.Char(1)
   createdOn         DateTime         @default(now()) @db.Timestamptz(6)
   updatedOn         DateTime?        @updatedAt @db.Timestamptz(6)
   createdBy         String           @db.VarChar(100)
   updatedBy         String?          @db.VarChar(100)
   status            String?          @default("A") @db.Char(1)
   ModuleAndMenus    Json
+  PostRole          String?          @default("N") @db.Char(1)
   companyMaster     CompanyMaster?   @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
   menuMaster        MenuMaster       @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
   RoleMenuHeader    RoleMenuHeader   @relation(fields: [RoleMenuHeaderSid], references: [RoleMenuHeaderSid])
@@ -191,58 +191,55 @@ model RoleMenuDetail {
 }
 
 model RoleMenuPrint {
-  RoleMenuPrintSid  Int       @id @default(autoincrement()) @map("RoleMenuPrintSid")
+  RoleMenuPrintSid  Int            @id @default(autoincrement()) @map("RoleMenuPrintSid")
   CompanyMasterSid  Int
   RoleMenuHeaderSid Int
   RoleMenuDetailSid Int
   PrintMasterSid    Int
-  GiveAccess        String?   @default("N") @db.Char(1)
-  CreatedOn         DateTime  @default(now()) @db.Timestamptz(6)
-  UpdatedOn         DateTime? @db.Timestamptz(6)
-  CreatedBy         String    @db.VarChar(100)
-  UpdatedBy         String?   @db.VarChar(100)
-  Status            String?   @default("A") @db.Char(1)
-
-  companyMaster  CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
-  roleMenuHeader RoleMenuHeader @relation(fields: [RoleMenuHeaderSid], references: [RoleMenuHeaderSid])
-  roleMenuDetail RoleMenuDetail @relation(fields: [RoleMenuDetailSid], references: [RoleMenuDetailSid])
-  printMaster    PrintMaster    @relation(fields: [PrintMasterSid], references: [PrintMasterSid])
+  GiveAccess        String?        @default("N") @db.Char(1)
+  CreatedOn         DateTime       @default(now()) @db.Timestamptz(6)
+  UpdatedOn         DateTime?      @db.Timestamptz(6)
+  CreatedBy         String         @db.VarChar(100)
+  UpdatedBy         String?        @db.VarChar(100)
+  Status            String?        @default("A") @db.Char(1)
+  companyMaster     CompanyMaster  @relation(fields: [CompanyMasterSid], references: [CompanyMasterSid])
+  printMaster       PrintMaster    @relation(fields: [PrintMasterSid], references: [PrintMasterSid])
+  roleMenuDetail    RoleMenuDetail @relation(fields: [RoleMenuDetailSid], references: [RoleMenuDetailSid])
+  roleMenuHeader    RoleMenuHeader @relation(fields: [RoleMenuHeaderSid], references: [RoleMenuHeaderSid])
 
   @@index([CompanyMasterSid, RoleMenuHeaderSid, RoleMenuDetailSid, PrintMasterSid, Status])
   @@index([CompanyMasterSid, PrintMasterSid])
 }
 
 model RoleMenuReport {
-  RoleMenuReportSid Int       @id @default(autoincrement()) @map("RoleMenuReportSid")
+  RoleMenuReportSid Int            @id @default(autoincrement()) @map("RoleMenuReportSid")
   RoleMenuDetailSid Int
   ReportMasterSid   Int
-  ReportPermission  String?   @default("N") @db.Char(1)
-  CreatedOn         DateTime  @default(now()) @db.Timestamptz(6)
-  UpdatedOn         DateTime? @db.Timestamptz(6)
-  CreatedBy         String    @db.VarChar(100)
-  UpdatedBy         String?   @db.VarChar(100)
-  Status            String?   @default("A") @db.Char(1)
-
-  roleMenuDetail RoleMenuDetail @relation(fields: [RoleMenuDetailSid], references: [RoleMenuDetailSid])
-  reportMaster   ReportMaster   @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
+  ReportPermission  String?        @default("N") @db.Char(1)
+  CreatedOn         DateTime       @default(now()) @db.Timestamptz(6)
+  UpdatedOn         DateTime?      @db.Timestamptz(6)
+  CreatedBy         String         @db.VarChar(100)
+  UpdatedBy         String?        @db.VarChar(100)
+  Status            String?        @default("A") @db.Char(1)
+  reportMaster      ReportMaster   @relation(fields: [ReportMasterSid], references: [ReportMasterSid])
+  roleMenuDetail    RoleMenuDetail @relation(fields: [RoleMenuDetailSid], references: [RoleMenuDetailSid])
 
   @@index([RoleMenuDetailSid, ReportMasterSid, Status])
   @@index([ReportMasterSid])
 }
 
 model PrintMaster {
-  PrintMasterSid Int       @id @default(autoincrement()) @map("PrintMasterSid")
-  Name           String    @db.VarChar(50)
-  PrintMail      String    @db.VarChar(20)
+  PrintMasterSid Int             @id @default(autoincrement()) @map("PrintMasterSid")
+  Name           String          @db.VarChar(50)
+  PrintMail      String          @db.VarChar(20)
   MenuMasterSid  Int
-  Status         String?   @default("A") @db.Char(1)
-  CreatedOn      DateTime  @default(now()) @db.Timestamptz(6)
-  UpdatedOn      DateTime? @db.Timestamptz(6)
-  CreatedBy      String    @db.VarChar(100)
-  UpdatedBy      String?   @db.VarChar(100)
-
-  MenuMaster    MenuMaster      @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
-  RoleMenuPrint RoleMenuPrint[]
+  Status         String?         @default("A") @db.Char(1)
+  CreatedOn      DateTime        @default(now()) @db.Timestamptz(6)
+  UpdatedOn      DateTime?       @db.Timestamptz(6)
+  CreatedBy      String          @db.VarChar(100)
+  UpdatedBy      String?         @db.VarChar(100)
+  MenuMaster     MenuMaster      @relation(fields: [MenuMasterSid], references: [MenuMasterSid])
+  RoleMenuPrint  RoleMenuPrint[]
 
   @@index([MenuMasterSid, Name, Status])
   @@index([PrintMail])
@@ -253,13 +250,13 @@ enum UserTypeCode {
   manager
   teamLead
   user
+  csPerson
+  docPerson
   salesman
   salesManager
-  csPerson
   csManager
   opsPerson
   opsManager
-  docPerson
   docManager
   accounts
   accountsManager

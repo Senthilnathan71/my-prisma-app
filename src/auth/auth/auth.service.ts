@@ -83,30 +83,24 @@ export class AuthService {
     // ==================== Session Management ====================
 
     async getActiveSession(userId: number) {
-        return this.db.activeSession.findUnique({
-            where: { userId }
+        return this.db.activeSession.findFirst({
+            where: { userId },
+            orderBy: { createdOn: 'desc' }
         });
     }
 
     async createSession(userId: number, ipAddress?: string, userAgent?: string, location?: string): Promise<string> {
         const sessionToken = crypto.randomUUID();
 
-        await this.db.activeSession.upsert({
-            where: { userId },
-            update: {
+        await this.db.activeSession.create({
+            data: {
+                userId,
                 sessionToken,
                 ipAddress,
                 userAgent,
                 location,
                 createdOn: new Date(),
                 lastActivity: new Date()
-            },
-            create: {
-                userId,
-                sessionToken,
-                ipAddress,
-                userAgent,
-                location
             }
         });
 
@@ -120,17 +114,22 @@ export class AuthService {
     }
 
     async validateSessionToken(userId: number, sessionToken: string): Promise<boolean> {
-        const session = await this.db.activeSession.findUnique({
-            where: { userId }
+        const session = await this.db.activeSession.findFirst({
+            where: {
+                userId,
+                sessionToken,
+            }
         });
 
-        if (!session) return false;
-        return session.sessionToken === sessionToken;
+        return !!session;
     }
 
-    async touchSession(userId: number): Promise<void> {
+    async touchSession(userId: number, sessionToken?: string): Promise<void> {
         await this.db.activeSession.updateMany({
-            where: { userId },
+            where: {
+                userId,
+                ...(sessionToken ? { sessionToken } : {}),
+            },
             data: { lastActivity: new Date() }
         });
     }
